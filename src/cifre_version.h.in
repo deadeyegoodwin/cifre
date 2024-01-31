@@ -1,0 +1,25 @@
+// Copyright 2024, David Goodwin. All rights reserved.
+#pragma once
+
+#include <string>
+#include <sstream>
+#include "common_version.h"
+
+namespace cifre {
+
+#define CIFRE_VERSION_MAJOR @cifre_VERSION_MAJOR@
+#define CIFRE_VERSION_MINOR @cifre_VERSION_MINOR@
+
+std::string
+VersionToString(bool show_dependent_versions = false)
+{
+  std::stringstream sstr;
+  sstr << "cifre version " << CIFRE_VERSION_MAJOR << "." << CIFRE_VERSION_MINOR;
+  if (show_dependent_versions) {
+    sstr << ", " << common::VersionToString();
+  }
+
+  return sstr.str();
+}
+
+} // namespace cifre
