@@ -3,11 +3,12 @@
 # Copyright 2024, David Goodwin. All rights reserved.
 
 import argparse
-import os
 import sys
-import time
+sys.path.append('./nnet')
 
 from log import CifreLogger
+from nnet import CifreNNetManager
+from basic_nnet import CifreBasicNNet
 
 FLAGS = None
 LOG = None
@@ -49,6 +50,33 @@ def main():
         LOG.log_verbose('Settings:')
         for f in vars(FLAGS):
             LOG.log_verbose(f'\t{f}: {vars(FLAGS)[f]}')
+
+    nnet_args = {
+        'num_rows' : 8,  #FIXME
+        'num_cols' : 8,  #FIXME
+        'num_actions' : 65,  #FIXME
+        'dropout': 0.25,
+        'num_channels': 512 }
+    nnet = CifreBasicNNet(nnet_args)
+
+    manager = CifreNNetManager(nnet)
+
+    ## FIXME
+    import numpy as np
+    dataset = []
+    for _ in range(2):
+        b = np.random.random((nnet_args['num_rows'], nnet_args['num_cols'])).astype(np.float32) # FIXME
+        p = np.random.random(nnet_args['num_actions']).astype(np.float32)
+        v = 1
+        dataset.append((b, p, v))
+
+    train_args = {
+        'num_epochs': 4,
+        'batch_size': 2 }
+    manager.train(train_args, dataset)
+    manager.save_checkpoint('/tmp/cpts', 'cpt.pth.tar', create_folder=True, overwrite=True)
+    manager.load_checkpoint('/tmp/cpts', 'cpt.pth.tar')
+    manager.train(train_args, dataset)
 
 
 if __name__ == '__main__':
