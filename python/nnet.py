@@ -7,22 +7,33 @@ import time
 
 import numpy as np
 import torch
+import torch.onnx
 from tqdm import tqdm
 
 #
 # Manage a neural network.
 #
 class CifreNNetManager(object):
-    def __init__(self, nnet):
+    def __init__(self, nnet, nnet_input_shape, workdir):
         """
         Initialize for 'nnet'.
         """
         self.nnet = nnet
+        self.nnet_input_shape = nnet_input_shape
+        self.workdir = workdir
         self.optimizer = torch.optim.Adam(self.nnet.parameters())
         self.epoch = 0
         self.use_cuda = torch.cuda.is_available()
         if self.use_cuda:
             self.nnet.cuda()
+
+        # Create model repository.
+        self.model_repo_dirname = 'models'
+        self.model_repo_dir = os.path.join(self.workdir, self.model_repo_dirname)
+        if not os.path.isdir(self.model_repo_dir):
+            if os.path.exists(self.model_repo_dir):
+                raise FileExistsError(f"{self.model_repo_dir} exists and is not a directory")
+            os.mkdir(self.model_repo_dir)
 
     def train(self, train_args, dataset):
         """
@@ -90,13 +101,15 @@ class CifreNNetManager(object):
         os.path 'folder'.
         """
         if create_folder and (not os.path.isdir(folder)):
-            assert not os.path.exists(folder), f"{folder} exists and is not a directory"
+            if os.path.exists(folder):
+                raise FileExistsError(f"{folder} exists and is not a directory")
             os.mkdir(folder)
-        assert os.path.isdir(folder), f"directory {folder} does not exist"
+        if not os.path.isdir(folder):
+            raise NotADirectoryError(f"directory {folder} does not exist")
 
         fullpath = os.path.join(folder, filename)
-        if not overwrite:
-            assert not os.path.exists(fullpath), f"{fullpath} exists, cannot overwrite"
+        if (not overwrite) and os.path.exists(fullpath):
+            raise FileExistsError(f"{fullpath} exists, cannot overwrite")
 
         torch.save({
             'epoch': self.epoch,
@@ -109,11 +122,46 @@ class CifreNNetManager(object):
         Load the nnet checkpoint from 'filename' in the specified
         os.path 'folder'.
         """
-        assert os.path.isdir(folder), f"directory {folder} does not exist"
+        if not os.path.isdir(folder):
+            raise NotADirectoryError(f"directory {folder} does not exist")
         fullpath = os.path.join(folder, filename)
-        assert os.path.exists(fullpath), f"{fullpath} does not exist"
+        if not os.path.exists(fullpath):
+            raise FileNotFoundError(f"{fullpath} does not exist")
 
         checkpoint = torch.load(fullpath, map_location=None if self.use_cuda else 'cpu')
         self.nnet.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.epoch = checkpoint['epoch']
+
+    def save_triton_repository(self, model_name, model_version=1):
+        """
+        Save nnet as a onnxruntime model called 'model_name'.
+        """
+        if not os.path.isdir(self.model_repo_dir):
+            raise NotADirectoryError(f"model directory {self.model_repo_dir} does not exist")
+        model_dir = os.path.join(self.model_repo_dir, model_name)
+        if os.path.exists(model_dir):
+            raise FileExistsError(f"directory {model_dir} already exists")
+        os.mkdir(model_dir)
+        model_dir = os.path.join(model_dir, str(model_version))
+        os.mkdir(model_dir)
+
+        # Appropriately sized input.
+        input_shape_with_batch = (1,) + self.nnet_input_shape
+        board_tensor = torch.randn(input_shape_with_batch, requires_grad=True)
+        if self.use_cuda:
+            board_tensor = board_tensor.contiguous().cuda()
+
+        # Export the model
+        torch.onnx.export(
+            self.nnet,
+            board_tensor,
+            os.path.join(model_dir, "model.onnx"),
+            export_params=True,        # store the trained parameter weights inside the model file
+            opset_version=10,          # the ONNX version to export the model to
+            do_constant_folding=True,  # whether to execute constant folding for optimization
+            input_names = ['board'],   # the model's input names
+            output_names = ['pi', 'v'], # the model's output names
+            dynamic_axes={'board' : {0 : 'batch_size'},    # variable length axes
+                          'pi' : {0 : 'batch_size'},
+                          'v' : {0 : 'batch_size'}})

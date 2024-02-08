@@ -3,6 +3,9 @@
 # Copyright 2024, David Goodwin. All rights reserved.
 
 import argparse
+import os
+import shutil
+import subprocess
 import sys
 sys.path.append('./nnet')
 
@@ -12,6 +15,24 @@ from basic_nnet import CifreBasicNNet
 
 FLAGS = None
 LOG = None
+
+def parse_workdir(arg):
+    """
+    Parse 'arg'ument as a workdir path.
+    """
+    if os.path.exists(arg) and not os.path.isdir(arg):
+        raise FileExistsError(f"{arg} exists and is not a directory")
+    return arg
+
+def parse_shape(arg):
+    """
+    Parse 'arg'ument as a shape in format 'x, y, z, ...' and return
+    tuple representation.
+    """
+    arg = arg.strip()
+    if len(arg) > 0:
+        return tuple(int(x) for x in arg.split(','))
+    raise Exception(f"{arg} must describe a shape as 'a,b,...'")
 
 def main():
     global FLAGS
@@ -42,6 +63,29 @@ def main():
         required=False,
         help='Enable debug logging.')
 
+    parser.add_argument(
+        '--game-shape',
+        type=parse_shape,
+        required=True,
+        help='Game shape, for example --game-shape=8,8.')
+    parser.add_argument(
+        '--game-action-count',
+        type=int,
+        required=True,
+        help='Number of actions possible in the game.')
+
+    parser.add_argument(
+        '--workdir',
+        type=parse_workdir,
+        default='/tmp/cifre',
+        required=False,
+        help='Working directory, default is /tmp/cifre.')
+    parser.add_argument(
+        '--reset-workdir',
+        action='store_true',
+        required=False,
+        help='Create workdir if it does not exist, clear workdir if it does exist.')
+
     FLAGS = parser.parse_args()
     LOG = CifreLogger(verbose=FLAGS.verbose, quiet=FLAGS.quiet,
                       show_id=FLAGS.log_id, debug=FLAGS.log_debug)
@@ -51,15 +95,38 @@ def main():
         for f in vars(FLAGS):
             LOG.log_verbose(f'\t{f}: {vars(FLAGS)[f]}')
 
+    # Create / clear workdir.
+    if FLAGS.reset_workdir:
+        if os.path.isdir(FLAGS.workdir):
+            shutil.rmtree(FLAGS.workdir)
+        if os.path.exists(FLAGS.workdir):
+            raise FileExistsError(f"{FLAGS.workdir} exists and is not a directory")
+        os.mkdir(FLAGS.workdir)
+
+    # Use a simple model...
     nnet_args = {
-        'num_rows' : 8,  #FIXME
-        'num_cols' : 8,  #FIXME
-        'num_actions' : 65,  #FIXME
+        'num_rows' : FLAGS.game_shape[0],
+        'num_cols' : FLAGS.game_shape[1],
+        'num_actions' : FLAGS.game_action_count,
         'dropout': 0.25,
         'num_channels': 512 }
     nnet = CifreBasicNNet(nnet_args)
 
-    manager = CifreNNetManager(nnet)
+    # Create the manager for the nnet, and write the initial model
+    # into FLAGS.workdir/models
+    manager = CifreNNetManager(nnet, FLAGS.game_shape, FLAGS.workdir)
+    manager.save_triton_repository('initial')
+
+    # Launch cifre executable to perform MCTS using the just trained
+    # model.
+    cifre_mcts_cmd = ['../build/cifre']
+    process = subprocess.Popen(cifre_mcts_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    while process.poll() is None:
+        print(process.stdout.readline().rstrip())
+    print(process.stdout.read())
+    process.stdout.close()
+    print(f"Return code is {process.poll()}")
+    sys.exit(0)
 
     ## FIXME
     import numpy as np
@@ -77,6 +144,7 @@ def main():
     manager.save_checkpoint('/tmp/cpts', 'cpt.pth.tar', create_folder=True, overwrite=True)
     manager.load_checkpoint('/tmp/cpts', 'cpt.pth.tar')
     manager.train(train_args, dataset)
+
 
 
 if __name__ == '__main__':
