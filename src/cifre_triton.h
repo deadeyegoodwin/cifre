@@ -1,6 +1,7 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 #pragma once
 
+#include <memory>
 #include <string>
 
 #include "common_logger.h"
@@ -18,12 +19,16 @@ public:
   Triton(common::Logger* logger, const std::string& workdir);
   virtual ~Triton();
 
+  // Return true if triton ready to receive inference requests.
+  bool IsReady();
+
 private:
   void CheckTritonError(const triton::client::Error& err, const std::string& msg);
   void LogTritonError(const triton::client::Error& err, const std::string& msg);
 
   common::Logger* logger_;
   const std::string workdir_;
+  std::unique_ptr<triton::client::InferenceServerHttpClient> client_;
 };
 
 } // namespace cifre

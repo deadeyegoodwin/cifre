@@ -213,6 +213,7 @@ main(int argc, char **argv)
     // Initialize triton...
     CheckTrueMsg(!workdir.empty(), "--workdir must be specified");
     cifre::Triton triton(logger.get(), workdir);
+    CheckTrueMsg(triton.IsReady(), "triton is not ready");
 
   } catch (const std::exception& ex) {
     std::cerr << "error: " << ex.what() << std::endl;

@@ -10,10 +10,28 @@ namespace cifre {
 Triton::Triton(common::Logger* logger, const std::string& workdir) :
   logger_(logger), workdir_(workdir)
 {
+  const std::string url("localhost:8000");
+  const bool verbose = false;
+  CheckTritonError(
+    triton::client::InferenceServerHttpClient::Create(&client_, url, verbose),
+    "unable to create http client");
 }
 
 Triton::~Triton()
 {
+}
+
+bool
+Triton::IsReady()
+{
+  bool ready;
+  auto err = client_->IsServerReady(&ready);
+  if (!err.IsOk()) {
+    LogTritonError(err, "unable to get server readiness");
+    ready = false;
+  }
+
+  return ready;
 }
 
 void
@@ -21,7 +39,7 @@ Triton::CheckTritonError(const triton::client::Error& err, const std::string& ms
 {
   if (!err.IsOk()) {
     std::stringstream sstr;
-    sstr << "Triton error: " << err.Message();
+    sstr << "triton error: " << err.Message();
     THROWIF(false, sstr.str());
   }
 }
@@ -31,8 +49,8 @@ Triton::LogTritonError(const triton::client::Error& err, const std::string& msg)
 {
   if (!err.IsOk()) {
     std::stringstream sstr;
-    sstr << "Triton error: " << err.Message();
-    logger_->LogLow(sstr.str());
+    sstr << "triton error: " << err.Message();
+    logger_->Log(sstr.str());
   }
 }
 

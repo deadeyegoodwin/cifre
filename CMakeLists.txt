@@ -65,10 +65,12 @@ if(BUILD_TRITON_CLIENT)
   FetchContent_MakeAvailable(repo-triton-client)
 
   set(TRITON_CLIENT_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/repo-triton-client-build/cc-clients/install)
+  set(TRITON_CURL_LIBDIR ${CMAKE_BINARY_DIR}/_deps/repo-triton-client-build/third-party/curl/lib)
 
   add_custom_target(
     triton-client-target
-    COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/lib/libhttpclient.so ${CIFRE_INSTALL_PREFIX}/lib/.
+    COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/lib/libhttpclient_static.a ${CIFRE_INSTALL_PREFIX}/lib/.
+    COMMAND cp -r ${TRITON_CURL_LIBDIR}/libcurl.a ${CIFRE_INSTALL_PREFIX}/lib/.
     COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/common.h ${CIFRE_INSTALL_PREFIX}/include/.
     COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/ipc.h ${CIFRE_INSTALL_PREFIX}/include/.
     COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/http_client.h ${CIFRE_INSTALL_PREFIX}/include/.
@@ -77,13 +79,32 @@ if(BUILD_TRITON_CLIENT)
   add_dependencies(triton-client-target cc-clients)
 endif(BUILD_TRITON_CLIENT)
 
-add_library(triton-client-library SHARED IMPORTED GLOBAL)
+add_library(triton-client-curl-library STATIC IMPORTED GLOBAL)
 set_target_properties(
-  triton-client-library
+  triton-client-curl-library
   PROPERTIES
-    IMPORTED_LOCATION ${CIFRE_INSTALL_PREFIX}/lib/libhttpclient.so
+    IMPORTED_LOCATION ${CIFRE_INSTALL_PREFIX}/lib/libcurl.a
+)
+
+add_library(triton-client-http-library STATIC IMPORTED GLOBAL)
+set_target_properties(
+  triton-client-http-library
+  PROPERTIES
+    IMPORTED_LOCATION ${CIFRE_INSTALL_PREFIX}/lib/libhttpclient_static.a
     INTERFACE_INCLUDE_DIRECTORIES ${CIFRE_INSTALL_PREFIX}/include
 )
+
+add_library(triton-client-library INTERFACE)
+target_link_libraries(
+  triton-client-library
+  INTERFACE
+    triton-client-http-library
+    triton-client-curl-library
+    ssl
+    crypto
+    z
+)
+
 if(BUILD_TRITON_CLIENT)
   add_dependencies(triton-client-library triton-client-target)
 endif(BUILD_TRITON_CLIENT)
