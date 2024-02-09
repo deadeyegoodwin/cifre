@@ -4,7 +4,7 @@
 #include <string>
 
 #include "common_logger.h"
-#include "tritonserver.h"
+#include "http_client.h"
 
 namespace cifre {
 
@@ -15,16 +15,15 @@ namespace cifre {
 //
 class Triton {
 public:
-  Triton(common::Logger* logger, const std::string& repository_path);
+  Triton(common::Logger* logger, const std::string& workdir);
   virtual ~Triton();
 
 private:
-  void CheckTritonError(TRITONSERVER_Error* err, const std::string& msg);
-  void LogTritonError(TRITONSERVER_Error* err, const std::string& msg);
+  void CheckTritonError(const triton::client::Error& err, const std::string& msg);
+  void LogTritonError(const triton::client::Error& err, const std::string& msg);
 
   common::Logger* logger_;
-  TRITONSERVER_Server* server_;
-  TRITONSERVER_ServerOptions* options_;
+  const std::string workdir_;
 };
 
 } // namespace cifre

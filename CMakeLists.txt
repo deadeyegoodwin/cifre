@@ -17,11 +17,17 @@ endif()
 
 option(ASAN "Enable ASAN" OFF)
 set(COMMON_REPO_TAG "main" CACHE STRING "Tag for common repo")
-set(TRITON_VERSION "24.01" CACHE STRING "Triton Inference Server version")
+set(TRITON_REPO_TAG "r24.01" CACHE STRING "Tag for Triton repos")
 
 if(ASAN)
   set(CIFRE_ASAN_FLAGS "-fsanitize=address")
 endif(ASAN)
+
+# Can't use CMAKE_INSTALL_PREFIX directly because that causes
+# interactions with FetchContent projects and their dependencies...
+set(CIFRE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install)
+file(MAKE_DIRECTORY ${CIFRE_INSTALL_PREFIX}/include)
+file(MAKE_DIRECTORY ${CIFRE_INSTALL_PREFIX}/lib)
 
 #
 # common
@@ -33,6 +39,49 @@ FetchContent_Declare(
   GIT_SHALLOW ON
 )
 FetchContent_MakeAvailable(repo-common)
+
+#
+# Triton client
+#
+set(TRITON_ENABLE_CC_HTTP ON)
+set(TRITON_COMMON_REPO_TAG ${TRITON_REPO_TAG})
+set(TRITON_THIRD_PARTY_REPO_TAG ${TRITON_REPO_TAG})
+set(TRITON_CORE_REPO_TAG ${TRITON_REPO_TAG})
+
+# Triton client build has unnecessary dependency for http client that
+# causes large grpc repo to be fetched. Patch to avoid that...
+set(TRITON_CLIENT_PATCH git apply ${CMAKE_CURRENT_SOURCE_DIR}/patch/triton_client.patch)
+
+FetchContent_Declare(
+  repo-triton-client
+  GIT_REPOSITORY https://github.com/triton-inference-server/client.git
+  GIT_TAG ${TRITON_REPO_TAG}
+  GIT_SHALLOW ON
+  PATCH_COMMAND ${TRITON_CLIENT_PATCH}
+  UPDATE_DISCONNECTED 1
+)
+FetchContent_MakeAvailable(repo-triton-client)
+
+set(TRITON_CLIENT_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/repo-triton-client-build/cc-clients/install)
+
+add_custom_target(
+  triton-client-target
+  COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/lib/libhttpclient.so ${CIFRE_INSTALL_PREFIX}/lib/.
+  COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/common.h ${CIFRE_INSTALL_PREFIX}/include/.
+  COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/ipc.h ${CIFRE_INSTALL_PREFIX}/include/.
+  COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/http_client.h ${CIFRE_INSTALL_PREFIX}/include/.
+  COMMENT "Installing Triton client artifacts into ${CIFRE_INSTALL_PREFIX}"
+)
+add_dependencies(triton-client-target cc-clients)
+
+add_library(triton-client-library SHARED IMPORTED GLOBAL)
+add_dependencies(triton-client-library triton-client-target)
+set_target_properties(
+  triton-client-library
+  PROPERTIES
+    IMPORTED_LOCATION ${CIFRE_INSTALL_PREFIX}/lib/libhttpclient.so
+    INTERFACE_INCLUDE_DIRECTORIES ${CIFRE_INSTALL_PREFIX}/include
+)
 
 #
 # cifre executable
@@ -129,48 +178,10 @@ target_link_libraries(
   cifre-library
   PUBLIC
     cifre-version
-    cifre-triton
+    triton-client-library
   PRIVATE
     ${CIFRE_ASAN_FLAGS}
     common-library
-)
-
-#
-# Triton - extract libraries from nvcr image
-#
-set(TRITON_DOCKER_IMAGE "nvcr.io/nvidia/tritonserver:${TRITON_VERSION}-py3")
-set(TRITON_CORE_LIB "libtritonserver.so")
-set(TRITON_CORE_INCLUDE "tritonserver.h")
-set(TRITON_ONNXRUNTIME_BACKEND_DIR "onnxruntime")
-
-file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/triton/include")
-
-add_custom_command(
-  OUTPUT triton/lib/${TRITON_CORE_LIB}
-  COMMAND rm -fr triton && mkdir -p triton/lib triton/include triton/backends
-  COMMAND docker pull ${TRITON_DOCKER_IMAGE}
-  COMMAND docker rm cifre_triton || echo "error ignored..." || true
-  COMMAND docker create --name cifre_triton ${TRITON_DOCKER_IMAGE}
-  COMMAND docker cp cifre_triton:/opt/tritonserver/lib/${TRITON_CORE_LIB} triton/lib
-  COMMAND docker cp cifre_triton:/opt/tritonserver/include/triton/core/${TRITON_CORE_INCLUDE} triton/include
-  COMMAND docker cp cifre_triton:/opt/tritonserver/backends/${TRITON_ONNXRUNTIME_BACKEND_DIR}/ triton/backends
-  COMMAND docker rm cifre_triton
-  COMMENT "Extracting ${TRITON_CORE_LIB}, ${TRITON_CORE_INCLUDE} and ${TRITON_ONNXRUNTIME_BACKEND_DIR} from ${TRITON_DOCKER_IMAGE}"
-)
-
-add_custom_target(
-  cifre-triton-target
-  DEPENDS
-    triton/lib/${TRITON_CORE_LIB}
-)
-
-add_library(cifre-triton SHARED IMPORTED GLOBAL)
-add_dependencies(cifre-triton cifre-triton-target)
-set_target_properties(
-  cifre-triton
-  PROPERTIES
-    IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/triton/lib/${TRITON_CORE_LIB}
-    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_BINARY_DIR}/triton/include
 )
 
 #

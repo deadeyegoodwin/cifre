@@ -57,7 +57,7 @@ struct Option {
     OPTION_LOG_MED,
     OPTION_LOG_HIGH,
     OPTION_LOG_FILE,
-    OPTION_TRITON_REPOSITORY_DIR
+    OPTION_WORKDIR
   };
 
   Option(OptionId id, std::string flag, std::string arg_desc, std::string desc)
@@ -94,8 +94,8 @@ static const std::vector<Option> options_ {
   {Option::OPTION_LOG_FILE, "log-file", Option::ArgStr,
    "File for log output. 'stdout' and 'stderr' are allowed."},
 
-  {Option::OPTION_TRITON_REPOSITORY_DIR, "repo-dir", Option::ArgStr,
-   "Directory containing the Triton repository holding the model(s)."}
+  {Option::OPTION_WORKDIR, "workdir", Option::ArgStr,
+   "Working directory, defaults to /tmp/cifre."}
 };
 
 static std::string
@@ -159,7 +159,7 @@ main(int argc, char **argv)
   try {
     common::Logger::Level log_level = common::Logger::Level::LOW;
     std::string log_filename = "stdout";
-    std::string repo_dirname;
+    std::string workdir = "/tmp/cifre";
 
     std::vector<struct option> long_options;
     for (const auto& o : options_) {
@@ -191,8 +191,8 @@ main(int argc, char **argv)
         log_filename = optarg;
         break;
 
-      case Option::OPTION_TRITON_REPOSITORY_DIR:
-        repo_dirname = optarg;
+      case Option::OPTION_WORKDIR:
+        workdir = optarg;
         break;
       }
     }
@@ -211,8 +211,8 @@ main(int argc, char **argv)
     }
 
     // Initialize triton...
-    CheckTrueMsg(!repo_dirname.empty(), "--repo-dir must be specified");
-    cifre::Triton triton(logger.get(), repo_dirname);
+    CheckTrueMsg(!workdir.empty(), "--workdir must be specified");
+    cifre::Triton triton(logger.get(), workdir);
 
   } catch (const std::exception& ex) {
     std::cerr << "error: " << ex.what() << std::endl;
