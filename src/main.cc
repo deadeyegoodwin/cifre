@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "cifre_nnet.h"
+#include "cifre_triton.h"
 #include "cifre_version.h"
 #include "common_logger.h"
 
@@ -56,8 +57,7 @@ struct Option {
     OPTION_LOG_MED,
     OPTION_LOG_HIGH,
     OPTION_LOG_FILE,
-    OPTION_BOARD_BORDER,
-    OPTION_BOARD_SIZE
+    OPTION_TRITON_REPOSITORY_DIR
   };
 
   Option(OptionId id, std::string flag, std::string arg_desc, std::string desc)
@@ -92,7 +92,10 @@ static const std::vector<Option> options_ {
   {Option::OPTION_LOG_HIGH, "log-high", Option::ArgNone,
    "Enable high-volume logging."},
   {Option::OPTION_LOG_FILE, "log-file", Option::ArgStr,
-   "File for log output. 'stdout' and 'stderr' are allowed. Default depends on --env setting."}
+   "File for log output. 'stdout' and 'stderr' are allowed."},
+
+  {Option::OPTION_TRITON_REPOSITORY_DIR, "repo-dir", Option::ArgStr,
+   "Directory containing the Triton repository holding the model(s)."}
 };
 
 static std::string
@@ -156,6 +159,7 @@ main(int argc, char **argv)
   try {
     common::Logger::Level log_level = common::Logger::Level::LOW;
     std::string log_filename = "stdout";
+    std::string repo_dirname;
 
     std::vector<struct option> long_options;
     for (const auto& o : options_) {
@@ -186,6 +190,10 @@ main(int argc, char **argv)
       case Option::OPTION_LOG_FILE:
         log_filename = optarg;
         break;
+
+      case Option::OPTION_TRITON_REPOSITORY_DIR:
+        repo_dirname = optarg;
+        break;
       }
     }
 
@@ -201,6 +209,10 @@ main(int argc, char **argv)
       logger->Log(ss.str());
       logger->Log(cifre::VersionToString(true /* show_dependent_versions */));
     }
+
+    // Initialize triton...
+    CheckTrueMsg(!repo_dirname.empty(), "--repo-dir must be specified");
+    cifre::Triton triton(logger.get(), repo_dirname);
 
   } catch (const std::exception& ex) {
     std::cerr << "error: " << ex.what() << std::endl;

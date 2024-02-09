@@ -101,6 +101,7 @@ target_link_libraries(
 add_library(
   cifre-library STATIC
   src/cifre_nnet.cc
+  src/cifre_triton.cc
 )
 
 target_compile_features(cifre-library PRIVATE cxx_std_17)
@@ -128,38 +129,39 @@ target_link_libraries(
   cifre-library
   PUBLIC
     cifre-version
+    cifre-triton
   PRIVATE
     ${CIFRE_ASAN_FLAGS}
     common-library
-    cifre-triton
 )
 
 #
 # Triton - extract libraries from nvcr image
 #
 set(TRITON_DOCKER_IMAGE "nvcr.io/nvidia/tritonserver:${TRITON_VERSION}-py3")
-set(TRITON_CORE_LIBNAME "libtritonserver.so")
-set(TRITON_ONNXRUNTIME_BACKEND_DIRNAME "onnxruntime")
+set(TRITON_CORE_LIB "libtritonserver.so")
+set(TRITON_CORE_INCLUDE "tritonserver.h")
+set(TRITON_ONNXRUNTIME_BACKEND_DIR "onnxruntime")
+
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/triton/include")
 
 add_custom_command(
-  OUTPUT
-    ${TRITON_CORE_LIBNAME}
-    ${TRITON_ONNXRUNTIME_BACKEND_DIRNAME}
-  COMMAND rm -fr backends && mkdir backends
+  OUTPUT triton/lib/${TRITON_CORE_LIB}
+  COMMAND rm -fr triton && mkdir -p triton/lib triton/include triton/backends
   COMMAND docker pull ${TRITON_DOCKER_IMAGE}
   COMMAND docker rm cifre_triton || echo "error ignored..." || true
   COMMAND docker create --name cifre_triton ${TRITON_DOCKER_IMAGE}
-  COMMAND docker cp cifre_triton:/opt/tritonserver/lib/${TRITON_CORE_LIBNAME} ${TRITON_CORE_LIBNAME}
-  COMMAND docker cp cifre_triton:/opt/tritonserver/backends/${TRITON_ONNXRUNTIME_BACKEND_DIRNAME}/ backends
+  COMMAND docker cp cifre_triton:/opt/tritonserver/lib/${TRITON_CORE_LIB} triton/lib
+  COMMAND docker cp cifre_triton:/opt/tritonserver/include/triton/core/${TRITON_CORE_INCLUDE} triton/include
+  COMMAND docker cp cifre_triton:/opt/tritonserver/backends/${TRITON_ONNXRUNTIME_BACKEND_DIR}/ triton/backends
   COMMAND docker rm cifre_triton
-  COMMENT "Extracting ${TRITON_CORE_LIBNAME} and ${TRITON_ONNXRUNTIME_BACKEND_DIRNAME} from ${TRITON_DOCKER_IMAGE}"
+  COMMENT "Extracting ${TRITON_CORE_LIB}, ${TRITON_CORE_INCLUDE} and ${TRITON_ONNXRUNTIME_BACKEND_DIR} from ${TRITON_DOCKER_IMAGE}"
 )
 
 add_custom_target(
   cifre-triton-target
   DEPENDS
-    ${TRITON_CORE_LIBNAME}
-    ${TRITON_ONNXRUNTIME_BACKEND_DIRNAME}
+    triton/lib/${TRITON_CORE_LIB}
 )
 
 add_library(cifre-triton SHARED IMPORTED GLOBAL)
@@ -167,7 +169,8 @@ add_dependencies(cifre-triton cifre-triton-target)
 set_target_properties(
   cifre-triton
   PROPERTIES
-    IMPORTED_LOCATION ${TRITON_CORE_LIBNAME}
+    IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/triton/lib/${TRITON_CORE_LIB}
+    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_BINARY_DIR}/triton/include
 )
 
 #
