@@ -16,6 +16,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 option(ASAN "Enable ASAN" OFF)
+option(BUILD_TRITON_CLIENT "Build Triton Client Library" ON)
 set(COMMON_REPO_TAG "main" CACHE STRING "Tag for common repo")
 set(TRITON_REPO_TAG "r24.01" CACHE STRING "Tag for Triton repos")
 
@@ -43,45 +44,49 @@ FetchContent_MakeAvailable(repo-common)
 #
 # Triton client
 #
-set(TRITON_ENABLE_CC_HTTP ON)
-set(TRITON_COMMON_REPO_TAG ${TRITON_REPO_TAG})
-set(TRITON_THIRD_PARTY_REPO_TAG ${TRITON_REPO_TAG})
-set(TRITON_CORE_REPO_TAG ${TRITON_REPO_TAG})
+if(BUILD_TRITON_CLIENT)
+  set(TRITON_ENABLE_CC_HTTP ON)
+  set(TRITON_COMMON_REPO_TAG ${TRITON_REPO_TAG})
+  set(TRITON_THIRD_PARTY_REPO_TAG ${TRITON_REPO_TAG})
+  set(TRITON_CORE_REPO_TAG ${TRITON_REPO_TAG})
 
-# Triton client build has unnecessary dependency for http client that
-# causes large grpc repo to be fetched. Patch to avoid that...
-set(TRITON_CLIENT_PATCH git apply ${CMAKE_CURRENT_SOURCE_DIR}/patch/triton_client.patch)
+  # Triton client build has unnecessary dependency for http client that
+  # causes large grpc repo to be fetched. Patch to avoid that...
+  set(TRITON_CLIENT_PATCH git apply ${CMAKE_CURRENT_SOURCE_DIR}/patch/triton_client.patch)
 
-FetchContent_Declare(
-  repo-triton-client
-  GIT_REPOSITORY https://github.com/triton-inference-server/client.git
-  GIT_TAG ${TRITON_REPO_TAG}
-  GIT_SHALLOW ON
-  PATCH_COMMAND ${TRITON_CLIENT_PATCH}
-  UPDATE_DISCONNECTED 1
-)
-FetchContent_MakeAvailable(repo-triton-client)
+  FetchContent_Declare(
+    repo-triton-client
+    GIT_REPOSITORY https://github.com/triton-inference-server/client.git
+    GIT_TAG ${TRITON_REPO_TAG}
+    GIT_SHALLOW ON
+    PATCH_COMMAND ${TRITON_CLIENT_PATCH}
+    UPDATE_DISCONNECTED 1
+  )
+  FetchContent_MakeAvailable(repo-triton-client)
 
-set(TRITON_CLIENT_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/repo-triton-client-build/cc-clients/install)
+  set(TRITON_CLIENT_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/repo-triton-client-build/cc-clients/install)
 
-add_custom_target(
-  triton-client-target
-  COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/lib/libhttpclient.so ${CIFRE_INSTALL_PREFIX}/lib/.
-  COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/common.h ${CIFRE_INSTALL_PREFIX}/include/.
-  COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/ipc.h ${CIFRE_INSTALL_PREFIX}/include/.
-  COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/http_client.h ${CIFRE_INSTALL_PREFIX}/include/.
-  COMMENT "Installing Triton client artifacts into ${CIFRE_INSTALL_PREFIX}"
-)
-add_dependencies(triton-client-target cc-clients)
+  add_custom_target(
+    triton-client-target
+    COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/lib/libhttpclient.so ${CIFRE_INSTALL_PREFIX}/lib/.
+    COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/common.h ${CIFRE_INSTALL_PREFIX}/include/.
+    COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/ipc.h ${CIFRE_INSTALL_PREFIX}/include/.
+    COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/http_client.h ${CIFRE_INSTALL_PREFIX}/include/.
+    COMMENT "Installing Triton client artifacts into ${CIFRE_INSTALL_PREFIX}"
+  )
+  add_dependencies(triton-client-target cc-clients)
+endif(BUILD_TRITON_CLIENT)
 
 add_library(triton-client-library SHARED IMPORTED GLOBAL)
-add_dependencies(triton-client-library triton-client-target)
 set_target_properties(
   triton-client-library
   PROPERTIES
     IMPORTED_LOCATION ${CIFRE_INSTALL_PREFIX}/lib/libhttpclient.so
     INTERFACE_INCLUDE_DIRECTORIES ${CIFRE_INSTALL_PREFIX}/include
 )
+if(BUILD_TRITON_CLIENT)
+  add_dependencies(triton-client-library triton-client-target)
+endif(BUILD_TRITON_CLIENT)
 
 #
 # cifre executable
