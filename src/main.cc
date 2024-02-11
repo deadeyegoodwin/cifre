@@ -8,10 +8,12 @@
 #include <string>
 #include <vector>
 
-#include "cifre_nnet.h"
+#include "cifre_game.h"
 #include "cifre_triton.h"
 #include "cifre_version.h"
+#include "common_error.h"
 #include "common_logger.h"
+#include "common_util.h"
 
 namespace {
 
@@ -57,7 +59,10 @@ struct Option {
     OPTION_LOG_MED,
     OPTION_LOG_HIGH,
     OPTION_LOG_FILE,
-    OPTION_WORKDIR
+    OPTION_WORKDIR,
+    OPTION_MODEL_NAME,
+    OPTION_GAME_NAME,
+    OPTION_GAME_SHAPE
   };
 
   Option(OptionId id, std::string flag, std::string arg_desc, std::string desc)
@@ -80,7 +85,7 @@ struct Option {
   const std::string desc_;
 };
 
-static const std::vector<Option> options_ {
+const std::vector<Option> options_ {
   {Option::OPTION_HELP, "help", Option::ArgNone, "Print usage"},
 
   {Option::OPTION_LOG_OFF, "log-off", Option::ArgNone,
@@ -95,10 +100,27 @@ static const std::vector<Option> options_ {
    "File for log output. 'stdout' and 'stderr' are allowed."},
 
   {Option::OPTION_WORKDIR, "workdir", Option::ArgStr,
-   "Working directory, defaults to /tmp/cifre."}
+   "Working directory, defaults to /tmp/cifre."},
+  {Option::OPTION_MODEL_NAME, "model", Option::ArgStr,
+   "Name of model to use for MCTS predictions."},
+
+  {Option::OPTION_GAME_NAME, "game", Option::ArgStr,
+   "Name of game."},
+  {Option::OPTION_GAME_SHAPE, "game-shape", Option::ArgStr,
+   "Shape of game board or playing dimensions, for example --game-shape=8,8"}
 };
 
-static std::string
+std::vector<uint64_t>
+ParseShape(const std::string& arg)
+{
+  try {
+    return common::StringToUnsignedIntegerVector(arg, ",");
+  } catch (const std::exception& ex) {
+    Fail(std::string("failed to parse --game-shape '") + arg + "': " + ex.what());
+  }
+}
+
+std::string
 FormatUsageMessage(std::string str, int offset)
 {
   int width = 60;
@@ -114,7 +136,7 @@ FormatUsageMessage(std::string str, int offset)
   return str;
 }
 
-static std::string
+std::string
 Usage()
 {
   std::stringstream ss;
@@ -160,6 +182,9 @@ main(int argc, char **argv)
     common::Logger::Level log_level = common::Logger::Level::LOW;
     std::string log_filename = "stdout";
     std::string workdir = "/tmp/cifre";
+    std::string model_name;
+    std::string game_name;
+    std::vector<uint64_t> game_shape;
 
     std::vector<struct option> long_options;
     for (const auto& o : options_) {
@@ -194,6 +219,16 @@ main(int argc, char **argv)
       case Option::OPTION_WORKDIR:
         workdir = optarg;
         break;
+      case Option::OPTION_MODEL_NAME:
+        model_name = optarg;
+        break;
+
+      case Option::OPTION_GAME_NAME:
+        game_name = optarg;
+        break;
+      case Option::OPTION_GAME_SHAPE:
+        game_shape = ParseShape(optarg);
+        break;
       }
     }
 
@@ -210,10 +245,16 @@ main(int argc, char **argv)
       logger->Log(cifre::VersionToString(true /* show_dependent_versions */));
     }
 
-    // Initialize triton...
     CheckTrueMsg(!workdir.empty(), "--workdir must be specified");
+    CheckTrueMsg(!model_name.empty(), "--model must be specified");
+
+    // Initialize triton...
     cifre::Triton triton(logger.get(), workdir);
+
+    // Make sure triton and the model are ready.
     CheckTrueMsg(triton.IsReady(), "triton is not ready");
+    CheckTrueMsg(triton.IsModelReady(model_name),
+                 std::string("triton model '" + model_name + "' is not ready"));
 
   } catch (const std::exception& ex) {
     std::cerr << "error: " << ex.what() << std::endl;

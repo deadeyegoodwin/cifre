@@ -17,10 +17,12 @@ namespace cifre {
 class Triton {
 public:
   Triton(common::Logger* logger, const std::string& workdir);
-  virtual ~Triton();
 
-  // Return true if triton ready to receive inference requests.
+  // Return true if triton is ready to receive inference requests.
   bool IsReady();
+
+  // Return true if triton is ready to receive inference requests for 'model'.
+  bool IsModelReady(const std::string& model);
 
 private:
   void CheckTritonError(const triton::client::Error& err, const std::string& msg);

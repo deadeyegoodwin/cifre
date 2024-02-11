@@ -119,13 +119,18 @@ def main():
 
     # Launch cifre executable to perform MCTS using the just trained
     # model.
-    cifre_mcts_cmd = ['../build/cifre']
+    cifre_mcts_cmd = [
+        '../build/cifre',
+        '--log-high' if FLAGS.verbose else '',
+        '--workdir', FLAGS.workdir,
+        '--model', 'initial' ]
     process = subprocess.Popen(cifre_mcts_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     while process.poll() is None:
         print(process.stdout.readline().rstrip())
     print(process.stdout.read())
     process.stdout.close()
     print(f"Return code is {process.poll()}")
+
     sys.exit(0)
 
     ## FIXME

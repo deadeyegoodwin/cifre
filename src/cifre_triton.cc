@@ -17,10 +17,6 @@ Triton::Triton(common::Logger* logger, const std::string& workdir) :
     "unable to create http client");
 }
 
-Triton::~Triton()
-{
-}
-
 bool
 Triton::IsReady()
 {
@@ -28,6 +24,19 @@ Triton::IsReady()
   auto err = client_->IsServerReady(&ready);
   if (!err.IsOk()) {
     LogTritonError(err, "unable to get server readiness");
+    ready = false;
+  }
+
+  return ready;
+}
+
+bool
+Triton::IsModelReady(const std::string& model)
+{
+  bool ready;
+  auto err = client_->IsModelReady(&ready, model);
+  if (!err.IsOk()) {
+    LogTritonError(err, "unable to get model readiness");
     ready = false;
   }
 

@@ -35,6 +35,10 @@ class CifreNNetManager(object):
                 raise FileExistsError(f"{self.model_repo_dir} exists and is not a directory")
             os.mkdir(self.model_repo_dir)
 
+    def repo_dir(self):
+        """Return the model repository directory"""
+        return self.model_repo_dir
+
     def train(self, train_args, dataset):
         """
         Train network using 'dataset'. 'dataset' consists of list of
