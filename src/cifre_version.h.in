@@ -3,6 +3,7 @@
 
 #include <string>
 #include <sstream>
+#include "celcath_version.h"
 #include "common_version.h"
 
 namespace cifre {
@@ -16,6 +17,7 @@ VersionToString(bool show_dependent_versions = false)
   std::stringstream sstr;
   sstr << "cifre version " << CIFRE_VERSION_MAJOR << "." << CIFRE_VERSION_MINOR;
   if (show_dependent_versions) {
+    sstr << ", " << celcath::VersionToString();
     sstr << ", " << common::VersionToString();
   }
 

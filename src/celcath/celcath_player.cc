@@ -1,0 +1,30 @@
+// Copyright 2024, David Goodwin. All rights reserved.
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <sstream>
+
+#include "celcath_player.h"
+
+namespace celcath {
+
+//
+// Player
+//
+Player Player::DEAD("dead", ' ', 0);
+Player Player::LIVE("live", 'O', 1);
+
+Player::Player(const std::string& name, char board_char, int32_t neighbor_value) :
+  name_(name), board_char_(board_char), neighbor_value_(neighbor_value)
+{
+}
+
+std::string
+Player::ToString(common::Logger::Level filter_level) const
+{
+  std::stringstream sstr;
+  return sstr.str();
+}
+
+} // celcath

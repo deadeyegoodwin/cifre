@@ -29,6 +29,7 @@ endif(ASAN)
 set(CIFRE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install)
 file(MAKE_DIRECTORY ${CIFRE_INSTALL_PREFIX}/include)
 file(MAKE_DIRECTORY ${CIFRE_INSTALL_PREFIX}/lib)
+file(MAKE_DIRECTORY ${CIFRE_INSTALL_PREFIX}/bin)
 
 #
 # common
@@ -110,6 +111,11 @@ if(BUILD_TRITON_CLIENT)
 endif(BUILD_TRITON_CLIENT)
 
 #
+# Games
+#
+add_subdirectory(src/celcath)
+
+#
 # cifre executable
 #
 add_executable(
@@ -147,6 +153,11 @@ target_link_libraries(
     ${CIFRE_ASAN_FLAGS}
     common-library
     cifre-library
+)
+
+install(
+  TARGETS cifre
+  RUNTIME DESTINATION ${CIFRE_INSTALL_PREFIX}/bin
 )
 
 #
@@ -203,21 +214,11 @@ set_target_properties(
 target_link_libraries(
   cifre-library
   PUBLIC
+    celcath-version
     cifre-version
     triton-client-library
   PRIVATE
     ${CIFRE_ASAN_FLAGS}
+    celcath-library
     common-library
 )
-
-#
-# Test target
-#
-#add_custom_target(
-#  cifre-test
-#  COMMAND ${CMAKE_CTEST_COMMAND} -j4 --timeout 5 --output-on-failure
-#  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/test
-#  COMMENT "Running cifre tests"
-#  DEPENDS cifre
-#)
-#add_subdirectory(test)
