@@ -34,6 +34,12 @@ def parse_shape(arg):
         return tuple(int(x) for x in arg.split(','))
     raise Exception(f"{arg} must describe a shape as 'a,b,...'")
 
+def argify_shape(shape):
+    """
+    Convert 'shape' tuple into equivalent argument string.
+    """
+    return ','.join(map(str, shape))
+
 def main():
     global FLAGS
     global LOG
@@ -64,15 +70,16 @@ def main():
         help='Enable debug logging.')
 
     parser.add_argument(
+        '--game',
+        type=str,
+        default="celcath",
+        required=False,
+        help='The game, default is celcath.')
+    parser.add_argument(
         '--game-shape',
         type=parse_shape,
         required=True,
         help='Game shape, for example --game-shape=8,8.')
-    parser.add_argument(
-        '--game-action-count',
-        type=int,
-        required=True,
-        help='Number of actions possible in the game.')
 
     parser.add_argument(
         '--workdir',
@@ -103,11 +110,16 @@ def main():
             raise FileExistsError(f"{FLAGS.workdir} exists and is not a directory")
         os.mkdir(FLAGS.workdir)
 
+    # For now there is only 1 game recognized so just hack it in here.
+    if FLAGS.game != 'celcath':
+        raise ValueError(f"unexpected --game={FLAGS.game}, options are 'celcath'")
+    game_action_count = FLAGS.game_shape[0] * FLAGS.game_shape[1] + 1
+
     # Use a simple model...
     nnet_args = {
         'num_rows' : FLAGS.game_shape[0],
         'num_cols' : FLAGS.game_shape[1],
-        'num_actions' : FLAGS.game_action_count,
+        'num_actions' : game_action_count,
         'dropout': 0.25,
         'num_channels': 512 }
     nnet = CifreBasicNNet(nnet_args)
@@ -123,7 +135,9 @@ def main():
         '../build/cifre',
         '--log-high' if FLAGS.verbose else '',
         '--workdir', FLAGS.workdir,
-        '--model', 'initial' ]
+        '--model', 'initial',
+        '--game', FLAGS.game,
+        '--game-shape', argify_shape(FLAGS.game_shape) ]
     process = subprocess.Popen(cifre_mcts_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     while process.poll() is None:
         print(process.stdout.readline().rstrip())
