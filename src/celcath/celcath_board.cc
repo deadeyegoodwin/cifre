@@ -11,7 +11,7 @@
 #include "common_error.h"
 #include "common_util.h"
 
-namespace celcath {
+namespace cifre { namespace celcath {
 
 //
 // BoardSize
@@ -224,5 +224,4 @@ Cell::ToString(common::Logger::Level filter_level) const
   return str;
 }
 
-
-} // celcath
+}} // namespace cifre::celcath

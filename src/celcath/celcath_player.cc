@@ -7,7 +7,7 @@
 
 #include "celcath_player.h"
 
-namespace celcath {
+namespace cifre { namespace celcath {
 
 //
 // Player
@@ -27,4 +27,4 @@ Player::ToString(common::Logger::Level filter_level) const
   return sstr.str();
 }
 
-} // celcath
+}} // namespace cifre::celcath

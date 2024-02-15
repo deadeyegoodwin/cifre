@@ -8,7 +8,7 @@
 #include "celcath_player.h"
 #include "common_logger.h"
 
-namespace celcath {
+namespace cifre { namespace celcath {
 
 class Stepper;
 
@@ -52,6 +52,4 @@ private:
     const std::vector<std::vector<std::vector<int32_t>>>& nv) const;
 };
 
-
-
-} // celcath
+}} // namespace cifre::celcath

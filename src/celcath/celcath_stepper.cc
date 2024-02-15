@@ -10,7 +10,7 @@
 #include "celcath_stepper.h"
 #include "common_error.h"
 
-namespace celcath {
+namespace cifre { namespace celcath {
 
 //
 // B3S23Stepper
@@ -166,4 +166,4 @@ B3S23Stepper::NeighborValuesToString(
   return sstr.str();
 }
 
-} // celcath
+}} // namespace cifre::celcath

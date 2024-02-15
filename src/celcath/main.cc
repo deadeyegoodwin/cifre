@@ -45,7 +45,7 @@ namespace {
 //
 // Command-line options and parsing.
 //
-static const celcath::BoardSize DEFAULT_BOARD_SIZE {6, 8};
+static const cifre::celcath::BoardSize DEFAULT_BOARD_SIZE {6, 8};
 
 struct Option {
   static constexpr const char* ArgNone = "";
@@ -167,8 +167,8 @@ main(int argc, char **argv)
   try {
     common::Logger::Level log_level = common::Logger::Level::LOW;
     std::string log_filename = "stdout";
-    celcath::Board::BorderKind board_border = celcath::Board::BorderKind::LIVE;
-    celcath::BoardSize board_size = DEFAULT_BOARD_SIZE;
+    cifre::celcath::Board::BorderKind board_border = cifre::celcath::Board::BorderKind::LIVE;
+    cifre::celcath::BoardSize board_size = DEFAULT_BOARD_SIZE;
 
     std::vector<struct option> long_options;
     for (const auto& o : options_) {
@@ -201,12 +201,12 @@ main(int argc, char **argv)
         break;
 
       case Option::OPTION_BOARD_BORDER:
-        board_border = celcath::Board::StringToBorderKind(optarg);
-        CheckTrueMsg(board_border != celcath::Board::BorderKind::INVALID,
+        board_border = cifre::celcath::Board::StringToBorderKind(optarg);
+        CheckTrueMsg(board_border != cifre::celcath::Board::BorderKind::INVALID,
                      std::string("unknown board border kind '") + optarg + "'");
         break;
       case Option::OPTION_BOARD_SIZE:
-        board_size = celcath::BoardSize(optarg);
+        board_size = cifre::celcath::BoardSize(optarg);
         break;
       }
     }
@@ -221,23 +221,23 @@ main(int argc, char **argv)
         ss << argv[i] << " ";
       }
       logger->Log(ss.str());
-      logger->Log(celcath::VersionToString(true /* show_dependent_versions */));
+      logger->Log(cifre::celcath::VersionToString(true /* show_dependent_versions */));
     }
 
     // Create the board.
-    celcath::Board board(board_size);
+    cifre::celcath::Board board(board_size);
     board.SetBorder(board_border);
 
     // Create the stepper that evolves board across generations.
-    celcath::B3S23Stepper stepper(logger.get());
+    cifre::celcath::B3S23Stepper stepper(logger.get());
 
     // Create 2 players and the game and play.
-    celcath::Player player1("Player1", 'x');
-    celcath::Player player2("Player2", 'o');
-    std::vector<celcath::Player*> players;
+    cifre::celcath::Player player1("Player1", 'x');
+    cifre::celcath::Player player2("Player2", 'o');
+    std::vector<cifre::celcath::Player*> players;
     players.push_back(&player1);
     players.push_back(&player2);
-    celcath::Game game(logger.get(), &stepper, &board, players);
+    cifre::celcath::Game game(logger.get(), &stepper, &board, players);
     game.Play();
 
   } catch (const std::exception& ex) {

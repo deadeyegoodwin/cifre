@@ -8,7 +8,7 @@
 #include "celcath_game.h"
 #include "common_util.h"
 
-namespace celcath {
+namespace cifre { namespace celcath {
 
 //
 // Game
@@ -105,4 +105,4 @@ game_over:
     std::cout << board_->ToString() << '\n';
 }
 
-} // celcath
+}} // namespace cifre::celcath

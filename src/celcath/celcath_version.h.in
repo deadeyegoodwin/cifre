@@ -5,7 +5,7 @@
 #include <sstream>
 #include "common_version.h"
 
-namespace celcath {
+namespace cifre { namespace celcath {
 
 #define CELCATH_VERSION_MAJOR @celcath_VERSION_MAJOR@
 #define CELCATH_VERSION_MINOR @celcath_VERSION_MINOR@
@@ -22,4 +22,4 @@ VersionToString(bool show_dependent_versions = false)
   return sstr.str();
 }
 
-} // namespace celcath
+}} // namespace cifre::celcath

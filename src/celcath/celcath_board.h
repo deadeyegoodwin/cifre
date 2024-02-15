@@ -8,7 +8,7 @@
 #include "celcath_player.h"
 #include "common_logger.h"
 
-namespace celcath {
+namespace cifre { namespace celcath {
 
 class BoardSize;
 class Board;
@@ -131,4 +131,4 @@ private:
   Player* owner_;
 };
 
-} // celcath
+}} // namespace cifre::celcath

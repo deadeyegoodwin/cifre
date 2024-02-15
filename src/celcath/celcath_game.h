@@ -9,7 +9,7 @@
 #include "celcath_stepper.h"
 #include "common_logger.h"
 
-namespace celcath {
+namespace cifre { namespace celcath {
 
 class Game;
 
@@ -34,4 +34,4 @@ private:
   std::vector<Player*> players_;
 };
 
-} // celcath
+}} // namespace cifre::celcath

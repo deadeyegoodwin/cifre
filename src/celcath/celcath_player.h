@@ -6,7 +6,7 @@
 
 #include "common_logger.h"
 
-namespace celcath {
+namespace cifre { namespace celcath {
 
 class Player;
 
@@ -46,4 +46,4 @@ private:
   const int32_t neighbor_value_;
 };
 
-} // celcath
+}} // namespace cifre::celcath
