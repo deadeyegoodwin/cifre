@@ -13,7 +13,9 @@
 #include "celcath_player.h"
 #include "celcath_stepper.h"
 #include "celcath_version.h"
+#include "common_error.h"
 #include "common_logger.h"
+#include "common_util.h"
 
 namespace {
 
@@ -61,6 +63,8 @@ struct Option {
     OPTION_LOG_MED,
     OPTION_LOG_HIGH,
     OPTION_LOG_FILE,
+    OPTION_WORKDIR,
+    OPTION_MODEL_NAME,
     OPTION_BOARD_BORDER,
     OPTION_BOARD_SIZE
   };
@@ -85,7 +89,7 @@ struct Option {
   const std::string desc_;
 };
 
-static const std::vector<Option> options_ {
+const std::vector<Option> options_ {
   {Option::OPTION_HELP, "help", Option::ArgNone, "Print usage"},
 
   {Option::OPTION_LOG_OFF, "log-off", Option::ArgNone,
@@ -99,6 +103,11 @@ static const std::vector<Option> options_ {
   {Option::OPTION_LOG_FILE, "log-file", Option::ArgStr,
    "File for log output. 'stdout' and 'stderr' are allowed."},
 
+  {Option::OPTION_WORKDIR, "workdir", Option::ArgStr,
+   "Working directory, defaults to /tmp/cifre."},
+  {Option::OPTION_MODEL_NAME, "model", Option::ArgStr,
+   "Name of model to use for predictions."},
+
   {Option::OPTION_BOARD_BORDER, "board-border", Option::ArgStr,
    "Border kind for the game board. Options are [ DEAD, LIVE ]. Default size is LIVE."},
   {Option::OPTION_BOARD_SIZE, "board-size", Option::ArgInt,
@@ -106,7 +115,7 @@ static const std::vector<Option> options_ {
    "A rectangular board with N rows and M columns is specified as '--board-size=NxM'. "
    "Default is '--board-size=" + DEFAULT_BOARD_SIZE.ToString() + "'."}};
 
-static std::string
+std::string
 FormatUsageMessage(std::string str, int offset)
 {
   int width = 60;
@@ -122,7 +131,7 @@ FormatUsageMessage(std::string str, int offset)
   return str;
 }
 
-static std::string
+std::string
 Usage()
 {
   std::stringstream ss;
@@ -167,6 +176,8 @@ main(int argc, char **argv)
   try {
     common::Logger::Level log_level = common::Logger::Level::LOW;
     std::string log_filename = "stdout";
+    std::string workdir = "/tmp/cifre";
+    std::string model_name;
     cifre::celcath::Board::BorderKind board_border = cifre::celcath::Board::BorderKind::LIVE;
     cifre::celcath::BoardSize board_size = DEFAULT_BOARD_SIZE;
 
@@ -200,6 +211,13 @@ main(int argc, char **argv)
         log_filename = optarg;
         break;
 
+      case Option::OPTION_WORKDIR:
+        workdir = optarg;
+        break;
+      case Option::OPTION_MODEL_NAME:
+        model_name = optarg;
+        break;
+
       case Option::OPTION_BOARD_BORDER:
         board_border = cifre::celcath::Board::StringToBorderKind(optarg);
         CheckTrueMsg(board_border != cifre::celcath::Board::BorderKind::INVALID,
@@ -224,6 +242,18 @@ main(int argc, char **argv)
       logger->Log(cifre::celcath::VersionToString(true /* show_dependent_versions */));
     }
 
+    CheckTrueMsg(!workdir.empty(), "--workdir must be specified");
+    CheckTrueMsg(!model_name.empty(), "--model must be specified");
+
+#if 0
+    // Initialize triton.
+    cifre::Triton triton(logger.get(), workdir);
+
+    // Make sure triton and the model are ready.
+    CheckTrueMsg(triton.IsReady(), "triton is not ready");
+    CheckTrueMsg(triton.IsModelReady(model_name),
+                 std::string("triton model '" + model_name + "' is not ready"));
+#endif
     // Create the board.
     cifre::celcath::Board board(board_size);
     board.SetBorder(board_border);

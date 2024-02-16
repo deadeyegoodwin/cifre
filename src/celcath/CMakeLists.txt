@@ -71,6 +71,7 @@ target_include_directories(
 target_link_libraries(
   celcath-version
   INTERFACE
+    cifre-version
     common-version
 )
 
@@ -95,7 +96,7 @@ target_compile_options(
 
 target_include_directories(
   celcath-library
-  PRIVATE
+  PUBLIC
     ${PROJECT_SOURCE_DIR}
 )
 
@@ -113,4 +114,5 @@ target_link_libraries(
   PRIVATE
     ${CIFRE_ASAN_FLAGS}
     common-library
+    cifre-library
 )

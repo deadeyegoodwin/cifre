@@ -116,51 +116,6 @@ endif(BUILD_TRITON_CLIENT)
 add_subdirectory(src/celcath)
 
 #
-# cifre executable
-#
-add_executable(
-  cifre
-  src/main.cc
-)
-
-target_compile_features(cifre PRIVATE cxx_std_17)
-target_compile_options(
-  cifre
-  PRIVATE
-    -Wall -Wextra -Werror -Wno-unused-parameter
-    ${CIFRE_ASAN_FLAGS}
-)
-
-target_include_directories(
-  cifre
-  PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
-set_target_properties(
-  cifre
-  PROPERTIES
-    POSITION_INDEPENDENT_CODE ON
-    SKIP_BUILD_RPATH TRUE
-    BUILD_WITH_INSTALL_RPATH TRUE
-    INSTALL_RPATH_USE_LINK_PATH FALSE
-    INSTALL_RPATH "$\{ORIGIN\}"
-)
-
-target_link_libraries(
-  cifre
-  PRIVATE
-    ${CIFRE_ASAN_FLAGS}
-    common-library
-    cifre-library
-)
-
-install(
-  TARGETS cifre
-  RUNTIME DESTINATION ${CIFRE_INSTALL_PREFIX}/bin
-)
-
-#
 # cifre version
 #
 configure_file(src/cifre_version.h.in cifre_version.h)
@@ -214,11 +169,9 @@ set_target_properties(
 target_link_libraries(
   cifre-library
   PUBLIC
-    celcath-version
     cifre-version
-    triton-client-library
   PRIVATE
     ${CIFRE_ASAN_FLAGS}
-    celcath-library
     common-library
+    triton-client-library
 )
