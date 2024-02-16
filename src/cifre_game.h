@@ -14,11 +14,10 @@ namespace cifre {
 //
 class Game {
 public:
-  Game(common::Logger* logger, const std::string& workdir);
+  Game(common::Logger* logger);
 
-private:
+protected:
   common::Logger* logger_;
-  const std::string workdir_;
 };
 
 

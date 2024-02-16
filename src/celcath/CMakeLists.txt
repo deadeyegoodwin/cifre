@@ -82,6 +82,8 @@ add_library(
   celcath-library STATIC
   celcath_board.cc
   celcath_game.cc
+  celcath_alphazero_player.cc
+  celcath_human_player.cc
   celcath_player.cc
   celcath_stepper.cc
 )
@@ -111,8 +113,8 @@ target_link_libraries(
   celcath-library
   PUBLIC
     celcath-version
+    cifre-library
   PRIVATE
     ${CIFRE_ASAN_FLAGS}
     common-library
-    cifre-library
 )

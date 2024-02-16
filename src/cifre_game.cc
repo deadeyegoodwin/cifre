@@ -4,8 +4,8 @@
 
 namespace cifre {
 
-Game::Game(common::Logger* logger, const std::string& workdir) :
-  logger_(logger), workdir_(workdir)
+Game::Game(common::Logger* logger) :
+  logger_(logger)
 {
 }
 

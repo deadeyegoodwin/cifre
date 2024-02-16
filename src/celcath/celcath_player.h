@@ -40,7 +40,7 @@ public:
   // Return string representation of the player.
   std::string ToString(common::Logger::Level filter_level) const;
 
-private:
+protected:
   const std::string name_;
   const char board_char_;
   const int32_t neighbor_value_;

@@ -10,7 +10,8 @@
 
 #include "celcath_board.h"
 #include "celcath_game.h"
-#include "celcath_player.h"
+#include "celcath_alphazero_player.h"
+#include "celcath_human_player.h"
 #include "celcath_stepper.h"
 #include "celcath_version.h"
 #include "common_error.h"
@@ -63,7 +64,8 @@ struct Option {
     OPTION_LOG_MED,
     OPTION_LOG_HIGH,
     OPTION_LOG_FILE,
-    OPTION_WORKDIR,
+    OPTION_DATA_DIR,
+    OPTION_MODEL_REPOSITORY_DIR,
     OPTION_MODEL_NAME,
     OPTION_BOARD_BORDER,
     OPTION_BOARD_SIZE
@@ -103,8 +105,10 @@ const std::vector<Option> options_ {
   {Option::OPTION_LOG_FILE, "log-file", Option::ArgStr,
    "File for log output. 'stdout' and 'stderr' are allowed."},
 
-  {Option::OPTION_WORKDIR, "workdir", Option::ArgStr,
-   "Working directory, defaults to /tmp/cifre."},
+  {Option::OPTION_DATA_DIR, "datadir", Option::ArgStr,
+   "Training data directory, defaults to /tmp/cifre/data."},
+  {Option::OPTION_MODEL_REPOSITORY_DIR, "repodir", Option::ArgStr,
+   "Model repository directory, defaults to /tmp/cifre/models."},
   {Option::OPTION_MODEL_NAME, "model", Option::ArgStr,
    "Name of model to use for predictions."},
 
@@ -176,7 +180,8 @@ main(int argc, char **argv)
   try {
     common::Logger::Level log_level = common::Logger::Level::LOW;
     std::string log_filename = "stdout";
-    std::string workdir = "/tmp/cifre";
+    std::string datadir = "/tmp/cifre/data";
+    std::string repodir = "/tmp/cifre/models";
     std::string model_name;
     cifre::celcath::Board::BorderKind board_border = cifre::celcath::Board::BorderKind::LIVE;
     cifre::celcath::BoardSize board_size = DEFAULT_BOARD_SIZE;
@@ -211,8 +216,11 @@ main(int argc, char **argv)
         log_filename = optarg;
         break;
 
-      case Option::OPTION_WORKDIR:
-        workdir = optarg;
+      case Option::OPTION_DATA_DIR:
+        datadir = optarg;
+        break;
+      case Option::OPTION_MODEL_REPOSITORY_DIR:
+        repodir = optarg;
         break;
       case Option::OPTION_MODEL_NAME:
         model_name = optarg;
@@ -242,10 +250,10 @@ main(int argc, char **argv)
       logger->Log(cifre::celcath::VersionToString(true /* show_dependent_versions */));
     }
 
+#if 0
     CheckTrueMsg(!workdir.empty(), "--workdir must be specified");
     CheckTrueMsg(!model_name.empty(), "--model must be specified");
 
-#if 0
     // Initialize triton.
     cifre::Triton triton(logger.get(), workdir);
 
@@ -261,12 +269,13 @@ main(int argc, char **argv)
     // Create the stepper that evolves board across generations.
     cifre::celcath::B3S23Stepper stepper(logger.get());
 
-    // Create 2 players and the game and play.
-    cifre::celcath::Player player1("Player1", 'x');
-    cifre::celcath::Player player2("Player2", 'o');
+    // Create 2 players, one a human and the other alpha-zero.
+    cifre::celcath::HumanPlayer player1("Human", 'o');
+    cifre::celcath::AlphaZeroPlayer player2("HAL", 'x');
     std::vector<cifre::celcath::Player*> players;
     players.push_back(&player1);
     players.push_back(&player2);
+
     cifre::celcath::Game game(logger.get(), &stepper, &board, players);
     game.Play();
 

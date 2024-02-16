@@ -155,8 +155,8 @@ target_compile_options(
 
 target_include_directories(
   cifre-library
-  PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
+  PUBLIC
+    ${CMAKE_SOURCE_DIR}/src
 )
 
 set_target_properties(

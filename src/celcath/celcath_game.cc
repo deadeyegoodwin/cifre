@@ -13,9 +13,9 @@ namespace cifre { namespace celcath {
 //
 // Game
 //
-Game::Game(common::Logger* logger, Stepper* stepper,
-           Board* board, const std::vector<Player*>& players) :
-  logger_(logger), stepper_(stepper), board_(board), players_(players)
+Game::Game(common::Logger* logger, Stepper* stepper, Board* board,
+           const std::vector<Player*>& players) :
+  cifre::Game(logger), stepper_(stepper), board_(board), players_(players)
 {
 }
 
