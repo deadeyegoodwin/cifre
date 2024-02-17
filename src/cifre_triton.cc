@@ -7,8 +7,8 @@
 
 namespace cifre {
 
-Triton::Triton(common::Logger* logger, const std::string& workdir) :
-  logger_(logger), workdir_(workdir)
+Triton::Triton(common::Logger* logger) :
+  logger_(logger)
 {
   const std::string url("localhost:8000");
   const bool verbose = false;
@@ -41,6 +41,18 @@ Triton::IsModelReady(const std::string& model)
   }
 
   return ready;
+}
+
+bool
+Triton::LoadModel(const std::string& model)
+{
+  auto err = client_->LoadModel(model);
+  if (!err.IsOk()) {
+    LogTritonError(err, "unable to load model");
+    return false;
+  }
+
+  return true;
 }
 
 void

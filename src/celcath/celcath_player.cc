@@ -12,11 +12,9 @@ namespace cifre { namespace celcath {
 //
 // Player
 //
-Player Player::DEAD("dead", ' ', 0);
-Player Player::LIVE("live", 'O', 1);
-
-Player::Player(const std::string& name, char board_char, int32_t neighbor_value) :
-  name_(name), board_char_(board_char), neighbor_value_(neighbor_value)
+Player::Player(common::Logger* logger, const std::string& name,
+               char board_char, int32_t neighbor_value) :
+  logger_(logger), name_(name), board_char_(board_char), neighbor_value_(neighbor_value)
 {
 }
 

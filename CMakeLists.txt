@@ -170,8 +170,8 @@ target_link_libraries(
   cifre-library
   PUBLIC
     cifre-version
+    triton-client-library
   PRIVATE
     ${CIFRE_ASAN_FLAGS}
     common-library
-    triton-client-library
 )

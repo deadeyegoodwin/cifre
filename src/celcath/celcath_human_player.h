@@ -21,8 +21,8 @@ public:
   // Create 'name'd player that uses 'board_char' as the character
   // representing them on the board. 'neighbor_value' indicates the
   // value to use for neighbor cells occupied by this player.
-  HumanPlayer(const std::string& name, char board_char, int32_t neighbor_value = 1.0) :
-    Player(name, board_char, neighbor_value) { }
+  HumanPlayer(common::Logger* logger, const std::string& name, char board_char) :
+    Player(logger, name, board_char, 1.0 /* neighbor_value */) { }
 };
 
 }} // namespace cifre::celcath

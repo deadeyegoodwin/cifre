@@ -14,30 +14,18 @@ from tqdm import tqdm
 # Manage a neural network.
 #
 class CifreNNetManager(object):
-    def __init__(self, nnet, nnet_input_shape, workdir):
+    def __init__(self, nnet, nnet_input_shape, repodir):
         """
         Initialize for 'nnet'.
         """
         self.nnet = nnet
         self.nnet_input_shape = nnet_input_shape
-        self.workdir = workdir
+        self.repodir = repodir
         self.optimizer = torch.optim.Adam(self.nnet.parameters())
         self.epoch = 0
         self.use_cuda = torch.cuda.is_available()
         if self.use_cuda:
             self.nnet.cuda()
-
-        # Create model repository.
-        self.model_repo_dirname = 'models'
-        self.model_repo_dir = os.path.join(self.workdir, self.model_repo_dirname)
-        if not os.path.isdir(self.model_repo_dir):
-            if os.path.exists(self.model_repo_dir):
-                raise FileExistsError(f"{self.model_repo_dir} exists and is not a directory")
-            os.mkdir(self.model_repo_dir)
-
-    def repo_dir(self):
-        """Return the model repository directory"""
-        return self.model_repo_dir
 
     def train(self, train_args, dataset):
         """
@@ -141,9 +129,9 @@ class CifreNNetManager(object):
         """
         Save nnet as a onnxruntime model called 'model_name'.
         """
-        if not os.path.isdir(self.model_repo_dir):
-            raise NotADirectoryError(f"model directory {self.model_repo_dir} does not exist")
-        model_dir = os.path.join(self.model_repo_dir, model_name)
+        if not os.path.isdir(self.repodir):
+            raise NotADirectoryError(f"model directory {self.repodir} does not exist")
+        model_dir = os.path.join(self.repodir, model_name)
         if os.path.exists(model_dir):
             raise FileExistsError(f"directory {model_dir} already exists")
         os.mkdir(model_dir)

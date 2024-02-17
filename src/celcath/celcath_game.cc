@@ -36,21 +36,19 @@ Game::Play()
       size_t completed_moves = 0;
       bool turn_completed = false;
       while (!turn_completed) {
-        std::string line;
-
         std::cout
           << player->Name() << " [" << (completed_moves + 1)
           << " of " << max_moves_per_turn << "]: ";
-        std::getline(std::cin, line);
-        common::Trim(line);
-
-        // Quit game
-        if (line == "q") {
+        Action action = player->NextAction(*board_);
+        switch (action.Kind()) {
+        case Action::ActionKind::QUIT:
           std::cout << "quitting\n";
           goto game_over;
-        }
-        // Finish turn
-        else if (line == "f") {
+
+        case Action::ActionKind::SHOW_BOARD:
+          std::cout << board_->ToString() << '\n';
+
+        case Action::ActionKind::END_TURN:
           if (completed_moves < min_moves_per_turn) {
             std::cout
               << "turn not finished, must complete "
@@ -58,16 +56,12 @@ Game::Play()
           } else {
             turn_completed = true;
           }
-        }
-        // Show board
-        else if (line == "b") {
-          std::cout << board_->ToString() << '\n';
-        }
-        // Occupy or abandon cell
-        else {
-          Cell* cell = board_->StringToCell(line);
+
+        case Action::ActionKind::MOVE: {
+          const std::string& cmd = action.CommandString();
+          Cell* cell = board_->StringToCell(cmd);
           if (cell == nullptr) {
-            std::cout << "invalid cell position '" << line << "'\n";
+            std::cout << "invalid cell position '" << cmd << "'\n";
           } else {
             Player* cell_owner = cell->Owner();
             if (cell_owner == nullptr) {
@@ -77,9 +71,10 @@ Game::Play()
               cell->SetOwner(nullptr);
               completed_moves++;
             } else {
-              std::cout << "invalid move, cell '" << line << "' occupied by another player\n";
+              std::cout << "invalid move, cell '" << cmd << "' occupied by another player\n";
             }
           }
+        }
         }
 
         if (completed_moves == max_moves_per_turn) {

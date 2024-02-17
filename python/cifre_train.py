@@ -16,11 +16,13 @@ from basic_nnet import CifreBasicNNet
 FLAGS = None
 LOG = None
 
-def parse_workdir(arg):
+def parse_repodir(arg):
     """
-    Parse 'arg'ument as a workdir path.
+    Parse 'arg'ument as a repodir path.
     """
-    if os.path.exists(arg) and not os.path.isdir(arg):
+    if not os.path.exists(arg):
+        raise FileNotFoundError(f"{arg} does not exist")
+    elif not os.path.isdir(arg):
         raise FileExistsError(f"{arg} exists and is not a directory")
     return arg
 
@@ -34,11 +36,11 @@ def parse_shape(arg):
         return tuple(int(x) for x in arg.split(','))
     raise Exception(f"{arg} must describe a shape as 'a,b,...'")
 
-def argify_shape(shape):
+def argify_shape(shape, delimiter):
     """
     Convert 'shape' tuple into equivalent argument string.
     """
-    return ','.join(map(str, shape))
+    return delimiter.join(map(str, shape))
 
 def main():
     global FLAGS
@@ -82,16 +84,10 @@ def main():
         help='Game shape, for example --game-shape=8,8.')
 
     parser.add_argument(
-        '--workdir',
-        type=parse_workdir,
-        default='/tmp/cifre',
-        required=False,
-        help='Working directory, default is /tmp/cifre.')
-    parser.add_argument(
-        '--reset-workdir',
-        action='store_true',
-        required=False,
-        help='Create workdir if it does not exist, clear workdir if it does exist.')
+        '--repodir',
+        type=parse_repodir,
+        required=True,
+        help='Model repository directory.')
 
     FLAGS = parser.parse_args()
     LOG = CifreLogger(verbose=FLAGS.verbose, quiet=FLAGS.quiet,
@@ -101,14 +97,6 @@ def main():
         LOG.log_verbose('Settings:')
         for f in vars(FLAGS):
             LOG.log_verbose(f'\t{f}: {vars(FLAGS)[f]}')
-
-    # Create / clear workdir.
-    if FLAGS.reset_workdir:
-        if os.path.isdir(FLAGS.workdir):
-            shutil.rmtree(FLAGS.workdir)
-        if os.path.exists(FLAGS.workdir):
-            raise FileExistsError(f"{FLAGS.workdir} exists and is not a directory")
-        os.mkdir(FLAGS.workdir)
 
     # For now there is only 1 game recognized so just hack it in here.
     if FLAGS.game != 'celcath':
@@ -125,20 +113,18 @@ def main():
     nnet = CifreBasicNNet(nnet_args)
 
     # Create the manager for the nnet, and write the initial model
-    # into FLAGS.workdir/models
-    manager = CifreNNetManager(nnet, FLAGS.game_shape, FLAGS.workdir)
+    # into 'repodir'.
+    manager = CifreNNetManager(nnet, FLAGS.game_shape, FLAGS.repodir)
     manager.save_triton_repository('initial')
 
     # Launch cifre executable to perform MCTS using the just trained
     # model.
-    cifre_mcts_cmd = [
-        '../build/cifre',
+    game_cmd = [
+        '../build/install/bin/celcath',
         '--log-high' if FLAGS.verbose else '',
-        '--workdir', FLAGS.workdir,
         '--model', 'initial',
-        '--game', FLAGS.game,
-        '--game-shape', argify_shape(FLAGS.game_shape) ]
-    process = subprocess.Popen(cifre_mcts_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        '--board-size', argify_shape(FLAGS.game_shape, 'x') ]
+    process = subprocess.Popen(game_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     while process.poll() is None:
         print(process.stdout.readline().rstrip())
     print(process.stdout.read())

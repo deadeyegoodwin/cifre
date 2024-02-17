@@ -107,13 +107,11 @@ const std::vector<Option> options_ {
 
   {Option::OPTION_DATA_DIR, "datadir", Option::ArgStr,
    "Training data directory, defaults to /tmp/cifre/data."},
-  {Option::OPTION_MODEL_REPOSITORY_DIR, "repodir", Option::ArgStr,
-   "Model repository directory, defaults to /tmp/cifre/models."},
   {Option::OPTION_MODEL_NAME, "model", Option::ArgStr,
    "Name of model to use for predictions."},
 
   {Option::OPTION_BOARD_BORDER, "board-border", Option::ArgStr,
-   "Border kind for the game board. Options are [ DEAD, LIVE ]. Default size is LIVE."},
+   "Border kind for the game board. Options are [ DEAD, LIVE ]. Default size is DEAD."},
   {Option::OPTION_BOARD_SIZE, "board-size", Option::ArgInt,
    "Size of the game board. A square board with N rows and N columns is specified as '--board-size=N'. "
    "A rectangular board with N rows and M columns is specified as '--board-size=NxM'. "
@@ -181,9 +179,8 @@ main(int argc, char **argv)
     common::Logger::Level log_level = common::Logger::Level::LOW;
     std::string log_filename = "stdout";
     std::string datadir = "/tmp/cifre/data";
-    std::string repodir = "/tmp/cifre/models";
     std::string model_name;
-    cifre::celcath::Board::BorderKind board_border = cifre::celcath::Board::BorderKind::LIVE;
+    cifre::celcath::Board::BorderKind board_border = cifre::celcath::Board::BorderKind::DEAD;
     cifre::celcath::BoardSize board_size = DEFAULT_BOARD_SIZE;
 
     std::vector<struct option> long_options;
@@ -219,9 +216,6 @@ main(int argc, char **argv)
       case Option::OPTION_DATA_DIR:
         datadir = optarg;
         break;
-      case Option::OPTION_MODEL_REPOSITORY_DIR:
-        repodir = optarg;
-        break;
       case Option::OPTION_MODEL_NAME:
         model_name = optarg;
         break;
@@ -250,28 +244,16 @@ main(int argc, char **argv)
       logger->Log(cifre::celcath::VersionToString(true /* show_dependent_versions */));
     }
 
-#if 0
-    CheckTrueMsg(!workdir.empty(), "--workdir must be specified");
-    CheckTrueMsg(!model_name.empty(), "--model must be specified");
-
-    // Initialize triton.
-    cifre::Triton triton(logger.get(), workdir);
-
-    // Make sure triton and the model are ready.
-    CheckTrueMsg(triton.IsReady(), "triton is not ready");
-    CheckTrueMsg(triton.IsModelReady(model_name),
-                 std::string("triton model '" + model_name + "' is not ready"));
-#endif
     // Create the board.
-    cifre::celcath::Board board(board_size);
+    cifre::celcath::Board board(logger.get(), board_size);
     board.SetBorder(board_border);
 
     // Create the stepper that evolves board across generations.
     cifre::celcath::B3S23Stepper stepper(logger.get());
 
     // Create 2 players, one a human and the other alpha-zero.
-    cifre::celcath::HumanPlayer player1("Human", 'o');
-    cifre::celcath::AlphaZeroPlayer player2("HAL", 'x');
+    cifre::celcath::HumanPlayer player1(logger.get(), "Human", 'o');
+    cifre::celcath::AlphaZeroPlayer player2(logger.get(), "HAL", 'x', model_name);
     std::vector<cifre::celcath::Player*> players;
     players.push_back(&player1);
     players.push_back(&player2);

@@ -66,7 +66,7 @@ public:
 
 public:
   // Create a board of 'size' (not including border cells).
-  Board(BoardSize size);
+  Board(common::Logger* logger, BoardSize size);
 
   // The size of the board, not including border cells.
   const BoardSize& Size() const { return size_; }
@@ -102,6 +102,8 @@ public:
 private:
   const BoardSize size_;
   const BoardSize size_with_border_;
+  Player always_dead_player_;
+  Player always_live_player_;
 
   // 'cells_' includes border cells...
   std::vector<std::vector<Cell>> cells_;

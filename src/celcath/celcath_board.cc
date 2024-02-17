@@ -50,8 +50,10 @@ BoardSize::ToString() const
 //
 // Board
 //
-Board::Board(BoardSize size) :
-  size_(size), size_with_border_(size.RowCount() + 2, size.ColumnCount() + 2)
+Board::Board(common::Logger* logger, BoardSize size) :
+  size_(size), size_with_border_(size.RowCount() + 2, size.ColumnCount() + 2),
+  always_dead_player_(logger, "dead", ' ', 0),
+  always_live_player_(logger, "live", 'O', 1)
 {
   auto max_size = BoardSize::MaxSize();
   THROWIF(size.RowCount() > max_size.RowCount(),
@@ -83,11 +85,11 @@ Board::StringToBorderKind(const std::string& name)
 void
 Board::SetBorder(Board::BorderKind kind)
 {
-  // For LIVE and DEAD set every border cell to Player::LIVE or
-  // Player::DEAD respectively.
-  // Board with each row number on the left.
+  // For LIVE and DEAD set every border cell to always-live or
+  // always-dead respectively.  Board with each row number on the
+  // left.
   if ((kind == BorderKind::LIVE) || (kind == BorderKind::DEAD)) {
-    Player* player = (kind == BorderKind::LIVE) ? &Player::LIVE : &Player::DEAD;
+    Player* player = (kind == BorderKind::LIVE) ? &always_live_player_ : &always_dead_player_;
     size_t row_idx = 0;
     for (auto& r : cells_) {
       size_t col_idx = 0;
