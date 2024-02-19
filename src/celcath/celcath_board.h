@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "celcath_player.h"
+#include "cifre_state.h"
 #include "common_logger.h"
 
 namespace cifre { namespace celcath {
@@ -56,7 +57,7 @@ private:
 //
 // The playing board.
 //
-class Board {
+class Board : public cifre::State {
 public:
   // The kinds of borders that can be used on the board.
   enum class BorderKind { INVALID, DEAD, LIVE };
@@ -66,7 +67,13 @@ public:
 
 public:
   // Create a board of 'size' (not including border cells).
-  Board(common::Logger* logger, BoardSize size);
+  Board(BoardSize size);
+
+  // Copy constructor.
+  Board(const Board& other);
+
+  // From cifre::State, clone the board.
+  State* Clone() const override;
 
   // The size of the board, not including border cells.
   const BoardSize& Size() const { return size_; }
@@ -96,14 +103,16 @@ public:
   // an invalid cell specification. Border cells are included.
   Cell* StringToCellWithBorder(const std::string& str);
 
+  // From cifre::State, get the representation of the state suitable
+  // for feeding to the model via triton.
+  const std::vector<uint8_t>& TritonRepresentation() const override;
+
   // Return string representation of the board.
   std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
 
 private:
   const BoardSize size_;
   const BoardSize size_with_border_;
-  Player always_dead_player_;
-  Player always_live_player_;
 
   // 'cells_' includes border cells...
   std::vector<std::vector<Cell>> cells_;
@@ -120,17 +129,17 @@ public:
 
   // The Player that owns the cell, or nullptr if no owner
   // (i.e. empty).
-  Player* Owner() const { return owner_; }
+  const Player* Owner() const { return owner_; }
 
   // Set the Player that owns the cell, or nullptr if no owner
   // (i.e. empty).
-  void SetOwner(Player* owner) { owner_ = owner; }
+  void SetOwner(const Player* owner) { owner_ = owner; }
 
   // Return string representation of the contents of the cell.
   std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
 
 private:
-  Player* owner_;
+  const Player* owner_;
 };
 
 }} // namespace cifre::celcath

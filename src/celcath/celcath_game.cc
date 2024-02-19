@@ -13,9 +13,33 @@ namespace cifre { namespace celcath {
 //
 // Game
 //
-Game::Game(common::Logger* logger, Stepper* stepper, Board* board,
-           const std::vector<Player*>& players) :
-  cifre::Game(logger), stepper_(stepper), board_(board), players_(players)
+Game::Game(common::Logger* logger, std::unique_ptr<Stepper> stepper,
+           Board&& board, std::vector<const Player*>&& players) :
+  logger_(logger), stepper_(std::move(stepper)),
+  board_(std::move(board)), players_(std::move(players))
+{
+  // One action for each cell on the board (toggle liveness), plus one
+  // action to finish turn.
+  const BoardSize& board_size = board_.Size();
+  total_action_count_ = (board_size.RowCount() * board_size.ColumnCount()) + 1;
+}
+
+uint64_t
+Game::TotalActionCount() const
+{
+  return total_action_count_;
+}
+
+const std::vector<uint64_t>&
+Game::StateActions(const State& state) const
+{
+  // FIXME
+  static std::vector<uint64_t> sa;
+  return sa;
+}
+
+void
+Game::ApplyAction(State* state) const
 {
 }
 
@@ -23,8 +47,8 @@ void
 Game::Play()
 {
   // Show the initial board.
-  std::cout << board_->ToString() << '\n';
-
+  std::cout << board_.ToString() << '\n';
+#if 0
   while (true) {
     // Players alternate turns. During the turn the player can make up
     // to 'max_moves_per_turn', and is required to make at least
@@ -93,11 +117,11 @@ Game::Play()
       std::cout << board_->ToString() << '\n';
     }
   }
-
 game_over:
+#endif
     // Final board...
     std::cout << "final:\n";
-    std::cout << board_->ToString() << '\n';
+    std::cout << board_.ToString() << '\n';
 }
 
 }} // namespace cifre::celcath

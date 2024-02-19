@@ -50,10 +50,8 @@ BoardSize::ToString() const
 //
 // Board
 //
-Board::Board(common::Logger* logger, BoardSize size) :
-  size_(size), size_with_border_(size.RowCount() + 2, size.ColumnCount() + 2),
-  always_dead_player_(logger, "dead", ' ', 0),
-  always_live_player_(logger, "live", 'O', 1)
+Board::Board(BoardSize size) :
+  size_(size), size_with_border_(size.RowCount() + 2, size.ColumnCount() + 2)
 {
   auto max_size = BoardSize::MaxSize();
   THROWIF(size.RowCount() > max_size.RowCount(),
@@ -65,6 +63,23 @@ Board::Board(common::Logger* logger, BoardSize size) :
 
   // Default to a LIVE border.
   SetBorder(BorderKind::LIVE);
+}
+
+Board::Board(const Board& other) :
+  size_(other.size_), size_with_border_(other.size_with_border_)
+{
+  cells_.resize(size_with_border_.RowCount(), std::vector<Cell>(size_with_border_.ColumnCount()));
+  for (size_t row_idx = 0; row_idx < size_with_border_.RowCount(); ++row_idx) {
+    for (size_t col_idx = 0; col_idx < size_with_border_.ColumnCount(); ++col_idx) {
+      cells_[row_idx][col_idx].SetOwner(other.cells_[row_idx][col_idx].Owner());
+    }
+  }
+}
+
+State*
+Board::Clone() const
+{
+  return new Board(*this);
 }
 
 Board::BorderKind
@@ -89,7 +104,7 @@ Board::SetBorder(Board::BorderKind kind)
   // always-dead respectively.  Board with each row number on the
   // left.
   if ((kind == BorderKind::LIVE) || (kind == BorderKind::DEAD)) {
-    Player* player = (kind == BorderKind::LIVE) ? &always_live_player_ : &always_dead_player_;
+    Player* player = (kind == BorderKind::LIVE) ? &Player::LIVE : &Player::DEAD;
     size_t row_idx = 0;
     for (auto& r : cells_) {
       size_t col_idx = 0;
@@ -165,6 +180,14 @@ Board::StringToCellWithBorder(const std::string& str)
   }
 
   return nullptr;
+}
+
+const std::vector<uint8_t>&
+Board::TritonRepresentation() const
+{
+  // FIXME
+  static std::vector<uint8_t> r;
+  return r;
 }
 
 std::string

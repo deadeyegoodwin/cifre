@@ -10,8 +10,7 @@
 
 #include "celcath_board.h"
 #include "celcath_game.h"
-#include "celcath_alphazero_player.h"
-#include "celcath_human_player.h"
+#include "celcath_player.h"
 #include "celcath_stepper.h"
 #include "celcath_version.h"
 #include "common_error.h"
@@ -245,20 +244,24 @@ main(int argc, char **argv)
     }
 
     // Create the board.
-    cifre::celcath::Board board(logger.get(), board_size);
+    cifre::celcath::Board board(board_size);
     board.SetBorder(board_border);
 
     // Create the stepper that evolves board across generations.
-    cifre::celcath::B3S23Stepper stepper(logger.get());
+    auto stepper = std::make_unique<cifre::celcath::B3S23Stepper>(logger.get());
 
     // Create 2 players, one a human and the other alpha-zero.
-    cifre::celcath::HumanPlayer player1(logger.get(), "Human", 'o');
-    cifre::celcath::AlphaZeroPlayer player2(logger.get(), "HAL", 'x', model_name);
-    std::vector<cifre::celcath::Player*> players;
+    cifre::celcath::Player player1("Human", 'o', 1.0);
+    cifre::celcath::Player player2(
+      "HAL", 'x', 1.0,
+      std::make_unique<cifre::AlphaZero>(logger.get(), model_name));
+
+    std::vector<const cifre::celcath::Player*> players;
     players.push_back(&player1);
     players.push_back(&player2);
 
-    cifre::celcath::Game game(logger.get(), &stepper, &board, players);
+    cifre::celcath::Game game(
+      logger.get(), std::move(stepper), std::move(board), std::move(players));
     game.Play();
 
   } catch (const std::exception& ex) {

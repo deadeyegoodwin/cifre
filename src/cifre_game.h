@@ -1,9 +1,8 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 #pragma once
 
-#include <string>
-
-#include "common_logger.h"
+#include <cstdint>
+#include <vector>
 
 namespace cifre {
 
@@ -14,10 +13,17 @@ namespace cifre {
 //
 class Game {
 public:
-  Game(common::Logger* logger);
+  // Return the number of actions available in the game. Each action
+  // is represented by a numeric identifier of type uint64_t in the
+  // range [0, total-action-count).
+  virtual uint64_t TotalActionCount() const = 0;
 
-protected:
-  common::Logger* logger_;
+  // Get the action identifiers available for a given state.
+  virtual const std::vector<uint64_t>& StateActions(const State& state) const = 0;
+
+  // Apply an action to a state, in place, so that the state is
+  // modified due to the action.
+  virtual void ApplyAction(State* state) const = 0;
 };
 
 

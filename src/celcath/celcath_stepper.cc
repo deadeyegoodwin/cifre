@@ -23,7 +23,7 @@ B3S23Stepper::Name() const
 }
 
 void
-B3S23Stepper::Step(Board* board, const std::vector<Player*>& players)
+B3S23Stepper::Step(Board* board, const std::vector<const Player*>& players)
 {
   auto board_size = board->Size();
   auto board_size_with_border = board->SizeWithBorder();
@@ -49,7 +49,7 @@ B3S23Stepper::Step(Board* board, const std::vector<Player*>& players)
 
       // If 'cell' is empty or doesn't contribute any neighbor value,
       // then can skip it.
-      Player* owner = cell->Owner();
+      const Player* owner = cell->Owner();
       if ((owner != nullptr) && (owner->NeighborValue() != 0)) {
         // Get 'owner' index in 'neighbor_values' as we want to
         // attribute these neighbor counts in that index. If 'owner'
@@ -102,7 +102,7 @@ B3S23Stepper::Step(Board* board, const std::vector<Player*>& players)
         // owner as is when 3 neighbors.
         Cell* cell = board->CellAt(nvrow, nvcol);
         THROWIF(cell == nullptr, "stepper failed to get cell");
-        Player* player = cell->Owner();
+        const Player* player = cell->Owner();
         if (player == nullptr) {
           // The player that has the majority neighbor count gets the
           // cell, if no majority then cells stays dead.
@@ -133,7 +133,7 @@ B3S23Stepper::Step(Board* board, const std::vector<Player*>& players)
 
 std::string
 B3S23Stepper::NeighborValuesToString(
-  const std::vector<Player*>& players,
+  const std::vector<const Player*>& players,
   const std::vector<std::vector<std::vector<int32_t>>>& nv) const
 {
   std::stringstream sstr;
