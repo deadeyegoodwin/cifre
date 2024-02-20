@@ -23,10 +23,11 @@ B3S23Stepper::Name() const
 }
 
 void
-B3S23Stepper::Step(Board* board, const std::vector<const Player*>& players)
+B3S23Stepper::Step(const Board& board, const std::vector<Player*>& players)
 {
-  auto board_size = board->Size();
-  auto board_size_with_border = board->SizeWithBorder();
+#if 0 // FIXME
+  auto board_size = board.Size();
+  auto board_size_with_border = board.SizeWithBorder();
 
   // Collect the sum of neighbor values for each cell, for each player
   // in 'players'. Also add one additional entry to record the sum of
@@ -44,7 +45,7 @@ B3S23Stepper::Step(Board* board, const std::vector<const Player*>& players)
   // Accumulate neighbor values...
   for (size_t row_idx = 0; row_idx < board_size_with_border.RowCount(); ++row_idx) {
     for (size_t col_idx = 0; col_idx < board_size_with_border.ColumnCount(); ++col_idx) {
-      Cell* cell = board->CellAtWithBorder(row_idx, col_idx);
+      Cell* cell = board.CellAtWithBorder(row_idx, col_idx);
       THROWIF(cell == nullptr, "stepper failed to get cell");
 
       // If 'cell' is empty or doesn't contribute any neighbor value,
@@ -100,7 +101,7 @@ B3S23Stepper::Step(Board* board, const std::vector<const Player*>& players)
         // or we can have it be taken over by the player that has the
         // majority of neighbors. FIXME ruleset: for now just keep
         // owner as is when 3 neighbors.
-        Cell* cell = board->CellAt(nvrow, nvcol);
+        Cell* cell = board.CellAt(nvrow, nvcol);
         THROWIF(cell == nullptr, "stepper failed to get cell");
         const Player* player = cell->Owner();
         if (player == nullptr) {
@@ -123,12 +124,13 @@ B3S23Stepper::Step(Board* board, const std::vector<const Player*>& players)
       }
       // If 2 neighbors, cell stays as it is; otherwise cell is dead.
       else if (nv != 2) {
-        Cell* cell = board->CellAt(nvrow, nvcol);
+        Cell* cell = board.CellAt(nvrow, nvcol);
         THROWIF(cell == nullptr, "stepper failed to get cell");
         cell->SetOwner(nullptr);
       }
     }
   }
+#endif
 }
 
 std::string
@@ -145,7 +147,8 @@ B3S23Stepper::NeighborValuesToString(
 
     if (idx == players.size()) {
       sstr << "Total:\n";
-    } else {
+    }
+    else {
       sstr << players[idx]->Name() << ":\n";
     }
 

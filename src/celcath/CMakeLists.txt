@@ -81,8 +81,8 @@ target_link_libraries(
 add_library(
   celcath-library STATIC
   celcath_board.cc
-  celcath_game.cc
   celcath_player.cc
+  celcath_settings.cc
   celcath_stepper.cc
 )
 

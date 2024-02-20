@@ -5,17 +5,21 @@
 #include <cstdint>
 #include <memory>
 
+#include "celcath_action.h"
 #include "cifre_alphazero.h"
 #include "common_logger.h"
+#include "common_random.h"
 
 namespace cifre { namespace celcath {
 
+class Board;
 class Player;
 
 //
 // Player
 //
-// A player.
+// A player. Typically this serves as a base-class for more
+// interesting characters.
 //
 class Player {
 public:
@@ -31,13 +35,6 @@ public:
   // player.
   Player(const std::string& name, char board_char, int32_t neighbor_value);
 
-  // Create 'name'd alpha-zero player that uses 'board_char' as the
-  // character representing them on the board. 'neighbor_value'
-  // indicates the value to use for neighbor cells occupied by this
-  // player.
-  Player(const std::string& name, char board_char, int32_t neighbor_value,
-         std::unique_ptr<cifre::AlphaZero> alpha_zero);
-
   // Return the player's name.
   const std::string& Name() const { return name_; }
 
@@ -47,6 +44,9 @@ public:
   // Return the cell neighbor value for this player.
   int32_t NeighborValue() const { return neighbor_value_; }
 
+  // Get the next action for the player given current 'board' state.
+  virtual Action NextAction(const Board& board) const;
+
   // Return string representation of the player.
   std::string ToString(common::Logger::Level filter_level) const;
 
@@ -54,9 +54,67 @@ protected:
   const std::string name_;
   const char board_char_;
   const int32_t neighbor_value_;
+};
 
-  // Will be nullptr for players not using alpha-zero.
+//
+// HumanPlayer
+//
+// A player controlled by a human.
+//
+class HumanPlayer : public Player {
+public:
+  // Create 'name'd human player that uses 'board_char' as the
+  // character representing them on the board. 'neighbor_value'
+  // indicates the value to use for neighbor cells occupied by this
+  // player.
+  HumanPlayer(const std::string& name, char board_char, int32_t neighbor_value);
+
+  // See Player::NextAction().
+  Action NextAction(const Board& board) const override;
+
+private:
+  std::string Usage() const;
+};
+
+//
+// AlphaZeroPlayer
+//
+// A player controlled by alpha-zero.
+//
+class AlphaZeroPlayer : public Player {
+public:
+  // Create 'name'd alpha-zero player that uses 'board_char' as the
+  // character representing them on the board. 'neighbor_value'
+  // indicates the value to use for neighbor cells occupied by this
+  // player.
+  AlphaZeroPlayer(const std::string& name, char board_char, int32_t neighbor_value,
+         std::unique_ptr<cifre::AlphaZero> alpha_zero);
+
+  // See Player::NextAction().
+  Action NextAction(const Board& board) const override;
+
+private:
   std::unique_ptr<cifre::AlphaZero> alpha_zero_;
+};
+
+//
+// RandomPlayer
+//
+// A player that randomly chooses actions.
+//
+class RandomPlayer : public Player {
+public:
+  // Create 'name'd random player that uses 'board_char' as the
+  // character representing them on the board. 'neighbor_value'
+  // indicates the value to use for neighbor cells occupied by this
+  // player.
+  RandomPlayer(const std::string& name, char board_char, int32_t neighbor_value);
+
+  // See Player::NextAction().
+  Action NextAction(const Board& board) const override;
+
+private:
+  mutable common::Random rnd_;
 };
 
 }} // namespace cifre::celcath

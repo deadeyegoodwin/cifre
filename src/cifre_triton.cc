@@ -61,7 +61,7 @@ Triton::CheckTritonError(const triton::client::Error& err, const std::string& ms
   if (!err.IsOk()) {
     std::stringstream sstr;
     sstr << "triton error: " << err.Message();
-    THROWIF(false, sstr.str());
+    THROW(sstr.str());
   }
 }
 

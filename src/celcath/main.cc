@@ -8,9 +8,10 @@
 #include <string>
 #include <vector>
 
+#include "celcath_action.h"
 #include "celcath_board.h"
-#include "celcath_game.h"
 #include "celcath_player.h"
+#include "celcath_settings.h"
 #include "celcath_stepper.h"
 #include "celcath_version.h"
 #include "common_error.h"
@@ -47,7 +48,9 @@ namespace {
 //
 // Command-line options and parsing.
 //
-static const cifre::celcath::BoardSize DEFAULT_BOARD_SIZE {6, 8};
+static const cifre::BoardSize2D DEFAULT_BOARD_SIZE {6, 8};
+static constexpr size_t DEFAULT_MIN_ACTIONS_PER_TURN = 1;
+static constexpr size_t DEFAULT_MAX_ACTIONS_PER_TURN = 1;
 
 struct Option {
   static constexpr const char* ArgNone = "";
@@ -66,8 +69,9 @@ struct Option {
     OPTION_DATA_DIR,
     OPTION_MODEL_REPOSITORY_DIR,
     OPTION_MODEL_NAME,
-    OPTION_BOARD_BORDER,
-    OPTION_BOARD_SIZE
+    OPTION_BOARD_SIZE,
+    OPTION_MIN_ACTIONS_PER_TURN,
+    OPTION_MAX_ACTIONS_PER_TURN
   };
 
   Option(OptionId id, std::string flag, std::string arg_desc, std::string desc)
@@ -109,12 +113,26 @@ const std::vector<Option> options_ {
   {Option::OPTION_MODEL_NAME, "model", Option::ArgStr,
    "Name of model to use for predictions."},
 
-  {Option::OPTION_BOARD_BORDER, "board-border", Option::ArgStr,
-   "Border kind for the game board. Options are [ DEAD, LIVE ]. Default size is DEAD."},
   {Option::OPTION_BOARD_SIZE, "board-size", Option::ArgInt,
    "Size of the game board. A square board with N rows and N columns is specified as '--board-size=N'. "
    "A rectangular board with N rows and M columns is specified as '--board-size=NxM'. "
-   "Default is '--board-size=" + DEFAULT_BOARD_SIZE.ToString() + "'."}};
+   "Default is '--board-size=" + DEFAULT_BOARD_SIZE.ToString() + "'."},
+  {Option::OPTION_MIN_ACTIONS_PER_TURN, "min-actions-per-turn", Option::ArgInt,
+   "Minimum number of actions each player must make before ending a turn. "
+   "Default is " + std::to_string(DEFAULT_MIN_ACTIONS_PER_TURN) + "'."},
+  {Option::OPTION_MAX_ACTIONS_PER_TURN, "max-actions-per-turn", Option::ArgInt,
+   "Maximum number of actions each player may make before ending a turn. "
+   "Default is " + std::to_string(DEFAULT_MAX_ACTIONS_PER_TURN) + "'."}};
+
+size_t
+ParseUnsigned(const std::string& str)
+{
+  std::string::size_type idx;
+  size_t ul = std::stoull(str, &idx);
+  CheckTrueMsg(idx == str.size(),
+               "unable to parse argument '" + str + "' as unsigned integer");
+  return ul;
+}
 
 std::string
 FormatUsageMessage(std::string str, int offset)
@@ -137,12 +155,13 @@ Usage()
 {
   std::stringstream ss;
 
-  ss << "Usage: celcath [options]" << std::endl;
+  ss << "usage: celcath [options]" << std::endl;
   for (const auto& o : options_) {
     if (!o.arg_desc_.empty()) {
       ss << "  --" << o.flag_ << " <" << o.arg_desc_ << ">" << std::endl
          << "\t" << FormatUsageMessage(o.desc_, 0) << std::endl;
-    } else {
+    }
+    else {
       ss << "  --" << o.flag_ << std::endl
          << "\t" << FormatUsageMessage(o.desc_, 0) << std::endl;
     }
@@ -171,6 +190,44 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
 
 }  // namespace
 
+namespace cifre { namespace celcath {
+
+void
+Play(const Settings& settings, std::vector<Player*> players,
+     std::unique_ptr<Stepper> stepper, Board* board)
+{
+  // Show the initial board.
+  std::cout << board->ToString() << '\n';
+
+  bool game_over = false;
+  while (!game_over) {
+    Player* player = players[board->ActivePlayerId()];
+    Action action = player->NextAction(*board);
+    switch (action.Kind()) {
+    case Action::ActionKind::INVALID:
+    case Action::ActionKind::HELP:
+    case Action::ActionKind::SHOW_BOARD:
+      Fail("unexpected player action");
+      break;
+
+    case Action::ActionKind::QUIT:
+      game_over = true;
+      break;
+
+    case Action::ActionKind::ACTIONID:
+      board->Update(action.ActionId());
+      game_over = board->CurrentStatus().IsTerminal();
+      break;
+    }
+  }
+
+  // Final board...
+  std::cout << "final:\n";
+  std::cout << board->ToString() << '\n';
+}
+
+}} // namespace cifre::celcath
+
 int
 main(int argc, char **argv)
 {
@@ -179,8 +236,9 @@ main(int argc, char **argv)
     std::string log_filename = "stdout";
     std::string datadir = "/tmp/cifre/data";
     std::string model_name;
-    cifre::celcath::Board::BorderKind board_border = cifre::celcath::Board::BorderKind::DEAD;
-    cifre::celcath::BoardSize board_size = DEFAULT_BOARD_SIZE;
+    cifre::BoardSize2D board_size = DEFAULT_BOARD_SIZE;
+    size_t min_actions_per_turn = DEFAULT_MIN_ACTIONS_PER_TURN;
+    size_t max_actions_per_turn = DEFAULT_MAX_ACTIONS_PER_TURN;
 
     std::vector<struct option> long_options;
     for (const auto& o : options_) {
@@ -219,13 +277,14 @@ main(int argc, char **argv)
         model_name = optarg;
         break;
 
-      case Option::OPTION_BOARD_BORDER:
-        board_border = cifre::celcath::Board::StringToBorderKind(optarg);
-        CheckTrueMsg(board_border != cifre::celcath::Board::BorderKind::INVALID,
-                     std::string("unknown board border kind '") + optarg + "'");
-        break;
       case Option::OPTION_BOARD_SIZE:
-        board_size = cifre::celcath::BoardSize(optarg);
+        board_size = cifre::BoardSize2D(optarg);
+        break;
+      case Option::OPTION_MIN_ACTIONS_PER_TURN:
+        min_actions_per_turn = ParseUnsigned(optarg);
+        break;
+      case Option::OPTION_MAX_ACTIONS_PER_TURN:
+        max_actions_per_turn = ParseUnsigned(optarg);
         break;
       }
     }
@@ -243,26 +302,40 @@ main(int argc, char **argv)
       logger->Log(cifre::celcath::VersionToString(true /* show_dependent_versions */));
     }
 
-    // Create the board.
-    cifre::celcath::Board board(board_size);
-    board.SetBorder(board_border);
+    // Settings
+    cifre::celcath::Settings settings;
+    settings.SetSetting("board-row-count", board_size.RowCount());
+    settings.SetSetting("board-column-count", board_size.ColumnCount());
+    settings.SetSetting("min-actions-per-turn", min_actions_per_turn);
+    settings.SetSetting("max-actions-per-turn", max_actions_per_turn);
+
+    // One action identifier for each cell on the board (toggle
+    // liveness), plus one action to finish turn.
+    settings.SetSetting("total-action-id-count", board_size.CellCount() + 1);
+    settings.SetSetting("end-turn-action-id", board_size.CellCount());
+
+    settings.Sync();
+    LOGGER_LOGMED(*logger, settings.ToString() + '\n');
+
+    // Create 2 players...
+    cifre::celcath::HumanPlayer player1("Human1", 'o', 1.0);
+    cifre::celcath::RandomPlayer player2("Random", 'x', 1.0);
+//    cifre::celcath::Player player2(
+//      "HAL", 'x', 1.0,
+//      std::make_unique<cifre::AlphaZero>(logger.get(), model_name));
+
+    std::vector<cifre::celcath::Player*> players;
+    players.push_back(&player1);
+    players.push_back(&player2);
+
+    // Create the starting board.
+    cifre::celcath::Board board(settings, players);
 
     // Create the stepper that evolves board across generations.
     auto stepper = std::make_unique<cifre::celcath::B3S23Stepper>(logger.get());
 
-    // Create 2 players, one a human and the other alpha-zero.
-    cifre::celcath::Player player1("Human", 'o', 1.0);
-    cifre::celcath::Player player2(
-      "HAL", 'x', 1.0,
-      std::make_unique<cifre::AlphaZero>(logger.get(), model_name));
-
-    std::vector<const cifre::celcath::Player*> players;
-    players.push_back(&player1);
-    players.push_back(&player2);
-
-    cifre::celcath::Game game(
-      logger.get(), std::move(stepper), std::move(board), std::move(players));
-    game.Play();
+    // Play the game starting at the initial board.
+    Play(settings, players, std::move(stepper), &board);
 
   } catch (const std::exception& ex) {
     std::cerr << "error: " << ex.what() << std::endl;

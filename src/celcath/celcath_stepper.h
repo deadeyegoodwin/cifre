@@ -25,7 +25,7 @@ public:
   virtual const std::string& Name() const = 0;
 
   // Step 'board' one generation.
-  virtual void Step(Board* board, const std::vector<const Player*>& players) = 0;
+  virtual void Step(const Board& board, const std::vector<Player*>& players) = 0;
 
 protected:
   common::Logger* logger_;
@@ -44,7 +44,7 @@ public:
   B3S23Stepper(common::Logger* logger) : Stepper(logger) { }
 
   virtual const std::string& Name() const override;
-  virtual void Step(Board* board, const std::vector<const Player*>& players) override;
+  virtual void Step(const Board& board, const std::vector<Player*>& players) override;
 
 private:
   std::string NeighborValuesToString(

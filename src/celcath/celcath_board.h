@@ -3,143 +3,114 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <vector>
 
+#include "celcath_action.h"
 #include "celcath_player.h"
-#include "cifre_state.h"
+#include "celcath_settings.h"
+#include "cifre_board2d.h"
 #include "common_logger.h"
 
 namespace cifre { namespace celcath {
 
-class BoardSize;
 class Board;
-class Cell;
 
 //
-// BoardSize
+// BoardStatus
 //
-// Board size in rows and columns.
-//
-class BoardSize {
+class BoardStatus : public cifre::State::Status {
 public:
-  // The maximum size allowed for a board.
-  static const BoardSize& MaxSize();
+  BoardStatus(bool is_terminal) : is_terminal_(is_terminal) { }
 
-public:
-  // A square board size with 'cnt' rows and columns.
-  BoardSize(size_t cnt) : BoardSize(cnt, cnt) {}
-
-  // A rectangular board size with 'rcnt' rows and 'ccnt' columns.
-  BoardSize(size_t rcnt, size_t ccnt) : row_cnt_(rcnt), column_cnt_(ccnt) {}
-
-  // Create a BoardSize by parsing a string.
-  BoardSize(const std::string& str);
-
-  // Return the number of rows in the board size.
-  size_t RowCount() const { return row_cnt_; }
-
-  // Return the number of columns in the board size.
-  size_t ColumnCount() const { return column_cnt_; }
-
-  // Return the board size as a std::pair { row-count, column-count }.
-  std::pair<size_t, size_t> Size() const { return { row_cnt_, column_cnt_ }; }
-
-  // Return string representation of the board size.
-  std::string ToString() const;
+  // See cifre::State::Status
+  bool IsTerminal() const override { return is_terminal_; }
 
 private:
-  size_t row_cnt_;
-  size_t column_cnt_;
+  friend class Board;
+  bool is_terminal_;
 };
 
 //
 // Board
 //
-// The playing board.
+// The celcath playing board and all associated state.
 //
-class Board : public cifre::State {
+class Board : public cifre::Board2D<float> {
 public:
-  // The kinds of borders that can be used on the board.
-  enum class BorderKind { INVALID, DEAD, LIVE };
-
-  // Convert string to a BorderKind.
-  static BorderKind StringToBorderKind(const std::string& name);
-
-public:
-  // Create a board of 'size' (not including border cells).
-  Board(BoardSize size);
+  // Create a board based on 'settings'.
+  Board(const Settings& settings, const std::vector<Player*>& players);
 
   // Copy constructor.
-  Board(const Board& other);
+  Board(const Board& other) = default;
 
-  // From cifre::State, clone the board.
-  State* Clone() const override;
+  // Return the ID of the active player.
+  size_t ActivePlayerId() const { return active_player_id_; }
 
-  // The size of the board, not including border cells.
-  const BoardSize& Size() const { return size_; }
+  // Return the number of actions that the active player has completed
+  // this turn, and the minimum and maximum allowed actions for this
+  // turn.
+  size_t CompletedActionsThisTurn() const { return complete_actions_this_turn_; }
+  size_t MinActionsThisTurn() const { return settings_.MinActionsPerTurn(); }
+  size_t MaxActionsThisTurn() const { return settings_.MaxActionsPerTurn(); }
 
-  // The size of the board, including border cells.
-  const BoardSize& SizeWithBorder() const { return size_with_border_; }
+  // Is 'action' valid for the current board state.
+  bool IsValidAction(const Action& action) const;
 
-  // Set the kind of border to use for the board.
-  void SetBorder(Board::BorderKind kind);
+  // Return the Action associated with an action identifier.
+  Action ActionIdToAction(uint64_t action_id) const;
 
-  // Return the cell at the given row and column index, not including
-  // border cells. Return nullptr if row or column index are invalid.
-  Cell* CellAt(size_t row_idx, size_t col_idx);
+  // Return the Action associated with a string.
+  Action StringToAction(const std::string& str) const;
 
-  // Return the cell at the given row and column index, including the
-  // border cells. Thus, 'row_idx' == 0 and 'row_idx' == (Size() + 1)
-  // are border rows, and 'col_idx' == 0 and 'col_idx' == (Size() + 1)
-  // are border columns. Return nullptr if row or column index are
-  // invalid.
-  Cell* CellAtWithBorder(size_t row_idx, size_t col_idx);
+  // See cifre::State::Status
+  const cifre::State::Status& CurrentStatus() const override {
+    return status_; }
 
-  // Return the cell specifed by 'str', or return nullptr if 'str' is
-  // an invalid cell specification. Border cells are not included.
-  Cell* StringToCell(const std::string& str);
+  // See cifre::State
+  size_t TotalActionIdCount() const override {
+    return settings_.TotalActionIdCount(); }
 
-  // Return the cell specifed by 'str', or return nullptr if 'str' is
-  // an invalid cell specification. Border cells are included.
-  Cell* StringToCellWithBorder(const std::string& str);
+  // See cifre::State
+  const std::unordered_set<uint64_t>& ValidActionIds() const override {
+    return valid_action_ids_; }
 
-  // From cifre::State, get the representation of the state suitable
-  // for feeding to the model via triton.
-  const std::vector<uint8_t>& TritonRepresentation() const override;
+  // See cifre::State
+  void Update(uint64_t action_id) override;
 
-  // Return string representation of the board.
-  std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
-
-private:
-  const BoardSize size_;
-  const BoardSize size_with_border_;
-
-  // 'cells_' includes border cells...
-  std::vector<std::vector<Cell>> cells_;
-};
-
-//
-// Cell
-//
-// A cell on the board.
-//
-class Cell {
-public:
-  Cell() : owner_(nullptr) { }
-
-  // The Player that owns the cell, or nullptr if no owner
-  // (i.e. empty).
-  const Player* Owner() const { return owner_; }
-
-  // Set the Player that owns the cell, or nullptr if no owner
-  // (i.e. empty).
-  void SetOwner(const Player* owner) { owner_ = owner; }
-
-  // Return string representation of the contents of the cell.
-  std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
+  // See cifre::State
+  std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const override;
 
 private:
-  const Player* owner_;
+  static constexpr float CELL_EMPTY = 0.0;
+  static constexpr float CELL_PLAYER0 = 1.0;
+  static constexpr float CELL_PLAYER1 = -1.0;
+
+  // Convert player ID to/from the corresponding cell value.
+  float PlayerIdToCellValue(size_t pid) const {
+    return (pid == 0) ? CELL_PLAYER0 : CELL_PLAYER1;
+  }
+  size_t PlayerIdFromCellValue(float v) const {
+    if (v == CELL_PLAYER0) { return 0; }
+    if (v == CELL_PLAYER1) { return 1; }
+    THROW("cannot convert cell value " + std::to_string(v) + " to player ID");
+  }
+
+  // Settings shared across all Board instances.
+  const Settings& settings_;
+
+  // Players shared across all Board instances.
+  const std::vector<cifre::celcath::Player*>& players_;
+
+  // Current status of this state.
+  BoardStatus status_;
+
+  // ID of the currently active player.
+  size_t active_player_id_;
+
+  // Active player gets some number of actions each turn.
+  size_t complete_actions_this_turn_;
+
+  // The set of action ids that are valid for the current board.
+  std::unordered_set<uint64_t> valid_action_ids_;
 };
 
 }} // namespace cifre::celcath

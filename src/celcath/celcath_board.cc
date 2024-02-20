@@ -1,5 +1,6 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 
+#include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
@@ -14,180 +15,135 @@
 namespace cifre { namespace celcath {
 
 //
-// BoardSize
-//
-BoardSize::BoardSize(const std::string& str)
-{
-  static std::regex regex_square("^([1-9][0-9]*)$");
-  static std::regex regex_rectangle("^([1-9][0-9]*)x([1-9][0-9]*)$");
-
-  std::smatch m;
-  if (!std::regex_match(str, m, regex_rectangle)) {
-    THROWIF(!std::regex_match(str, m, regex_square),
-            "board size must be specified as 'NxM'");
-    row_cnt_ = column_cnt_ = std::stoi(m[1]);
-  } else {
-    row_cnt_ = std::stoi(m[1]);
-    column_cnt_ = std::stoi(m[2]);
-  }
-}
-
-const BoardSize&
-BoardSize::MaxSize()
-{
-  // Currently board logic assumes 1 digit for row name, so size
-  // limited to 9.
-  static const BoardSize max{9, 9};
-  return max;
-}
-
-std::string
-BoardSize::ToString() const
-{
-  return std::to_string(row_cnt_) + "x" + std::to_string(column_cnt_);
-}
-
-//
 // Board
 //
-Board::Board(BoardSize size) :
-  size_(size), size_with_border_(size.RowCount() + 2, size.ColumnCount() + 2)
+Board::Board(const Settings& settings, const std::vector<Player*>& players) :
+  cifre::Board2D<float>(settings.BoardSize()),
+  settings_(settings), players_(players), status_(false /* is_terminal */),
+  active_player_id_(settings.StartingPlayerId()), complete_actions_this_turn_(0)
 {
-  auto max_size = BoardSize::MaxSize();
-  THROWIF(size.RowCount() > max_size.RowCount(),
-          "Maximum number of board rows is " + std::to_string(max_size.RowCount()));
-  THROWIF(size.ColumnCount() > max_size.ColumnCount(),
-          "Maximum number of board columns is " + std::to_string(max_size.ColumnCount()));
+  THROWIF(players_.size() != 2, "exactly 2 players are required");
 
-  cells_.resize(size_with_border_.RowCount(), std::vector<Cell>(size_with_border_.ColumnCount()));
+  // Initially board is empty so all cells are valid to toggle.
+  for (size_t cidx = 0; cidx < size_.CellCount(); ++cidx) {
+    cells_[cidx] = CELL_EMPTY;
+    valid_action_ids_.insert(cidx);
+  }
 
-  // Default to a LIVE border.
-  SetBorder(BorderKind::LIVE);
-}
-
-Board::Board(const Board& other) :
-  size_(other.size_), size_with_border_(other.size_with_border_)
-{
-  cells_.resize(size_with_border_.RowCount(), std::vector<Cell>(size_with_border_.ColumnCount()));
-  for (size_t row_idx = 0; row_idx < size_with_border_.RowCount(); ++row_idx) {
-    for (size_t col_idx = 0; col_idx < size_with_border_.ColumnCount(); ++col_idx) {
-      cells_[row_idx][col_idx].SetOwner(other.cells_[row_idx][col_idx].Owner());
-    }
+  // End-turn action is only valid initially if 0 actions are allowed
+  // in a turn.
+  if (settings_.MinActionsPerTurn() == 0) {
+    valid_action_ids_.insert(settings_.EndTurnActionId());
   }
 }
 
-State*
-Board::Clone() const
+bool
+Board::IsValidAction(const Action& action) const
 {
-  return new Board(*this);
-}
+  switch (action.Kind()) {
+  case Action::ActionKind::INVALID:
+    return false;
 
-Board::BorderKind
-Board::StringToBorderKind(const std::string& name)
-{
-  std::string lname(name);
-  common::ToLower(lname);
-  if (lname == "dead") {
-    return BorderKind::DEAD;
-  }
-  else if (name == "live") {
-    return BorderKind::LIVE;
+  case Action::ActionKind::HELP:
+  case Action::ActionKind::QUIT:
+  case Action::ActionKind::SHOW_BOARD:
+    return true;
+
+  case Action::ActionKind::ACTIONID:
+    return valid_action_ids_.find(action.ActionId()) != valid_action_ids_.end();
   }
 
-  return BorderKind::INVALID;
+  return false;
 }
 
-void
-Board::SetBorder(Board::BorderKind kind)
+Action
+Board::ActionIdToAction(uint64_t action_id) const
 {
-  // For LIVE and DEAD set every border cell to always-live or
-  // always-dead respectively.  Board with each row number on the
-  // left.
-  if ((kind == BorderKind::LIVE) || (kind == BorderKind::DEAD)) {
-    Player* player = (kind == BorderKind::LIVE) ? &Player::LIVE : &Player::DEAD;
-    size_t row_idx = 0;
-    for (auto& r : cells_) {
-      size_t col_idx = 0;
-      for (auto& c : r) {
-        if ((row_idx == 0) || (row_idx == (size_with_border_.RowCount() - 1)) ||
-            (col_idx == 0) || (col_idx == (size_with_border_.ColumnCount() - 1))) {
-          c.SetOwner(player);
-        }
-        col_idx++;
-      }
+  THROWIF(action_id >= settings_.TotalActionIdCount(),
+          "unsupported action identifier, " + std::to_string(action_id));
 
-      row_idx++;
-    }
-  }
+  return Action(Action::ActionKind::ACTIONID, action_id);
 }
 
-Cell*
-Board::CellAt(size_t row_idx, size_t col_idx)
-{
-  if ((row_idx >= size_.RowCount()) || (col_idx >= size_.ColumnCount())) {
-    return nullptr;
-  }
-
-  return &cells_[row_idx + 1][col_idx + 1];
-}
-
-Cell*
-Board::CellAtWithBorder(size_t row_idx, size_t col_idx)
-{
-  if ((row_idx >= size_with_border_.RowCount()) ||
-      (col_idx >= size_with_border_.ColumnCount())) {
-    return nullptr;
-  }
-
-  return &cells_[row_idx][col_idx];
-}
-
-Cell*
-Board::StringToCell(const std::string& str)
+Action
+Board::StringToAction(const std::string& str) const
 {
   std::string posstr(str);
   common::Trim(posstr);
 
-  // String must be 2 characters, a column letter ('a' based) followed
-  // by a row number (1 based).
-  if (posstr.size() == 2) {
+  // Parse 1 character strings
+  if (posstr.size() == 1) {
+    switch (posstr[0]) {
+    case 'h':
+    case '?': return Action(Action::ActionKind::HELP);
+    case 'q': return Action(Action::ActionKind::QUIT);
+    case 'b': return Action(Action::ActionKind::SHOW_BOARD);
+    case 'e': return Action(Action::ActionKind::ACTIONID, settings_.EndTurnActionId());
+    default:
+      break;
+    }
+  }
+  // Parse 2 character strings. Cell specifier must be a column letter
+  // ('a' based) followed by a row number (1 based).
+  else if (posstr.size() == 2) {
     int32_t col_idx = posstr[0] - 'a';
     int32_t row_idx = posstr[1] - '1';
     if ((col_idx >= 0) && ((size_t)col_idx < size_.ColumnCount()) &&
         (row_idx >= 0) && ((size_t)row_idx < size_.RowCount())) {
-      return CellAt(row_idx, col_idx);
+      return Action(Action::ActionKind::ACTIONID,
+                    (row_idx * size_.ColumnCount()) + col_idx);
     }
   }
 
-  return nullptr;
+  return Action(Action::ActionKind::INVALID);
 }
 
-Cell*
-Board::StringToCellWithBorder(const std::string& str)
+void
+Board::Update(uint64_t action_id)
 {
-  std::string posstr(str);
-  common::Trim(posstr);
+  bool next_player = false;
+  bool run_stepper = false;
+  bool next_move = false;
 
-  // String must be 2 characters, a column letter ('a' based) followed
-  // by a row number (1 based).
-  if (posstr.size() == 2) {
-    int32_t col_idx = posstr[0] - 'a';
-    int32_t row_idx = posstr[1] - '1';
-    if ((col_idx >= 0) && ((size_t)col_idx < size_with_border_.ColumnCount()) &&
-        (row_idx >= 0) && ((size_t)row_idx < size_with_border_.RowCount())) {
-      return CellAtWithBorder(row_idx, col_idx);
+  // When turn ends need to run the stepper and then change to next
+  // player.
+  if (action_id == settings_.EndTurnActionId()) {
+    next_player = run_stepper = true;
+  }
+  // All other actions toggle the liveness of the appropriate cell.
+  // FIXME need to adjust:
+  //   THROWIF(valid_action_ids_.erase(action_id) != 1,
+  //            "expected ");
+  else {
+    const float active_player_cell_value = PlayerIdToCellValue(active_player_id_);
+    const float current = CellValueAtFlattened(action_id);
+    if (current == active_player_cell_value) {
+      SetCellValueAtFlattened(CELL_EMPTY, action_id);
     }
+    else if (current == CELL_EMPTY) {
+      SetCellValueAtFlattened(active_player_cell_value, action_id);
+    }
+
+    next_move = true;
   }
 
-  return nullptr;
-}
+  if (run_stepper) {
+    // FIXME
+  }
 
-const std::vector<uint8_t>&
-Board::TritonRepresentation() const
-{
-  // FIXME
-  static std::vector<uint8_t> r;
-  return r;
+  if (next_player) {
+    active_player_id_ = (active_player_id_ + 1) % players_.size();
+    complete_actions_this_turn_ = 0;
+    // FIXME toggle valid action IDs
+  } else if (next_move) {
+    complete_actions_this_turn_ += 1;
+    if (complete_actions_this_turn_ >= settings_.MaxActionsPerTurn()) {
+      valid_action_ids_.clear();
+    }
+    if (complete_actions_this_turn_ >= settings_.MinActionsPerTurn()) {
+      valid_action_ids_.insert(settings_.EndTurnActionId());
+    }
+  }
 }
 
 std::string
@@ -196,57 +152,43 @@ Board::ToString(common::Logger::Level filter_level) const
   std::stringstream sstr;
 
   // Column letters across the top.
-  for (size_t col_idx = 0; col_idx < (size_with_border_.ColumnCount() - 1); ++col_idx) {
+  for (size_t col_idx = 0; col_idx < (size_.ColumnCount() + 1); ++col_idx) {
     if (col_idx == 0) {
       sstr << "       ";
-    } else {
+    }
+    else {
       sstr << char('a' + col_idx - 1) << ' ';
     }
   }
-  sstr << "\n    " << std::string(size_with_border_.ColumnCount() * 2, '-') << '\n';
+  sstr << "\n    " << std::string((size_.ColumnCount() + 2) * 2, '-') << '\n';
 
   // Board with each row number on the left.
-  size_t row_idx = 0;
-  for (const auto& r : cells_) {
+  for (size_t row_idx = 0; row_idx < (size_.RowCount() + 2); ++row_idx) {
     if (row_idx == 0) {
-      sstr << "   ";
-    } else {
+      sstr << "   |";
+    }
+    else if (row_idx == (size_.RowCount() + 1)) {
+      sstr << "\n   |";
+    }
+    else {
       sstr << '\n';
       if (row_idx < (size_.RowCount() + 1)) {
         sstr << ' ' << row_idx << ' ';
-      } else {
+      }
+      else {
         sstr << "   ";
       }
-    }
 
-    size_t col_idx = 0;
-    for (const auto& c : r) {
-      if (col_idx == 0) {
-        sstr << '|';
+      sstr << "|  ";
+      if (row_idx < (size_.RowCount() + 1)) {
+        for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+          sstr << ' ' << CellValueAt(row_idx - 1, col_idx);
+        }
       }
-      sstr << ' ' << c.ToString(filter_level);
-      col_idx++;
     }
-
-    row_idx++;
   }
 
   return sstr.str();
-}
-
-//
-// Cell
-//
-std::string
-Cell::ToString(common::Logger::Level filter_level) const
-{
-  char bchar = ' ';
-  if (owner_ != nullptr) {
-    bchar = owner_->BoardCharacter();
-  }
-
-  std::string str{bchar};
-  return str;
 }
 
 }} // namespace cifre::celcath
