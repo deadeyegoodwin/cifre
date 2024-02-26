@@ -127,13 +127,21 @@ RandomPlayer::RandomPlayer(const std::string& name, char board_char, int32_t nei
 Action
 RandomPlayer::NextAction(const Board& board) const
 {
+  std::cout
+    << Name() << " [" << (board.CompletedActionsThisTurn() + 1)
+    << " of " << board.MaxActionsThisTurn() << "]: ";
+
   // Pick a random action from the valid actions. At least one action
   // must be valid.
   const auto& actions = board.ValidActionIds();
   THROWIF(actions.empty(), "player '" + name_ + "' has no valid action to choose from");
+
   uint64_t action_id =
     *std::next(actions.begin(), rnd_(uint64_t(0), uint64_t(actions.size() - 1)));
-  return board.ActionIdToAction(action_id);
+  Action action = board.ActionIdToAction(action_id);
+  std::cout << action.ToString() << '\n';
+
+  return action;
 }
 
 }} // namespace cifre::celcath

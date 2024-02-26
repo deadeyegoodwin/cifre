@@ -48,7 +48,7 @@ public:
   virtual Action NextAction(const Board& board) const;
 
   // Return string representation of the player.
-  std::string ToString(common::Logger::Level filter_level) const;
+  std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
 
 protected:
   const std::string name_;

@@ -182,7 +182,8 @@ Board::ToString(common::Logger::Level filter_level) const
       sstr << "|  ";
       if (row_idx < (size_.RowCount() + 1)) {
         for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
-          sstr << ' ' << CellValueAt(row_idx - 1, col_idx);
+          sstr << ' '
+               << PlayerFromCellValue(CellValueAt(row_idx - 1, col_idx)).ToString(filter_level);
         }
       }
     }

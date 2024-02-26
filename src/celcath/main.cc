@@ -193,7 +193,7 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
 namespace cifre { namespace celcath {
 
 void
-Play(const Settings& settings, std::vector<Player*> players,
+Play(const Settings& settings, const std::vector<Player*>& players,
      std::unique_ptr<Stepper> stepper, Board* board)
 {
   // Show the initial board.

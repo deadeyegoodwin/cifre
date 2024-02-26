@@ -93,6 +93,12 @@ private:
     if (v == CELL_PLAYER1) { return 1; }
     THROW("cannot convert cell value " + std::to_string(v) + " to player ID");
   }
+  const Player& PlayerFromCellValue(float v) const {
+    if (v == CELL_PLAYER0) { return *players_[0]; }
+    if (v == CELL_PLAYER1) { return *players_[1]; }
+    if (v == CELL_EMPTY) { return Player::DEAD; }
+    THROW("cannot convert cell value " + std::to_string(v) + " to player");
+  }
 
   // Settings shared across all Board instances.
   const Settings& settings_;
