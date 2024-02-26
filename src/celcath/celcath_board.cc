@@ -103,17 +103,13 @@ Board::Update(uint64_t action_id)
 {
   bool next_player = false;
   bool run_stepper = false;
-  bool next_move = false;
 
   // When turn ends need to run the stepper and then change to next
   // player.
   if (action_id == settings_.EndTurnActionId()) {
     next_player = run_stepper = true;
   }
-  // All other actions toggle the liveness of the appropriate cell.
-  // FIXME need to adjust:
-  //   THROWIF(valid_action_ids_.erase(action_id) != 1,
-  //            "expected ");
+  // All other action IDs toggle the liveness of the appropriate cell.
   else {
     const float active_player_cell_value = PlayerIdToCellValue(active_player_id_);
     const float current = CellValueAtFlattened(action_id);
@@ -123,8 +119,17 @@ Board::Update(uint64_t action_id)
     else if (current == CELL_EMPTY) {
       SetCellValueAtFlattened(active_player_cell_value, action_id);
     }
+    else {
+      THROW("unexpected cell value " + std::to_string(current));
+    }
 
-    next_move = true;
+    complete_actions_this_turn_ += 1;
+    if (complete_actions_this_turn_ >= settings_.MaxActionsPerTurn()) {
+      next_player = run_stepper = true;
+    }
+    else if (complete_actions_this_turn_ >= settings_.MinActionsPerTurn()) {
+      valid_action_ids_.insert(settings_.EndTurnActionId());
+    }
   }
 
   if (run_stepper) {
@@ -134,13 +139,19 @@ Board::Update(uint64_t action_id)
   if (next_player) {
     active_player_id_ = (active_player_id_ + 1) % players_.size();
     complete_actions_this_turn_ = 0;
-    // FIXME toggle valid action IDs
-  } else if (next_move) {
-    complete_actions_this_turn_ += 1;
-    if (complete_actions_this_turn_ >= settings_.MaxActionsPerTurn()) {
-      valid_action_ids_.clear();
+
+    // Set the valid actions for the now-active player.
+    valid_action_ids_.clear();
+
+    const float active_player_cell_value = PlayerIdToCellValue(active_player_id_);
+    for (size_t cidx = 0; cidx < size_.CellCount(); ++cidx) {
+      const float current = CellValueAtFlattened(cidx);
+      if ((current == active_player_cell_value) || (current == CELL_EMPTY)) {
+        valid_action_ids_.insert(cidx);
+      }
     }
-    if (complete_actions_this_turn_ >= settings_.MinActionsPerTurn()) {
+
+    if (settings_.MinActionsPerTurn() == 0) {
       valid_action_ids_.insert(settings_.EndTurnActionId());
     }
   }

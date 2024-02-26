@@ -302,6 +302,10 @@ main(int argc, char **argv)
       logger->Log(cifre::celcath::VersionToString(true /* show_dependent_versions */));
     }
 
+    CheckTrueMsg(max_actions_per_turn >= 1, "--max-actions-per-turn must be >= 1");
+    CheckTrueMsg(max_actions_per_turn >= min_actions_per_turn,
+                 "--max-actions-per-turn must be >= --min-actions-per-turn");
+
     // Settings
     cifre::celcath::Settings settings;
     settings.SetSetting("board-row-count", board_size.RowCount());
