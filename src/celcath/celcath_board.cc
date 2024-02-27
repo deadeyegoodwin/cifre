@@ -17,10 +17,12 @@ namespace cifre { namespace celcath {
 //
 // Board
 //
-Board::Board(const Settings& settings, const std::vector<Player*>& players) :
+Board::Board(const Settings& settings, const Stepper& stepper,
+             const std::vector<Player*>& players) :
   cifre::Board2D<float>(settings.BoardSize()),
-  settings_(settings), players_(players), status_(false /* is_terminal */),
-  active_player_id_(settings.StartingPlayerId()), complete_actions_this_turn_(0)
+  settings_(settings), stepper_(stepper), players_(players),
+  status_(false /* is_terminal */), active_player_id_(settings.StartingPlayerId()),
+  complete_actions_this_turn_(0)
 {
   THROWIF(players_.size() != 2, "exactly 2 players are required");
 
@@ -130,6 +132,52 @@ Board::ActionToString(const Action& action, common::Logger::Level filter_level) 
   THROW("cannot convert action ID to string, " + action.ToString(filter_level));
 }
 
+size_t
+Board::PlayerIdAt(size_t row_idx, size_t col_idx) const
+{
+  return CellValueToPlayerId(CellValueAt(row_idx, col_idx));
+}
+
+size_t
+Board::PlayerIdAtFlattened(size_t flat_idx) const
+{
+  return CellValueToPlayerId(CellValueAtFlattened(flat_idx));
+}
+
+Player*
+Board::PlayerAt(size_t row_idx, size_t col_idx) const
+{
+  const size_t id = PlayerIdAt(row_idx, col_idx);
+  if (id == players_.size()) {
+    return nullptr;
+  }
+
+  return players_[id];
+}
+
+void
+Board::SetPlayerAt(Player* player, size_t row_idx, size_t col_idx)
+{
+  SetCellValueAt(PlayerToCellValue(player), row_idx, col_idx);
+}
+
+Player*
+Board::PlayerAtFlattened(size_t flat_idx) const
+{
+  const size_t id = PlayerIdAtFlattened(flat_idx);
+  if (id == players_.size()) {
+    return nullptr;
+  }
+
+  return players_[id];
+}
+
+void
+Board::SetPlayerAtFlattened(Player* player, size_t flat_idx)
+{
+  SetCellValueAtFlattened(PlayerToCellValue(player), flat_idx);
+}
+
 void
 Board::Update(uint64_t action_id)
 {
@@ -165,7 +213,7 @@ Board::Update(uint64_t action_id)
   }
 
   if (run_stepper) {
-    // FIXME
+    stepper_.Step(this, players_);
   }
 
   if (next_player) {
@@ -225,8 +273,11 @@ Board::ToString(common::Logger::Level filter_level) const
       sstr << "|  ";
       if (row_idx < (size_.RowCount() + 1)) {
         for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
-          sstr << ' '
-               << PlayerFromCellValue(CellValueAt(row_idx - 1, col_idx)).ToString(filter_level);
+          Player* player = PlayerAt(row_idx - 1, col_idx);
+          if (player == nullptr) {
+            player = &Player::DEAD;
+          }
+          sstr << ' ' << player->ToString(filter_level);
         }
       }
     }

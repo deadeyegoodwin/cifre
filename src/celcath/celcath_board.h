@@ -1,12 +1,14 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 
 #include "celcath_action.h"
 #include "celcath_player.h"
 #include "celcath_settings.h"
+#include "celcath_stepper.h"
 #include "cifre_board2d.h"
 #include "common_logger.h"
 
@@ -37,13 +39,17 @@ private:
 class Board : public cifre::Board2D<float> {
 public:
   // Create a board based on 'settings'.
-  Board(const Settings& settings, const std::vector<Player*>& players);
+  Board(const Settings& settings, const Stepper& stepper,
+        const std::vector<Player*>& players);
 
   // Copy constructor.
   Board(const Board& other) = default;
 
   // Return the ID of the active player.
   size_t ActivePlayerId() const { return active_player_id_; }
+
+  // Return the active player.
+  Player* ActivePlayer() const { return players_[active_player_id_]; }
 
   // Return the number of actions that the active player has completed
   // this turn, and the minimum and maximum allowed actions for this
@@ -64,6 +70,32 @@ public:
   // Return the string representation of an 'action'.
   std::string ActionToString(
     const Action& action, common::Logger::Level filter_level = common::Logger::Level::LOW) const;
+
+  // Return the ID of the player that owns the specified cell. Returns
+  // the total number of players to indicate that the cell is not
+  // owned by any player (i.e. empty).
+  size_t PlayerIdAt(size_t row_idx, size_t col_idx) const;
+
+  // Return the ID of the player that owns the specified cell at the
+  // flattened index. Returns the total number of players to indicate
+  // that the cell is not owned by any player (i.e. empty).
+  size_t PlayerIdAtFlattened(size_t flat_idx) const;
+
+  // Return the player that owns the specified cell, or nullptr if
+  // cell is empty.
+  Player* PlayerAt(size_t row_idx, size_t col_idx) const;
+
+  // Set 'player' to be owner of the specified cell. 'player' may be
+  // nullptr to set the cell to empty.
+  void SetPlayerAt(Player* player, size_t row_idx, size_t col_idx);
+
+  // Return the player that owns the specified cell at the flattened
+  // index, or nullptr if cell is empty.
+  Player* PlayerAtFlattened(size_t flat_idx) const;
+
+  // Set 'player' to be owner of the specified cell at the flattend
+  // index. 'player' may be nullptr to set the cell to empty.
+  void SetPlayerAtFlattened(Player* player, size_t flat_idx);
 
   // See cifre::State::Status
   const cifre::State::Status& CurrentStatus() const override {
@@ -88,24 +120,42 @@ private:
   static constexpr float CELL_PLAYER0 = 1.0;
   static constexpr float CELL_PLAYER1 = -1.0;
 
-  // Convert player ID to/from the corresponding cell value.
+  // Convert player ID to/from the corresponding cell value. A player
+  // ID of value players_.size() represents an empty cell (i.e. no
+  // player).
   float PlayerIdToCellValue(size_t pid) const {
-    return (pid == 0) ? CELL_PLAYER0 : CELL_PLAYER1;
+    if (pid == 0) { return CELL_PLAYER0; }
+    if (pid == 1) { return CELL_PLAYER1; }
+    assert(pid == players_.size());
+    return CELL_EMPTY;
   }
-  size_t PlayerIdFromCellValue(float v) const {
+  size_t CellValueToPlayerId(float v) const {
     if (v == CELL_PLAYER0) { return 0; }
     if (v == CELL_PLAYER1) { return 1; }
-    THROW("cannot convert cell value " + std::to_string(v) + " to player ID");
+    assert(v == CELL_EMPTY);
+    return players_.size();
   }
-  const Player& PlayerFromCellValue(float v) const {
-    if (v == CELL_PLAYER0) { return *players_[0]; }
-    if (v == CELL_PLAYER1) { return *players_[1]; }
-    if (v == CELL_EMPTY) { return Player::DEAD; }
-    THROW("cannot convert cell value " + std::to_string(v) + " to player");
+
+  // Convert player to/from the corresponding cell value. A nullptr
+  // player represents an empty cell (i.e. no player).
+  float PlayerToCellValue(Player* player) const {
+    if (player == players_[0]) { return CELL_PLAYER0; }
+    if (player == players_[1]) { return CELL_PLAYER1; }
+    assert(player == nullptr);
+    return CELL_EMPTY;
+  }
+  Player* CellValueToPlayer(float v) const {
+    if (v == CELL_PLAYER0) { return players_[0]; }
+    if (v == CELL_PLAYER1) { return players_[1]; }
+    assert(v == CELL_EMPTY);
+    return nullptr;
   }
 
   // Settings shared across all Board instances.
   const Settings& settings_;
+
+  // Players shared across all Board instances.
+  const Stepper& stepper_;
 
   // Players shared across all Board instances.
   const std::vector<cifre::celcath::Player*>& players_;

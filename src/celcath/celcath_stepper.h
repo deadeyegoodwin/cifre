@@ -4,13 +4,13 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "celcath_board.h"
 #include "celcath_player.h"
+#include "cifre_board2d.h"
 #include "common_logger.h"
 
 namespace cifre { namespace celcath {
 
-class Stepper;
+class Board;
 
 //
 // Stepper
@@ -25,7 +25,7 @@ public:
   virtual const std::string& Name() const = 0;
 
   // Step 'board' one generation.
-  virtual void Step(const Board& board, const std::vector<Player*>& players) = 0;
+  virtual void Step(Board* board, const std::vector<Player*>& players) const = 0;
 
 protected:
   common::Logger* logger_;
@@ -44,12 +44,13 @@ public:
   B3S23Stepper(common::Logger* logger) : Stepper(logger) { }
 
   virtual const std::string& Name() const override;
-  virtual void Step(const Board& board, const std::vector<Player*>& players) override;
+  virtual void Step(Board* board, const std::vector<Player*>& players) const override;
 
 private:
   std::string NeighborValuesToString(
-    const std::vector<const Player*>& players,
-    const std::vector<std::vector<std::vector<int32_t>>>& nv) const;
+    const cifre::BoardSize2D& board_size,
+    const std::vector<Player*>& players,
+    const std::vector<std::vector<int32_t>>& nv) const;
 };
 
 }} // namespace cifre::celcath

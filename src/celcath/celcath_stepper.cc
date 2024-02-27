@@ -1,11 +1,13 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <sstream>
 #include <vector>
 
+#include "celcath_board.h"
 #include "celcath_player.h"
 #include "celcath_stepper.h"
 #include "common_error.h"
@@ -23,62 +25,43 @@ B3S23Stepper::Name() const
 }
 
 void
-B3S23Stepper::Step(const Board& board, const std::vector<Player*>& players)
+B3S23Stepper::Step(Board* board, const std::vector<Player*>& players) const
 {
-#if 0 // FIXME
-  auto board_size = board.Size();
-  auto board_size_with_border = board.SizeWithBorder();
+  const auto board_size = board->Size();
+
+  LOGGER_LOGMED(*logger_, std::string("before ") + Name() + '\n' + board->ToString());
 
   // Collect the sum of neighbor values for each cell, for each player
   // in 'players'. Also add one additional entry to record the sum of
-  // all neighbor values across the players and for neighbors that are
-  // not in 'players' (like the borders).
-  const size_t neighbor_values_sum_idx = players.size();
-  std::vector<std::vector<std::vector<int32_t>>> neighbor_values;
-  for (size_t nidx = 0; nidx < board_size.RowCount(); ++nidx) {
-    std::vector<std::vector<int32_t>> column_players;
-    column_players.resize(board_size.ColumnCount(),
-                          std::vector<int32_t>(players.size() + 1, 0));
-    neighbor_values.emplace_back(std::move(column_players));
+  // all neighbor values across all players.
+  const size_t sum_owner_id = players.size();
+  std::vector<std::vector<int32_t>> neighbor_values;
+  for (size_t nidx = 0; nidx <= players.size(); ++nidx) {
+    neighbor_values.emplace_back(std::vector<int32_t>(board_size.CellCount(), 0));
   }
 
   // Accumulate neighbor values...
-  for (size_t row_idx = 0; row_idx < board_size_with_border.RowCount(); ++row_idx) {
-    for (size_t col_idx = 0; col_idx < board_size_with_border.ColumnCount(); ++col_idx) {
-      Cell* cell = board.CellAtWithBorder(row_idx, col_idx);
-      THROWIF(cell == nullptr, "stepper failed to get cell");
-
-      // If 'cell' is empty or doesn't contribute any neighbor value,
-      // then can skip it.
-      const Player* owner = cell->Owner();
+  for (size_t ridx = 0; ridx < board_size.RowCount(); ++ridx) {
+    for (size_t cidx = 0; cidx < board_size.ColumnCount(); ++cidx) {
+      // If no 'owner' for cell (i.e. empty) or 'owner' doesn't
+      // contribute any neighbor value, then can skip it.
+      const Player* owner = board->PlayerAt(ridx, cidx);
       if ((owner != nullptr) && (owner->NeighborValue() != 0)) {
-        // Get 'owner' index in 'neighbor_values' as we want to
-        // attribute these neighbor counts in that index. If 'owner'
-        // is not in 'players' then it must be something like a border
-        // so we attribute it to 'neighbor_values_sum_idx' only.
-        size_t owner_idx = neighbor_values_sum_idx;
-        for (size_t idx = 0; idx < players.size(); ++idx) {
-          if (players[idx] == owner) {
-            owner_idx = idx;
-            break;
-          }
-        }
+        const size_t owner_id = board->PlayerIdAt(ridx, cidx);
+        assert(players[owner_id] == owner);
 
-        // Add 'owner's neighbor value to neighbor cells. We don't
-        // aggregate neighbor values for the border cells because they
-        // never change due to generation stepping.
+        // Add 'owner's neighbor value to neighbor cells.
         const int32_t nval = owner->NeighborValue();
-        const size_t start_row_idx = (row_idx <= 2) ? 0 : row_idx - 2;
-        const size_t end_row_idx = std::min(row_idx + 1, board_size.RowCount());
-        const size_t start_col_idx = (col_idx <= 2) ? 0 : col_idx - 2;
-        const size_t end_col_idx = std::min(col_idx + 1, board_size.ColumnCount());
-        for (size_t nvrow = start_row_idx; nvrow < end_row_idx; ++nvrow) {
-          for (size_t nvcol = start_col_idx; nvcol < end_col_idx; ++nvcol) {
-            if ((nvrow != (row_idx - 1)) || (nvcol != (col_idx - 1))) {
-              neighbor_values[nvrow][nvcol][owner_idx] += nval;
-              if (owner_idx != neighbor_values_sum_idx) {
-                neighbor_values[nvrow][nvcol][neighbor_values_sum_idx] += nval;
-              }
+        const size_t start_ridx = (ridx == 0) ? 0 : ridx - 1;
+        const size_t end_ridx = std::min(ridx + 2, board_size.RowCount());
+        const size_t start_cidx = (cidx == 0) ? 0 : cidx - 1;
+        const size_t end_cidx = std::min(cidx + 2, board_size.ColumnCount());
+        for (size_t nvrow = start_ridx; nvrow < end_ridx; ++nvrow) {
+          for (size_t nvcol = start_cidx; nvcol < end_cidx; ++nvcol) {
+            if ((nvrow != ridx) || (nvcol != cidx)) {
+              const size_t cell_idx = (nvrow * board_size.ColumnCount()) + nvcol;
+              neighbor_values[owner_id][cell_idx] += nval;
+              neighbor_values[sum_owner_id][cell_idx] += nval;
             }
           }
         }
@@ -86,61 +69,57 @@ B3S23Stepper::Step(const Board& board, const std::vector<Player*>& players)
     }
   }
 
-  LOGGER_LOGMED(*logger_, std::string("neighbor values"));
-  LOGGER_LOGMED(*logger_, NeighborValuesToString(players, neighbor_values));
+  LOGGER_LOGMED(*logger_,
+                std::string("neighbor values\n") +
+                NeighborValuesToString(board_size, players, neighbor_values));
 
-  // Update board based on the neighbor value of a cell. Border cells
-  // are never updated.
-  for (size_t nvrow = 0; nvrow < board_size.RowCount(); ++nvrow) {
-    for (size_t nvcol = 0; nvcol < board_size.ColumnCount(); ++nvcol) {
-      const int32_t nv = neighbor_values[nvrow][nvcol][neighbor_values_sum_idx];
+  // Update board based on the neighbor value of a cell.
+  for (size_t nvcell = 0; nvcell < board_size.CellCount(); ++nvcell) {
+    const int32_t nv = neighbor_values[sum_owner_id][nvcell];
 
-      // If 3 neighbors, cell lives...
-      if (nv == 3) {
-        // If cell is already alive, then we can either keep it as is,
-        // or we can have it be taken over by the player that has the
-        // majority of neighbors. FIXME ruleset: for now just keep
-        // owner as is when 3 neighbors.
-        Cell* cell = board.CellAt(nvrow, nvcol);
-        THROWIF(cell == nullptr, "stepper failed to get cell");
-        const Player* player = cell->Owner();
-        if (player == nullptr) {
-          // The player that has the majority neighbor count gets the
-          // cell, if no majority then cells stays dead.
-          int32_t max_neighbor_cnt = 0;
-          for (size_t idx = 0; idx < players.size(); ++idx) {
-            const int32_t pnv = neighbor_values[nvrow][nvcol][idx];
-            if (pnv > max_neighbor_cnt) {
-              max_neighbor_cnt = pnv;
-              player = players[idx];
-            }
-            else if (pnv == max_neighbor_cnt) {
-              player = nullptr;
-            }
+    // If 3 neighbors, cell lives...
+    if (nv == 3) {
+      // If cell is already alive, then we can either keep it as is,
+      // or we can have it be taken over by the player that has the
+      // majority of neighbors. FIXME ruleset: for now just keep owner
+      // as is when 3 neighbors.
+      Player* player = board->PlayerAtFlattened(nvcell);
+      if (player == nullptr) {
+        // The player that has the majority neighbor count gets the
+        // cell, if no majority then cells stays dead.
+        int32_t max_neighbor_cnt = 0;
+        for (size_t idx = 0; idx < players.size(); ++idx) {
+          const int32_t pnv = neighbor_values[idx][nvcell];
+          if (pnv > max_neighbor_cnt) {
+            max_neighbor_cnt = pnv;
+            player = players[idx];
           }
-
-          cell->SetOwner(player);
+          else if (pnv == max_neighbor_cnt) {
+            player = nullptr;
+          }
         }
-      }
-      // If 2 neighbors, cell stays as it is; otherwise cell is dead.
-      else if (nv != 2) {
-        Cell* cell = board.CellAt(nvrow, nvcol);
-        THROWIF(cell == nullptr, "stepper failed to get cell");
-        cell->SetOwner(nullptr);
+
+        board->SetPlayerAtFlattened(player, nvcell);
       }
     }
+    // If 2 neighbors, cell stays as it is; otherwise cell is dead.
+    else if (nv != 2) {
+      board->SetPlayerAtFlattened(nullptr, nvcell);
+    }
   }
-#endif
+
+  LOGGER_LOGMED(*logger_, std::string("after ") + Name() + '\n' + board->ToString());
 }
 
 std::string
 B3S23Stepper::NeighborValuesToString(
-  const std::vector<const Player*>& players,
-  const std::vector<std::vector<std::vector<int32_t>>>& nv) const
+  const cifre::BoardSize2D& board_size,
+  const std::vector<Player*>& players,
+  const std::vector<std::vector<int32_t>>& nv) const
 {
   std::stringstream sstr;
 
-  for (size_t idx = 0; idx < (players.size() + 1); ++idx) {
+  for (size_t idx = 0; idx <= players.size(); ++idx) {
     if (idx > 0) {
       sstr << '\n';
     }
@@ -152,17 +131,14 @@ B3S23Stepper::NeighborValuesToString(
       sstr << players[idx]->Name() << ":\n";
     }
 
-    size_t row_idx = 0;
-    for (const auto& r : nv) {
-      if (row_idx > 0) {
+    for (size_t ridx = 0; ridx < board_size.RowCount(); ++ridx) {
+      if (ridx != 0) {
         sstr << '\n';
       }
 
-      for (const auto& c : r) {
-        sstr << ' ' << c[idx];
+      for (size_t cidx = 0; cidx < board_size.ColumnCount(); ++cidx) {
+        sstr << ' ' << nv[idx][(ridx * board_size.ColumnCount()) + cidx];
       }
-
-      row_idx++;
     }
   }
 

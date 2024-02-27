@@ -193,15 +193,14 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
 namespace cifre { namespace celcath {
 
 void
-Play(const Settings& settings, const std::vector<Player*>& players,
-     std::unique_ptr<Stepper> stepper, Board* board)
+Play(const Settings& settings, Board* board)
 {
   // Show the initial board.
   std::cout << board->ToString() << '\n';
 
   bool game_over = false;
   while (!game_over) {
-    Player* player = players[board->ActivePlayerId()];
+    Player* player = board->ActivePlayer();
     Action action = player->NextAction(*board);
     switch (action.Kind()) {
     case Action::ActionKind::INVALID:
@@ -332,14 +331,14 @@ main(int argc, char **argv)
     players.push_back(&player1);
     players.push_back(&player2);
 
-    // Create the starting board.
-    cifre::celcath::Board board(settings, players);
-
     // Create the stepper that evolves board across generations.
     auto stepper = std::make_unique<cifre::celcath::B3S23Stepper>(logger.get());
 
+    // Create the starting board.
+    cifre::celcath::Board board(settings, *stepper, players);
+
     // Play the game starting at the initial board.
-    Play(settings, players, std::move(stepper), &board);
+    Play(settings, &board);
 
   } catch (const std::exception& ex) {
     std::cerr << "error: " << ex.what() << std::endl;
