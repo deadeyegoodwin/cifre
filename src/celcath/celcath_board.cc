@@ -86,8 +86,8 @@ Board::StringToAction(const std::string& str) const
   // Parse 2 character strings. Cell specifier must be a column letter
   // ('a' based) followed by a row number (1 based).
   else if (posstr.size() == 2) {
-    int32_t col_idx = posstr[0] - 'a';
-    int32_t row_idx = posstr[1] - '1';
+    int32_t row_idx = posstr[0] - '1';
+    int32_t col_idx = posstr[1] - 'a';
     if ((col_idx >= 0) && ((size_t)col_idx < size_.ColumnCount()) &&
         (row_idx >= 0) && ((size_t)row_idx < size_.RowCount())) {
       return Action(Action::ActionKind::ACTIONID,
@@ -96,6 +96,38 @@ Board::StringToAction(const std::string& str) const
   }
 
   return Action(Action::ActionKind::INVALID);
+}
+
+std::string
+Board::ActionToString(const Action& action, common::Logger::Level filter_level) const
+{
+  if (action.Kind() != Action::ActionKind::ACTIONID) {
+    return action.ToString(filter_level);
+  }
+
+  const uint64_t action_id = action.ActionId();
+
+  if (action_id == settings_.EndTurnActionId()) {
+    return "END-TURN";
+  }
+
+  // Get cell specifier for action. Cell specifier must be a column
+  // letter ('a' based) and a row number (1 based).
+  const size_t row_idx = action_id / size_.ColumnCount();
+  const size_t col_idx = action_id % size_.ColumnCount();
+  const char row_ch = '1' + row_idx;
+  const char col_ch = 'a' + col_idx;
+
+  const float current = CellValueAtFlattened(action_id);
+  const float active_player_cell_value = PlayerIdToCellValue(active_player_id_);
+  if (current == active_player_cell_value) {
+    return std::string("REMOVE [") + row_ch + "," + col_ch + "]";
+  }
+  else if (current == CELL_EMPTY) {
+    return std::string("ADD [") + row_ch + "," + col_ch + "]";
+  }
+
+  THROW("cannot convert action ID to string, " + action.ToString(filter_level));
 }
 
 void

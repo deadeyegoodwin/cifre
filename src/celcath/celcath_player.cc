@@ -54,7 +54,7 @@ HumanPlayer::Usage() const
   sstr << "'q' : quit\n";
   sstr << "'b' : show board\n";
   sstr << "'e' : end turn\n";
-  sstr << "'<c><r>' : toggle cell [r, c]";
+  sstr << "'<r><c>' : toggle cell [r, c]";
   return sstr.str();
 }
 
@@ -139,7 +139,7 @@ RandomPlayer::NextAction(const Board& board) const
   uint64_t action_id =
     *std::next(actions.begin(), rnd_(uint64_t(0), uint64_t(actions.size() - 1)));
   Action action = board.ActionIdToAction(action_id);
-  std::cout << action.ToString() << '\n';
+  std::cout << board.ActionToString(action) << '\n';
 
   return action;
 }

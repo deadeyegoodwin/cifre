@@ -61,6 +61,10 @@ public:
   // Return the Action associated with a string.
   Action StringToAction(const std::string& str) const;
 
+  // Return the string representation of an 'action'.
+  std::string ActionToString(
+    const Action& action, common::Logger::Level filter_level = common::Logger::Level::LOW) const;
+
   // See cifre::State::Status
   const cifre::State::Status& CurrentStatus() const override {
     return status_; }

@@ -36,22 +36,7 @@ public:
   }
 
   // Return string representation of the player.
-  std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const {
-    switch(kind_) {
-    case ActionKind::INVALID:
-      break;
-    case ActionKind::HELP:
-      return "HELP";
-    case ActionKind::QUIT:
-      return "QUIT";
-    case ActionKind::SHOW_BOARD:
-      return "SHOW_BOARD";
-    case ActionKind::ACTIONID:
-      return "ACTIONID(" + std::to_string(action_id_) + ")";
-    }
-
-    return "INVALID";
-  }
+  std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
 
 private:
   ActionKind kind_;
