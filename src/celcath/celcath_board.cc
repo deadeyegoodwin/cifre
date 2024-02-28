@@ -292,6 +292,13 @@ std::string
 Board::ToString(common::Logger::Level filter_level) const
 {
   std::stringstream sstr;
+  const size_t rh_width = 4;
+  const size_t ch_width = (size_.ColumnCount() + 2) * 2;
+  const std::string& player0_name = players_[0]->Name() + " - " + players_[0]->BoardCharacter();
+  const std::string& player1_name = players_[1]->Name() + " - " + players_[1]->BoardCharacter();
+
+  // Player 0 home row is the "top" of the board (row 0).
+  sstr << std::string(rh_width + ((ch_width - player0_name.size()) / 2), ' ') << player0_name << '\n';
 
   // Column letters across the top.
   for (size_t col_idx = 0; col_idx < (size_.ColumnCount() + 1); ++col_idx) {
@@ -302,18 +309,14 @@ Board::ToString(common::Logger::Level filter_level) const
       sstr << char('a' + col_idx - 1) << ' ';
     }
   }
-  sstr << "\n    " << std::string((size_.ColumnCount() + 2) * 2, '-') << '\n';
+  sstr << "\n    " << std::string(ch_width, '-') << '\n';
 
   // Board with each row number on the left.
   for (size_t row_idx = 0; row_idx < (size_.RowCount() + 2); ++row_idx) {
     if (row_idx == 0) {
-      sstr << "   |";
-    }
-    else if (row_idx == (size_.RowCount() + 1)) {
-      sstr << "\n   |";
+      sstr << "   |\n";
     }
     else {
-      sstr << '\n';
       if (row_idx < (size_.RowCount() + 1)) {
         sstr << ' ' << row_idx << ' ';
       }
@@ -331,8 +334,12 @@ Board::ToString(common::Logger::Level filter_level) const
           sstr << ' ' << player->ToString(filter_level);
         }
       }
+      sstr << '\n';
     }
   }
+
+  // Player 1 home row is the "bottom" of the board (row n).
+  sstr << std::string(rh_width + ((ch_width - player1_name.size()) / 2), ' ') << player1_name;
 
   return sstr.str();
 }
