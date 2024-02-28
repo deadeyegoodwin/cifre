@@ -184,8 +184,7 @@ Board::Update(uint64_t action_id)
   bool next_player = false;
   bool run_stepper = false;
 
-  // When turn ends need to run the stepper and then change to next
-  // player.
+  // End turn?
   if (action_id == settings_.EndTurnActionId()) {
     next_player = run_stepper = true;
   }
@@ -210,10 +209,17 @@ Board::Update(uint64_t action_id)
     else if (complete_actions_this_turn_ >= settings_.MinActionsPerTurn()) {
       valid_action_ids_.insert(settings_.EndTurnActionId());
     }
+
+    // Board was changed, so check to see if there is a change in the
+    // status of the board.
+    UpdateStatus();
   }
 
+  // If necessary run the stepper and check to see if there is a
+  // change in the status of the board.
   if (run_stepper) {
     stepper_.Step(this, players_);
+    UpdateStatus();
   }
 
   if (next_player) {
@@ -233,6 +239,47 @@ Board::Update(uint64_t action_id)
 
     if (settings_.MinActionsPerTurn() == 0) {
       valid_action_ids_.insert(settings_.EndTurnActionId());
+    }
+  }
+}
+
+void
+Board::UpdateStatus()
+{
+  // Check winning conditions.
+
+  // FIXME for now must have cell on opponents first row.
+
+  // Row 0 is player zero's home row, check it for player 1.
+  bool player1_winner = false;
+  for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
+    if (PlayerAt(0 /* row_idx */, cidx) == players_[1]) {
+      player1_winner = true;
+      break;
+    }
+  }
+
+  // Row n is player one's home row, check it for player 0.
+  bool player0_winner = false;
+  for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
+    if (PlayerAt(size_.RowCount() - 1 /* row_idx */, cidx) == players_[0]) {
+      player0_winner = true;
+      break;
+    }
+  }
+
+  if (player0_winner || player1_winner) {
+    status_.is_terminal_ = true;
+    if (!player0_winner) {
+      status_.is_draw_ = false;
+      status_.winner_id_ = 1;
+    }
+    else if (!player1_winner) {
+      status_.is_draw_ = false;
+      status_.winner_id_ = 0;
+    }
+    else {
+      status_.is_draw_ = true;
     }
   }
 }

@@ -17,26 +17,41 @@ namespace cifre { namespace celcath {
 class Board;
 
 //
-// BoardStatus
-//
-class BoardStatus : public cifre::State::Status {
-public:
-  BoardStatus(bool is_terminal) : is_terminal_(is_terminal) { }
-
-  // See cifre::State::Status
-  bool IsTerminal() const override { return is_terminal_; }
-
-private:
-  friend class Board;
-  bool is_terminal_;
-};
-
-//
 // Board
 //
 // The celcath playing board and all associated state.
 //
 class Board : public cifre::Board2D<float> {
+public:
+  //
+  // Status
+  //
+  class Status : public cifre::State::Status {
+  public:
+    Status(bool is_terminal = false) :
+      is_terminal_(is_terminal), is_draw_(true) { }
+
+    // See cifre::State::Status
+    bool IsTerminal() const override { return is_terminal_; }
+
+    // If the game a draw? Valid only if IsTerminal == true.
+    bool IsDraw() const {
+      assert(is_terminal_);
+      return is_draw_; }
+
+    // Return the ID of the winning player. Valid only is IsTerminal ==
+    // true and IsDraw == false.
+    size_t WinnerId() const {
+      assert(is_terminal_ && !is_draw_);
+      return winner_id_; }
+
+  private:
+    friend class Board;
+    bool is_terminal_;
+    bool is_draw_;
+    size_t winner_id_;
+  };
+
 public:
   // Create a board based on 'settings'.
   Board(const Settings& settings, const Stepper& stepper,
@@ -44,6 +59,9 @@ public:
 
   // Copy constructor.
   Board(const Board& other) = default;
+
+  // Return the status of the board.
+  const Board::Status& BoardStatus() const { return status_; }
 
   // Return the ID of the active player.
   size_t ActivePlayerId() const { return active_player_id_; }
@@ -98,7 +116,7 @@ public:
   void SetPlayerAtFlattened(Player* player, size_t flat_idx);
 
   // See cifre::State::Status
-  const cifre::State::Status& CurrentStatus() const override {
+  const cifre::State::Status& StateStatus() const override {
     return status_; }
 
   // See cifre::State
@@ -151,6 +169,9 @@ private:
     return nullptr;
   }
 
+  // Update the status of the board.
+  void UpdateStatus();
+
   // Settings shared across all Board instances.
   const Settings& settings_;
 
@@ -161,7 +182,7 @@ private:
   const std::vector<cifre::celcath::Player*>& players_;
 
   // Current status of this state.
-  BoardStatus status_;
+  Board::Status status_;
 
   // ID of the currently active player.
   size_t active_player_id_;

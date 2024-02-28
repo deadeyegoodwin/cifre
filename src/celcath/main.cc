@@ -193,13 +193,14 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
 namespace cifre { namespace celcath {
 
 void
-Play(const Settings& settings, Board* board)
+Play(const Settings& settings, const std::vector<cifre::celcath::Player*>& players, Board* board)
 {
   // Show the initial board.
   std::cout << board->ToString() << '\n';
 
-  bool game_over = false;
-  while (!game_over) {
+  bool game_quit = false;
+  const Board::Status& game_status = board->BoardStatus();
+  while (!game_quit && !game_status.IsTerminal()) {
     Player* player = board->ActivePlayer();
     Action action = player->NextAction(*board);
     switch (action.Kind()) {
@@ -210,18 +211,25 @@ Play(const Settings& settings, Board* board)
       break;
 
     case Action::ActionKind::QUIT:
-      game_over = true;
+      game_quit = true;
       break;
 
     case Action::ActionKind::ACTIONID:
       board->Update(action.ActionId());
-      game_over = board->CurrentStatus().IsTerminal();
       break;
     }
   }
 
   // Final board...
-  std::cout << "final:\n";
+  if (game_quit) {
+    std::cout << "game quit: no winner\n";
+  }
+  else if (game_status.IsDraw()) {
+    std::cout << "game over: draw\n";
+  }
+  else {
+    std::cout << "game over: winner " << players[game_status.WinnerId()]->Name() << '\n';
+  }
   std::cout << board->ToString() << '\n';
 }
 
@@ -338,7 +346,7 @@ main(int argc, char **argv)
     cifre::celcath::Board board(settings, *stepper, players);
 
     // Play the game starting at the initial board.
-    Play(settings, &board);
+    Play(settings, players, &board);
 
   } catch (const std::exception& ex) {
     std::cerr << "error: " << ex.what() << std::endl;

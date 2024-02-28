@@ -36,7 +36,7 @@ public:
   virtual size_t TotalActionIdCount() const = 0;
 
   // Get the status of the state.
-  virtual const State::Status& CurrentStatus() const = 0;
+  virtual const State::Status& StateStatus() const = 0;
 
   // Get the action identifiers that are valid for this state.
   virtual const std::unordered_set<uint64_t>& ValidActionIds() const = 0;
