@@ -238,8 +238,11 @@ Board::UpdateValidActions()
 
   const float active_player_cell_value = PlayerIdToCellValue(active_player_id_);
 
-  // FIXME for now can play on any cell except home rows.
-  for (size_t ridx = 1; ridx < (size_.RowCount() - 1); ++ridx) {
+  // FIXME for now can play on any cell except own home row and
+  // opponents 2 home rows.
+  const size_t rstart = (active_player_id_ == 0) ? 1 : 2;
+  const size_t rend = size_.RowCount() - ((active_player_id_ == 0) ? 2 : 1);
+  for (size_t ridx = rstart; ridx < rend; ++ridx) {
     for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
       const float current = CellValueAt(ridx, cidx);
       if ((current == active_player_cell_value) || (current == CELL_EMPTY)) {
