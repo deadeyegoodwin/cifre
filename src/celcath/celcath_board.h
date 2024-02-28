@@ -169,8 +169,9 @@ private:
     return nullptr;
   }
 
-  // Update the status of the board.
+  // Update the status and valid actions for the current board.
   void UpdateStatus();
+  void UpdateValidActions();
 
   // Settings shared across all Board instances.
   const Settings& settings_;

@@ -25,18 +25,7 @@ Board::Board(const Settings& settings, const Stepper& stepper,
   complete_actions_this_turn_(0)
 {
   THROWIF(players_.size() != 2, "exactly 2 players are required");
-
-  // Initially board is empty so all cells are valid to toggle.
-  for (size_t cidx = 0; cidx < size_.CellCount(); ++cidx) {
-    cells_[cidx] = CELL_EMPTY;
-    valid_action_ids_.insert(cidx);
-  }
-
-  // End-turn action is only valid initially if 0 actions are allowed
-  // in a turn.
-  if (settings_.MinActionsPerTurn() == 0) {
-    valid_action_ids_.insert(settings_.EndTurnActionId());
-  }
+  UpdateValidActions();
 }
 
 bool
@@ -202,10 +191,15 @@ Board::Update(uint64_t action_id)
       THROW("unexpected cell value " + std::to_string(current));
     }
 
+    // Show that an action has been completed for this turn, if max
+    // number of allowed actions has been completed then the active
+    // player's turn is over.
     complete_actions_this_turn_ += 1;
     if (complete_actions_this_turn_ >= settings_.MaxActionsPerTurn()) {
       next_player = run_stepper = true;
     }
+    // Active player's turn is not complete, so only need to update
+    // validity of the end-turn action.
     else if (complete_actions_this_turn_ >= settings_.MinActionsPerTurn()) {
       valid_action_ids_.insert(settings_.EndTurnActionId());
     }
@@ -226,20 +220,30 @@ Board::Update(uint64_t action_id)
     active_player_id_ = (active_player_id_ + 1) % players_.size();
     complete_actions_this_turn_ = 0;
 
-    // Set the valid actions for the now-active player.
-    valid_action_ids_.clear();
+    // Update the valid actions for the now-active player.
+    UpdateValidActions();
+  }
+}
 
-    const float active_player_cell_value = PlayerIdToCellValue(active_player_id_);
-    for (size_t cidx = 0; cidx < size_.CellCount(); ++cidx) {
-      const float current = CellValueAtFlattened(cidx);
+void
+Board::UpdateValidActions()
+{
+  valid_action_ids_.clear();
+
+  const float active_player_cell_value = PlayerIdToCellValue(active_player_id_);
+
+  // FIXME for now can play on any cell except home rows.
+  for (size_t ridx = 1; ridx < (size_.RowCount() - 1); ++ridx) {
+    for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
+      const float current = CellValueAt(ridx, cidx);
       if ((current == active_player_cell_value) || (current == CELL_EMPTY)) {
-        valid_action_ids_.insert(cidx);
+        valid_action_ids_.insert((ridx * size_.ColumnCount()) + cidx);
       }
     }
+  }
 
-    if (settings_.MinActionsPerTurn() == 0) {
-      valid_action_ids_.insert(settings_.EndTurnActionId());
-    }
+  if (complete_actions_this_turn_ >= settings_.MinActionsPerTurn()) {
+    valid_action_ids_.insert(settings_.EndTurnActionId());
   }
 }
 
