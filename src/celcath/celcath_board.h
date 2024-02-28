@@ -29,10 +29,13 @@ public:
   class Status : public cifre::State::Status {
   public:
     Status(bool is_terminal = false) :
-      is_terminal_(is_terminal), is_draw_(true) { }
+      turn_count_(0), is_terminal_(is_terminal), is_draw_(true) { }
 
     // See cifre::State::Status
     bool IsTerminal() const override { return is_terminal_; }
+
+    // Return the zero-based turn number.
+    size_t TurnCount() const { return turn_count_; }
 
     // If the game a draw? Valid only if IsTerminal == true.
     bool IsDraw() const {
@@ -47,6 +50,7 @@ public:
 
   private:
     friend class Board;
+    size_t turn_count_;
     bool is_terminal_;
     bool is_draw_;
     size_t winner_id_;

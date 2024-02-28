@@ -220,6 +220,12 @@ Board::Update(uint64_t action_id)
     active_player_id_ = (active_player_id_ + 1) % players_.size();
     complete_actions_this_turn_ = 0;
 
+    // If the new active player is the starting player, then this is
+    // the start of a new turn.
+    if (active_player_id_ == settings_.StartingPlayerId()) {
+      status_.turn_count_ += 1;
+    }
+
     // Update the valid actions for the now-active player.
     UpdateValidActions();
   }

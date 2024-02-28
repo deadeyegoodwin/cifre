@@ -250,13 +250,15 @@ Play(const Settings& settings, const std::vector<cifre::celcath::Player*>& playe
 
   // Final board...
   if (game_quit) {
-    std::cout << "game quit: no winner\n";
+    std::cout << "game quit on turn " + std::to_string(game_status.TurnCount()) + ": no winner\n";
   }
   else if (game_status.IsDraw()) {
-    std::cout << "game over: draw\n";
+    std::cout << "game over on turn " + std::to_string(game_status.TurnCount()) + ": draw\n";
   }
   else {
-    std::cout << "game over: winner " << players[game_status.WinnerId()]->Name() << '\n';
+    std::cout
+      << "game over on turn " + std::to_string(game_status.TurnCount()) + ": winner "
+      << players[game_status.WinnerId()]->Name() << '\n';
   }
   std::cout << board->ToString() << '\n';
 }
