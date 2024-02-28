@@ -20,6 +20,7 @@ class Board;
 class Stepper {
 public:
   Stepper(common::Logger* logger) : logger_(logger) { }
+  virtual ~Stepper() = default;
 
   // Return the name of the stepper.
   virtual const std::string& Name() const = 0;
@@ -43,8 +44,8 @@ class B3S23Stepper : public Stepper {
 public:
   B3S23Stepper(common::Logger* logger) : Stepper(logger) { }
 
-  virtual const std::string& Name() const override;
-  virtual void Step(Board* board, const std::vector<Player*>& players) const override;
+  const std::string& Name() const override;
+  void Step(Board* board, const std::vector<Player*>& players) const override;
 
 private:
   std::string NeighborValuesToString(

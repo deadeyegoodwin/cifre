@@ -34,6 +34,7 @@ public:
   // indicates the value to use for neighbor cells occupied by this
   // player.
   Player(const std::string& name, char board_char, int32_t neighbor_value);
+  virtual ~Player() = default;
 
   // Return the player's name.
   const std::string& Name() const { return name_; }

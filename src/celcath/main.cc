@@ -71,7 +71,9 @@ struct Option {
     OPTION_MODEL_NAME,
     OPTION_BOARD_SIZE,
     OPTION_MIN_ACTIONS_PER_TURN,
-    OPTION_MAX_ACTIONS_PER_TURN
+    OPTION_MAX_ACTIONS_PER_TURN,
+    OPTION_PLAYER1,
+    OPTION_PLAYER2
   };
 
   Option(OptionId id, std::string flag, std::string arg_desc, std::string desc)
@@ -122,7 +124,12 @@ const std::vector<Option> options_ {
    "Default is " + std::to_string(DEFAULT_MIN_ACTIONS_PER_TURN) + "'."},
   {Option::OPTION_MAX_ACTIONS_PER_TURN, "max-actions-per-turn", Option::ArgInt,
    "Maximum number of actions each player may make before ending a turn. "
-   "Default is " + std::to_string(DEFAULT_MAX_ACTIONS_PER_TURN) + "'."}};
+   "Default is " + std::to_string(DEFAULT_MAX_ACTIONS_PER_TURN) + "'."},
+
+  {Option::OPTION_PLAYER1, "player1", Option::ArgStr,
+   "Type of the first player: 'human', 'random', 'alphazero'. Default is 'human'."},
+  {Option::OPTION_PLAYER2, "player2", Option::ArgStr,
+   "Type of the first player: 'human', 'random', 'alphazero'. Default is 'human'."}};
 
 size_t
 ParseUnsigned(const std::string& str)
@@ -188,6 +195,27 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
   return new common::StreamLogger(level, timestamp_kind, filename, false /* buffered */);
 }
 
+cifre::celcath::Player*
+CreatePlayer(const std::string& player_kind, size_t n)
+{
+  const char bc = (n == 1) ? 'o' : 'x';
+
+  if (player_kind == "human") {
+    return new cifre::celcath::HumanPlayer("Human" + std::to_string(n), bc, 1.0);
+  }
+  if (player_kind == "random") {
+    return new cifre::celcath::RandomPlayer("Random" + std::to_string(n), bc, 1.0);
+  }
+//  if (player_kind == "alphazero") {
+//    return new cifre::celcath::AlphaZeroPlayer(
+//      "AlphaZero" + std::to_string(n), bc, 1.0,
+//      std::make_unique<cifre::AlphaZero>(logger.get(), model_name));
+//  }
+
+  Fail("unknown player kind '" + player_kind + "'");
+}
+
+
 }  // namespace
 
 namespace cifre { namespace celcath {
@@ -246,6 +274,8 @@ main(int argc, char **argv)
     cifre::BoardSize2D board_size = DEFAULT_BOARD_SIZE;
     size_t min_actions_per_turn = DEFAULT_MIN_ACTIONS_PER_TURN;
     size_t max_actions_per_turn = DEFAULT_MAX_ACTIONS_PER_TURN;
+    std::string player1_kind = "human";
+    std::string player2_kind = "human";
 
     std::vector<struct option> long_options;
     for (const auto& o : options_) {
@@ -293,6 +323,13 @@ main(int argc, char **argv)
       case Option::OPTION_MAX_ACTIONS_PER_TURN:
         max_actions_per_turn = ParseUnsigned(optarg);
         break;
+
+      case Option::OPTION_PLAYER1:
+        player1_kind = optarg;
+        break;
+      case Option::OPTION_PLAYER2:
+        player2_kind = optarg;
+        break;
       }
     }
 
@@ -328,16 +365,11 @@ main(int argc, char **argv)
     settings.Sync();
     LOGGER_LOGMED(*logger, settings.ToString() + '\n');
 
-    // Create 2 players...
-    cifre::celcath::HumanPlayer player1("Human1", 'o', 1.0);
-    cifre::celcath::RandomPlayer player2("Random", 'x', 1.0);
-//    cifre::celcath::Player player2(
-//      "HAL", 'x', 1.0,
-//      std::make_unique<cifre::AlphaZero>(logger.get(), model_name));
-
-    std::vector<cifre::celcath::Player*> players;
-    players.push_back(&player1);
-    players.push_back(&player2);
+    // Create players. The players are collected in a vector and each
+    // player's position in the vector is the players ID.
+    std::unique_ptr<cifre::celcath::Player> player1(CreatePlayer(player1_kind, 1));
+    std::unique_ptr<cifre::celcath::Player> player2(CreatePlayer(player2_kind, 2));
+    std::vector<cifre::celcath::Player*> players { player1.get(), player2.get() };
 
     // Create the stepper that evolves board across generations.
     auto stepper = std::make_unique<cifre::celcath::B3S23Stepper>(logger.get());

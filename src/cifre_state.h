@@ -24,6 +24,9 @@ public:
   //
   class Status {
   public:
+    // Destructor
+    virtual ~Status() = default;
+
     // Is state a terminal state, that is, does it represent a game
     // ending state.
     virtual bool IsTerminal() const = 0;

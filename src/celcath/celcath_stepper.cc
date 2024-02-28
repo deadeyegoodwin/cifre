@@ -29,7 +29,7 @@ B3S23Stepper::Step(Board* board, const std::vector<Player*>& players) const
 {
   const auto board_size = board->Size();
 
-  LOGGER_LOGLOW(*logger_, std::string("before ") + Name() + '\n' + board->ToString());
+  std::cout << std::string("before ") + Name() + '\n' + board->ToString() << '\n';
 
   // Collect the sum of neighbor values for each cell, for each player
   // in 'players'. Also add one additional entry to record the sum of
@@ -108,7 +108,7 @@ B3S23Stepper::Step(Board* board, const std::vector<Player*>& players) const
     }
   }
 
-  LOGGER_LOGLOW(*logger_, std::string("after ") + Name() + '\n' + board->ToString());
+  std::cout << std::string("after ") + Name() + '\n' + board->ToString() << '\n';
 }
 
 std::string
