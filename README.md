@@ -27,3 +27,29 @@ board.
 cd python
 ./cifre_train.py --repodir=${CIFRE_REPODIR} --game=celcath --game-shape=8,8
 ```
+
+## Build
+
+There is a build issue in one of the dependent cmake builds that
+requires a clean build. To perform a clean build do the following:
+
+```base
+rm -fr build
+cd build
+cmake ..
+make -j
+```
+
+Then disable the problematic part of the build:
+
+```base
+cmake -DBUILD_TRITON_CLIENT=OFF ..
+```
+
+Then you can perform incremental builds and/or re-run cmake to change
+build options, and perform as many builds as required. For example:
+
+```base
+cmake -DASAN=ON -DCMAKE_BUILD_TYPE=Debug ..
+make -j install
+```

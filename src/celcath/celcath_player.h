@@ -88,8 +88,9 @@ public:
   // character representing them on the board. 'neighbor_value'
   // indicates the value to use for neighbor cells occupied by this
   // player.
-  AlphaZeroPlayer(const std::string& name, char board_char, int32_t neighbor_value,
-         std::unique_ptr<cifre::AlphaZero> alpha_zero);
+  AlphaZeroPlayer(
+    const std::string& name, char board_char, int32_t neighbor_value,
+    std::unique_ptr<cifre::AlphaZero> alpha_zero);
 
   // See Player::NextAction().
   Action NextAction(const Board& board) const override;

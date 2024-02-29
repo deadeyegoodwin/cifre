@@ -45,6 +45,9 @@ FetchContent_MakeAvailable(repo-common)
 #
 # Triton client
 #
+set(TRITON_CLIENT_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/repo-triton-client-build/cc-clients/install)
+set(TRITON_CLIENT_SRC_DIR ${CMAKE_BINARY_DIR}/_deps/repo-triton-client-src/src/c++/library)
+
 if(BUILD_TRITON_CLIENT)
   set(TRITON_ENABLE_CC_HTTP ON)
   set(TRITON_COMMON_REPO_TAG ${TRITON_REPO_TAG})
@@ -65,7 +68,6 @@ if(BUILD_TRITON_CLIENT)
   )
   FetchContent_MakeAvailable(repo-triton-client)
 
-  set(TRITON_CLIENT_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/repo-triton-client-build/cc-clients/install)
   set(TRITON_CURL_LIBDIR ${CMAKE_BINARY_DIR}/_deps/repo-triton-client-build/third-party/curl/lib)
 
   add_custom_target(
@@ -74,6 +76,7 @@ if(BUILD_TRITON_CLIENT)
     COMMAND cp -r ${TRITON_CURL_LIBDIR}/libcurl.a ${CIFRE_INSTALL_PREFIX}/lib/.
     COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/common.h ${CIFRE_INSTALL_PREFIX}/include/.
     COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/ipc.h ${CIFRE_INSTALL_PREFIX}/include/.
+    COMMAND cp -r ${TRITON_CLIENT_SRC_DIR}/json_utils.h ${CIFRE_INSTALL_PREFIX}/include/.
     COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/http_client.h ${CIFRE_INSTALL_PREFIX}/include/.
     COMMENT "Installing Triton client artifacts into ${CIFRE_INSTALL_PREFIX}"
   )
@@ -95,11 +98,34 @@ set_target_properties(
     INTERFACE_INCLUDE_DIRECTORIES ${CIFRE_INSTALL_PREFIX}/include
 )
 
+add_library(
+  triton-client-json-utils-library STATIC
+  ${TRITON_CLIENT_SRC_DIR}/json_utils.cc
+)
+target_compile_features(triton-client-json-utils-library PRIVATE cxx_std_17)
+target_compile_options(
+  triton-client-json-utils-library
+  PRIVATE
+    -Wall -Wextra -Werror -Wno-unused-parameter
+    ${CIFRE_ASAN_FLAGS}
+)
+target_include_directories(
+  triton-client-json-utils-library
+  PUBLIC
+    ${CIFRE_INSTALL_PREFIX}/include
+)
+set_target_properties(
+  triton-client-json-utils-library
+  PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+)
+
 add_library(triton-client-library INTERFACE)
 target_link_libraries(
   triton-client-library
   INTERFACE
     triton-client-http-library
+    triton-client-json-utils-library
     triton-client-curl-library
     ssl
     crypto

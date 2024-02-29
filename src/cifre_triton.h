@@ -6,6 +6,7 @@
 
 #include "common_logger.h"
 #include "http_client.h"
+#include "json_utils.h"
 
 namespace cifre {
 
@@ -27,12 +28,30 @@ public:
   // Load 'model' onto triton. Return true if model load is successful.
   bool LoadModel(const std::string& model);
 
+  // Run 'model'.
+  void RunModel(const std::string& model);
+
 private:
+  struct ModelMetadata {
+    std::string input_name_;
+    std::string output_pi_name_;
+    std::string output_v_name_;
+    std::vector<size_t> input_shape_;
+    std::vector<size_t> output_pi_shape_;
+  };
+
+  triton::client::Error UpdateModelMetadata(const std::string& model);
+  triton::client::Error UpdateInputMetadata(
+    ModelMetadata* metadata, const rapidjson::Document& model_metadata);
+  triton::client::Error UpdateOutputMetadata(
+    ModelMetadata* metadata, const rapidjson::Document& model_metadata, size_t oidx);
+
   void CheckTritonError(const triton::client::Error& err, const std::string& msg);
   void LogTritonError(const triton::client::Error& err, const std::string& msg);
 
   common::Logger* logger_;
   std::unique_ptr<triton::client::InferenceServerHttpClient> client_;
+  std::unordered_map<std::string, Triton::ModelMetadata> model_metadata_;
 };
 
 } // namespace cifre

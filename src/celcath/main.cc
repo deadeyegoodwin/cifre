@@ -196,7 +196,8 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
 }
 
 cifre::celcath::Player*
-CreatePlayer(const std::string& player_kind, size_t n)
+CreatePlayer(common::Logger* logger, const std::string& player_kind, size_t n,
+             const std::string& model_name)
 {
   const char bc = (n == 1) ? 'o' : 'x';
 
@@ -206,11 +207,11 @@ CreatePlayer(const std::string& player_kind, size_t n)
   if (player_kind == "random") {
     return new cifre::celcath::RandomPlayer("Random" + std::to_string(n), bc, 1.0);
   }
-//  if (player_kind == "alphazero") {
-//    return new cifre::celcath::AlphaZeroPlayer(
-//      "AlphaZero" + std::to_string(n), bc, 1.0,
-//      std::make_unique<cifre::AlphaZero>(logger.get(), model_name));
-//  }
+  if (player_kind == "alphazero") {
+    return new cifre::celcath::AlphaZeroPlayer(
+      "AlphaZero" + std::to_string(n), bc, 1.0,
+      std::make_unique<cifre::AlphaZero>(logger, model_name));
+  }
 
   Fail("unknown player kind '" + player_kind + "'");
 }
@@ -369,8 +370,8 @@ main(int argc, char **argv)
 
     // Create players. The players are collected in a vector and each
     // player's position in the vector is the players ID.
-    std::unique_ptr<cifre::celcath::Player> player1(CreatePlayer(player1_kind, 1));
-    std::unique_ptr<cifre::celcath::Player> player2(CreatePlayer(player2_kind, 2));
+    std::unique_ptr<cifre::celcath::Player> player1(CreatePlayer(logger.get(), player1_kind, 1, model_name));
+    std::unique_ptr<cifre::celcath::Player> player2(CreatePlayer(logger.get(), player2_kind, 2, model_name));
     std::vector<cifre::celcath::Player*> players { player1.get(), player2.get() };
 
     // Create the stepper that evolves board across generations.
