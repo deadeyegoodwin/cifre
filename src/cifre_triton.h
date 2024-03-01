@@ -18,6 +18,7 @@ namespace cifre {
 class Triton {
 public:
   Triton(common::Logger* logger);
+  ~Triton();
 
   // Return true if triton is ready to receive inference requests.
   bool IsReady();
@@ -27,6 +28,9 @@ public:
 
   // Load 'model' onto triton. Return true if model load is successful.
   bool LoadModel(const std::string& model);
+
+  // Unload 'model' from triton. Return true if model unload is successful.
+  bool UnloadModel(const std::string& model);
 
   // Run 'model'.
   void RunModel(const std::string& model);

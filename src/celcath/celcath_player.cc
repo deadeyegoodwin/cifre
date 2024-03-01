@@ -113,7 +113,7 @@ Action
 AlphaZeroPlayer::NextAction(const Board& board) const
 {
   // FIXME alpha-zero
-  return Action(Action::ActionKind::INVALID);
+  return Action(Action::ActionKind::QUIT);
 }
 
 //

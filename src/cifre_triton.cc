@@ -17,6 +17,20 @@ Triton::Triton(common::Logger* logger) :
     "unable to create http client");
 }
 
+Triton::~Triton()
+{
+  // Attempt to unload all loaded models. Unloading model will modify
+  // 'model_metadata_' so need to do this in a safe way.
+  std::vector<std::string> mnames;
+  for (const auto& kv : model_metadata_) {
+    mnames.push_back(kv.first);
+  }
+
+  for (const auto& n : mnames) {
+    UnloadModel(n);
+  }
+}
+
 bool
 Triton::IsReady()
 {
@@ -60,6 +74,21 @@ Triton::LoadModel(const std::string& model)
 
   return true;
 }
+
+bool
+Triton::UnloadModel(const std::string& model)
+{
+  auto err = client_->UnloadModel(model);
+  if (!err.IsOk()) {
+    LogTritonError(err, "unable to unload model");
+    return false;
+  }
+
+  model_metadata_.erase(model);
+
+  return true;
+}
+
 
 void
 Triton::RunModel(const std::string& model)
