@@ -61,8 +61,8 @@ HumanPlayer::Usage() const
 Action
 HumanPlayer::NextAction(const Board& board) const
 {
-  const auto& actions = board.ValidActionIds();
-  THROWIF(actions.empty(), "player '" + name_ + "' has no valid action to choose from");
+  const auto& actionIds = board.ValidActionIds();
+  THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
 
   while (true) {
     std::cout
@@ -112,8 +112,25 @@ AlphaZeroPlayer::AlphaZeroPlayer(
 Action
 AlphaZeroPlayer::NextAction(const Board& board) const
 {
-  // FIXME alpha-zero
-  return Action(Action::ActionKind::QUIT);
+  std::cout
+    << Name() << " [" << (board.CompletedActionsThisTurn() + 1)
+    << " of " << board.MaxActionsThisTurn() << "]: ";
+
+  const auto& actionIds = board.ValidActionIds();
+  THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
+
+  uint64_t action_id = alpha_zero_->NextActionId(board.TritonRepresentation(), board.ValidActionIds());
+  Action action = board.ActionIdToAction(action_id);
+
+  // FIXME, if action is invalid just choose first one available...
+  if (!board.IsValidAction(action)) {
+    action_id = *actionIds.begin();
+    action = board.ActionIdToAction(action_id);
+  }
+  // FIXME end
+
+  std::cout << board.ActionToString(action) << '\n';
+  return action;
 }
 
 //
@@ -133,11 +150,11 @@ RandomPlayer::NextAction(const Board& board) const
 
   // Pick a random action from the valid actions. At least one action
   // must be valid.
-  const auto& actions = board.ValidActionIds();
-  THROWIF(actions.empty(), "player '" + name_ + "' has no valid action to choose from");
+  const auto& actionIds = board.ValidActionIds();
+  THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
 
   uint64_t action_id =
-    *std::next(actions.begin(), rnd_(uint64_t(0), uint64_t(actions.size() - 1)));
+    *std::next(actionIds.begin(), rnd_(uint64_t(0), uint64_t(actionIds.size() - 1)));
   Action action = board.ActionIdToAction(action_id);
   std::cout << board.ActionToString(action) << '\n';
 

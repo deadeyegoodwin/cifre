@@ -11,6 +11,49 @@
 namespace cifre {
 
 //
+// TritonModelMetadata
+//
+struct TritonModelMetadata {
+  std::string input_name_;
+  std::string output_pi_name_;
+  std::string output_v_name_;
+
+  // Shapes include the batch dimension (set to 1 as currently only
+  // batch-size-1 requests are made).
+  std::vector<int64_t> input_shape_;
+  std::vector<int64_t> output_pi_shape_;
+  std::vector<int64_t> output_v_shape_;
+
+  size_t required_input_byte_size_;
+  size_t required_output_pi_byte_size_;
+  size_t required_output_v_byte_size_;
+};
+
+//
+// TritonInferResult
+//
+// The output tensors returned by an inference.
+//
+class TritonInferResult {
+public:
+  TritonInferResult(const TritonModelMetadata& metadata, triton::client::InferResult* r);
+  ~TritonInferResult();
+
+  // Return the size of 'pi' values, in bytes.
+  size_t PiByteSize() const { return pi_byte_size_; }
+
+  // Return the 'pi' values.
+  const float* Pi() const { return pi_; }
+
+private:
+  void ValidateResult(const std::string& name, const std::vector<int64_t>& shape) const;
+
+  triton::client::InferResult* result_;
+  size_t pi_byte_size_;
+  float* pi_;
+};
+
+//
 // Triton
 //
 // Interface to Triton inference server.
@@ -33,29 +76,22 @@ public:
   bool UnloadModel(const std::string& model);
 
   // Run 'model'.
-  void RunModel(const std::string& model);
+  TritonInferResult RunModel(
+    const std::string& model, const std::vector<uint8_t>& state_triton_repr) const;
 
 private:
-  struct ModelMetadata {
-    std::string input_name_;
-    std::string output_pi_name_;
-    std::string output_v_name_;
-    std::vector<size_t> input_shape_;
-    std::vector<size_t> output_pi_shape_;
-  };
-
   triton::client::Error UpdateModelMetadata(const std::string& model);
   triton::client::Error UpdateInputMetadata(
-    ModelMetadata* metadata, const rapidjson::Document& model_metadata);
+    TritonModelMetadata* metadata, const rapidjson::Document& model_metadata);
   triton::client::Error UpdateOutputMetadata(
-    ModelMetadata* metadata, const rapidjson::Document& model_metadata, size_t oidx);
+    TritonModelMetadata* metadata, const rapidjson::Document& model_metadata, size_t oidx);
 
-  void CheckTritonError(const triton::client::Error& err, const std::string& msg);
-  void LogTritonError(const triton::client::Error& err, const std::string& msg);
+  void LogTritonError(
+    const triton::client::Error& err, const std::string& msg = std::string()) const;
 
   common::Logger* logger_;
   std::unique_ptr<triton::client::InferenceServerHttpClient> client_;
-  std::unordered_map<std::string, Triton::ModelMetadata> model_metadata_;
+  std::unordered_map<std::string, TritonModelMetadata> model_metadata_;
 };
 
 } // namespace cifre

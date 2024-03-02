@@ -7,6 +7,61 @@
 
 namespace cifre {
 
+namespace {
+
+void
+CheckTritonError(const triton::client::Error& err, const std::string& msg)
+{
+  if (!err.IsOk()) {
+    std::stringstream sstr;
+    sstr << "triton error: ";
+    if (!msg.empty()) {
+      sstr << msg << " - ";
+    }
+    sstr << err.Message();
+    THROW(sstr.str());
+  }
+}
+
+} // namespace
+
+//
+// TritonInferResult
+//
+TritonInferResult::TritonInferResult(
+  const TritonModelMetadata& metadata, triton::client::InferResult* r) :
+  result_(r), pi_byte_size_(0), pi_(nullptr)
+{
+  ValidateResult(metadata.output_v_name_, metadata.output_v_shape_);
+  ValidateResult(metadata.output_pi_name_, metadata.output_pi_shape_);
+
+  CheckTritonError(result_->RawData(metadata.output_pi_name_, (const uint8_t**)&pi_, &pi_byte_size_),
+                   "getting result data for '" + metadata.output_pi_name_ + "'");
+  THROWIF(pi_byte_size_ != metadata.required_output_pi_byte_size_,
+          "size mismatch for result '" + metadata.output_pi_name_ + "'");
+
+}
+
+void
+TritonInferResult::ValidateResult(const std::string& name, const std::vector<int64_t>& shape) const
+{
+  std::string rdatatype;
+  CheckTritonError(result_->Datatype(name, &rdatatype), "validating result datatype for '" + name + "'");
+  THROWIF(rdatatype != "FP32", "datatype mismatch for result '" + name + "'");
+
+  std::vector<int64_t> rshape;
+  CheckTritonError(result_->Shape(name, &rshape), "validating result shape for '" + name + "'");
+  THROWIF(shape != rshape, "shape mismatch for result '" + name + "'");
+}
+
+TritonInferResult::~TritonInferResult()
+{
+  delete result_;
+}
+
+//
+// Triton
+//
 Triton::Triton(common::Logger* logger) :
   logger_(logger)
 {
@@ -68,7 +123,7 @@ Triton::LoadModel(const std::string& model)
 
   err = UpdateModelMetadata(model);
   if (!err.IsOk()) {
-    LogTritonError(err, "unable to access model metadata");
+    LogTritonError(err, "model metadata");
     return false;
   }
 
@@ -90,27 +145,42 @@ Triton::UnloadModel(const std::string& model)
 }
 
 
-void
-Triton::RunModel(const std::string& model)
+TritonInferResult
+Triton::RunModel(
+  const std::string& model, const std::vector<uint8_t>& state_triton_repr) const
 {
-  triton::client::InferOptions options(model);
+  auto metadata_itr = model_metadata_.find(model);
+  THROWIF(metadata_itr == model_metadata_.end(),
+          "no metadata found for model '" + model + "'");
 
-  std::vector<int64_t> shape{1, 64};
+  const TritonModelMetadata& metadata = metadata_itr->second;
 
+  THROWIF(state_triton_repr.size() != metadata.required_input_byte_size_,
+          "unexpected input size " + std::to_string(state_triton_repr.size()) +
+          ", expected " + std::to_string(metadata.required_input_byte_size_));
+
+  // Input...
   triton::client::InferInput* input;
   CheckTritonError(
-    triton::client::InferInput::Create(&input, "INPUT0", shape, "FP32"),
-    "failed to create triton input");
+    triton::client::InferInput::Create(&input, metadata.input_name_, metadata.input_shape_, "FP32"),
+    "failed to create input '" + metadata.input_name_ + "'");
   std::unique_ptr<triton::client::InferInput> uinput(input);
+
+  CheckTritonError(
+    input->AppendRaw(state_triton_repr.data(), state_triton_repr.size()),
+    "failed to set data for input '" + metadata.input_name_ + "'");
 
   std::vector<triton::client::InferInput*> inputs = { input };
 
   // Request all outputs...
   std::vector<const triton::client::InferRequestedOutput*> outputs = {};
 
+  triton::client::InferOptions options(model);
   triton::client::InferResult* result;
   auto err = client_->Infer(&result, options, inputs, outputs);
   CheckTritonError(err, "failed to run model '" + model + "'");
+
+  return TritonInferResult(metadata, result);
 }
 
 triton::client::Error
@@ -119,18 +189,16 @@ Triton::UpdateModelMetadata(const std::string& model)
   std::string model_metadata_str;
   auto err = client_->ModelMetadata(&model_metadata_str, model);
   if (!err.IsOk()) {
-    LogTritonError(err, "failed to get model metadata");
     return err;
   }
 
   rapidjson::Document model_metadata;
   err = triton::client::ParseJson(&model_metadata, model_metadata_str);
   if (!err.IsOk()) {
-    LogTritonError(err, "failed to parse model metadata");
     return err;
   }
 
-  ModelMetadata metadata;
+  TritonModelMetadata metadata;
 
   // Collect information about model input.
   err = UpdateInputMetadata(&metadata, model_metadata);
@@ -154,15 +222,13 @@ Triton::UpdateModelMetadata(const std::string& model)
 }
 
 triton::client::Error
-Triton::UpdateInputMetadata(ModelMetadata* metadata, const rapidjson::Document& model_metadata)
+Triton::UpdateInputMetadata(TritonModelMetadata* metadata, const rapidjson::Document& model_metadata)
 {
   const auto& input_itr = model_metadata.FindMember("inputs");
   const size_t input_count =
     (input_itr == model_metadata.MemberEnd()) ? 0 : input_itr->value.Size();
   if (input_count != 1) {
-    triton::client::Error err("expecting 1 model input, got " + std::to_string(input_count));
-    LogTritonError(err, "unsupported model metadata");
-    return err;
+    return triton::client::Error("expecting 1 model input, got " + std::to_string(input_count));
   }
 
   // Must be one input of datatype FP32 with rank 3 shape where the
@@ -174,54 +240,47 @@ Triton::UpdateInputMetadata(ModelMetadata* metadata, const rapidjson::Document& 
 
   const auto input_dtype_itr = input_metadata.FindMember("datatype");
   if (input_dtype_itr == input_metadata.MemberEnd()) {
-    triton::client::Error err("expecting datatype for model input '" + metadata->input_name_ + "'");
-    LogTritonError(err, "unsupported model metadata");
-    return err;
+    return triton::client::Error("expecting datatype for model input '" + metadata->input_name_ + "'");
   }
 
   if (std::string(input_dtype_itr->value.GetString(), input_dtype_itr->value.GetStringLength()) != "FP32") {
-    triton::client::Error err("expecting datatype FP32 for model input '" + metadata->input_name_ + "'");
-    LogTritonError(err, "unsupported model metadata");
-    return err;
+    return triton::client::Error("expecting datatype FP32 for model input '" + metadata->input_name_ + "'");
   }
 
   const auto input_shape_itr = input_metadata.FindMember("shape");
   if (input_shape_itr == input_metadata.MemberEnd()) {
-    triton::client::Error err("expecting shape for model input '" + metadata->input_name_ + "'");
-    LogTritonError(err, "unsupported model metadata");
-    return err;
+    return triton::client::Error("expecting shape for model input '" + metadata->input_name_ + "'");
   }
 
   const rapidjson::Value& input_shape_json = input_shape_itr->value;
   if (input_shape_json.Size() != 3) {
-    triton::client::Error err("expecting rank 3 shape for model input '" + metadata->input_name_ + "'");
-    LogTritonError(err, "unsupported model metadata");
-    return err;
+    return triton::client::Error("expecting rank 3 shape for model input '" + metadata->input_name_ + "'");
   }
 
   if (input_shape_json[0].GetInt() != -1) {
-    triton::client::Error err("expecting batch dimension for model input '" + metadata->input_name_ + "'");
-    LogTritonError(err, "unsupported model metadata");
-    return err;
+    return triton::client::Error("expecting batch dimension for model input '" + metadata->input_name_ + "'");
   }
 
+  // Shape includes the batch dimension (set to 1 as currently only
+  // batch-size-1 requests are made).
+  metadata->input_shape_.push_back(1);
   metadata->input_shape_.push_back(input_shape_json[1].GetInt());
   metadata->input_shape_.push_back(input_shape_json[2].GetInt());
+  metadata->required_input_byte_size_ =
+    metadata->input_shape_[0] * metadata->input_shape_[1] * metadata->input_shape_[2] * sizeof(float);
 
   return triton::client::Error::Success;
 }
 
 triton::client::Error
 Triton::UpdateOutputMetadata(
-  ModelMetadata* metadata, const rapidjson::Document& model_metadata, size_t oidx)
+  TritonModelMetadata* metadata, const rapidjson::Document& model_metadata, size_t oidx)
 {
   const auto& output_itr = model_metadata.FindMember("outputs");
   const size_t output_count =
     (output_itr == model_metadata.MemberEnd()) ? 0 : output_itr->value.Size();
   if (output_count != 2) {
-    triton::client::Error err("expecting 2 model outputs, got " + std::to_string(output_count));
-    LogTritonError(err, "unsupported model metadata");
-    return err;
+    return triton::client::Error("expecting 2 model outputs, got " + std::to_string(output_count));
   }
 
   // Output must have datatype FP32 with rank 2 shape where the first
@@ -233,35 +292,25 @@ Triton::UpdateOutputMetadata(
 
   const auto output_dtype_itr = output_metadata.FindMember("datatype");
   if (output_dtype_itr == output_metadata.MemberEnd()) {
-    triton::client::Error err("expecting datatype for model output '" + output_name + "'");
-    LogTritonError(err, "unsupported model metadata");
-    return err;
+    return triton::client::Error("expecting datatype for model output '" + output_name + "'");
   }
 
   if (std::string(output_dtype_itr->value.GetString(), output_dtype_itr->value.GetStringLength()) != "FP32") {
-    triton::client::Error err("expecting datatype FP32 for model output '" + output_name + "'");
-    LogTritonError(err, "unsupported model metadata");
-    return err;
+    return triton::client::Error("expecting datatype FP32 for model output '" + output_name + "'");
   }
 
   const auto output_shape_itr = output_metadata.FindMember("shape");
   if (output_shape_itr == output_metadata.MemberEnd()) {
-    triton::client::Error err("expecting shape for model output '" + output_name + "'");
-    LogTritonError(err, "unsupported model metadata");
-    return err;
+    return triton::client::Error("expecting shape for model output '" + output_name + "'");
   }
 
   const rapidjson::Value& output_shape_json = output_shape_itr->value;
   if (output_shape_json.Size() != 2) {
-    triton::client::Error err("expecting rank 2 shape for model output '" + output_name + "'");
-    LogTritonError(err, "unsupported model metadata");
-    return err;
+    return triton::client::Error("expecting rank 2 shape for model output '" + output_name + "'");
   }
 
   if (output_shape_json[0].GetInt() != -1) {
-    triton::client::Error err("expecting batch dimension for model output '" + output_name + "'");
-    LogTritonError(err, "unsupported model metadata");
-    return err;
+    return triton::client::Error("expecting batch dimension for model output '" + output_name + "'");
   }
 
   // If the non-batch shape is 1, then it is the 'v' output, otherwise
@@ -270,32 +319,41 @@ Triton::UpdateOutputMetadata(
   if (output_shape_json[1].GetInt() == 1) {
     assert(metadata->output_v_name_.empty());
     metadata->output_v_name_ = std::move(output_name);
+
+    // Shape includes the batch dimension (set to 1 as currently only
+    // batch-size-1 requests are made).
+    metadata->output_v_shape_.push_back(1);
+    metadata->output_v_shape_.push_back(output_shape_json[1].GetInt());
+
+    metadata->required_output_v_byte_size_ =
+      metadata->output_v_shape_[0] * metadata->output_v_shape_[1] * sizeof(float);
   }
   else {
     assert(metadata->output_pi_name_.empty());
     metadata->output_pi_name_ = std::move(output_name);
+
+    // Shape includes the batch dimension (set to 1 as currently only
+    // batch-size-1 requests are made).
+    metadata->output_pi_shape_.push_back(1);
     metadata->output_pi_shape_.push_back(output_shape_json[1].GetInt());
+
+    metadata->required_output_pi_byte_size_ =
+      metadata->output_pi_shape_[0] * metadata->output_pi_shape_[1] * sizeof(float);
   }
 
   return triton::client::Error::Success;
 }
 
 void
-Triton::CheckTritonError(const triton::client::Error& err, const std::string& msg)
+Triton::LogTritonError(const triton::client::Error& err, const std::string& msg) const
 {
   if (!err.IsOk()) {
     std::stringstream sstr;
-    sstr << "triton error: " << err.Message();
-    THROW(sstr.str());
-  }
-}
-
-void
-Triton::LogTritonError(const triton::client::Error& err, const std::string& msg)
-{
-  if (!err.IsOk()) {
-    std::stringstream sstr;
-    sstr << "triton error: " << err.Message();
+    sstr << "triton error: ";
+    if (!msg.empty()) {
+      sstr << msg << " - ";
+    }
+    sstr << err.Message();
     logger_->Log(sstr.str());
   }
 }
