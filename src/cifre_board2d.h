@@ -59,7 +59,7 @@ private:
 // update logic.
 //
 template <typename T>
-class Board2D : public cifre::State {
+class Board2D : public State {
 public:
   // Create a board of 'size'.
   Board2D(const BoardSize2D& size);
@@ -82,7 +82,7 @@ public:
   // Set the value of the cell at the flattened index 'flat_idx'.
   void SetCellValueAtFlattened(const T& value, size_t flat_idx);
 
-  // From cifre::State, get the representation of the state suitable
+  // From State, get the representation of the state suitable
   // for feeding to the model via triton. Returns flattened row-major
   // ordering of the cel values.
   const std::vector<uint8_t>& TritonRepresentation() const override;

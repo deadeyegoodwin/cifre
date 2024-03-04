@@ -39,11 +39,22 @@ public:
   TritonInferResult(const TritonModelMetadata& metadata, triton::client::InferResult* r);
   ~TritonInferResult();
 
-  // Return the size of 'pi', in bytes.
-  size_t PiByteSize() const { return pi_byte_size_; }
+  // Move/copy constructors
+  TritonInferResult(TritonInferResult& other) = delete;
+  TritonInferResult(const TritonInferResult& other) = delete;
+  TritonInferResult(const TritonInferResult&& other) = delete;
+  TritonInferResult(TritonInferResult&& other) :
+    result_(other.result_), pi_byte_size_(other.pi_byte_size_), pi_(other.pi_),
+    v_byte_size_(other.v_byte_size_), v_(other.v_) {
+    other.result_ = nullptr; other.pi_ = other.v_ = nullptr;
+    other.pi_byte_size_ = other.v_byte_size_ = 0;
+  }
 
-  // Return the size of 'v', in bytes.
-  size_t VByteSize() const { return v_byte_size_; }
+  // Return the number of entries in 'pi'.
+  size_t PiEntryCount() const { return pi_byte_size_ / sizeof(float); }
+
+  // Return the number of entries in 'v'.
+  size_t VEntryCount() const { return v_byte_size_ / sizeof(float); }
 
   // Return 'pi'.
   const float* Pi() const { return pi_; }

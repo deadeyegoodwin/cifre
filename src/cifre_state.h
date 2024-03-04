@@ -30,9 +30,18 @@ public:
     // Is state a terminal state, that is, does it represent a game
     // ending state.
     virtual bool IsTerminal() const = 0;
+
+    // Return a terminal state's value.
+    virtual float TerminalValue() const = 0;
   };
 
 public:
+  // Virtual copy constructor.
+  virtual State* Clone() const = 0;
+
+  // Destructor
+  virtual ~State() = default;
+
   // Return the total number of action IDs available across all
   // variations of this state. Each action ID is a numeric identifier
   // of type uint64_t in the range [0, total-action-id-count).

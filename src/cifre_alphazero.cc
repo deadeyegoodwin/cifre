@@ -7,6 +7,9 @@
 
 namespace cifre {
 
+//
+// AlphaZero
+//
 AlphaZero::AlphaZero(
   const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
   const std::string& model_name) :
@@ -22,28 +25,178 @@ AlphaZero::AlphaZero(
 }
 
 uint64_t
-AlphaZero::NextActionId(const cifre::State& state) const
+AlphaZero::NextActionId(const State& state)
 {
-  const auto& result = triton_->RunModel(model_name_, state.TritonRepresentation());
+  // Find, creating if necessary, tree node that represents 'state'.
+  auto node = FindOrCreateNode(std::unique_ptr<State>(state.Clone()));
+  assert(node != nullptr);
 
-  // Return the highest value pi that represents a valid action ID.
-  const size_t pi_size = result.PiByteSize() / sizeof(float);
-  const float *pi = result.Pi();
+  // FIXME parameters...
+  const size_t max_depth = 10;
 
-  THROWIF(pi_size != state.TotalActionIdCount(), "unexpected number of entries in pi");
+  // Update the tree starting from 'node'.
+  UpdateTree(node, max_depth);
 
-  float max_pi = -std::numeric_limits<float>::max();
-  uint64_t action_id = std::numeric_limits<uint64_t>::max();
-  for (uint64_t aid : state.ValidActionIds()) {
-    if (pi[aid] > max_pi) {
-      max_pi = pi[aid];
-      action_id = aid;
+  // Get the visit values from 'root' and use them to select the best
+  // action id.
+  // FIXME
+  return 0;
+}
+
+uint64_t
+AlphaZero::HashState(const State& state) const
+{
+  // Each state is identified by a hash based on the value it passes
+  // to the model. Given that a 64 bit hash is used, collisions should
+  // be rare and there is no attempt to do exact comparisons to avoid
+  // these collisions. If there is a collision, it just means that the
+  // "later" state will share an already existing node... not ideal
+  // but given it is rare should have negligible impact on outcome.
+  const std::vector<uint8_t>& bytes = state.TritonRepresentation();
+
+  const uint64_t mulp = 2654435789;
+  uint64_t hash = 104395301;
+  for (uint8_t b : bytes) {
+    hash += (b * mulp) ^ (hash >> 23);
+  }
+
+  return hash ^ (hash << 37);
+}
+
+AlphaZero::Node*
+AlphaZero::FindOrCreateNode(std::unique_ptr<State> state, bool* created)
+{
+  Node* new_node;
+  bool new_created;
+
+  const uint64_t hash = HashState(*state);
+
+  auto node_itr = nodes_.find(hash);
+  if (node_itr != nodes_.end()) {
+    new_node = &(node_itr->second);
+    new_created = false;
+  }
+  else {
+    auto result = triton_->RunModel(model_name_, state->TritonRepresentation());
+    THROWIF(result.PiEntryCount() != state->TotalActionIdCount(), "model returned incorrect pi");
+
+    auto created_node_itr =
+      nodes_.emplace(std::piecewise_construct,
+                     std::forward_as_tuple(hash),
+                     std::forward_as_tuple(std::move(state), std::move(result)));
+    assert(created_node_itr.second);
+    new_node = &(created_node_itr.first->second);
+    new_created = true;
+  }
+
+  if (created != nullptr) {
+    *created = new_created;
+  }
+
+  assert(new_node != nullptr);
+  return new_node;
+}
+
+float
+AlphaZero::UpdateTree(AlphaZero::Node* node, size_t depth_remaining)
+{
+  // FIXME detect looping and choose path that does not create a loop.
+
+  // If 'node' is the last node that should be visited (because max
+  // depth has been reached, or node is a terminal node), then just
+  // return value.
+  if ((depth_remaining == 0) || node->NodeState()->StateStatus().IsTerminal()) {
+    node->IncrementVisitCount();
+    return node->Value();
+  }
+
+  float v = 0.0;
+
+  // Move down tree following best actions until perform an action
+  // that doesn't yet have a child node.
+  uint64_t best_action_id = node->BestActionId();
+  Node* next = node->Child(best_action_id);
+  if (next != nullptr) {
+    v = UpdateTree(next, depth_remaining - 1);
+  }
+  else {
+    // Find or create the node representing the state that results
+    // when 'best_action_id' is applied to 'node'.
+    State* next_state = node->NodeState()->Clone();
+    next_state->Update(best_action_id);
+    next = FindOrCreateNode(std::unique_ptr<State>(next_state));
+    assert(next != nullptr);
+
+    // Add the edge to connect 'node' to 'next', then continue search.
+    node->SetChild(best_action_id, next, 0 /* visit_count */);
+    v = UpdateTree(next, depth_remaining - 1);
+  }
+
+  node->UpdateValue(v);
+  node->IncrementVisitCount();
+  node->IncrementChildVisitCount(best_action_id);
+
+  return v;
+}
+
+//
+// AlphaZero::Node
+//
+AlphaZero::Node::Node(std::unique_ptr<State> state, TritonInferResult&& infer_result) :
+  state_(std::move(state)), result_(std::move(infer_result)),
+  children_(result_.PiEntryCount(), nullptr), children_visit_counts_(result_.PiEntryCount(), 0),
+  visit_count_(0)
+{
+  // Is node is a terminal, then its value is based on the state,
+  // otherwise it comes from the model.
+  const auto& status = state_->StateStatus();
+  if (status.IsTerminal()) {
+    value_ = status.TerminalValue();
+  }
+  else {
+    assert(result_.VEntryCount() == 1);
+    value_ = result_.V()[0];
+  }
+}
+
+void
+AlphaZero::Node::SetChild(uint64_t action_id, Node* child, size_t visit_count)
+{
+  assert(child != nullptr);
+  assert(children_[action_id] == nullptr);
+  children_[action_id] = child;
+  children_visit_counts_[action_id] = visit_count;
+}
+
+uint64_t
+AlphaZero::Node::BestActionId() const
+{
+  const float *pi = result_.Pi();
+
+  float max_qu = -std::numeric_limits<float>::max();
+  uint64_t best_action_id = std::numeric_limits<uint64_t>::max();
+
+  for (uint64_t aid : state_->ValidActionIds()) {
+    float qu;
+    Node* child = children_[aid];
+    if (child == nullptr) {
+      assert(children_visit_counts_[aid] == 0);
+      qu = std::sqrt(visit_count_) * pi[aid];
+    }
+    else {
+      qu = (child->value_ +
+            (std::sqrt(visit_count_) * pi[aid] / children_visit_counts_[aid]));
+    }
+
+    if (qu > max_qu) {
+      max_qu = qu;
+      best_action_id = aid;
     }
   }
 
-  THROWIF(action_id == std::numeric_limits<uint64_t>::max(),
+  THROWIF(best_action_id == std::numeric_limits<uint64_t>::max(),
           "alpha-zero unable to find action ID");
-  return action_id;
+  return best_action_id;
 }
 
 } // namespace cifre

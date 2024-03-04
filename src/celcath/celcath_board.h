@@ -34,6 +34,9 @@ public:
     // See cifre::State::Status
     bool IsTerminal() const override { return is_terminal_; }
 
+    // See cifre::State::Status
+    float TerminalValue() const override;
+
     // Return the zero-based turn number.
     size_t TurnCount() const { return turn_count_; }
 
@@ -122,6 +125,9 @@ public:
   // See cifre::State::Status
   const cifre::State::Status& StateStatus() const override {
     return status_; }
+
+  // See cifre::State
+  State* Clone() const override { return new Board(*this); }
 
   // See cifre::State
   size_t TotalActionIdCount() const override {
