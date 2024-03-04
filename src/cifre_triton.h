@@ -68,7 +68,7 @@ private:
 //
 class Triton {
 public:
-  Triton(common::Logger* logger);
+  Triton(const std::shared_ptr<common::Logger>& logger);
   ~Triton();
 
   // Return true if triton is ready to receive inference requests.
@@ -97,7 +97,7 @@ private:
   void LogTritonError(
     const triton::client::Error& err, const std::string& msg = std::string()) const;
 
-  common::Logger* logger_;
+  std::shared_ptr<common::Logger> logger_;
   std::unique_ptr<triton::client::InferenceServerHttpClient> client_;
   std::unordered_map<std::string, TritonModelMetadata> model_metadata_;
 };

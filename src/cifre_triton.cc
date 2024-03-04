@@ -66,7 +66,7 @@ TritonInferResult::~TritonInferResult()
 //
 // Triton
 //
-Triton::Triton(common::Logger* logger) :
+Triton::Triton(const std::shared_ptr<common::Logger>& logger) :
   logger_(logger)
 {
   const std::string url("localhost:8000");

@@ -18,7 +18,7 @@ namespace cifre {
 class AlphaZero {
 public:
   // Create alphazero object using 'model-name' for predictions.
-  AlphaZero(common::Logger* logger, const std::shared_ptr<cifre::Triton>& triton,
+  AlphaZero(const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<cifre::Triton>& triton,
             const std::string& model_name);
 
   // Return the next predicted action ID, given current state in
@@ -28,7 +28,7 @@ public:
     const std::unordered_set<uint64_t>& valid_action_ids) const;
 
 private:
-  common::Logger* logger_;
+  std::shared_ptr<common::Logger> logger_;
   std::shared_ptr<Triton> triton_;
   const std::string model_name_;
 };

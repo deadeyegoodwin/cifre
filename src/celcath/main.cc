@@ -177,7 +177,7 @@ Usage()
   return ss.str();
 }
 
-common::StreamLogger*
+common::Logger*
 CreateLogger(const std::string& filename, common::Logger::Level level,
              common::Logger::Timestamp timestamp_kind)
 {
@@ -196,7 +196,8 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
 }
 
 cifre::celcath::Player*
-CreatePlayer(common::Logger* logger, const std::string& player_kind, size_t n,
+CreatePlayer(const std::shared_ptr<common::Logger>& logger,
+             const std::string& player_kind, size_t n,
              const std::shared_ptr<cifre::Triton>& triton, const std::string& model_name)
 {
   const char bc = (n == 1) ? 'o' : 'x';
@@ -336,7 +337,7 @@ main(int argc, char **argv)
       }
     }
 
-    auto logger = std::unique_ptr<common::StreamLogger>(
+    auto logger = std::shared_ptr<common::Logger>(
       CreateLogger(log_filename, log_level, common::Logger::Timestamp::COMPACT));
 
     // Echo command-line...
@@ -371,18 +372,18 @@ main(int argc, char **argv)
     // Create shared triton object if required.
     std::shared_ptr<cifre::Triton> triton;
     if ((player1_kind == "alphazero") || (player2_kind == "alphazero")) {
-      triton.reset(new cifre::Triton(logger.get()));
+      triton.reset(new cifre::Triton(logger));
       CheckTrueMsg(triton->IsReady(), "triton is not ready");
     }
 
     // Create players. The players are collected in a vector and each
     // player's position in the vector is the players ID.
-    std::unique_ptr<cifre::celcath::Player> player1(CreatePlayer(logger.get(), player1_kind, 1, triton, model_name));
-    std::unique_ptr<cifre::celcath::Player> player2(CreatePlayer(logger.get(), player2_kind, 2, triton, model_name));
+    std::unique_ptr<cifre::celcath::Player> player1(CreatePlayer(logger, player1_kind, 1, triton, model_name));
+    std::unique_ptr<cifre::celcath::Player> player2(CreatePlayer(logger, player2_kind, 2, triton, model_name));
     std::vector<cifre::celcath::Player*> players { player1.get(), player2.get() };
 
     // Create the stepper that evolves board across generations.
-    auto stepper = std::make_unique<cifre::celcath::B3S23Stepper>(logger.get());
+    auto stepper = std::make_unique<cifre::celcath::B3S23Stepper>(logger);
 
     // Create the starting board.
     cifre::celcath::Board board(settings, *stepper, players);

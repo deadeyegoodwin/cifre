@@ -8,7 +8,8 @@
 namespace cifre {
 
 AlphaZero::AlphaZero(
-  common::Logger* logger, const std::shared_ptr<Triton>& triton, const std::string& model_name) :
+  const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
+  const std::string& model_name) :
   logger_(logger), triton_(triton), model_name_(model_name)
 {
   THROWIF(model_name_.empty(), "model must be specified for alpha-zero");

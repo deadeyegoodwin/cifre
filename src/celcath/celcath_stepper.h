@@ -19,7 +19,7 @@ class Board;
 //
 class Stepper {
 public:
-  Stepper(common::Logger* logger) : logger_(logger) { }
+  Stepper(const std::shared_ptr<common::Logger>& logger) : logger_(logger) { }
   virtual ~Stepper() = default;
 
   // Return the name of the stepper.
@@ -29,7 +29,7 @@ public:
   virtual void Step(Board* board, const std::vector<Player*>& players) const = 0;
 
 protected:
-  common::Logger* logger_;
+  std::shared_ptr<common::Logger> logger_;
 };
 
 
@@ -42,7 +42,7 @@ protected:
 //
 class B3S23Stepper : public Stepper {
 public:
-  B3S23Stepper(common::Logger* logger) : Stepper(logger) { }
+  B3S23Stepper(const std::shared_ptr<common::Logger>& logger) : Stepper(logger) { }
 
   const std::string& Name() const override;
   void Step(Board* board, const std::vector<Player*>& players) const override;
