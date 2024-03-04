@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_set>
 
+#include "cifre_state.h"
 #include "cifre_triton.h"
 #include "common_logger.h"
 
@@ -21,11 +22,8 @@ public:
   AlphaZero(const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<cifre::Triton>& triton,
             const std::string& model_name);
 
-  // Return the next predicted action ID, given current state in
-  // triton representation.
-  uint64_t NextActionId(
-    const std::vector<uint8_t>& state_triton_repr,
-    const std::unordered_set<uint64_t>& valid_action_ids) const;
+  // Return the next predicted action ID, given current state.
+  uint64_t NextActionId(const cifre::State& state) const;
 
 private:
   std::shared_ptr<common::Logger> logger_;

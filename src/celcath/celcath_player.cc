@@ -119,7 +119,7 @@ AlphaZeroPlayer::NextAction(const Board& board) const
   const auto& actionIds = board.ValidActionIds();
   THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
 
-  uint64_t action_id = alpha_zero_->NextActionId(board.TritonRepresentation(), board.ValidActionIds());
+  uint64_t action_id = alpha_zero_->NextActionId(board);
   Action action = board.ActionIdToAction(action_id);
 
   // FIXME, if action is invalid just choose first one available...
