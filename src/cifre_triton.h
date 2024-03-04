@@ -39,11 +39,17 @@ public:
   TritonInferResult(const TritonModelMetadata& metadata, triton::client::InferResult* r);
   ~TritonInferResult();
 
-  // Return the size of 'pi' values, in bytes.
+  // Return the size of 'pi', in bytes.
   size_t PiByteSize() const { return pi_byte_size_; }
 
-  // Return the 'pi' values.
+  // Return the size of 'v', in bytes.
+  size_t VByteSize() const { return v_byte_size_; }
+
+  // Return 'pi'.
   const float* Pi() const { return pi_; }
+
+  // Return 'v'.
+  const float* V() const { return v_; }
 
 private:
   void ValidateResult(const std::string& name, const std::vector<int64_t>& shape) const;
@@ -51,6 +57,8 @@ private:
   triton::client::InferResult* result_;
   size_t pi_byte_size_;
   float* pi_;
+  size_t v_byte_size_;
+  float* v_;
 };
 
 //
@@ -64,10 +72,10 @@ public:
   ~Triton();
 
   // Return true if triton is ready to receive inference requests.
-  bool IsReady();
+  bool IsReady() const;
 
   // Return true if triton is ready to receive inference requests for 'model'.
-  bool IsModelReady(const std::string& model);
+  bool IsModelReady(const std::string& model) const;
 
   // Load 'model' onto triton. Return true if model load is successful.
   bool LoadModel(const std::string& model);

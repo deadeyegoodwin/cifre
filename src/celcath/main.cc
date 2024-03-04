@@ -197,7 +197,7 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
 
 cifre::celcath::Player*
 CreatePlayer(common::Logger* logger, const std::string& player_kind, size_t n,
-             const std::string& model_name)
+             const std::shared_ptr<cifre::Triton>& triton, const std::string& model_name)
 {
   const char bc = (n == 1) ? 'o' : 'x';
 
@@ -210,7 +210,7 @@ CreatePlayer(common::Logger* logger, const std::string& player_kind, size_t n,
   if (player_kind == "alphazero") {
     return new cifre::celcath::AlphaZeroPlayer(
       "AlphaZero" + std::to_string(n), bc, 1.0,
-      std::make_unique<cifre::AlphaZero>(logger, model_name));
+      std::make_unique<cifre::AlphaZero>(logger, triton, model_name));
   }
 
   Fail("unknown player kind '" + player_kind + "'");
@@ -368,10 +368,17 @@ main(int argc, char **argv)
     settings.Sync();
     LOGGER_LOGMED(*logger, settings.ToString() + '\n');
 
+    // Create shared triton object if required.
+    std::shared_ptr<cifre::Triton> triton;
+    if ((player1_kind == "alphazero") || (player2_kind == "alphazero")) {
+      triton.reset(new cifre::Triton(logger.get()));
+      CheckTrueMsg(triton->IsReady(), "triton is not ready");
+    }
+
     // Create players. The players are collected in a vector and each
     // player's position in the vector is the players ID.
-    std::unique_ptr<cifre::celcath::Player> player1(CreatePlayer(logger.get(), player1_kind, 1, model_name));
-    std::unique_ptr<cifre::celcath::Player> player2(CreatePlayer(logger.get(), player2_kind, 2, model_name));
+    std::unique_ptr<cifre::celcath::Player> player1(CreatePlayer(logger.get(), player1_kind, 1, triton, model_name));
+    std::unique_ptr<cifre::celcath::Player> player2(CreatePlayer(logger.get(), player2_kind, 2, triton, model_name));
     std::vector<cifre::celcath::Player*> players { player1.get(), player2.get() };
 
     // Create the stepper that evolves board across generations.

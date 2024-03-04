@@ -1,6 +1,7 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 #pragma once
 
+#include <memory>
 #include <string>
 #include <unordered_set>
 
@@ -17,7 +18,8 @@ namespace cifre {
 class AlphaZero {
 public:
   // Create alphazero object using 'model-name' for predictions.
-  AlphaZero(common::Logger* logger, const std::string& model_name);
+  AlphaZero(common::Logger* logger, const std::shared_ptr<cifre::Triton>& triton,
+            const std::string& model_name);
 
   // Return the next predicted action ID, given current state in
   // triton representation.
@@ -27,8 +29,8 @@ public:
 
 private:
   common::Logger* logger_;
+  std::shared_ptr<Triton> triton_;
   const std::string model_name_;
-  Triton triton_;
 };
 
 } // namespace cifre

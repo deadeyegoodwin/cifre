@@ -7,18 +7,16 @@
 
 namespace cifre {
 
-AlphaZero::AlphaZero(common::Logger* logger, const std::string& model_name) :
-  logger_(logger), model_name_(model_name), triton_(logger)
+AlphaZero::AlphaZero(
+  common::Logger* logger, const std::shared_ptr<Triton>& triton, const std::string& model_name) :
+  logger_(logger), triton_(triton), model_name_(model_name)
 {
   THROWIF(model_name_.empty(), "model must be specified for alpha-zero");
 
-  // Make sure triton is ready.
-  THROWIF(!triton_.IsReady(), "triton is not ready");
-
   // Load model and make sure it is ready.
-  THROWIF(!triton_.LoadModel(model_name_),
+  THROWIF(!triton_->LoadModel(model_name_),
           std::string("triton model '" + model_name_ + "' failed to load"));
-  THROWIF(!triton_.IsModelReady(model_name_),
+  THROWIF(!triton_->IsModelReady(model_name_),
           std::string("triton model '" + model_name_ + "' is not ready"));
 }
 
@@ -26,7 +24,7 @@ uint64_t
 AlphaZero::NextActionId(
   const std::vector<uint8_t>& state_triton_repr, const std::unordered_set<uint64_t>& valid_action_ids) const
 {
-  const auto& result = triton_.RunModel(model_name_, state_triton_repr);
+  const auto& result = triton_->RunModel(model_name_, state_triton_repr);
 
   // Return the highest value pi that represents a valid action ID.
   const size_t pi_size = result.PiByteSize() / sizeof(float);

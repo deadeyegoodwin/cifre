@@ -30,7 +30,7 @@ CheckTritonError(const triton::client::Error& err, const std::string& msg)
 //
 TritonInferResult::TritonInferResult(
   const TritonModelMetadata& metadata, triton::client::InferResult* r) :
-  result_(r), pi_byte_size_(0), pi_(nullptr)
+  result_(r), pi_byte_size_(0), pi_(nullptr), v_byte_size_(0), v_(nullptr)
 {
   ValidateResult(metadata.output_v_name_, metadata.output_v_shape_);
   ValidateResult(metadata.output_pi_name_, metadata.output_pi_shape_);
@@ -40,6 +40,10 @@ TritonInferResult::TritonInferResult(
   THROWIF(pi_byte_size_ != metadata.required_output_pi_byte_size_,
           "size mismatch for result '" + metadata.output_pi_name_ + "'");
 
+  CheckTritonError(result_->RawData(metadata.output_v_name_, (const uint8_t**)&v_, &v_byte_size_),
+                   "getting result data for '" + metadata.output_v_name_ + "'");
+  THROWIF(v_byte_size_ != metadata.required_output_v_byte_size_,
+          "size mismatch for result '" + metadata.output_v_name_ + "'");
 }
 
 void
@@ -87,7 +91,7 @@ Triton::~Triton()
 }
 
 bool
-Triton::IsReady()
+Triton::IsReady() const
 {
   bool ready;
   auto err = client_->IsServerReady(&ready);
@@ -100,7 +104,7 @@ Triton::IsReady()
 }
 
 bool
-Triton::IsModelReady(const std::string& model)
+Triton::IsModelReady(const std::string& model) const
 {
   bool ready;
   auto err = client_->IsModelReady(&ready, model);
