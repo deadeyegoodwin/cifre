@@ -105,7 +105,7 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, size_t depth_remaining)
   // If 'node' is the last node that should be visited (because max
   // depth has been reached, or node is a terminal node), then just
   // return value.
-  if ((depth_remaining == 0) || node->NodeState()->StateStatus().IsTerminal()) {
+  if ((depth_remaining == 0) || node->NodeState()->IsTerminal()) {
     node->IncrementVisitCount();
     return node->Value();
   }
@@ -149,9 +149,8 @@ AlphaZero::Node::Node(std::unique_ptr<State> state, TritonInferResult&& infer_re
 {
   // Is node is a terminal, then its value is based on the state,
   // otherwise it comes from the model.
-  const auto& status = state_->StateStatus();
-  if (status.IsTerminal()) {
-    value_ = status.TerminalValue();
+  if (state_->IsTerminal()) {
+    value_ = state_->TerminalValue();
   }
   else {
     assert(result_.VEntryCount() == 1);

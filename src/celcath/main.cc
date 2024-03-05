@@ -229,8 +229,7 @@ Play(const Settings& settings, const std::vector<cifre::celcath::Player*>& playe
   std::cout << board->ToString() << '\n';
 
   bool game_quit = false;
-  const Board::Status& game_status = board->BoardStatus();
-  while (!game_quit && !game_status.IsTerminal()) {
+  while (!game_quit && !board->IsTerminal()) {
     Player* player = board->ActivePlayer();
     Action action = player->NextAction(*board);
     switch (action.Kind()) {
@@ -252,15 +251,15 @@ Play(const Settings& settings, const std::vector<cifre::celcath::Player*>& playe
 
   // Final board...
   if (game_quit) {
-    std::cout << "game quit on turn " + std::to_string(game_status.TurnCount()) + ": no winner\n";
+    std::cout << "game quit on turn " + std::to_string(board->EndTurnCount()) + ": no winner\n";
   }
-  else if (game_status.IsDraw()) {
-    std::cout << "game over on turn " + std::to_string(game_status.TurnCount()) + ": draw\n";
+  else if (board->IsDraw()) {
+    std::cout << "game over on turn " + std::to_string(board->EndTurnCount()) + ": draw\n";
   }
   else {
     std::cout
-      << "game over on turn " + std::to_string(game_status.TurnCount()) + ": winner "
-      << players[game_status.WinnerId()]->Name() << '\n';
+      << "game over on turn " + std::to_string(board->EndTurnCount()) + ": winner "
+      << players[board->WinnerId()]->Name() << '\n';
   }
   std::cout << board->ToString() << '\n';
 }

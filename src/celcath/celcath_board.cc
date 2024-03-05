@@ -21,8 +21,8 @@ Board::Board(const Settings& settings, const Stepper& stepper,
              const std::vector<Player*>& players) :
   cifre::Board2D<float>(settings.BoardSize()),
   settings_(settings), stepper_(stepper), players_(players),
-  status_(false /* is_terminal */), active_player_id_(settings.StartingPlayerId()),
-  complete_actions_this_turn_(0)
+  status_(Status::NON_TERMINAL), end_turn_count_(0),
+  active_player_id_(settings.StartingPlayerId()), complete_actions_this_turn_(0)
 {
   THROWIF(players_.size() != 2, "exactly 2 players are required");
   UpdateValidActions();
@@ -223,7 +223,7 @@ Board::Update(uint64_t action_id)
     // If the new active player is the starting player, then this is
     // the start of a new turn.
     if (active_player_id_ == settings_.StartingPlayerId()) {
-      status_.turn_count_ += 1;
+      end_turn_count_ += 1;
     }
 
     // Update the valid actions for the now-active player.
@@ -260,8 +260,7 @@ void
 Board::UpdateStatus()
 {
   // Check winning conditions.
-
-  // FIXME for now must have cell on opponents first row.
+  // FIXME for now must have cell on opponents first row to win.
 
   // Row 0 is player zero's home row, check it for player 1.
   bool player1_winner = false;
@@ -281,19 +280,17 @@ Board::UpdateStatus()
     }
   }
 
-  if (player0_winner || player1_winner) {
-    status_.is_terminal_ = true;
-    if (!player0_winner) {
-      status_.is_draw_ = false;
-      status_.winner_id_ = 1;
-    }
-    else if (!player1_winner) {
-      status_.is_draw_ = false;
-      status_.winner_id_ = 0;
-    }
-    else {
-      status_.is_draw_ = true;
-    }
+  if (player0_winner && player1_winner) {
+    status_ = Status::DRAW;
+  }
+  else if (player0_winner) {
+    status_ = Status::PLAYER0_WINNER;
+  }
+  else if (player1_winner) {
+    status_ = Status::PLAYER1_WINNER;
+  }
+  else {
+    status_ = Status::NON_TERMINAL;
   }
 }
 

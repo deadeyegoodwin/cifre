@@ -17,25 +17,6 @@ namespace cifre {
 //
 class State {
 public:
-  //
-  // Status
-  //
-  // Status of game state.
-  //
-  class Status {
-  public:
-    // Destructor
-    virtual ~Status() = default;
-
-    // Is state a terminal state, that is, does it represent a game
-    // ending state.
-    virtual bool IsTerminal() const = 0;
-
-    // Return a terminal state's value.
-    virtual float TerminalValue() const = 0;
-  };
-
-public:
   // Virtual copy constructor.
   virtual State* Clone() const = 0;
 
@@ -47,11 +28,16 @@ public:
   // of type uint64_t in the range [0, total-action-id-count).
   virtual size_t TotalActionIdCount() const = 0;
 
-  // Get the status of the state.
-  virtual const State::Status& StateStatus() const = 0;
-
   // Get the action identifiers that are valid for this state.
   virtual const std::unordered_set<uint64_t>& ValidActionIds() const = 0;
+
+  // Is state a terminal state, that is, does it represent a game
+  // ending state.
+  virtual bool IsTerminal() const = 0;
+
+  // Return a terminal state's value. Result is undefined if 'this' is
+  // not a terminal state.
+  virtual float TerminalValue() const = 0;
 
   // Apply the action associated with 'action_id' to this state, so
   // that the state is modified due to the action.

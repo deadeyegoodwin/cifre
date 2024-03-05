@@ -23,43 +23,6 @@ class Board;
 //
 class Board : public cifre::Board2D<float> {
 public:
-  //
-  // Status
-  //
-  class Status : public cifre::State::Status {
-  public:
-    Status(bool is_terminal = false) :
-      turn_count_(0), is_terminal_(is_terminal), is_draw_(true) { }
-
-    // See cifre::State::Status
-    bool IsTerminal() const override { return is_terminal_; }
-
-    // See cifre::State::Status
-    float TerminalValue() const override;
-
-    // Return the zero-based turn number.
-    size_t TurnCount() const { return turn_count_; }
-
-    // If the game a draw? Valid only if IsTerminal == true.
-    bool IsDraw() const {
-      assert(is_terminal_);
-      return is_draw_; }
-
-    // Return the ID of the winning player. Valid only is IsTerminal ==
-    // true and IsDraw == false.
-    size_t WinnerId() const {
-      assert(is_terminal_ && !is_draw_);
-      return winner_id_; }
-
-  private:
-    friend class Board;
-    size_t turn_count_;
-    bool is_terminal_;
-    bool is_draw_;
-    size_t winner_id_;
-  };
-
-public:
   // Create a board based on 'settings'.
   Board(const Settings& settings, const Stepper& stepper,
         const std::vector<Player*>& players);
@@ -67,14 +30,14 @@ public:
   // Copy constructor.
   Board(const Board& other) = default;
 
-  // Return the status of the board.
-  const Board::Status& BoardStatus() const { return status_; }
-
   // Return the ID of the active player.
   size_t ActivePlayerId() const { return active_player_id_; }
 
   // Return the active player.
   Player* ActivePlayer() const { return players_[active_player_id_]; }
+
+  // Return number of end-turn actions applied to this board.
+  size_t EndTurnCount() const { return end_turn_count_; }
 
   // Return the number of actions that the active player has completed
   // this turn, and the minimum and maximum allowed actions for this
@@ -122,9 +85,22 @@ public:
   // index. 'player' may be nullptr to set the cell to empty.
   void SetPlayerAtFlattened(Player* player, size_t flat_idx);
 
-  // See cifre::State::Status
-  const cifre::State::Status& StateStatus() const override {
-    return status_; }
+  // Return the ID of the winning player. Undefined unless
+  // IsTerminal() == true and IsDraw() == false.
+  size_t WinnerId() const {
+    assert(IsTerminal() && !IsDraw());
+    return (status_ == Status::PLAYER0_WINNER) ? 0 : 1; }
+
+  // Does this board represented a completed game ending in draw?
+  bool IsDraw() const { return status_ == Status::DRAW; }
+
+  // See cifre::State
+  bool IsTerminal() const override { return status_ != Status::NON_TERMINAL; }
+
+  // See cifre::State
+  float TerminalValue() const override {
+    assert(IsTerminal()); if (IsDraw()) { return 0; }
+    return (active_player_id_ == WinnerId()) ? 1 : -1; }
 
   // See cifre::State
   State* Clone() const override { return new Board(*this); }
@@ -144,6 +120,8 @@ public:
   std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const override;
 
 private:
+  enum class Status { NON_TERMINAL, PLAYER0_WINNER, PLAYER1_WINNER, DRAW };
+
   static constexpr float CELL_EMPTY = 0.0;
   static constexpr float CELL_PLAYER0 = 1.0;
   static constexpr float CELL_PLAYER1 = -1.0;
@@ -192,8 +170,11 @@ private:
   // Players shared across all Board instances.
   const std::vector<cifre::celcath::Player*>& players_;
 
-  // Current status of this state.
-  Board::Status status_;
+  // The status of the board indicating winning condition.
+  Status status_;
+
+  // Number of end-turn actions that have been applied to this board.
+  size_t end_turn_count_;
 
   // ID of the currently active player.
   size_t active_player_id_;
