@@ -27,20 +27,25 @@ AlphaZero::AlphaZero(
 uint64_t
 AlphaZero::NextActionId(const State& state)
 {
+  THROWIF(state.IsTerminal(), "alpha-zero cannot find next action for terminal state");
+
   // Find, creating if necessary, tree node that represents 'state'.
   auto node = FindOrCreateNode(std::unique_ptr<State>(state.Clone()));
   assert(node != nullptr);
 
   // FIXME parameters...
+  const size_t search_per_action_count = 50;
   const size_t max_depth = 10;
 
   // Update the tree starting from 'node'.
-  UpdateTree(node, max_depth);
+  for (size_t idx = 0; idx < search_per_action_count; ++idx) {
+    UpdateTree(node, max_depth);
+  }
 
-  // Get the visit values from 'root' and use them to select the best
-  // action id.
-  // FIXME
-  return 0;
+  // Choose the action that has the highest visit count. Because
+  // 'state' is not a terminal state, there must be at least one
+  // action with a non-zero visit count.
+  return node->MaxVisitedChild();
 }
 
 uint64_t
@@ -196,6 +201,26 @@ AlphaZero::Node::BestActionId() const
   THROWIF(best_action_id == std::numeric_limits<uint64_t>::max(),
           "alpha-zero unable to find action ID");
   return best_action_id;
+}
+
+uint64_t
+AlphaZero::Node::MaxVisitedChild() const
+{
+  uint64_t max_visit_count = 0;
+  uint64_t max_action_id;
+
+  for (uint64_t aid = 0; aid < state_->TotalActionIdCount(); ++aid) {
+    uint64_t cnt = children_visit_counts_[aid];
+    if (cnt > max_visit_count) {
+      max_visit_count = cnt;
+      max_action_id = aid;
+    }
+  }
+
+  THROWIF(max_visit_count == 0,
+          "alpha-zero unable to find valid child with non-zero visits");
+
+  return max_action_id;
 }
 
 } // namespace cifre

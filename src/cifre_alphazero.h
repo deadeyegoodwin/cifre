@@ -60,6 +60,10 @@ private:
     // Return the best action ID based on the current node state.
     uint64_t BestActionId() const;
 
+    // Return the action ID corresponding to the child edge that has
+    // the highest non-zero visited count. Error if no such child.
+    uint64_t MaxVisitedChild() const;
+
   private:
     const std::unique_ptr<const State> state_;
     const TritonInferResult result_;
@@ -74,9 +78,8 @@ public:
   AlphaZero(const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
             const std::string& model_name);
 
-  // Return the next predicted action ID, given current
-  // 'state'. Ownership of the 'state' object is transferred to this
-  // AlphaZero object.
+  // Return the next predicted action ID, given current 'state'. If is
+  // an error if 'state' represents a terminal state.
   uint64_t NextActionId(const State& state);
 
 private:

@@ -112,24 +112,19 @@ AlphaZeroPlayer::AlphaZeroPlayer(
 Action
 AlphaZeroPlayer::NextAction(const Board& board) const
 {
-  std::cout
-    << Name() << " [" << (board.CompletedActionsThisTurn() + 1)
-    << " of " << board.MaxActionsThisTurn() << "]: ";
-
   const auto& actionIds = board.ValidActionIds();
   THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
 
   uint64_t action_id = alpha_zero_->NextActionId(board);
   Action action = board.ActionIdToAction(action_id);
+  THROWIF(!board.IsValidAction(action),
+          "alpha-zero selected invalid action " + board.ActionToString(action));
 
-  // FIXME, if action is invalid just choose first one available...
-  if (!board.IsValidAction(action)) {
-    action_id = *actionIds.begin();
-    action = board.ActionIdToAction(action_id);
-  }
-  // FIXME end
+  std::cout
+    << Name() << " [" << (board.CompletedActionsThisTurn() + 1)
+    << " of " << board.MaxActionsThisTurn() << "]: "
+    << board.ActionToString(action) << '\n';
 
-  std::cout << board.ActionToString(action) << '\n';
   return action;
 }
 
