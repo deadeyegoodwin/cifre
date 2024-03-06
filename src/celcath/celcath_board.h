@@ -19,7 +19,13 @@ class Board;
 //
 // Board
 //
-// The celcath playing board and all associated state.
+// The celcath playing board and all associated state. Each board has
+// an active player that it is respective to that player that the
+// board state is maintained. Row 0 of the board is the home row of
+// the active player, and row 'n' is the home row of the opponent
+// player. A board cell has a value of CELL_ACTIVE_PLAYER if it is
+// occupied by the active player, a value of CELL_OPPONENT_PLAYER if
+// it is occupied by the other player, or CELL_EMPTY if it is empty.
 //
 class Board : public cifre::Board2D<float> {
 public:
@@ -35,6 +41,12 @@ public:
 
   // Return the active player.
   Player* ActivePlayer() const { return players_[active_player_id_]; }
+
+  // Return the ID of the opponent player.
+  size_t OpponentPlayerId() const { return (active_player_id_ == 0) ? 1 : 0; }
+
+  // Return the opponent player.
+  Player* OpponentPlayer() const { return players_[OpponentPlayerId()]; }
 
   // Return number of end-turn actions applied to this board.
   size_t EndTurnCount() const { return end_turn_count_; }
@@ -64,10 +76,19 @@ public:
   // owned by any player (i.e. empty).
   size_t PlayerIdAt(size_t row_idx, size_t col_idx) const;
 
+  // Set 'id' to be owner of the specified cell. 'id' may be the total
+  // number of players to set the cell to empty.
+  void SetPlayerIdAt(size_t id, size_t row_idx, size_t col_idx);
+
   // Return the ID of the player that owns the specified cell at the
   // flattened index. Returns the total number of players to indicate
   // that the cell is not owned by any player (i.e. empty).
   size_t PlayerIdAtFlattened(size_t flat_idx) const;
+
+  // Set 'id' to be owner of the specified cell at the flattened
+  // index. 'id' may be the total number of players to set the cell to
+  // empty.
+  void SetPlayerIdAtFlattened(size_t id, size_t flat_idx);
 
   // Return the player that owns the specified cell, or nullptr if
   // cell is empty.
@@ -89,10 +110,14 @@ public:
   // IsTerminal() == true and IsDraw() == false.
   size_t WinnerId() const {
     assert(IsTerminal() && !IsDraw());
-    return (status_ == Status::PLAYER0_WINNER) ? 0 : 1; }
+    return (status_ == Status::ACTIVE_WINNER) ? ActivePlayerId() : OpponentPlayerId(); }
 
   // Does this board represented a completed game ending in draw?
   bool IsDraw() const { return status_ == Status::DRAW; }
+
+  // Update the board as necessary to make the opponent player the
+  // active player.
+  void SwitchActivePlayer();
 
   // See cifre::State
   bool IsTerminal() const override { return status_ != Status::NON_TERMINAL; }
@@ -120,24 +145,31 @@ public:
   std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const override;
 
 private:
-  enum class Status { NON_TERMINAL, PLAYER0_WINNER, PLAYER1_WINNER, DRAW };
+  enum class Status { NON_TERMINAL, ACTIVE_WINNER, OPPONENT_WINNER, DRAW };
 
   static constexpr float CELL_EMPTY = 0.0;
-  static constexpr float CELL_PLAYER0 = 1.0;
-  static constexpr float CELL_PLAYER1 = -1.0;
+  static constexpr float CELL_ACTIVE_PLAYER = 1.0;
+  static constexpr float CELL_OPPONENT_PLAYER = -1.0;
+
+  // Return the ID of the other player ACTIVE<->OPPONENT. EMPTY does
+  // not change.
+  size_t OtherPlayerId(size_t pid) const {
+    if (pid == players_.size()) { return pid; }
+    return (pid == 0) ? 1 : 0;
+  }
 
   // Convert player ID to/from the corresponding cell value. A player
   // ID of value players_.size() represents an empty cell (i.e. no
   // player).
   float PlayerIdToCellValue(size_t pid) const {
-    if (pid == 0) { return CELL_PLAYER0; }
-    if (pid == 1) { return CELL_PLAYER1; }
+    if (pid == ActivePlayerId()) { return CELL_ACTIVE_PLAYER; }
+    if (pid == OpponentPlayerId()) { return CELL_OPPONENT_PLAYER; }
     assert(pid == players_.size());
     return CELL_EMPTY;
   }
   size_t CellValueToPlayerId(float v) const {
-    if (v == CELL_PLAYER0) { return 0; }
-    if (v == CELL_PLAYER1) { return 1; }
+    if (v == CELL_ACTIVE_PLAYER) { return ActivePlayerId(); }
+    if (v == CELL_OPPONENT_PLAYER) { return OpponentPlayerId(); }
     assert(v == CELL_EMPTY);
     return players_.size();
   }
@@ -145,14 +177,14 @@ private:
   // Convert player to/from the corresponding cell value. A nullptr
   // player represents an empty cell (i.e. no player).
   float PlayerToCellValue(Player* player) const {
-    if (player == players_[0]) { return CELL_PLAYER0; }
-    if (player == players_[1]) { return CELL_PLAYER1; }
+    if (player == players_[ActivePlayerId()]) { return CELL_ACTIVE_PLAYER; }
+    if (player == players_[OpponentPlayerId()]) { return CELL_OPPONENT_PLAYER; }
     assert(player == nullptr);
     return CELL_EMPTY;
   }
   Player* CellValueToPlayer(float v) const {
-    if (v == CELL_PLAYER0) { return players_[0]; }
-    if (v == CELL_PLAYER1) { return players_[1]; }
+    if (v == CELL_ACTIVE_PLAYER) { return players_[ActivePlayerId()]; }
+    if (v == CELL_OPPONENT_PLAYER) { return players_[OpponentPlayerId()]; }
     assert(v == CELL_EMPTY);
     return nullptr;
   }
@@ -164,7 +196,7 @@ private:
   // Settings shared across all Board instances.
   const Settings& settings_;
 
-  // Players shared across all Board instances.
+  // Stepper shared across all Board instances.
   const Stepper& stepper_;
 
   // Players shared across all Board instances.
@@ -173,13 +205,13 @@ private:
   // The status of the board indicating winning condition.
   Status status_;
 
-  // Number of end-turn actions that have been applied to this board.
-  size_t end_turn_count_;
-
   // ID of the currently active player.
   size_t active_player_id_;
 
-  // Active player gets some number of actions each turn.
+  // Number of end-turn actions that have been applied to this board.
+  size_t end_turn_count_;
+
+  // Track how many actions active player has completed this turn.
   size_t complete_actions_this_turn_;
 
   // The set of action ids that are valid for the current board.

@@ -21,8 +21,8 @@ Board::Board(const Settings& settings, const Stepper& stepper,
              const std::vector<Player*>& players) :
   cifre::Board2D<float>(settings.BoardSize()),
   settings_(settings), stepper_(stepper), players_(players),
-  status_(Status::NON_TERMINAL), end_turn_count_(0),
-  active_player_id_(settings.StartingPlayerId()), complete_actions_this_turn_(0)
+  status_(Status::NON_TERMINAL), active_player_id_(settings.StartingPlayerId()),
+  end_turn_count_(0), complete_actions_this_turn_(0)
 {
   THROWIF(players_.size() != 2, "exactly 2 players are required");
   UpdateValidActions();
@@ -127,10 +127,22 @@ Board::PlayerIdAt(size_t row_idx, size_t col_idx) const
   return CellValueToPlayerId(CellValueAt(row_idx, col_idx));
 }
 
+void
+Board::SetPlayerIdAt(size_t id, size_t row_idx, size_t col_idx)
+{
+  SetCellValueAt(PlayerIdToCellValue(id), row_idx, col_idx);
+}
+
 size_t
 Board::PlayerIdAtFlattened(size_t flat_idx) const
 {
   return CellValueToPlayerId(CellValueAtFlattened(flat_idx));
+}
+
+void
+Board::SetPlayerIdAtFlattened(size_t id, size_t flat_idx)
+{
+  SetCellValueAtFlattened(PlayerIdToCellValue(id), flat_idx);
 }
 
 Player*
@@ -216,19 +228,77 @@ Board::Update(uint64_t action_id)
     UpdateStatus();
   }
 
+  // Handle switch board state to represent the "other" player.
   if (next_player) {
-    active_player_id_ = (active_player_id_ + 1) % players_.size();
-    complete_actions_this_turn_ = 0;
+    SwitchActivePlayer();
 
     // If the new active player is the starting player, then this is
     // the start of a new turn.
     if (active_player_id_ == settings_.StartingPlayerId()) {
       end_turn_count_ += 1;
     }
-
-    // Update the valid actions for the now-active player.
-    UpdateValidActions();
   }
+}
+
+void
+Board::SwitchActivePlayer()
+{
+  const size_t new_active_player_id_ = (active_player_id_ + 1) % players_.size();
+
+  // Rotate board cells 180 degrees so that opponent's
+  // (i.e. 'new_active_player_id') home is row 0. Swap cell values for
+  // players.
+  size_t ridx_rot = size_.RowCount();
+  for (size_t ridx = 0; ridx < (size_.RowCount() / 2); ++ridx) {
+    ridx_rot -= 1;
+
+    size_t cidx_rot = size_.ColumnCount();
+    for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
+      cidx_rot -= 1;
+      const size_t t0 = PlayerIdAt(ridx, cidx);
+      const size_t t1 = PlayerIdAt(ridx_rot, cidx_rot);
+      SetPlayerIdAt(OtherPlayerId(t0), ridx_rot, cidx_rot);
+      SetPlayerIdAt(OtherPlayerId(t1), ridx, cidx);
+    }
+  }
+
+  // If there is an odd number of rows, then swap the middle row that
+  // was not handled by the above.
+  if ((size_.RowCount() % 2) != 0) {
+    const size_t ridx = size_.RowCount() / 2;
+    size_t cidx_rot = size_.ColumnCount();
+    for (size_t cidx = 0; cidx < (size_.ColumnCount() / 2); ++cidx) {
+      cidx_rot -= 1;
+      const size_t t0 = PlayerIdAt(ridx, cidx);
+      const size_t t1 = PlayerIdAt(ridx, cidx_rot);
+      SetPlayerIdAt(OtherPlayerId(t0), ridx, cidx_rot);
+      SetPlayerIdAt(OtherPlayerId(t1), ridx, cidx);
+    }
+
+    // If also an odd number of columns then need to toggle the player
+    // in the very center of the board.
+    if ((size_.ColumnCount() % 2) != 0) {
+      const size_t ridx = size_.RowCount() / 2;
+      const size_t cidx = size_.ColumnCount() / 2;
+      const size_t t0 = PlayerIdAt(ridx, cidx);
+      SetPlayerIdAt(OtherPlayerId(t0), ridx, cidx);
+    }
+  }
+
+  // Switch status to represent that there is a new active player.
+  if (status_ == Status::ACTIVE_WINNER) {
+    status_ = Status::OPPONENT_WINNER;
+  }
+  else if (status_ == Status::OPPONENT_WINNER) {
+    status_ = Status::ACTIVE_WINNER;
+  }
+
+  // Make opponent the active player.
+  active_player_id_ = new_active_player_id_;
+  complete_actions_this_turn_ = 0;
+
+  // Update the valid actions for the now-active player.
+  UpdateValidActions();
 }
 
 void
@@ -238,11 +308,12 @@ Board::UpdateValidActions()
 
   const float active_player_cell_value = PlayerIdToCellValue(active_player_id_);
 
-  // FIXME for now can play on any cell except own home row and
-  // opponents 2 home rows.
-  const size_t rstart = (active_player_id_ == 0) ? 1 : 2;
-  const size_t rend = size_.RowCount() - ((active_player_id_ == 0) ? 2 : 1);
-  for (size_t ridx = rstart; ridx < rend; ++ridx) {
+  // The active player's home row is row 0, the opponent player's home
+  // row is size_.RowCount() - 1.
+
+  // FIXME ruleset, for now can play on any cell except own home row
+  // and opponents 2 home rows.
+  for (size_t ridx = 1; ridx < (size_.RowCount() - 2); ++ridx) {
     for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
       const float current = CellValueAt(ridx, cidx);
       if ((current == active_player_cell_value) || (current == CELL_EMPTY)) {
@@ -260,34 +331,37 @@ void
 Board::UpdateStatus()
 {
   // Check winning conditions.
-  // FIXME for now must have cell on opponents first row to win.
 
-  // Row 0 is player zero's home row, check it for player 1.
-  bool player1_winner = false;
+  // FIXME rulset for now must have cell on opponents first row to win.
+
+  // Row 0 is active player's home row, so if any opponent on that row
+  // then the opponent wins.
+  bool opponent_winner = false;
   for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
-    if (PlayerAt(0 /* row_idx */, cidx) == players_[1]) {
-      player1_winner = true;
+    if (PlayerIdAt(0 /* row_idx */, cidx) == OpponentPlayerId()) {
+      opponent_winner = true;
       break;
     }
   }
 
-  // Row n is player one's home row, check it for player 0.
-  bool player0_winner = false;
+  // Row n is opponent player's home row, so if any active player on
+  // that row then active player wins.
+  bool active_winner = false;
   for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
-    if (PlayerAt(size_.RowCount() - 1 /* row_idx */, cidx) == players_[0]) {
-      player0_winner = true;
+    if (PlayerIdAt(size_.RowCount() - 1 /* row_idx */, cidx) == ActivePlayerId()) {
+      active_winner = true;
       break;
     }
   }
 
-  if (player0_winner && player1_winner) {
+  if (opponent_winner && active_winner) {
     status_ = Status::DRAW;
   }
-  else if (player0_winner) {
-    status_ = Status::PLAYER0_WINNER;
+  else if (active_winner) {
+    status_ = Status::ACTIVE_WINNER;
   }
-  else if (player1_winner) {
-    status_ = Status::PLAYER1_WINNER;
+  else if (opponent_winner) {
+    status_ = Status::OPPONENT_WINNER;
   }
   else {
     status_ = Status::NON_TERMINAL;
@@ -300,11 +374,13 @@ Board::ToString(common::Logger::Level filter_level) const
   std::stringstream sstr;
   const size_t rh_width = 4;
   const size_t ch_width = (size_.ColumnCount() + 2) * 2;
-  const std::string& player0_name = players_[0]->Name() + " - " + players_[0]->BoardCharacter();
-  const std::string& player1_name = players_[1]->Name() + " - " + players_[1]->BoardCharacter();
 
-  // Player 0 home row is the "top" of the board (row 0).
-  sstr << std::string(rh_width + ((ch_width - player0_name.size()) / 2), ' ') << player0_name << '\n';
+  // Board is displayed with the active player's home row (row 0) at
+  // the top and opponent player's home row (row n) at the bottom.
+
+  // Active home row is the "top" of the board.
+  const std::string& active_name = ActivePlayer()->Name() + " - " + ActivePlayer()->BoardCharacter();
+  sstr << std::string(rh_width + ((ch_width - active_name.size()) / 2), ' ') << active_name << '\n';
 
   // Column letters across the top.
   for (size_t col_idx = 0; col_idx < (size_.ColumnCount() + 1); ++col_idx) {
@@ -344,8 +420,9 @@ Board::ToString(common::Logger::Level filter_level) const
     }
   }
 
-  // Player 1 home row is the "bottom" of the board (row n).
-  sstr << std::string(rh_width + ((ch_width - player1_name.size()) / 2), ' ') << player1_name;
+  // Opponent player home row is the "bottom" of the board.
+  const std::string& opponent_name = OpponentPlayer()->Name() + " - " + OpponentPlayer()->BoardCharacter();
+  sstr << std::string(rh_width + ((ch_width - opponent_name.size()) / 2), ' ') << opponent_name;
 
   return sstr.str();
 }
