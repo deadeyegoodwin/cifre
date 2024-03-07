@@ -23,17 +23,13 @@ class Player;
 //
 class Player {
 public:
-  // Player to use for a cell that should always be dead.
-  static Player DEAD;
-
-  // Player to use for a cell that should always be live.
-  static Player LIVE;
-
   // Create 'name'd human player that uses 'board_char' as the
   // character representing them on the board. 'neighbor_value'
   // indicates the value to use for neighbor cells occupied by this
   // player.
-  Player(const std::string& name, char board_char, int32_t neighbor_value);
+  Player(
+    const std::shared_ptr<common::Logger>& logger,
+    const std::string& name, char board_char, int32_t neighbor_value);
   virtual ~Player() = default;
 
   // Return the player's name.
@@ -52,6 +48,7 @@ public:
   std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
 
 protected:
+  std::shared_ptr<common::Logger> logger_;
   const std::string name_;
   const char board_char_;
   const int32_t neighbor_value_;
@@ -68,7 +65,9 @@ public:
   // character representing them on the board. 'neighbor_value'
   // indicates the value to use for neighbor cells occupied by this
   // player.
-  HumanPlayer(const std::string& name, char board_char, int32_t neighbor_value);
+  HumanPlayer(
+    const std::shared_ptr<common::Logger>& logger,
+    const std::string& name, char board_char, int32_t neighbor_value);
 
   // See Player::NextAction().
   Action NextAction(const Board& board) const override;
@@ -89,6 +88,7 @@ public:
   // indicates the value to use for neighbor cells occupied by this
   // player.
   AlphaZeroPlayer(
+    const std::shared_ptr<common::Logger>& logger,
     const std::string& name, char board_char, int32_t neighbor_value,
     std::unique_ptr<cifre::AlphaZero> alpha_zero);
 
@@ -110,7 +110,9 @@ public:
   // character representing them on the board. 'neighbor_value'
   // indicates the value to use for neighbor cells occupied by this
   // player.
-  RandomPlayer(const std::string& name, char board_char, int32_t neighbor_value);
+  RandomPlayer(
+    const std::shared_ptr<common::Logger>& logger,
+    const std::string& name, char board_char, int32_t neighbor_value);
 
   // See Player::NextAction().
   Action NextAction(const Board& board) const override;

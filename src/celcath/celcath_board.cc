@@ -17,10 +17,11 @@ namespace cifre { namespace celcath {
 //
 // Board
 //
-Board::Board(const Settings& settings, const Stepper& stepper,
-             const std::vector<Player*>& players) :
+Board::Board(
+  const std::shared_ptr<common::Logger>& logger, const Settings& settings,
+  const Stepper& stepper, const std::vector<Player*>& players) :
   cifre::Board2D<float>(settings.BoardSize()),
-  settings_(settings), stepper_(stepper), players_(players),
+  logger_(logger), settings_(settings), stepper_(stepper), players_(players),
   status_(Status::NON_TERMINAL), active_player_id_(settings.StartingPlayerId()),
   end_turn_count_(0), complete_actions_this_turn_(0)
 {
@@ -221,9 +222,14 @@ Board::Update(uint64_t action_id)
     UpdateStatus();
   }
 
+  if (next_player) {
+    LOGGER_LOGLOW(*logger_, ToString());
+  }
+
   // If necessary run the stepper and check to see if there is a
   // change in the status of the board.
   if (run_stepper) {
+    LOGGER_LOGLOW(*logger_, std::string("run ") + stepper_.Name());
     stepper_.Step(this, players_);
     UpdateStatus();
   }
@@ -237,6 +243,8 @@ Board::Update(uint64_t action_id)
     if (active_player_id_ == settings_.StartingPlayerId()) {
       end_turn_count_ += 1;
     }
+
+    LOGGER_LOGLOW(*logger_, ToString());
   }
 }
 
@@ -411,9 +419,11 @@ Board::ToString(common::Logger::Level filter_level) const
         for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
           Player* player = PlayerAt(row_idx - 1, col_idx);
           if (player == nullptr) {
-            player = &Player::DEAD;
+            sstr << "  ";
           }
-          sstr << ' ' << player->ToString(filter_level);
+          else {
+            sstr << ' ' << player->ToString(filter_level);
+          }
         }
       }
       sstr << '\n';

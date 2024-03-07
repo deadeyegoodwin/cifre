@@ -29,8 +29,6 @@ B3S23Stepper::Step(Board* board, const std::vector<Player*>& players) const
 {
   const auto board_size = board->Size();
 
-  std::cout << std::string("before ") + Name() + '\n' + board->ToString() << '\n';
-
   // Collect the sum of neighbor values for each cell, for each player
   // in 'players'. Also add one additional entry to record the sum of
   // all neighbor values across all players.
@@ -107,8 +105,6 @@ B3S23Stepper::Step(Board* board, const std::vector<Player*>& players) const
       board->SetPlayerAtFlattened(nullptr, nvcell);
     }
   }
-
-  std::cout << std::string("after ") + Name() + '\n' + board->ToString() << '\n';
 }
 
 std::string

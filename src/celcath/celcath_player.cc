@@ -15,11 +15,9 @@ namespace cifre { namespace celcath {
 //
 // Player
 //
-Player Player::DEAD("dead", ' ', 0);
-Player Player::LIVE("live", 'O', 1);
-
-Player::Player(const std::string& name, char board_char, int32_t neighbor_value) :
-  name_(name), board_char_(board_char), neighbor_value_(neighbor_value)
+Player::Player(const std::shared_ptr<common::Logger>& logger,
+               const std::string& name, char board_char, int32_t neighbor_value) :
+  logger_(logger), name_(name), board_char_(board_char), neighbor_value_(neighbor_value)
 {
 }
 
@@ -41,8 +39,9 @@ Player::ToString(common::Logger::Level filter_level) const
 //
 // HumanPlayer
 //
-HumanPlayer::HumanPlayer(const std::string& name, char board_char, int32_t neighbor_value) :
-  Player(name, board_char, neighbor_value)
+HumanPlayer::HumanPlayer(const std::shared_ptr<common::Logger>& logger,
+                         const std::string& name, char board_char, int32_t neighbor_value) :
+  Player(logger, name, board_char, neighbor_value)
 {
 }
 
@@ -65,9 +64,10 @@ HumanPlayer::NextAction(const Board& board) const
   THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
 
   while (true) {
-    std::cout
-      << Name() << " [" << (board.CompletedActionsThisTurn() + 1)
-      << " of " << board.MaxActionsThisTurn() << "]: ";
+    logger_->LogLow(
+      Name() + " [" + std::to_string(board.CompletedActionsThisTurn() + 1) +
+      " of " + std::to_string(board.MaxActionsThisTurn()) + "]: ",
+      0 /* indent */, false /* endline */);
 
     std::string line;
     std::getline(std::cin, line);
@@ -78,16 +78,16 @@ HumanPlayer::NextAction(const Board& board) const
 
     switch (action.Kind()) {
     case Action::ActionKind::INVALID:
-      std::cout << "invalid action\n";
-      std::cout << Usage() << std::endl;
+      logger_->LogLow("invalid action");
+      logger_->LogLow(Usage());
       break;
 
     case Action::ActionKind::HELP:
-      std::cout << Usage() << std::endl;
+      logger_->LogLow(Usage());
       break;
 
     case Action::ActionKind::SHOW_BOARD:
-      std::cout << board.ToString() << '\n';
+      logger_->LogLow(board.ToString());
       break;
 
     case Action::ActionKind::QUIT:
@@ -103,9 +103,10 @@ HumanPlayer::NextAction(const Board& board) const
 // AlphaZeroPlayer
 //
 AlphaZeroPlayer::AlphaZeroPlayer(
+  const std::shared_ptr<common::Logger>& logger,
   const std::string& name, char board_char, int32_t neighbor_value,
   std::unique_ptr<cifre::AlphaZero> alpha_zero) :
-  Player(name, board_char, neighbor_value), alpha_zero_(std::move(alpha_zero))
+  Player(logger, name, board_char, neighbor_value), alpha_zero_(std::move(alpha_zero))
 {
 }
 
@@ -120,10 +121,10 @@ AlphaZeroPlayer::NextAction(const Board& board) const
   THROWIF(!board.IsValidAction(action),
           "alpha-zero selected invalid action " + board.ActionToString(action));
 
-  std::cout
-    << Name() << " [" << (board.CompletedActionsThisTurn() + 1)
-    << " of " << board.MaxActionsThisTurn() << "]: "
-    << board.ActionToString(action) << '\n';
+  logger_->LogLow(
+    Name() + " [" + std::to_string(board.CompletedActionsThisTurn() + 1) +
+    " of " + std::to_string(board.MaxActionsThisTurn()) + "]: " +
+    board.ActionToString(action), 0 /* indent */, false /* endline */);
 
   return action;
 }
@@ -131,17 +132,19 @@ AlphaZeroPlayer::NextAction(const Board& board) const
 //
 // RandomPlayer
 //
-RandomPlayer::RandomPlayer(const std::string& name, char board_char, int32_t neighbor_value):
-  Player(name, board_char, neighbor_value)
+RandomPlayer::RandomPlayer(const std::shared_ptr<common::Logger>& logger,
+                           const std::string& name, char board_char, int32_t neighbor_value):
+  Player(logger, name, board_char, neighbor_value)
 {
 }
 
 Action
 RandomPlayer::NextAction(const Board& board) const
 {
-  std::cout
-    << Name() << " [" << (board.CompletedActionsThisTurn() + 1)
-    << " of " << board.MaxActionsThisTurn() << "]: ";
+  logger_->LogLow(
+    Name() + " [" + std::to_string(board.CompletedActionsThisTurn() + 1) +
+    " of " + std::to_string(board.MaxActionsThisTurn()) + "]: ",
+    0 /* indent */, false /* endline */);
 
   // Pick a random action from the valid actions. At least one action
   // must be valid.
@@ -151,7 +154,7 @@ RandomPlayer::NextAction(const Board& board) const
   uint64_t action_id =
     *std::next(actionIds.begin(), rnd_(uint64_t(0), uint64_t(actionIds.size() - 1)));
   Action action = board.ActionIdToAction(action_id);
-  std::cout << board.ActionToString(action) << '\n';
+  logger_->LogLow(board.ActionToString(action));
 
   return action;
 }

@@ -30,8 +30,8 @@ class Board;
 class Board : public cifre::Board2D<float> {
 public:
   // Create a board based on 'settings'.
-  Board(const Settings& settings, const Stepper& stepper,
-        const std::vector<Player*>& players);
+  Board(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
+        const Stepper& stepper, const std::vector<Player*>& players);
 
   // Copy constructor.
   Board(const Board& other) = default;
@@ -192,6 +192,9 @@ private:
   // Update the status and valid actions for the current board.
   void UpdateStatus();
   void UpdateValidActions();
+
+  // Shared logger.
+  std::shared_ptr<common::Logger> logger_;
 
   // Settings shared across all Board instances.
   const Settings& settings_;

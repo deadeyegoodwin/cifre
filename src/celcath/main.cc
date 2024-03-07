@@ -61,10 +61,8 @@ struct Option {
 
   enum OptionId {
     OPTION_HELP = 1000,
-    OPTION_LOG_OFF,
-    OPTION_LOG_LOW,
-    OPTION_LOG_MED,
-    OPTION_LOG_HIGH,
+    OPTION_QUIET,
+    OPTION_VERBOSE,
     OPTION_LOG_FILE,
     OPTION_DATA_DIR,
     OPTION_MODEL_REPOSITORY_DIR,
@@ -99,16 +97,12 @@ struct Option {
 const std::vector<Option> options_ {
   {Option::OPTION_HELP, "help", Option::ArgNone, "Print usage"},
 
-  {Option::OPTION_LOG_OFF, "log-off", Option::ArgNone,
-   "Disable all logging."},
-  {Option::OPTION_LOG_LOW, "log-low", Option::ArgNone,
-   "Enable low-volume logging. Default."},
-  {Option::OPTION_LOG_MED, "log-med", Option::ArgNone,
-   "Enable medium-volume logging."},
-  {Option::OPTION_LOG_HIGH, "log-high", Option::ArgNone,
-   "Enable high-volume logging."},
+  {Option::OPTION_QUIET, "quiet", Option::ArgNone,
+   "Disable all output."},
+  {Option::OPTION_VERBOSE, "verbose", Option::ArgNone,
+   "Enable verbose output."},
   {Option::OPTION_LOG_FILE, "log-file", Option::ArgStr,
-   "File for log output. 'stdout' and 'stderr' are allowed."},
+   "File for output. 'stdout' and 'stderr' are allowed."},
 
   {Option::OPTION_DATA_DIR, "datadir", Option::ArgStr,
    "Training data directory, defaults to /tmp/cifre/data."},
@@ -203,14 +197,14 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger,
   const char bc = (n == 1) ? 'o' : 'x';
 
   if (player_kind == "human") {
-    return new cifre::celcath::HumanPlayer("Human" + std::to_string(n), bc, 1.0);
+    return new cifre::celcath::HumanPlayer(logger, "Human" + std::to_string(n), bc, 1.0);
   }
   if (player_kind == "random") {
-    return new cifre::celcath::RandomPlayer("Random" + std::to_string(n), bc, 1.0);
+    return new cifre::celcath::RandomPlayer(logger, "Random" + std::to_string(n), bc, 1.0);
   }
   if (player_kind == "alphazero") {
     return new cifre::celcath::AlphaZeroPlayer(
-      "AlphaZero" + std::to_string(n), bc, 1.0,
+      logger, "AlphaZero" + std::to_string(n), bc, 1.0,
       std::make_unique<cifre::AlphaZero>(logger, triton, model_name));
   }
 
@@ -223,10 +217,11 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger,
 namespace cifre { namespace celcath {
 
 void
-Play(const Settings& settings, const std::vector<cifre::celcath::Player*>& players, Board* board)
+Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
+     const std::vector<cifre::celcath::Player*>& players, Board* board)
 {
   // Show the initial board.
-  std::cout << board->ToString() << '\n';
+  LOGGER_LOGLOW(*logger, board->ToString());
 
   bool game_quit = false;
   while (!game_quit && !board->IsTerminal()) {
@@ -251,17 +246,19 @@ Play(const Settings& settings, const std::vector<cifre::celcath::Player*>& playe
 
   // Final board...
   if (game_quit) {
-    std::cout << "game quit on turn " + std::to_string(board->EndTurnCount()) + ": no winner\n";
+    LOGGER_LOGLOW(*logger,
+                  "game quit on turn " + std::to_string(board->EndTurnCount()) + ": no winner");
   }
   else if (board->IsDraw()) {
-    std::cout << "game over on turn " + std::to_string(board->EndTurnCount()) + ": draw\n";
+    LOGGER_LOGLOW(*logger,
+                  "game over on turn " + std::to_string(board->EndTurnCount()) + ": draw");
   }
   else {
-    std::cout
-      << "game over on turn " + std::to_string(board->EndTurnCount()) + ": winner "
-      << players[board->WinnerId()]->Name() << '\n';
+    LOGGER_LOGLOW(*logger,
+                  "game over on turn " + std::to_string(board->EndTurnCount()) + ": winner " +
+                  players[board->WinnerId()]->Name());
   }
-  std::cout << board->ToString() << '\n';
+  LOGGER_LOGLOW(*logger, board->ToString());
 }
 
 }} // namespace cifre::celcath
@@ -294,16 +291,10 @@ main(int argc, char **argv)
         std::cout << Usage() << std::endl;
         return 1;
 
-      case Option::OPTION_LOG_OFF:
+      case Option::OPTION_QUIET:
         log_level = common::Logger::Level::OFF;
         break;
-      case Option::OPTION_LOG_LOW:
-        log_level = common::Logger::Level::LOW;
-        break;
-      case Option::OPTION_LOG_MED:
-        log_level = common::Logger::Level::MED;
-        break;
-      case Option::OPTION_LOG_HIGH:
+      case Option::OPTION_VERBOSE:
         log_level = common::Logger::Level::HIGH;
         break;
       case Option::OPTION_LOG_FILE:
@@ -337,7 +328,7 @@ main(int argc, char **argv)
     }
 
     auto logger = std::shared_ptr<common::Logger>(
-      CreateLogger(log_filename, log_level, common::Logger::Timestamp::COMPACT));
+      CreateLogger(log_filename, log_level, common::Logger::Timestamp::NONE));
 
     // Echo command-line...
     if (logger->FilterLevel() != common::Logger::Level::OFF) {
@@ -353,6 +344,11 @@ main(int argc, char **argv)
     CheckTrueMsg(max_actions_per_turn >= min_actions_per_turn,
                  "--max-actions-per-turn must be >= --min-actions-per-turn");
 
+    if ((player1_kind == "human") || (player2_kind == "human")) {
+      CheckTrueMsg(logger->FilterLevel() != common::Logger::Level::OFF,
+                   "--quiet cannot be specified if there is a human player");
+    }
+
     // Settings
     cifre::celcath::Settings settings;
     settings.SetSetting("board-row-count", board_size.RowCount());
@@ -366,7 +362,7 @@ main(int argc, char **argv)
     settings.SetSetting("end-turn-action-id", board_size.CellCount());
 
     settings.Sync();
-    LOGGER_LOGMED(*logger, settings.ToString() + '\n');
+    LOGGER_LOGMED(*logger, settings.ToString());
 
     // Create shared triton object if required.
     std::shared_ptr<cifre::Triton> triton;
@@ -385,10 +381,10 @@ main(int argc, char **argv)
     auto stepper = std::make_unique<cifre::celcath::B3S23Stepper>(logger);
 
     // Create the starting board.
-    cifre::celcath::Board board(settings, *stepper, players);
+    cifre::celcath::Board board(logger, settings, *stepper, players);
 
     // Play the game starting at the initial board.
-    Play(settings, players, &board);
+    Play(logger, settings, players, &board);
 
   } catch (const std::exception& ex) {
     std::cerr << "error: " << ex.what() << std::endl;
