@@ -223,13 +223,13 @@ Board::Update(uint64_t action_id)
   }
 
   if (next_player) {
-    LOGGER_LOGLOW(*logger_, ToString());
+    LOGGER_LOGMED(*logger_, ToString());
   }
 
   // If necessary run the stepper and check to see if there is a
   // change in the status of the board.
   if (run_stepper) {
-    LOGGER_LOGLOW(*logger_, std::string("run ") + stepper_.Name());
+    LOGGER_LOGMED(*logger_, std::string("run ") + stepper_.Name());
     stepper_.Step(this, players_);
     UpdateStatus();
   }
@@ -244,7 +244,7 @@ Board::Update(uint64_t action_id)
       end_turn_count_ += 1;
     }
 
-    LOGGER_LOGLOW(*logger_, ToString());
+    LOGGER_LOGMED(*logger_, ToString());
   }
 }
 

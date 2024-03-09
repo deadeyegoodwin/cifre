@@ -64,7 +64,7 @@ HumanPlayer::NextAction(const Board& board) const
   THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
 
   while (true) {
-    logger_->LogLow(
+    logger_->LogMed(
       Name() + " [" + std::to_string(board.CompletedActionsThisTurn() + 1) +
       " of " + std::to_string(board.MaxActionsThisTurn()) + "]: ",
       0 /* indent */, false /* endline */);
@@ -78,16 +78,16 @@ HumanPlayer::NextAction(const Board& board) const
 
     switch (action.Kind()) {
     case Action::ActionKind::INVALID:
-      logger_->LogLow("invalid action");
-      logger_->LogLow(Usage());
+      logger_->LogMed("invalid action");
+      logger_->LogMed(Usage());
       break;
 
     case Action::ActionKind::HELP:
-      logger_->LogLow(Usage());
+      logger_->LogMed(Usage());
       break;
 
     case Action::ActionKind::SHOW_BOARD:
-      logger_->LogLow(board.ToString());
+      logger_->LogMed(board.ToString());
       break;
 
     case Action::ActionKind::QUIT:
@@ -121,7 +121,7 @@ AlphaZeroPlayer::NextAction(const Board& board) const
   THROWIF(!board.IsValidAction(action),
           "alpha-zero selected invalid action " + board.ActionToString(action));
 
-  logger_->LogLow(
+  logger_->LogMed(
     Name() + " [" + std::to_string(board.CompletedActionsThisTurn() + 1) +
     " of " + std::to_string(board.MaxActionsThisTurn()) + "]: " +
     board.ActionToString(action), 0 /* indent */, false /* endline */);
@@ -141,7 +141,7 @@ RandomPlayer::RandomPlayer(const std::shared_ptr<common::Logger>& logger,
 Action
 RandomPlayer::NextAction(const Board& board) const
 {
-  logger_->LogLow(
+  logger_->LogMed(
     Name() + " [" + std::to_string(board.CompletedActionsThisTurn() + 1) +
     " of " + std::to_string(board.MaxActionsThisTurn()) + "]: ",
     0 /* indent */, false /* endline */);
@@ -154,7 +154,7 @@ RandomPlayer::NextAction(const Board& board) const
   uint64_t action_id =
     *std::next(actionIds.begin(), rnd_(uint64_t(0), uint64_t(actionIds.size() - 1)));
   Action action = board.ActionIdToAction(action_id);
-  logger_->LogLow(board.ActionToString(action));
+  logger_->LogMed(board.ActionToString(action));
 
   return action;
 }

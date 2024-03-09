@@ -221,7 +221,7 @@ Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
      const std::vector<cifre::celcath::Player*>& players, Board* board)
 {
   // Show the initial board.
-  LOGGER_LOGLOW(*logger, board->ToString());
+  LOGGER_LOGMED(*logger, board->ToString());
 
   bool game_quit = false;
   while (!game_quit && !board->IsTerminal()) {
@@ -246,19 +246,19 @@ Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
 
   // Final board...
   if (game_quit) {
-    LOGGER_LOGLOW(*logger,
+    LOGGER_LOGMED(*logger,
                   "game quit on turn " + std::to_string(board->EndTurnCount()) + ": no winner");
   }
   else if (board->IsDraw()) {
-    LOGGER_LOGLOW(*logger,
+    LOGGER_LOGMED(*logger,
                   "game over on turn " + std::to_string(board->EndTurnCount()) + ": draw");
   }
   else {
-    LOGGER_LOGLOW(*logger,
+    LOGGER_LOGMED(*logger,
                   "game over on turn " + std::to_string(board->EndTurnCount()) + ": winner " +
                   players[board->WinnerId()]->Name());
   }
-  LOGGER_LOGLOW(*logger, board->ToString());
+  LOGGER_LOGMED(*logger, board->ToString());
 }
 
 }} // namespace cifre::celcath
@@ -267,7 +267,8 @@ int
 main(int argc, char **argv)
 {
   try {
-    common::Logger::Level log_level = common::Logger::Level::LOW;
+    bool quiet = false;
+    bool verbose = false;
     std::string log_filename = "stdout";
     std::string datadir = "/tmp/cifre/data";
     std::string model_name;
@@ -292,10 +293,12 @@ main(int argc, char **argv)
         return 1;
 
       case Option::OPTION_QUIET:
-        log_level = common::Logger::Level::OFF;
+        verbose = false;
+        quiet = true;
         break;
       case Option::OPTION_VERBOSE:
-        log_level = common::Logger::Level::HIGH;
+        verbose = true;
+        quiet = false;
         break;
       case Option::OPTION_LOG_FILE:
         log_filename = optarg;
@@ -327,6 +330,24 @@ main(int argc, char **argv)
       }
     }
 
+    // Log level is set based on --quiet, --verbose and if human is
+    // playing or not. If human is playing then default output log
+    // level is MED as that is what is required to see the turn action
+    // prompts. If human is not playing then default is LOW. Verbose
+    // sets level to HIGH.
+    common::Logger::Level log_level = common::Logger::Level::OFF;
+    if (!quiet) {
+      log_level = (verbose) ? common::Logger::Level::HIGH : common::Logger::Level::LOW;
+    }
+
+    if ((player1_kind == "human") || (player2_kind == "human")) {
+      CheckTrueMsg(log_level != common::Logger::Level::OFF,
+                   "--quiet cannot be specified if there is a human player");
+      if (!verbose) {
+        log_level = common::Logger::Level::MED;
+      }
+    }
+
     auto logger = std::shared_ptr<common::Logger>(
       CreateLogger(log_filename, log_level, common::Logger::Timestamp::NONE));
 
@@ -343,11 +364,6 @@ main(int argc, char **argv)
     CheckTrueMsg(max_actions_per_turn >= 1, "--max-actions-per-turn must be >= 1");
     CheckTrueMsg(max_actions_per_turn >= min_actions_per_turn,
                  "--max-actions-per-turn must be >= --min-actions-per-turn");
-
-    if ((player1_kind == "human") || (player2_kind == "human")) {
-      CheckTrueMsg(logger->FilterLevel() != common::Logger::Level::OFF,
-                   "--quiet cannot be specified if there is a human player");
-    }
 
     // Settings
     cifre::celcath::Settings settings;

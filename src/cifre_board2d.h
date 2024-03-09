@@ -7,7 +7,6 @@
 
 #include "cifre_state.h"
 #include "common_error.h"
-#include "common_logger.h"
 #include "common_util.h"
 
 namespace cifre {

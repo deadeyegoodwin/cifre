@@ -67,7 +67,7 @@ B3S23Stepper::Step(Board* board, const std::vector<Player*>& players) const
     }
   }
 
-  LOGGER_LOGMED(*logger_,
+  LOGGER_LOGHIGH(*logger_,
                 std::string("neighbor values\n") +
                 NeighborValuesToString(board_size, players, neighbor_values));
 
