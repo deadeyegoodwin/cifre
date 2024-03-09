@@ -70,6 +70,7 @@ struct Option {
     OPTION_BOARD_SIZE,
     OPTION_MIN_ACTIONS_PER_TURN,
     OPTION_MAX_ACTIONS_PER_TURN,
+    OPTION_GAME_COUNT,
     OPTION_PLAYER1,
     OPTION_PLAYER2
   };
@@ -120,6 +121,8 @@ const std::vector<Option> options_ {
    "Maximum number of actions each player may make before ending a turn. "
    "Default is " + std::to_string(DEFAULT_MAX_ACTIONS_PER_TURN) + "'."},
 
+  {Option::OPTION_GAME_COUNT, "game-count", Option::ArgInt,
+   "Number of games to play. Default is 1."},
   {Option::OPTION_PLAYER1, "player1", Option::ArgStr,
    "Type of the first player: 'human', 'random', 'alphazero'. Default is 'human'."},
   {Option::OPTION_PLAYER2, "player2", Option::ArgStr,
@@ -133,6 +136,14 @@ ParseUnsigned(const std::string& str)
   CheckTrueMsg(idx == str.size(),
                "unable to parse argument '" + str + "' as unsigned integer");
   return ul;
+}
+
+std::string
+FloatToString(float f, size_t precision = 2)
+{
+  std::stringstream ss;
+  ss << std::fixed << std::setprecision(precision) << f;
+  return ss.str();
 }
 
 std::string
@@ -216,7 +227,8 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger,
 
 namespace cifre { namespace celcath {
 
-void
+// Play one game, return true if the game completed, false if game was quit.
+bool
 Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
      const std::vector<cifre::celcath::Player*>& players, Board* board)
 {
@@ -259,6 +271,8 @@ Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
                   players[board->WinnerId()]->Name());
   }
   LOGGER_LOGMED(*logger, board->ToString());
+
+  return !game_quit;
 }
 
 }} // namespace cifre::celcath
@@ -275,6 +289,7 @@ main(int argc, char **argv)
     cifre::BoardSize2D board_size = DEFAULT_BOARD_SIZE;
     size_t min_actions_per_turn = DEFAULT_MIN_ACTIONS_PER_TURN;
     size_t max_actions_per_turn = DEFAULT_MAX_ACTIONS_PER_TURN;
+    size_t game_count = 1;
     std::string player1_kind = "human";
     std::string player2_kind = "human";
 
@@ -321,6 +336,9 @@ main(int argc, char **argv)
         max_actions_per_turn = ParseUnsigned(optarg);
         break;
 
+      case Option::OPTION_GAME_COUNT:
+        game_count = ParseUnsigned(optarg);
+        break;
       case Option::OPTION_PLAYER1:
         player1_kind = optarg;
         break;
@@ -364,6 +382,7 @@ main(int argc, char **argv)
     CheckTrueMsg(max_actions_per_turn >= 1, "--max-actions-per-turn must be >= 1");
     CheckTrueMsg(max_actions_per_turn >= min_actions_per_turn,
                  "--max-actions-per-turn must be >= --min-actions-per-turn");
+    CheckTrueMsg(game_count >= 1, "--game-count must be >= 1");
 
     // Settings
     cifre::celcath::Settings settings;
@@ -378,7 +397,7 @@ main(int argc, char **argv)
     settings.SetSetting("end-turn-action-id", board_size.CellCount());
 
     settings.Sync();
-    LOGGER_LOGMED(*logger, settings.ToString());
+    LOGGER_LOGHIGH(*logger, settings.ToString());
 
     // Create shared triton object if required.
     std::shared_ptr<cifre::Triton> triton;
@@ -396,11 +415,46 @@ main(int argc, char **argv)
     // Create the stepper that evolves board across generations.
     auto stepper = std::make_unique<cifre::celcath::B3S23Stepper>(logger);
 
-    // Create the starting board.
-    cifre::celcath::Board board(logger, settings, *stepper, players);
+    // Play game(s) starting at the initial board each game.
+    size_t games_completed = 0;
+    size_t draw_count = 0;
+    size_t winner1_count = 0;
+    size_t winner2_count = 0;
+    for (size_t gidx = 0; gidx < game_count; gidx++) {
+      cifre::celcath::Board board(logger, settings, *stepper, players);
 
-    // Play the game starting at the initial board.
-    Play(logger, settings, players, &board);
+      if (game_count > 1) {
+        logger->LogMed("====");
+        logger->LogMed("==== Game " + std::to_string(gidx + 1) + " of " + std::to_string(game_count) + " ====");
+        logger->LogMed("====");
+      }
+
+      if (!Play(logger, settings, players, &board)) {
+        break;
+      }
+
+      games_completed++;
+      if (board.IsDraw()) {
+        draw_count++;
+      }
+      else if (board.WinnerId() == 0) {
+        winner1_count++;
+      }
+      else {
+        winner2_count++;
+      }
+    }
+
+    logger->LogLow("==== " + std::to_string(games_completed) + " game" +
+                   ((games_completed == 1) ? " " : "s ") + "completed");
+    if (games_completed > 0) {
+      logger->LogLow("\t" + player1->Name() + ": " + std::to_string(winner1_count) +
+                     " (" + FloatToString(100.0 * winner1_count / games_completed, 1 /* precision */) + "%)");
+      logger->LogLow("\t" + player2->Name() + ": " + std::to_string(winner2_count) +
+                     " (" + FloatToString(100.0 * winner2_count / games_completed, 1 /* precision */) + "%)");
+      logger->LogLow("\tdraw: " + std::to_string(draw_count) +
+                     " (" + FloatToString(100.0 * draw_count / games_completed, 1 /* precision */) + "%)");
+    }
 
   } catch (const std::exception& ex) {
     std::cerr << "error: " << ex.what() << std::endl;
