@@ -119,12 +119,12 @@ AlphaZeroPlayer::NextAction(const Board& board) const
   uint64_t action_id = alpha_zero_->NextActionId(board);
   Action action = board.ActionIdToAction(action_id);
   THROWIF(!board.IsValidAction(action),
-          "alpha-zero selected invalid action " + board.ActionToString(action));
+          "alpha-zero selected invalid action " + action.ToString());
 
-  logger_->LogMed(
-    Name() + " [" + std::to_string(board.CompletedActionsThisTurn() + 1) +
-    " of " + std::to_string(board.MaxActionsThisTurn()) + "]: " +
-    board.ActionToString(action), 0 /* indent */, false /* endline */);
+  LOGGER_LOGMED(*logger_,
+                Name() + " [" + std::to_string(board.CompletedActionsThisTurn() + 1) +
+                " of " + std::to_string(board.MaxActionsThisTurn()) + "]: " +
+                board.ActionToString(action));
 
   return action;
 }
@@ -141,11 +141,6 @@ RandomPlayer::RandomPlayer(const std::shared_ptr<common::Logger>& logger,
 Action
 RandomPlayer::NextAction(const Board& board) const
 {
-  logger_->LogMed(
-    Name() + " [" + std::to_string(board.CompletedActionsThisTurn() + 1) +
-    " of " + std::to_string(board.MaxActionsThisTurn()) + "]: ",
-    0 /* indent */, false /* endline */);
-
   // Pick a random action from the valid actions. At least one action
   // must be valid.
   const auto& actionIds = board.ValidActionIds();
@@ -154,7 +149,11 @@ RandomPlayer::NextAction(const Board& board) const
   uint64_t action_id =
     *std::next(actionIds.begin(), rnd_(uint64_t(0), uint64_t(actionIds.size() - 1)));
   Action action = board.ActionIdToAction(action_id);
-  logger_->LogMed(board.ActionToString(action));
+
+  LOGGER_LOGMED(*logger_,
+                Name() + " [" + std::to_string(board.CompletedActionsThisTurn() + 1) +
+                " of " + std::to_string(board.MaxActionsThisTurn()) + "]: " +
+                board.ActionToString(action));
 
   return action;
 }

@@ -23,6 +23,14 @@ public:
   // Destructor
   virtual ~State() = default;
 
+  // Return the hash of this state. The hash must satisfy all the
+  // properties of std::hash.
+  virtual size_t Hash() const = 0;
+
+  // Return true if this state is equal to 'other'. Must satisfy all the
+  // properties of std::is_equal.
+  virtual bool Equal(const State* other) const = 0;
+
   // Return the total number of action IDs available across all
   // variations of this state. Each action ID is a numeric identifier
   // of type uint64_t in the range [0, total-action-id-count).

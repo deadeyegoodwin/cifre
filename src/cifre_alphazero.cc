@@ -30,7 +30,7 @@ AlphaZero::NextActionId(const State& state)
   THROWIF(state.IsTerminal(), "alpha-zero cannot find next action for terminal state");
 
   // Find, creating if necessary, tree node that represents 'state'.
-  auto node = FindOrCreateNode(std::unique_ptr<State>(state.Clone()));
+  auto node = FindOrCreateNode(std::unique_ptr<const State>(state.Clone()));
   assert(node != nullptr);
 
   // FIXME parameters...
@@ -45,38 +45,16 @@ AlphaZero::NextActionId(const State& state)
   // Choose the action that has the highest visit count. Because
   // 'state' is not a terminal state, there must be at least one
   // action with a non-zero visit count.
-  return node->MaxVisitedChild();
-}
-
-uint64_t
-AlphaZero::HashState(const State& state) const
-{
-  // Each state is identified by a hash based on the value it passes
-  // to the model. Given that a 64 bit hash is used, collisions should
-  // be rare and there is no attempt to do exact comparisons to avoid
-  // these collisions. If there is a collision, it just means that the
-  // "later" state will share an already existing node... not ideal
-  // but given it is rare should have negligible impact on outcome.
-  const std::vector<uint8_t>& bytes = state.TritonRepresentation();
-
-  const uint64_t mulp = 2654435789;
-  uint64_t hash = 104395301;
-  for (uint8_t b : bytes) {
-    hash += (b * mulp) ^ (hash >> 23);
-  }
-
-  return hash ^ (hash << 37);
+  return node->MaxVisitedValidChild();
 }
 
 AlphaZero::Node*
-AlphaZero::FindOrCreateNode(std::unique_ptr<State> state, bool* created)
+AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
 {
   Node* new_node;
   bool new_created;
 
-  const uint64_t hash = HashState(*state);
-
-  auto node_itr = nodes_.find(hash);
+  auto node_itr = nodes_.find(state.get());
   if (node_itr != nodes_.end()) {
     new_node = &(node_itr->second);
     new_created = false;
@@ -87,7 +65,7 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<State> state, bool* created)
 
     auto created_node_itr =
       nodes_.emplace(std::piecewise_construct,
-                     std::forward_as_tuple(hash),
+                     std::forward_as_tuple(state.get()),
                      std::forward_as_tuple(std::move(state), std::move(result)));
     assert(created_node_itr.second);
     new_node = &(created_node_itr.first->second);
@@ -110,7 +88,7 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, size_t depth_remaining)
   // If 'node' is the last node that should be visited (because max
   // depth has been reached, or node is a terminal node), then just
   // return value.
-  if ((depth_remaining == 0) || node->NodeState()->IsTerminal()) {
+  if ((depth_remaining == 0) || node->NodeState().IsTerminal()) {
     node->IncrementVisitCount();
     return node->Value();
   }
@@ -127,9 +105,9 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, size_t depth_remaining)
   else {
     // Find or create the node representing the state that results
     // when 'best_action_id' is applied to 'node'.
-    State* next_state = node->NodeState()->Clone();
+    State* next_state = node->NodeState().Clone();
     next_state->Update(best_action_id);
-    next = FindOrCreateNode(std::unique_ptr<State>(next_state));
+    next = FindOrCreateNode(std::unique_ptr<const State>(next_state));
     assert(next != nullptr);
 
     // Add the edge to connect 'node' to 'next', then continue search.
@@ -147,7 +125,7 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, size_t depth_remaining)
 //
 // AlphaZero::Node
 //
-AlphaZero::Node::Node(std::unique_ptr<State> state, TritonInferResult&& infer_result) :
+AlphaZero::Node::Node(std::unique_ptr<const State> state, TritonInferResult&& infer_result) :
   state_(std::move(state)), result_(std::move(infer_result)),
   children_(result_.PiEntryCount(), nullptr), children_visit_counts_(result_.PiEntryCount(), 0),
   visit_count_(0)
@@ -204,12 +182,12 @@ AlphaZero::Node::BestActionId() const
 }
 
 uint64_t
-AlphaZero::Node::MaxVisitedChild() const
+AlphaZero::Node::MaxVisitedValidChild() const
 {
   uint64_t max_visit_count = 0;
   uint64_t max_action_id;
 
-  for (uint64_t aid = 0; aid < state_->TotalActionIdCount(); ++aid) {
+  for (uint64_t aid : state_->ValidActionIds()) {
     uint64_t cnt = children_visit_counts_[aid];
     if (cnt > max_visit_count) {
       max_visit_count = cnt;

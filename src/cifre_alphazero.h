@@ -29,10 +29,10 @@ private:
   class Node {
   public:
     // Create node for state which model predicts 'infer_result'.
-    Node(std::unique_ptr<State> state, TritonInferResult&& infer_result);
+    Node(std::unique_ptr<const State> state, TritonInferResult&& infer_result);
 
     // Return the State represented by this node.
-    const State* NodeState() const { return state_.get(); }
+    const State& NodeState() const { return *state_; }
 
     // Return the child for a given action ID.
     Node* Child(uint64_t action_id) const { return children_[action_id]; }
@@ -61,8 +61,9 @@ private:
     uint64_t BestActionId() const;
 
     // Return the action ID corresponding to the child edge that has
-    // the highest non-zero visited count. Error if no such child.
-    uint64_t MaxVisitedChild() const;
+    // the highest non-zero visited count and that represents a valid
+    // action for this node. Error if no such child.
+    uint64_t MaxVisitedValidChild() const;
 
   private:
     const std::unique_ptr<const State> state_;
@@ -83,13 +84,11 @@ public:
   uint64_t NextActionId(const State& state);
 
 private:
-  uint64_t HashState(const State& state) const;
-
   // Return the node representing the given 'state', creating if
   // necessary. The created node, if any, takes ownership of 'state'.
   // If 'created' is not nullptr, returns true if node created, false
   // if already exists.
-  Node* FindOrCreateNode(std::unique_ptr<State> state, bool* created = nullptr);
+  Node* FindOrCreateNode(std::unique_ptr<const State> state, bool* created = nullptr);
 
   // Search from 'node' and update the tree. Return the 'V' value for
   // the leaf node visited in the search.
@@ -98,7 +97,18 @@ private:
   std::shared_ptr<common::Logger> logger_;
   std::shared_ptr<Triton> triton_;
   const std::string model_name_;
-  std::unordered_map<uint64_t, Node> nodes_;
+
+  // Nodes are identified by their State, so we need to use a custom
+  // hash and equal for the map containing all the nodes. The "State*"
+  // key is a pointer to the same state that is owned by the
+  // unique_ptr<State> in the Node itself.
+  struct NodesMapHash {
+    size_t operator()(const State* s) const { return s->Hash(); }
+  };
+  struct NodesMapEqual {
+    bool operator()(const State* a, const State* b) const { return a->Equal(b); }
+  };
+  std::unordered_map<const State*, Node, NodesMapHash, NodesMapEqual> nodes_;
 };
 
 } // namespace cifre

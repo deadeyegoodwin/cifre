@@ -22,8 +22,8 @@ Board::Board(
   const Stepper& stepper, const std::vector<Player*>& players) :
   cifre::Board2D<float>(settings.BoardSize()),
   logger_(logger), settings_(settings), stepper_(stepper), players_(players),
-  status_(Status::NON_TERMINAL), active_player_id_(settings.StartingPlayerId()),
-  end_turn_count_(0), complete_actions_this_turn_(0)
+  end_turn_count_(0), status_(Status::NON_TERMINAL),
+  active_player_id_(settings.StartingPlayerId()), complete_actions_this_turn_(0)
 {
   THROWIF(players_.size() != 2, "exactly 2 players are required");
   UpdateValidActions();
@@ -178,6 +178,38 @@ void
 Board::SetPlayerAtFlattened(Player* player, size_t flat_idx)
 {
   SetCellValueAtFlattened(PlayerToCellValue(player), flat_idx);
+}
+
+size_t
+Board::Hash() const
+{
+  const std::vector<uint8_t>& bytes = TritonRepresentation();
+
+  const uint64_t mulp = 2654435789;
+  uint64_t hash = 104395301;
+  for (uint8_t b : bytes) {
+    hash += (b * mulp) ^ (hash >> 23);
+  }
+
+  hash = hash ^ (active_player_id_ << 33);
+  hash = hash ^ (complete_actions_this_turn_ << 17);
+
+  return hash ^ (hash << 37);
+}
+
+bool
+Board::Equal(const State* other) const
+{
+  const Board* bother = dynamic_cast<const Board*>(other);
+
+  if (active_player_id_ != bother->active_player_id_) {
+    return false;
+  }
+  if (complete_actions_this_turn_ != bother->complete_actions_this_turn_) {
+    return false;
+  }
+
+  return TritonRepresentation() == bother->TritonRepresentation();
 }
 
 void

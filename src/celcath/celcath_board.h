@@ -120,15 +120,21 @@ public:
   void SwitchActivePlayer();
 
   // See cifre::State
+  State* Clone() const override { return new Board(*this); }
+
+  // See cifre::State
+  size_t Hash() const override;
+
+  // See cifre::State
+  bool Equal(const State* other) const override;
+
+  // See cifre::State
   bool IsTerminal() const override { return status_ != Status::NON_TERMINAL; }
 
   // See cifre::State
   float TerminalValue() const override {
     assert(IsTerminal()); if (IsDraw()) { return 0; }
     return (active_player_id_ == WinnerId()) ? 1 : -1; }
-
-  // See cifre::State
-  State* Clone() const override { return new Board(*this); }
 
   // See cifre::State
   size_t TotalActionIdCount() const override {
@@ -205,20 +211,41 @@ private:
   // Players shared across all Board instances.
   const std::vector<cifre::celcath::Player*>& players_;
 
+  // Number of end-turn actions that have been applied to this board.
+  size_t end_turn_count_;
+
   // The status of the board indicating winning condition.
   Status status_;
+
+  // The set of action ids that are valid for the current board.
+  std::unordered_set<uint64_t> valid_action_ids_;
+
+  // The board's hash and equality (cifre::State::Hash() and
+  // cifre::State::Equal()) should include only those things that
+  // uniquely distinquish it from another state in ways that are
+  // important to actual gameplay (and thus important to the
+  // alpha-zero algorithm, or any other algorithm that is being
+  // applied to the board). Currently this includes the board itself
+  // (from cifre::Board2d), and any members declared below. When new
+  // members are added to this class they need to be evaluated to
+  // determine if they belong with the below members and included in
+  // the hash/equal or not.
+  //
+  //   - 'end_turn_count_' is not included because that is just
+  //     counting the number of player turns that have passsed.
+  //
+  //   - 'status_' does not need to be included because it is derived
+  //     from the board itself and 'active_player_id_.
+  //
+  //   - 'valid_action_ids_' does not need to be included because it
+  //   - is derived from the board itself, 'active_player_id_' and
+  //   - 'complete_actions_this_turn_'.
 
   // ID of the currently active player.
   size_t active_player_id_;
 
-  // Number of end-turn actions that have been applied to this board.
-  size_t end_turn_count_;
-
   // Track how many actions active player has completed this turn.
   size_t complete_actions_this_turn_;
-
-  // The set of action ids that are valid for the current board.
-  std::unordered_set<uint64_t> valid_action_ids_;
 };
 
 }} // namespace cifre::celcath
