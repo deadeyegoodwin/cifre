@@ -449,12 +449,15 @@ main(int argc, char **argv)
     logger->LogLow("==== " + std::to_string(games_completed) + " game" +
                    ((games_completed == 1) ? " " : "s ") + "completed");
     if (games_completed > 0) {
-      logger->LogLow("\t" + player1->Name() + ": " + std::to_string(winner1_count) +
-                     " (" + FloatToString(100.0 * winner1_count / games_completed, 1 /* precision */) + "%)");
-      logger->LogLow("\t" + player2->Name() + ": " + std::to_string(winner2_count) +
-                     " (" + FloatToString(100.0 * winner2_count / games_completed, 1 /* precision */) + "%)");
-      logger->LogLow("\tdraw: " + std::to_string(draw_count) +
-                     " (" + FloatToString(100.0 * draw_count / games_completed, 1 /* precision */) + "%)");
+      logger->LogLow(player1->Name() + ": " + std::to_string(winner1_count) +
+                     " (" + FloatToString(100.0 * winner1_count / games_completed, 1 /* precision */) + "%)",
+                     4 /* indent */);
+      logger->LogLow(player2->Name() + ": " + std::to_string(winner2_count) +
+                     " (" + FloatToString(100.0 * winner2_count / games_completed, 1 /* precision */) + "%)",
+                     4 /* indent */);
+      logger->LogLow("draw: " + std::to_string(draw_count) +
+                     " (" + FloatToString(100.0 * draw_count / games_completed, 1 /* precision */) + "%)",
+                     4 /* indent */);
     }
 
     // Individual player statistics, if any...

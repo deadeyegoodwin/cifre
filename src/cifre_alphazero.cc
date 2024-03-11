@@ -161,7 +161,7 @@ AlphaZero::ToStatisticsString() const
 
   const size_t search_count =
     search_endby_depth_count_ + search_endby_loop_count_ + search_endby_terminal_count_;
-  ss << "searchs: " << search_count << ", end by depth " << search_endby_depth_count_
+  ss << "searches: " << search_count << ", end by depth " << search_endby_depth_count_
      << ", end by loop " << search_endby_loop_count_
      << ", end by terminal " << search_endby_terminal_count_;
 
