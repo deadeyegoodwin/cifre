@@ -57,6 +57,10 @@ private:
     // Increment node's visit count and return new value.
     size_t IncrementVisitCount() { return ++visit_count_; }
 
+    // Get or set the search/update generation of this node.
+    size_t Generation() const { return generation_; }
+    void SetGeneration(size_t g) { generation_ = g; }
+
     // Return the best action ID based on the current node state.
     uint64_t BestActionId() const;
 
@@ -72,6 +76,10 @@ private:
     std::vector<size_t> children_visit_counts_;
     size_t visit_count_;
     float value_;
+
+    // Used to determine when a search/update of the node tree
+    // traverses a loop.
+    size_t generation_;
   };
 
 public:
@@ -92,11 +100,15 @@ private:
 
   // Search from 'node' and update the tree. Return the 'V' value for
   // the leaf node visited in the search.
-  float UpdateTree(Node* node, size_t depth_remaining);
+  float UpdateTree(Node* node, const size_t generation, const size_t depth_remaining);
 
   std::shared_ptr<common::Logger> logger_;
   std::shared_ptr<Triton> triton_;
   const std::string model_name_;
+
+  // Used to determine when a search/update of the node tree
+  // traverses a loop.
+  size_t node_update_generation_;
 
   // Nodes are identified by their State, so we need to use a custom
   // hash and equal for the map containing all the nodes. The "State*"

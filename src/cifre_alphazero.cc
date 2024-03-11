@@ -13,7 +13,7 @@ namespace cifre {
 AlphaZero::AlphaZero(
   const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
   const std::string& model_name) :
-  logger_(logger), triton_(triton), model_name_(model_name)
+  logger_(logger), triton_(triton), model_name_(model_name), node_update_generation_(0)
 {
   THROWIF(model_name_.empty(), "model must be specified for alpha-zero");
 
@@ -39,7 +39,7 @@ AlphaZero::NextActionId(const State& state)
 
   // Update the tree starting from 'node'.
   for (size_t idx = 0; idx < search_per_action_count; ++idx) {
-    UpdateTree(node, max_depth);
+    UpdateTree(node, ++node_update_generation_, max_depth);
   }
 
   // Choose the action that has the highest visit count. Because
@@ -81,9 +81,17 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
 }
 
 float
-AlphaZero::UpdateTree(AlphaZero::Node* node, size_t depth_remaining)
+AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t generation, const size_t depth_remaining)
 {
-  // FIXME detect looping and choose path that does not create a loop.
+  // If 'node's generation equals 'generation', then 'node' has
+  // already been visited in this search/update so don't update its
+  // visit count (it will be updated as the UpdateTree unwinds) and
+  // return its value.
+  assert(node->Generation() <= generation);
+  if (node->Generation() == generation) {
+    return node->Value();
+  }
+  node->SetGeneration(generation);
 
   // If 'node' is the last node that should be visited (because max
   // depth has been reached, or node is a terminal node), then just
@@ -100,7 +108,7 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, size_t depth_remaining)
   uint64_t best_action_id = node->BestActionId();
   Node* next = node->Child(best_action_id);
   if (next != nullptr) {
-    v = UpdateTree(next, depth_remaining - 1);
+    v = UpdateTree(next, generation, depth_remaining - 1);
   }
   else {
     // Find or create the node representing the state that results
@@ -112,7 +120,7 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, size_t depth_remaining)
 
     // Add the edge to connect 'node' to 'next', then continue search.
     node->SetChild(best_action_id, next, 0 /* visit_count */);
-    v = UpdateTree(next, depth_remaining - 1);
+    v = UpdateTree(next, generation, depth_remaining - 1);
   }
 
   node->UpdateValue(v);
@@ -128,7 +136,7 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, size_t depth_remaining)
 AlphaZero::Node::Node(std::unique_ptr<const State> state, TritonInferResult&& infer_result) :
   state_(std::move(state)), result_(std::move(infer_result)),
   children_(result_.PiEntryCount(), nullptr), children_visit_counts_(result_.PiEntryCount(), 0),
-  visit_count_(0)
+  visit_count_(0), generation_(0)
 {
   // Is node is a terminal, then its value is based on the state,
   // otherwise it comes from the model.
