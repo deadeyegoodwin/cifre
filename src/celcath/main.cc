@@ -51,6 +51,7 @@ namespace {
 static const cifre::BoardSize2D DEFAULT_BOARD_SIZE {6, 8};
 static constexpr size_t DEFAULT_MIN_ACTIONS_PER_TURN = 1;
 static constexpr size_t DEFAULT_MAX_ACTIONS_PER_TURN = 1;
+static constexpr size_t DEFAULT_MAX_TURNS_PER_GAME = 100;
 
 struct Option {
   static constexpr const char* ArgNone = "";
@@ -70,6 +71,7 @@ struct Option {
     OPTION_BOARD_SIZE,
     OPTION_MIN_ACTIONS_PER_TURN,
     OPTION_MAX_ACTIONS_PER_TURN,
+    OPTION_MAX_TURNS_PER_GAME,
     OPTION_GAME_COUNT,
     OPTION_PLAYER1,
     OPTION_PLAYER2
@@ -120,6 +122,10 @@ const std::vector<Option> options_ {
   {Option::OPTION_MAX_ACTIONS_PER_TURN, "max-actions-per-turn", Option::ArgInt,
    "Maximum number of actions each player may make before ending a turn. "
    "Default is " + std::to_string(DEFAULT_MAX_ACTIONS_PER_TURN) + "'."},
+  {Option::OPTION_MAX_TURNS_PER_GAME, "max-turns-per-game", Option::ArgInt,
+   "Maximum number of turns in a game before the game is declared a draw. "
+   "One turn consists of each player getting a chance to take actions. "
+   "Default is " + std::to_string(DEFAULT_MAX_TURNS_PER_GAME) + "'."},
 
   {Option::OPTION_GAME_COUNT, "game-count", Option::ArgInt,
    "Number of games to play. Default is 1."},
@@ -227,16 +233,20 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger,
 
 namespace cifre { namespace celcath {
 
-// Play one game, return true if the game completed, false if game was quit.
-bool
+enum class PlayResult { COMPLETE, TURN_LIMIT_EXCEEDED, QUIT };
+
+// Play one game, return PlayResult indicating outcome.
+PlayResult
 Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
-     const std::vector<cifre::celcath::Player*>& players, Board* board)
+     const std::vector<cifre::celcath::Player*>& players, Board* board,
+     const size_t max_turns_per_game)
 {
   // Show the initial board.
   LOGGER_LOGMED(*logger, board->ToString());
 
   bool game_quit = false;
-  while (!game_quit && !board->IsTerminal()) {
+  bool game_turn_limited = false;
+  while (!game_quit && !game_turn_limited && !board->IsTerminal()) {
     Player* player = board->ActivePlayer();
     Action action = player->NextAction(*board);
     switch (action.Kind()) {
@@ -254,12 +264,18 @@ Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
       board->Update(action.ActionId());
       break;
     }
+
+    game_turn_limited = (board->EndTurnCount() >= max_turns_per_game);
   }
 
   // Final board...
   if (game_quit) {
     LOGGER_LOGMED(*logger,
                   "game quit on turn " + std::to_string(board->EndTurnCount()) + ": no winner");
+  }
+  else if (game_turn_limited) {
+    LOGGER_LOGMED(*logger,
+                  "game reached turn limit " + std::to_string(board->EndTurnCount()) + ": no winner");
   }
   else if (board->IsDraw()) {
     LOGGER_LOGMED(*logger,
@@ -272,7 +288,8 @@ Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
   }
   LOGGER_LOGMED(*logger, board->ToString());
 
-  return !game_quit;
+  return((game_quit) ? PlayResult::QUIT :
+         (game_turn_limited) ? PlayResult::TURN_LIMIT_EXCEEDED : PlayResult::COMPLETE);
 }
 
 }} // namespace cifre::celcath
@@ -289,6 +306,7 @@ main(int argc, char **argv)
     cifre::BoardSize2D board_size = DEFAULT_BOARD_SIZE;
     size_t min_actions_per_turn = DEFAULT_MIN_ACTIONS_PER_TURN;
     size_t max_actions_per_turn = DEFAULT_MAX_ACTIONS_PER_TURN;
+    size_t max_turns_per_game = DEFAULT_MAX_TURNS_PER_GAME;
     size_t game_count = 1;
     std::string player1_kind = "human";
     std::string player2_kind = "human";
@@ -334,6 +352,9 @@ main(int argc, char **argv)
         break;
       case Option::OPTION_MAX_ACTIONS_PER_TURN:
         max_actions_per_turn = ParseUnsigned(optarg);
+        break;
+      case Option::OPTION_MAX_TURNS_PER_GAME:
+        max_turns_per_game = ParseUnsigned(optarg);
         break;
 
       case Option::OPTION_GAME_COUNT:
@@ -382,6 +403,7 @@ main(int argc, char **argv)
     CheckTrueMsg(max_actions_per_turn >= 1, "--max-actions-per-turn must be >= 1");
     CheckTrueMsg(max_actions_per_turn >= min_actions_per_turn,
                  "--max-actions-per-turn must be >= --min-actions-per-turn");
+    CheckTrueMsg(max_turns_per_game >= 1, "--max-turns-per-game must be >= 1");
     CheckTrueMsg(game_count >= 1, "--game-count must be >= 1");
 
     // Settings
@@ -429,12 +451,13 @@ main(int argc, char **argv)
         logger->LogMed("====");
       }
 
-      if (!Play(logger, settings, players, &board)) {
+      cifre::celcath::PlayResult presult = Play(logger, settings, players, &board, max_turns_per_game);
+      if (presult == cifre::celcath::PlayResult::QUIT) {
         break;
       }
 
       games_completed++;
-      if (board.IsDraw()) {
+      if ((presult == cifre::celcath::PlayResult::TURN_LIMIT_EXCEEDED) || board.IsDraw()) {
         draw_count++;
       }
       else if (board.WinnerId() == 0) {
