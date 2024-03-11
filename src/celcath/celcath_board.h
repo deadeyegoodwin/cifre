@@ -36,9 +36,6 @@ public:
   // Copy constructor.
   Board(const Board& other) = default;
 
-  // Return the ID of the active player.
-  size_t ActivePlayerId() const { return active_player_id_; }
-
   // Return the active player.
   Player* ActivePlayer() const { return players_[active_player_id_]; }
 
@@ -127,6 +124,9 @@ public:
 
   // See cifre::State
   bool Equal(const State* other) const override;
+
+  // See cifre::State
+  size_t ActivePlayerId() const override { return active_player_id_; }
 
   // See cifre::State
   bool IsTerminal() const override { return status_ != Status::NON_TERMINAL; }

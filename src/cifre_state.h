@@ -39,6 +39,11 @@ public:
   // Get the action identifiers that are valid for this state.
   virtual const std::unordered_set<uint64_t>& ValidActionIds() const = 0;
 
+  // Return the ID of the player that is active (i.e. that is taking a
+  // turn) for this state. Individual games can manage the IDs however
+  // they like but different players must have different IDs.
+  virtual size_t ActivePlayerId() const = 0;
+
   // Is state a terminal state, that is, does it represent a game
   // ending state.
   virtual bool IsTerminal() const = 0;

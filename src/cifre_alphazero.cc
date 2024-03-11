@@ -137,6 +137,12 @@ AlphaZero::UpdateTree(
 
   v = UpdateTree(next, cpuct, generation, depth_remaining - 1);
 
+  // If 'next' has a different active player than 'node', then need to
+  // invert 'v'.
+  if (node->NodeState().ActivePlayerId() != next->NodeState().ActivePlayerId()) {
+    v = -v;
+  }
+
   node->UpdateValue(v);
   node->IncrementVisitCount();
   node->IncrementChildVisitCount(best_action_id);
