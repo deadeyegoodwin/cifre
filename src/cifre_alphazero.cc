@@ -27,7 +27,7 @@ AlphaZero::AlphaZero(
 }
 
 uint64_t
-AlphaZero::NextActionId(const State& state)
+AlphaZero::NextActionId(const State& state, const NextActionKind kind)
 {
   THROWIF(state.IsTerminal(), "alpha-zero cannot find next action for terminal state");
 
@@ -45,10 +45,17 @@ AlphaZero::NextActionId(const State& state)
     UpdateTree(node, cpuct, ++node_update_generation_, max_depth);
   }
 
-  // Choose the action that has the highest visit count. Because
-  // 'state' is not a terminal state, there must be at least one
-  // action with a non-zero visit count.
-  return node->MaxVisitedValidChild();
+  // Based on 'kind', choose the next action. Because 'state' is not a
+  // terminal state, there must be at least one action with a non-zero
+  // visit count.
+  switch (kind) {
+  case NextActionKind::VISIT:
+    return node->MaxVisitedValidChild();
+  case NextActionKind::WEIGHTED_RANDOM:
+    return node->RandomWeightedValidChild(rnd_);
+  }
+
+  THROW("unreachable");
 }
 
 AlphaZero::Node*
@@ -104,15 +111,18 @@ AlphaZero::UpdateTree(
 
   // If 'node' is the last node that should be visited (because max
   // depth has been reached, or node is a terminal node), then just
-  // return value.
+  // return value. Note that we don't increment the node count when
+  // stopping for depth, this is because we always want the node count
+  // to equal the sum of the child counts so if we are not going to
+  // visit a child we don't want to update the node count.
   if ((depth_remaining == 0) || node->NodeState().IsTerminal()) {
-    if (depth_remaining == 0) {
-      search_endby_depth_count_++;
-    } else {
+    if (node->NodeState().IsTerminal()) {
       search_endby_terminal_count_++;
+      node->IncrementVisitCount();
+    } else {
+      search_endby_depth_count_++;
     }
 
-    node->IncrementVisitCount();
     return node->Value();
   }
 
@@ -245,6 +255,36 @@ AlphaZero::Node::MaxVisitedValidChild() const
           "alpha-zero unable to find valid child with non-zero visits");
 
   return max_action_id;
+}
+
+uint64_t
+AlphaZero::Node::RandomWeightedValidChild(common::Random& rnd) const
+{
+  THROWIF(visit_count_ == 0, "alpha-zero node has zero visits");
+
+  uint64_t visit_offset = rnd(uint64_t(1), uint64_t(visit_count_));
+
+#ifndef NDEBUG
+  // When debugging, make sure that there are no children for invalid
+  // action IDs.
+  const auto& vaids = state_->ValidActionIds();
+  for (uint64_t aid = 0; aid < state_->TotalActionIdCount(); ++aid) {
+    if (vaids.find(aid) == vaids.end()) {
+      assert(children_[aid] == nullptr);
+      assert(children_visit_counts_[aid] == 0);
+    }
+  }
+#endif
+
+  uint64_t count_total = 0;
+  for (uint64_t aid : state_->ValidActionIds()) {
+    count_total += children_visit_counts_[aid];
+    if (count_total >= visit_offset) {
+      return aid;
+    }
+  }
+
+  THROW("alpha-zero unable to find valid child with non-zero visits");
 }
 
 } // namespace cifre

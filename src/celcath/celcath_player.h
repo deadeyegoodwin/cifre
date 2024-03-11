@@ -95,7 +95,7 @@ public:
   AlphaZeroPlayer(
     const std::shared_ptr<common::Logger>& logger,
     const std::string& name, char board_char, int32_t neighbor_value,
-    std::unique_ptr<cifre::AlphaZero> alpha_zero);
+    std::unique_ptr<cifre::AlphaZero> alpha_zero, cifre::AlphaZero::NextActionKind kind);
 
   // See Player::NextAction().
   Action NextAction(const Board& board) const override;
@@ -105,6 +105,7 @@ public:
 
 private:
   std::unique_ptr<cifre::AlphaZero> alpha_zero_;
+  cifre::AlphaZero::NextActionKind kind_;
 };
 
 //

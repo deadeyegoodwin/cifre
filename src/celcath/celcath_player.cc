@@ -105,8 +105,9 @@ HumanPlayer::NextAction(const Board& board) const
 AlphaZeroPlayer::AlphaZeroPlayer(
   const std::shared_ptr<common::Logger>& logger,
   const std::string& name, char board_char, int32_t neighbor_value,
-  std::unique_ptr<cifre::AlphaZero> alpha_zero) :
-  Player(logger, name, board_char, neighbor_value), alpha_zero_(std::move(alpha_zero))
+  std::unique_ptr<cifre::AlphaZero> alpha_zero, cifre::AlphaZero::NextActionKind kind) :
+  Player(logger, name, board_char, neighbor_value), alpha_zero_(std::move(alpha_zero)),
+  kind_(kind)
 {
 }
 
@@ -116,7 +117,7 @@ AlphaZeroPlayer::NextAction(const Board& board) const
   const auto& actionIds = board.ValidActionIds();
   THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
 
-  uint64_t action_id = alpha_zero_->NextActionId(board);
+  uint64_t action_id = alpha_zero_->NextActionId(board, kind_);
   Action action = board.ActionIdToAction(action_id);
   THROWIF(!board.IsValidAction(action),
           "alpha-zero selected invalid action " + action.ToString());

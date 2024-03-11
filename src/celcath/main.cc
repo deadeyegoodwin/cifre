@@ -222,7 +222,8 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger,
   if (player_kind == "alphazero") {
     return new cifre::celcath::AlphaZeroPlayer(
       logger, "AlphaZero" + std::to_string(n), bc, 1.0,
-      std::make_unique<cifre::AlphaZero>(logger, triton, model_name));
+      std::make_unique<cifre::AlphaZero>(logger, triton, model_name),
+      cifre::AlphaZero::NextActionKind::VISIT);
   }
 
   Fail("unknown player kind '" + player_kind + "'");

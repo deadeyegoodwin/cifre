@@ -9,6 +9,7 @@
 #include "cifre_state.h"
 #include "cifre_triton.h"
 #include "common_logger.h"
+#include "common_random.h"
 
 namespace cifre {
 
@@ -69,6 +70,13 @@ private:
     // action for this node. Error if no such child.
     uint64_t MaxVisitedValidChild() const;
 
+    // Return the action ID corresponding to the child edge that
+    // represents a valid action for this node, and that is chosen
+    // randomly from all valid children based on the child visit
+    // counts, so that the higher visited children have a higher
+    // probability of being chosen randomly. Error if no such child.
+    uint64_t RandomWeightedValidChild(common::Random& rnd) const;
+
   private:
     const std::unique_ptr<const State> state_;
     const TritonInferResult result_;
@@ -83,13 +91,18 @@ private:
   };
 
 public:
+  // Options for how NextActionId can choose an action ID.
+  //   BEST - choose action ID corresponding to max visited child
+  //   WEIGHTED_RANDOM - weighted by child probabilities, choose randomly
+  enum class NextActionKind { VISIT, WEIGHTED_RANDOM };
+
   // Create alphazero object using 'model-name' for predictions.
   AlphaZero(const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
             const std::string& model_name);
 
   // Return the next predicted action ID, given current 'state'. If is
   // an error if 'state' represents a terminal state.
-  uint64_t NextActionId(const State& state);
+  uint64_t NextActionId(const State& state, const NextActionKind kind);
 
   // Return a string representation of the statistics collected for
   // this alphazero object.
@@ -110,6 +123,9 @@ private:
   std::shared_ptr<common::Logger> logger_;
   std::shared_ptr<Triton> triton_;
   const std::string model_name_;
+
+  // Random needed for NextActionKind::WEIGHTED_RANDOM.
+  common::Random rnd_;
 
   // Used to determine when a search/update of the node tree
   // traverses a loop.
