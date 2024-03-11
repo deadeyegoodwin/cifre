@@ -91,6 +91,10 @@ public:
   // an error if 'state' represents a terminal state.
   uint64_t NextActionId(const State& state);
 
+  // Return a string representation of the statistics collected for
+  // this alphazero object.
+  std::string ToStatisticsString() const;
+
 private:
   // Return the node representing the given 'state', creating if
   // necessary. The created node, if any, takes ownership of 'state'.
@@ -121,6 +125,13 @@ private:
     bool operator()(const State* a, const State* b) const { return a->Equal(b); }
   };
   std::unordered_map<const State*, Node, NodesMapHash, NodesMapEqual> nodes_;
+
+  // Statistics
+  size_t terminal_node_count_ {0};
+  size_t edge_count_ {0};
+  size_t search_endby_depth_count_ {0};
+  size_t search_endby_loop_count_ {0};
+  size_t search_endby_terminal_count_ {0};
 };
 
 } // namespace cifre

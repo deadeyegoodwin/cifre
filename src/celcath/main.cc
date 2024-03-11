@@ -445,6 +445,7 @@ main(int argc, char **argv)
       }
     }
 
+    // End of games output...
     logger->LogLow("==== " + std::to_string(games_completed) + " game" +
                    ((games_completed == 1) ? " " : "s ") + "completed");
     if (games_completed > 0) {
@@ -454,6 +455,15 @@ main(int argc, char **argv)
                      " (" + FloatToString(100.0 * winner2_count / games_completed, 1 /* precision */) + "%)");
       logger->LogLow("\tdraw: " + std::to_string(draw_count) +
                      " (" + FloatToString(100.0 * draw_count / games_completed, 1 /* precision */) + "%)");
+    }
+
+    // Individual player statistics, if any...
+    for (const cifre::celcath::Player* p : players) {
+      std::string str = p->ToStatisticsString();
+      if (!str.empty()) {
+        logger->LogLow(p->Name());
+        logger->LogLow(str, 4 /* indent */);
+      }
     }
 
   } catch (const std::exception& ex) {

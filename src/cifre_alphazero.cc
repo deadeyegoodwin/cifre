@@ -1,6 +1,8 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 
+#include <iomanip>
 #include <limits>
+#include <sstream>
 
 #include "cifre_alphazero.h"
 #include "common_error.h"
@@ -63,6 +65,10 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
     auto result = triton_->RunModel(model_name_, state->TritonRepresentation());
     THROWIF(result.PiEntryCount() != state->TotalActionIdCount(), "model returned incorrect pi");
 
+    if (state->IsTerminal()) {
+      terminal_node_count_++;
+    }
+
     auto created_node_itr =
       nodes_.emplace(std::piecewise_construct,
                      std::forward_as_tuple(state.get()),
@@ -89,6 +95,7 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t generation, const size
   // return its value.
   assert(node->Generation() <= generation);
   if (node->Generation() == generation) {
+    search_endby_loop_count_++;
     return node->Value();
   }
   node->SetGeneration(generation);
@@ -97,6 +104,12 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t generation, const size
   // depth has been reached, or node is a terminal node), then just
   // return value.
   if ((depth_remaining == 0) || node->NodeState().IsTerminal()) {
+    if (depth_remaining == 0) {
+      search_endby_depth_count_++;
+    } else {
+      search_endby_terminal_count_++;
+    }
+
     node->IncrementVisitCount();
     return node->Value();
   }
@@ -107,10 +120,7 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t generation, const size
   // that doesn't yet have a child node.
   uint64_t best_action_id = node->BestActionId();
   Node* next = node->Child(best_action_id);
-  if (next != nullptr) {
-    v = UpdateTree(next, generation, depth_remaining - 1);
-  }
-  else {
+  if (next == nullptr) {
     // Find or create the node representing the state that results
     // when 'best_action_id' is applied to 'node'.
     State* next_state = node->NodeState().Clone();
@@ -120,14 +130,34 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t generation, const size
 
     // Add the edge to connect 'node' to 'next', then continue search.
     node->SetChild(best_action_id, next, 0 /* visit_count */);
-    v = UpdateTree(next, generation, depth_remaining - 1);
+    edge_count_++;
   }
+
+  v = UpdateTree(next, generation, depth_remaining - 1);
 
   node->UpdateValue(v);
   node->IncrementVisitCount();
   node->IncrementChildVisitCount(best_action_id);
 
   return v;
+}
+
+std::string
+AlphaZero::ToStatisticsString() const
+{
+  std::stringstream ss;
+  ss << "nodes: " << nodes_.size() << ", internal " << (nodes_.size() - terminal_node_count_)
+     << ", terminal " << terminal_node_count_ << '\n';
+  ss << "edges: " << edge_count_ << ", avg outgoing per node "
+     << std::fixed << std::setprecision(2) << ((float)edge_count_ / nodes_.size()) << '\n';
+
+  const size_t search_count =
+    search_endby_depth_count_ + search_endby_loop_count_ + search_endby_terminal_count_;
+  ss << "searchs: " << search_count << ", end by depth " << search_endby_depth_count_
+     << ", end by loop " << search_endby_loop_count_
+     << ", end by terminal " << search_endby_terminal_count_;
+
+  return ss.str();
 }
 
 //
