@@ -62,7 +62,7 @@ private:
     void SetGeneration(size_t g) { generation_ = g; }
 
     // Return the best action ID based on the current node state.
-    uint64_t BestActionId() const;
+    uint64_t BestActionId(const float cpuct) const;
 
     // Return the action ID corresponding to the child edge that has
     // the highest non-zero visited count and that represents a valid
@@ -104,7 +104,8 @@ private:
 
   // Search from 'node' and update the tree. Return the 'V' value for
   // the leaf node visited in the search.
-  float UpdateTree(Node* node, const size_t generation, const size_t depth_remaining);
+  float UpdateTree(
+    Node* node, const float cpuct, const size_t generation, const size_t depth_remaining);
 
   std::shared_ptr<common::Logger> logger_;
   std::shared_ptr<Triton> triton_;

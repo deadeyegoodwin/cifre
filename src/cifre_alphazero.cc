@@ -38,10 +38,11 @@ AlphaZero::NextActionId(const State& state)
   // FIXME parameters...
   const size_t search_per_action_count = 50;
   const size_t max_depth = 10;
+  const float cpuct = 4.0;
 
   // Update the tree starting from 'node'.
   for (size_t idx = 0; idx < search_per_action_count; ++idx) {
-    UpdateTree(node, ++node_update_generation_, max_depth);
+    UpdateTree(node, cpuct, ++node_update_generation_, max_depth);
   }
 
   // Choose the action that has the highest visit count. Because
@@ -87,7 +88,8 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
 }
 
 float
-AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t generation, const size_t depth_remaining)
+AlphaZero::UpdateTree(
+  AlphaZero::Node* node, const float cpuct, const size_t generation, const size_t depth_remaining)
 {
   // If 'node's generation equals 'generation', then 'node' has
   // already been visited in this search/update so don't update its
@@ -118,7 +120,7 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t generation, const size
 
   // Move down tree following best actions until perform an action
   // that doesn't yet have a child node.
-  uint64_t best_action_id = node->BestActionId();
+  uint64_t best_action_id = node->BestActionId(cpuct);
   Node* next = node->Child(best_action_id);
   if (next == nullptr) {
     // Find or create the node representing the state that results
@@ -133,7 +135,7 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t generation, const size
     edge_count_++;
   }
 
-  v = UpdateTree(next, generation, depth_remaining - 1);
+  v = UpdateTree(next, cpuct, generation, depth_remaining - 1);
 
   node->UpdateValue(v);
   node->IncrementVisitCount();
@@ -189,7 +191,7 @@ AlphaZero::Node::SetChild(uint64_t action_id, Node* child, size_t visit_count)
 }
 
 uint64_t
-AlphaZero::Node::BestActionId() const
+AlphaZero::Node::BestActionId(const float cpuct) const
 {
   const float *pi = result_.Pi();
 
@@ -201,11 +203,11 @@ AlphaZero::Node::BestActionId() const
     Node* child = children_[aid];
     if (child == nullptr) {
       assert(children_visit_counts_[aid] == 0);
-      qu = std::sqrt(visit_count_) * pi[aid];
+      qu = std::sqrt(visit_count_) * pi[aid] * cpuct;
     }
     else {
       qu = (child->value_ +
-            (std::sqrt(visit_count_) * pi[aid] / children_visit_counts_[aid]));
+            (std::sqrt(visit_count_) * pi[aid] * cpuct / children_visit_counts_[aid]));
     }
 
     if (qu > max_qu) {
