@@ -48,14 +48,19 @@ AlphaZero::NextActionId(const State& state, const NextActionKind kind)
   // Based on 'kind', choose the next action. Because 'state' is not a
   // terminal state, there must be at least one action with a non-zero
   // visit count.
+  uint64_t action_id;
   switch (kind) {
-  case NextActionKind::VISIT:
-    return node->MaxVisitedValidChild();
-  case NextActionKind::WEIGHTED_RANDOM:
-    return node->RandomWeightedValidChild(rnd_);
+  case NextActionKind::MAX_VISITED:
+    action_id = node->MaxVisitedValidChild();
+    break;
+  case NextActionKind::RANDOM_VISIT_WEIGHTED:
+    action_id = node->RandomWeightedValidChild(rnd_);
+    break;
+  default:
+    THROW("unreachable");
   }
 
-  THROW("unreachable");
+  return action_id;
 }
 
 AlphaZero::Node*

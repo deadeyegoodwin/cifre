@@ -92,9 +92,11 @@ private:
 
 public:
   // Options for how NextActionId can choose an action ID.
-  //   BEST - choose action ID corresponding to max visited child
-  //   WEIGHTED_RANDOM - weighted by child probabilities, choose randomly
-  enum class NextActionKind { VISIT, WEIGHTED_RANDOM };
+  //   MAX_VISITED - choose action ID corresponding to max visited child
+  //   RANDOM_VISIT_WEIGHTED - choose randomly taking into account
+  //   child visits so that the more visited children are
+  //   proportionally more likely to be selected
+  enum class NextActionKind { MAX_VISITED, RANDOM_VISIT_WEIGHTED };
 
   // Create alphazero object using 'model-name' for predictions.
   AlphaZero(const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
