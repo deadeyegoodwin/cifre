@@ -234,7 +234,7 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger,
 
 namespace cifre { namespace celcath {
 
-enum class PlayResult { COMPLETE, TURN_LIMIT_EXCEEDED, QUIT };
+enum class PlayResult { WINNER1, WINNER2, DRAW, TURN_LIMIT_EXCEEDED, QUIT };
 
 // Play one game, return PlayResult indicating outcome.
 PlayResult
@@ -247,7 +247,10 @@ Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
 
   bool game_quit = false;
   bool game_turn_limited = false;
-  while (!game_quit && !game_turn_limited && !board->IsTerminal()) {
+  cifre::State::TerminalStatusKind terminal_status = board->TerminalStatus();
+  while (!game_quit &&
+         !game_turn_limited &&
+         (terminal_status == cifre::State::TerminalStatusKind::NON_TERMINAL)) {
     Player* player = board->ActivePlayer();
     Action action = player->NextAction(*board);
     switch (action.Kind()) {
@@ -267,30 +270,38 @@ Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
     }
 
     game_turn_limited = (board->EndTurnCount() >= max_turns_per_game);
+    terminal_status = board->TerminalStatus();
   }
 
   // Final board...
   if (game_quit) {
     LOGGER_LOGMED(*logger,
                   "game quit on turn " + std::to_string(board->EndTurnCount()) + ": no winner");
+    LOGGER_LOGMED(*logger, board->ToString());
+    return PlayResult::QUIT;
   }
-  else if (game_turn_limited) {
+  if (game_turn_limited) {
     LOGGER_LOGMED(*logger,
                   "game reached turn limit " + std::to_string(board->EndTurnCount()) + ": no winner");
+    LOGGER_LOGMED(*logger, board->ToString());
+    return PlayResult::TURN_LIMIT_EXCEEDED;
   }
-  else if (board->IsDraw()) {
+  if (terminal_status == cifre::State::TerminalStatusKind::DRAW) {
     LOGGER_LOGMED(*logger,
                   "game over on turn " + std::to_string(board->EndTurnCount()) + ": draw");
+    LOGGER_LOGMED(*logger, board->ToString());
+    return PlayResult::DRAW;
   }
-  else {
-    LOGGER_LOGMED(*logger,
-                  "game over on turn " + std::to_string(board->EndTurnCount()) + ": winner " +
-                  players[board->WinnerId()]->Name());
-  }
+
+  const size_t winner_id =
+    (terminal_status == cifre::State::TerminalStatusKind::ACTIVE_WINNER) ?
+    board->ActivePlayerId() : board->OpponentPlayerId();
+  LOGGER_LOGMED(*logger,
+                "game over on turn " + std::to_string(board->EndTurnCount()) + ": winner " +
+                players[winner_id]->Name());
   LOGGER_LOGMED(*logger, board->ToString());
 
-  return((game_quit) ? PlayResult::QUIT :
-         (game_turn_limited) ? PlayResult::TURN_LIMIT_EXCEEDED : PlayResult::COMPLETE);
+  return (winner_id == 0) ? PlayResult::WINNER1 : PlayResult::WINNER2;
 }
 
 }} // namespace cifre::celcath
@@ -453,19 +464,22 @@ main(int argc, char **argv)
       }
 
       cifre::celcath::PlayResult presult = Play(logger, settings, players, &board, max_turns_per_game);
-      if (presult == cifre::celcath::PlayResult::QUIT) {
+      switch (presult) {
+      case cifre::celcath::PlayResult::QUIT:
         break;
-      }
-
-      games_completed++;
-      if ((presult == cifre::celcath::PlayResult::TURN_LIMIT_EXCEEDED) || board.IsDraw()) {
+      case cifre::celcath::PlayResult::DRAW:
+      case cifre::celcath::PlayResult::TURN_LIMIT_EXCEEDED:
+        games_completed++;
         draw_count++;
-      }
-      else if (board.WinnerId() == 0) {
+        break;
+      case cifre::celcath::PlayResult::WINNER1:
+        games_completed++;
         winner1_count++;
-      }
-      else {
+        break;
+      case cifre::celcath::PlayResult::WINNER2:
+        games_completed++;
         winner2_count++;
+        break;
       }
     }
 

@@ -17,6 +17,10 @@ namespace cifre {
 //
 class State {
 public:
+  // Values returned TerminalStatus() indicating if a state is a
+  // terminal state and if so what kind of terminal state.
+  enum class TerminalStatusKind { NON_TERMINAL, ACTIVE_WINNER, OPPONENT_WINNER, DRAW };
+
   // Virtual copy constructor.
   virtual State* Clone() const = 0;
 
@@ -44,13 +48,8 @@ public:
   // they like but different players must have different IDs.
   virtual size_t ActivePlayerId() const = 0;
 
-  // Is state a terminal state, that is, does it represent a game
-  // ending state.
-  virtual bool IsTerminal() const = 0;
-
-  // Return a terminal state's value. Result is undefined if 'this' is
-  // not a terminal state.
-  virtual float TerminalValue() const = 0;
+  // Return if state is a terminal state, and if so what kind.
+  virtual TerminalStatusKind TerminalStatus() const = 0;
 
   // Apply the action associated with 'action_id' to this state, so
   // that the state is modified due to the action.

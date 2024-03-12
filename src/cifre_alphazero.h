@@ -32,6 +32,10 @@ private:
     // Create node for state which model predicts 'infer_result'.
     Node(std::unique_ptr<const State> state, TritonInferResult&& infer_result);
 
+    // Is node a terminal?
+    bool IsTerminal() const {
+      return state_->TerminalStatus() != State::TerminalStatusKind::NON_TERMINAL; }
+
     // Return the State represented by this node.
     const State& NodeState() const { return *state_; }
 

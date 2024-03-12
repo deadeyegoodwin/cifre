@@ -29,7 +29,8 @@ AlphaZero::AlphaZero(
 uint64_t
 AlphaZero::NextActionId(const State& state, const NextActionKind kind)
 {
-  THROWIF(state.IsTerminal(), "alpha-zero cannot find next action for terminal state");
+  THROWIF(state.TerminalStatus() != State::TerminalStatusKind::NON_TERMINAL,
+          "alpha-zero cannot find next action for terminal state");
 
   // Find, creating if necessary, tree node that represents 'state'.
   auto node = FindOrCreateNode(std::unique_ptr<const State>(state.Clone()));
@@ -78,10 +79,6 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
     auto result = triton_->RunModel(model_name_, state->TritonRepresentation());
     THROWIF(result.PiEntryCount() != state->TotalActionIdCount(), "model returned incorrect pi");
 
-    if (state->IsTerminal()) {
-      terminal_node_count_++;
-    }
-
     auto created_node_itr =
       nodes_.emplace(std::piecewise_construct,
                      std::forward_as_tuple(state.get()),
@@ -89,6 +86,10 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
     assert(created_node_itr.second);
     new_node = &(created_node_itr.first->second);
     new_created = true;
+
+    if (new_node->IsTerminal()) {
+      terminal_node_count_++;
+    }
   }
 
   if (created != nullptr) {
@@ -120,14 +121,13 @@ AlphaZero::UpdateTree(
   // stopping for depth, this is because we always want the node count
   // to equal the sum of the child counts so if we are not going to
   // visit a child we don't want to update the node count.
-  if ((depth_remaining == 0) || node->NodeState().IsTerminal()) {
-    if (node->NodeState().IsTerminal()) {
-      search_endby_terminal_count_++;
-      node->IncrementVisitCount();
-    } else {
-      search_endby_depth_count_++;
-    }
-
+  if (node->IsTerminal()) {
+    search_endby_terminal_count_++;
+    node->IncrementVisitCount();
+    return node->Value();
+  }
+  if (depth_remaining == 0) {
+    search_endby_depth_count_++;
     return node->Value();
   }
 
@@ -191,15 +191,23 @@ AlphaZero::Node::Node(std::unique_ptr<const State> state, TritonInferResult&& in
   children_(result_.PiEntryCount(), nullptr), children_visit_counts_(result_.PiEntryCount(), 0),
   visit_count_(0), generation_(0)
 {
-  // Is node is a terminal, then its value is based on the state,
-  // otherwise it comes from the model.
-  if (state_->IsTerminal()) {
-    value_ = state_->TerminalValue();
-  }
-  else {
+  // Is node is a terminal, then its value is based on the terminal
+  // status, otherwise it comes from the model.
+  switch (state_->TerminalStatus()) {
+  case State::TerminalStatusKind::DRAW:
+    value_ = 0;
+    break;
+  case State::TerminalStatusKind::ACTIVE_WINNER:
+    value_ = 1;
+    break;
+  case State::TerminalStatusKind::OPPONENT_WINNER:
+    value_ = -1;
+    break;
+  case State::TerminalStatusKind::NON_TERMINAL: {
     assert(result_.VEntryCount() == 1);
     value_ = result_.V()[0];
-  }
+  } break;
+}
 }
 
 void

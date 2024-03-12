@@ -103,15 +103,6 @@ public:
   // index. 'player' may be nullptr to set the cell to empty.
   void SetPlayerAtFlattened(Player* player, size_t flat_idx);
 
-  // Return the ID of the winning player. Undefined unless
-  // IsTerminal() == true and IsDraw() == false.
-  size_t WinnerId() const {
-    assert(IsTerminal() && !IsDraw());
-    return (status_ == Status::ACTIVE_WINNER) ? ActivePlayerId() : OpponentPlayerId(); }
-
-  // Does this board represented a completed game ending in draw?
-  bool IsDraw() const { return status_ == Status::DRAW; }
-
   // Update the board as necessary to make the opponent player the
   // active player.
   void SwitchActivePlayer();
@@ -129,12 +120,7 @@ public:
   size_t ActivePlayerId() const override { return active_player_id_; }
 
   // See cifre::State
-  bool IsTerminal() const override { return status_ != Status::NON_TERMINAL; }
-
-  // See cifre::State
-  float TerminalValue() const override {
-    assert(IsTerminal()); if (IsDraw()) { return 0; }
-    return (active_player_id_ == WinnerId()) ? 1 : -1; }
+  TerminalStatusKind TerminalStatus() const override { return terminal_status_; }
 
   // See cifre::State
   size_t TotalActionIdCount() const override {
@@ -151,8 +137,6 @@ public:
   std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const override;
 
 private:
-  enum class Status { NON_TERMINAL, ACTIVE_WINNER, OPPONENT_WINNER, DRAW };
-
   static constexpr float CELL_EMPTY = 0.0;
   static constexpr float CELL_ACTIVE_PLAYER = 1.0;
   static constexpr float CELL_OPPONENT_PLAYER = -1.0;
@@ -195,8 +179,8 @@ private:
     return nullptr;
   }
 
-  // Update the status and valid actions for the current board.
-  void UpdateStatus();
+  // Update the terminal status and valid actions for board.
+  void UpdateTerminalStatus();
   void UpdateValidActions();
 
   // Shared logger.
@@ -215,7 +199,7 @@ private:
   size_t end_turn_count_;
 
   // The status of the board indicating winning condition.
-  Status status_;
+  cifre::State::TerminalStatusKind terminal_status_;
 
   // The set of action ids that are valid for the current board.
   std::unordered_set<uint64_t> valid_action_ids_;
@@ -234,8 +218,8 @@ private:
   //   - 'end_turn_count_' is not included because that is just
   //     counting the number of player turns that have passsed.
   //
-  //   - 'status_' does not need to be included because it is derived
-  //     from the board itself and 'active_player_id_.
+  //   - 'terminal_status_' does not need to be included because it is
+  //     derived from the board itself and 'active_player_id_.
   //
   //   - 'valid_action_ids_' does not need to be included because it
   //   - is derived from the board itself, 'active_player_id_' and

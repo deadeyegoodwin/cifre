@@ -22,7 +22,7 @@ Board::Board(
   const Stepper& stepper, const std::vector<Player*>& players) :
   cifre::Board2D<float>(settings.BoardSize()),
   logger_(logger), settings_(settings), stepper_(stepper), players_(players),
-  end_turn_count_(0), status_(Status::NON_TERMINAL),
+  end_turn_count_(0), terminal_status_(cifre::State::TerminalStatusKind::NON_TERMINAL),
   active_player_id_(settings.StartingPlayerId()), complete_actions_this_turn_(0)
 {
   THROWIF(players_.size() != 2, "exactly 2 players are required");
@@ -250,8 +250,8 @@ Board::Update(uint64_t action_id)
     }
 
     // Board was changed, so check to see if there is a change in the
-    // status of the board.
-    UpdateStatus();
+    // terminal status of the board.
+    UpdateTerminalStatus();
   }
 
   if (next_player) {
@@ -259,11 +259,11 @@ Board::Update(uint64_t action_id)
   }
 
   // If necessary run the stepper and check to see if there is a
-  // change in the status of the board.
+  // change in the terminal status of the board.
   if (run_stepper) {
     LOGGER_LOGMED(*logger_, std::string("run ") + stepper_.Name());
     stepper_.Step(this, players_);
-    UpdateStatus();
+    UpdateTerminalStatus();
   }
 
   // Handle switch board state to represent the "other" player.
@@ -325,12 +325,13 @@ Board::SwitchActivePlayer()
     }
   }
 
-  // Switch status to represent that there is a new active player.
-  if (status_ == Status::ACTIVE_WINNER) {
-    status_ = Status::OPPONENT_WINNER;
+  // Switch terminal status to represent that there is a new active
+  // player.
+  if (terminal_status_ == cifre::State::TerminalStatusKind::ACTIVE_WINNER) {
+    terminal_status_ = cifre::State::TerminalStatusKind::OPPONENT_WINNER;
   }
-  else if (status_ == Status::OPPONENT_WINNER) {
-    status_ = Status::ACTIVE_WINNER;
+  else if (terminal_status_ == cifre::State::TerminalStatusKind::OPPONENT_WINNER) {
+    terminal_status_ = cifre::State::TerminalStatusKind::ACTIVE_WINNER;
   }
 
   // Make opponent the active player.
@@ -368,7 +369,7 @@ Board::UpdateValidActions()
 }
 
 void
-Board::UpdateStatus()
+Board::UpdateTerminalStatus()
 {
   // Check winning conditions.
 
@@ -395,16 +396,16 @@ Board::UpdateStatus()
   }
 
   if (opponent_winner && active_winner) {
-    status_ = Status::DRAW;
+    terminal_status_ = cifre::State::TerminalStatusKind::DRAW;
   }
   else if (active_winner) {
-    status_ = Status::ACTIVE_WINNER;
+    terminal_status_ = cifre::State::TerminalStatusKind::ACTIVE_WINNER;
   }
   else if (opponent_winner) {
-    status_ = Status::OPPONENT_WINNER;
+    terminal_status_ = cifre::State::TerminalStatusKind::OPPONENT_WINNER;
   }
   else {
-    status_ = Status::NON_TERMINAL;
+    terminal_status_ = cifre::State::TerminalStatusKind::NON_TERMINAL;
   }
 }
 
