@@ -420,8 +420,11 @@ Board::ToString(common::Logger::Level filter_level) const
   // the top and opponent player's home row (row n) at the bottom.
 
   // Active home row is the "top" of the board.
-  const std::string& active_name = ActivePlayer()->Name() + " - " + ActivePlayer()->BoardCharacter();
-  sstr << std::string(rh_width + ((ch_width - active_name.size()) / 2), ' ') << active_name << '\n';
+  const std::string& active_name =
+    ActivePlayer()->Name() + " - " + ActivePlayer()->BoardCharacter() + ' ' +
+    std::to_string(CompletedActionsThisTurn()) + '/' + std::to_string(MaxActionsThisTurn());
+  sstr << std::string(rh_width + (std::max(size_t(0), ch_width - active_name.size()) / 2), ' ')
+       << active_name << '\n';
 
   // Column letters across the top.
   for (size_t col_idx = 0; col_idx < (size_.ColumnCount() + 1); ++col_idx) {
@@ -465,7 +468,8 @@ Board::ToString(common::Logger::Level filter_level) const
 
   // Opponent player home row is the "bottom" of the board.
   const std::string& opponent_name = OpponentPlayer()->Name() + " - " + OpponentPlayer()->BoardCharacter();
-  sstr << std::string(rh_width + ((ch_width - opponent_name.size()) / 2), ' ') << opponent_name;
+  sstr << std::string(rh_width + (std::max(size_t(0), ch_width - opponent_name.size()) / 2), ' ')
+       << opponent_name;
 
   return sstr.str();
 }

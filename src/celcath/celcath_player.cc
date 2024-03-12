@@ -111,6 +111,18 @@ AlphaZeroPlayer::AlphaZeroPlayer(
 {
 }
 
+void
+AlphaZeroPlayer::GameStart()
+{
+  alpha_zero_->GameStart();
+}
+
+void
+AlphaZeroPlayer::GameEnd(const cifre::State* terminal_state)
+{
+  alpha_zero_->GameEnd(terminal_state);
+}
+
 Action
 AlphaZeroPlayer::NextAction(const Board& board) const
 {

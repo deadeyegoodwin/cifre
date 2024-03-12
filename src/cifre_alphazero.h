@@ -104,7 +104,16 @@ public:
 
   // Create alphazero object using 'model-name' for predictions.
   AlphaZero(const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
-            const std::string& model_name);
+            const std::string& model_name, bool training = false);
+
+  // Called to notify that a new game is starting.
+  void GameStart();
+
+  // Called to notify that game has ended at 'terminal_state'.
+  // 'terminal_state' status State::TerminalStatusKind::NON_TERMINAL
+  // indicates that the game ended for a non-in-game reason
+  // (e.g. player quit).
+  void GameEnd(const cifre::State* terminal_state);
 
   // Return the next predicted action ID, given current 'state'. If is
   // an error if 'state' represents a terminal state.
@@ -148,6 +157,19 @@ private:
     bool operator()(const State* a, const State* b) const { return a->Equal(b); }
   };
   std::unordered_map<const State*, Node, NodesMapHash, NodesMapEqual> nodes_;
+
+  // True if alphazero should collect data needed for training.
+  const bool training_;
+
+  // Nodes for which alphazero selected an action in the current game.
+  std::unordered_set<Node*> game_action_nodes_;
+
+  // Aggregated nodes from the 'game_action_nodes_' collected for each
+  // game, and the value associated with the node. For each node only
+  // the most recent value is kept, under the assumption that later
+  // games played on this alphazero have more knowledge collected and
+  // so will provide the best value for training.
+  std::unordered_map<Node*, float> train_nodes_;
 
   // Statistics
   size_t terminal_node_count_ {0};

@@ -41,6 +41,16 @@ public:
   // Return the cell neighbor value for this player.
   int32_t NeighborValue() const { return neighbor_value_; }
 
+  // Called to notify that a new game is starting. Default behavior is
+  // to do nothing.
+  virtual void GameStart() { }
+
+  // Called to notify that game has ended at 'terminal_state'.
+  // 'terminal_state' status State::TerminalStatusKind::NON_TERMINAL
+  // indicates that the game ended for a non-in-game reason
+  // (e.g. player quit). Default behavior is to do nothing.
+  virtual void GameEnd(const cifre::State* terminal_state) { }
+
   // Get the next action for the player given current 'board' state.
   virtual Action NextAction(const Board& board) const;
 
@@ -97,10 +107,16 @@ public:
     const std::string& name, char board_char, int32_t neighbor_value,
     std::unique_ptr<cifre::AlphaZero> alpha_zero, cifre::AlphaZero::NextActionKind kind);
 
+  // See Player::GameStart().
+  void GameStart() override;
+
+  // See Player::GameEnd().
+  void GameEnd(const cifre::State* terminal_state) override;
+
   // See Player::NextAction().
   Action NextAction(const Board& board) const override;
 
-  // See Player::ToStatisticsString.
+  // See Player::ToStatisticsString().
   std::string ToStatisticsString(common::Logger::Level filter_level = common::Logger::Level::LOW) const override;
 
 private:

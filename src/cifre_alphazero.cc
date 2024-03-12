@@ -14,8 +14,9 @@ namespace cifre {
 //
 AlphaZero::AlphaZero(
   const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
-  const std::string& model_name) :
-  logger_(logger), triton_(triton), model_name_(model_name), node_update_generation_(0)
+  const std::string& model_name, bool training) :
+  logger_(logger), triton_(triton), model_name_(model_name),
+  node_update_generation_(0), training_(training)
 {
   THROWIF(model_name_.empty(), "model must be specified for alpha-zero");
 
@@ -24,6 +25,48 @@ AlphaZero::AlphaZero(
           std::string("triton model '" + model_name_ + "' failed to load"));
   THROWIF(!triton_->IsModelReady(model_name_),
           std::string("triton model '" + model_name_ + "' is not ready"));
+}
+
+void
+AlphaZero::GameStart()
+{
+  game_action_nodes_.clear();
+}
+
+void
+AlphaZero::GameEnd(const cifre::State* terminal_state)
+{
+  // If game actually completed, then record all the action-selected
+  // nodes collected for the game with the appropriate game-ending
+  // value.
+  if (training_) {
+    const size_t terminal_player_id = terminal_state->ActivePlayerId();
+    float active_value = 0;
+    float opponent_value = 0;
+    switch (terminal_state->TerminalStatus()) {
+    case State::TerminalStatusKind::NON_TERMINAL:
+      return; // no in-game completion
+    case State::TerminalStatusKind::DRAW:
+      break; // keep default 0 values
+    case State::TerminalStatusKind::ACTIVE_WINNER:
+      active_value = 1;
+      opponent_value = -1;
+      break;
+    case State::TerminalStatusKind::OPPONENT_WINNER:
+      active_value = -1;
+      opponent_value = 1;
+      break;
+    }
+
+    // If a node is already collected from a previous game, then we replace it with
+    for (Node* n : game_action_nodes_) {
+      float value = (n->NodeState().ActivePlayerId() == terminal_player_id) ? active_value : opponent_value;
+      train_nodes_[n] = value;
+    }
+  }
+
+  // FIXME
+  LOGGER_LOGLOW(*logger_, std::to_string(game_action_nodes_.size()) + "   " + std::to_string(train_nodes_.size()));
 }
 
 uint64_t
@@ -59,6 +102,12 @@ AlphaZero::NextActionId(const State& state, const NextActionKind kind)
     break;
   default:
     THROW("unreachable");
+  }
+
+  // If training, record the nodes for which alpha-zero makes an
+  // action decision.
+  if (training_) {
+    game_action_nodes_.insert(node);
   }
 
   return action_id;

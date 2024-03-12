@@ -222,8 +222,8 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger,
   if (player_kind == "alphazero") {
     return new cifre::celcath::AlphaZeroPlayer(
       logger, "AlphaZero" + std::to_string(n), bc, 1.0,
-      std::make_unique<cifre::AlphaZero>(logger, triton, model_name),
-      cifre::AlphaZero::NextActionKind::MAX_VISITED);
+      std::make_unique<cifre::AlphaZero>(logger, triton, model_name, true /* training FIXME */),
+      cifre::AlphaZero::NextActionKind::RANDOM_VISIT_WEIGHTED); // FIXME
   }
 
   Fail("unknown player kind '" + player_kind + "'");
@@ -242,6 +242,11 @@ Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
      const std::vector<cifre::celcath::Player*>& players, Board* board,
      const size_t max_turns_per_game)
 {
+  // Let all players know a new game is starting.
+  for (Player* p : players) {
+    p->GameStart();
+  }
+
   // Show the initial board.
   LOGGER_LOGMED(*logger, board->ToString());
 
@@ -271,6 +276,13 @@ Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
 
     game_turn_limited = (board->EndTurnCount() >= max_turns_per_game);
     terminal_status = board->TerminalStatus();
+  }
+
+  // Let all players know game is completed. If game stopped for some
+  // reason other than an in-game completion, then 'board' terminal
+  // status will be NON_TERMNAL.
+  for (Player* p : players) {
+    p->GameEnd(board);
   }
 
   // Final board...
