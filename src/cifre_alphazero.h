@@ -52,6 +52,10 @@ private:
     void IncrementChildVisitCount(uint64_t action_id) {
       assert(children_[action_id] != nullptr); children_visit_counts_[action_id]++; }
 
+    // Return the child probabilities, calculated from the node visit
+    // count and the children visit counts.
+    std::vector<float> ChildProbability() const;
+
     // Return 'node's value.
     float Value() const { return value_; }
 
@@ -114,6 +118,15 @@ public:
   // indicates that the game ended for a non-in-game reason
   // (e.g. player quit).
   void GameEnd(const cifre::State* terminal_state);
+
+  // Add collected training data from 'other' into 'this'. Training
+  // data for a given node is only added if it is in 'other' and not
+  // in 'this', thus training data collected by 'this' has priority
+  // and will not be overwritten by 'other's training data.
+  void MergeTraining(const AlphaZero* other);
+
+  // Write collected training data to 'dir'.
+  void WriteTraining(const std::string& dir) const;
 
   // Return the next predicted action ID, given current 'state'. If is
   // an error if 'state' represents a terminal state.

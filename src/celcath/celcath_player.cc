@@ -105,8 +105,8 @@ HumanPlayer::NextAction(const Board& board) const
 AlphaZeroPlayer::AlphaZeroPlayer(
   const std::shared_ptr<common::Logger>& logger,
   const std::string& name, char board_char, int32_t neighbor_value,
-  std::unique_ptr<cifre::AlphaZero> alpha_zero, cifre::AlphaZero::NextActionKind kind) :
-  Player(logger, name, board_char, neighbor_value), alpha_zero_(std::move(alpha_zero)),
+  const std::shared_ptr<cifre::AlphaZero>& alpha_zero, cifre::AlphaZero::NextActionKind kind) :
+  Player(logger, name, board_char, neighbor_value), alpha_zero_(alpha_zero),
   kind_(kind)
 {
 }

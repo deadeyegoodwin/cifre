@@ -105,7 +105,7 @@ public:
   AlphaZeroPlayer(
     const std::shared_ptr<common::Logger>& logger,
     const std::string& name, char board_char, int32_t neighbor_value,
-    std::unique_ptr<cifre::AlphaZero> alpha_zero, cifre::AlphaZero::NextActionKind kind);
+    const std::shared_ptr<cifre::AlphaZero>& alpha_zero, cifre::AlphaZero::NextActionKind kind);
 
   // See Player::GameStart().
   void GameStart() override;
@@ -120,7 +120,7 @@ public:
   std::string ToStatisticsString(common::Logger::Level filter_level = common::Logger::Level::LOW) const override;
 
 private:
-  std::unique_ptr<cifre::AlphaZero> alpha_zero_;
+  std::shared_ptr<cifre::AlphaZero> alpha_zero_;
   cifre::AlphaZero::NextActionKind kind_;
 };
 

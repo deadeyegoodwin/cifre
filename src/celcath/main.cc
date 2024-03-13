@@ -241,7 +241,7 @@ struct PlayerSettings {
 
 cifre::celcath::Player*
 CreatePlayer(const std::shared_ptr<common::Logger>& logger, const PlayerSettings& player_settings,
-             std::unique_ptr<cifre::AlphaZero> alphazero)
+             const std::shared_ptr<cifre::AlphaZero>& alphazero)
 {
   const char bc = (player_settings.id_ == 1) ? 'o' : 'x';
 
@@ -254,8 +254,7 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger, const PlayerSettings
     return new cifre::celcath::RandomPlayer(logger, player_settings.name_, bc, 1.0);
   case PlayerSettings::Kind::ALPHAZERO:
     return
-      new cifre::celcath::AlphaZeroPlayer(logger, player_settings.name_, bc, 1.0,
-                                          std::move(alphazero),
+      new cifre::celcath::AlphaZeroPlayer(logger, player_settings.name_, bc, 1.0, alphazero,
                                           cifre::AlphaZero::NextActionKind::RANDOM_VISIT_WEIGHTED); // FIXME
   }
 
@@ -505,7 +504,7 @@ main(int argc, char **argv)
 
     // Create shared triton and alphazero object(s) if needed.
     std::shared_ptr<cifre::Triton> triton;
-    std::unique_ptr<cifre::AlphaZero> alphazero1, alphazero2;
+    std::shared_ptr<cifre::AlphaZero> alphazero1, alphazero2;
     if ((splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) ||
         (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO)) {
       triton.reset(new cifre::Triton(logger));
@@ -513,18 +512,18 @@ main(int argc, char **argv)
 
       if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer1.model_.empty(), "--player1=alphazero requires --model");
-        alphazero1 = std::make_unique<cifre::AlphaZero>(logger, triton, splayer1.model_, train);
+        alphazero1 = std::make_shared<cifre::AlphaZero>(logger, triton, splayer1.model_, train);
       }
       if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer2.model_.empty(), "--player2=alphazero requires --model");
-        alphazero2 = std::make_unique<cifre::AlphaZero>(logger, triton, splayer2.model_, train);
+        alphazero2 = std::make_shared<cifre::AlphaZero>(logger, triton, splayer2.model_, train);
       }
     }
 
     // Create players. The players are collected in a vector and each
     // player's position in the vector is the players ID.
-    std::unique_ptr<cifre::celcath::Player> player1(CreatePlayer(logger, splayer1, std::move(alphazero1)));
-    std::unique_ptr<cifre::celcath::Player> player2(CreatePlayer(logger, splayer2, std::move(alphazero2)));
+    std::unique_ptr<cifre::celcath::Player> player1(CreatePlayer(logger, splayer1, alphazero1));
+    std::unique_ptr<cifre::celcath::Player> player2(CreatePlayer(logger, splayer2, alphazero2));
     std::vector<cifre::celcath::Player*> players { player1.get(), player2.get() };
 
     // Create the stepper that evolves board across generations.
@@ -588,8 +587,17 @@ main(int argc, char **argv)
       }
     }
 
-    // If training, give alphazero opportunity to write training data.
+    // If training, write alphazero training data.
     if (train) {
+      if ((alphazero1 != nullptr) && (alphazero2 != nullptr)) {
+        alphazero1->MergeTraining(alphazero2.get());
+      }
+      if (alphazero1 != nullptr) {
+        alphazero1->WriteTraining(train_dir);
+      }
+      else if (alphazero2 != nullptr) {
+        alphazero2->WriteTraining(train_dir);
+      }
     }
 
   } catch (const std::exception& ex) {

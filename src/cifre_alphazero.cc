@@ -1,5 +1,6 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 
+#include <filesystem>
 #include <iomanip>
 #include <limits>
 #include <sstream>
@@ -65,8 +66,58 @@ AlphaZero::GameEnd(const cifre::State* terminal_state)
     }
   }
 
-  // FIXME
-  LOGGER_LOGLOW(*logger_, std::to_string(game_action_nodes_.size()) + "   " + std::to_string(train_nodes_.size()));
+  LOGGER_LOGHIGH(*logger_, "training nodes for game: " + std::to_string(game_action_nodes_.size()) +
+                 ", total training nodes: " + std::to_string(train_nodes_.size()));
+}
+
+
+void
+AlphaZero::MergeTraining(const AlphaZero* other)
+{
+  // For training node from 'other' that is not already known by
+  // 'this', add it to 'this' training nodes. This gives priority to
+  // 'this' training nodes.
+  for (const auto& pr : other->train_nodes_) {
+    if (train_nodes_.find(pr.first) == train_nodes_.end()) {
+      train_nodes_[pr.first] = pr.second;
+    }
+  }
+}
+
+void
+AlphaZero::WriteTraining(const std::string& dir) const
+{
+  // Write in.bin, pi.bin and v.bin as a single large batch of each of
+  // those training node values.
+  std::filesystem::path pin(dir); pin /= "in.bin";
+  std::filesystem::path ppi(dir); ppi /= "pi.bin";
+  std::filesystem::path pv(dir); pv /= "v.bin";
+
+  LOGGER_LOGHIGH(*logger_, "writing training input batch to " + pin.string());
+  LOGGER_LOGHIGH(*logger_, "writing training pi batch to " + ppi.string());
+  LOGGER_LOGHIGH(*logger_, "writing training v batch to " + pv.string());
+
+  std::ofstream fin(pin, std::ios::out | std::ios::binary | std::ios::app);
+  std::ofstream fpi(ppi, std::ios::out | std::ios::binary | std::ios::app);
+  std::ofstream fv(pv, std::ios::out | std::ios::binary | std::ios::app);
+
+  // For now we rely on the unordered nature of train_nodes_
+  // unordered_map to "randomize" the order that the nodes are
+  // written.
+  for (const auto& pr : train_nodes_) {
+    auto& din = pr.first->NodeState().TritonRepresentation();
+    fin.write(reinterpret_cast<const char*>(din.data()), din.size() * sizeof(uint8_t));
+
+    const auto dpi = pr.first->ChildProbability();
+    fpi.write(reinterpret_cast<const char*>(dpi.data()), dpi.size() * sizeof(float));
+
+    const float dv = pr.second;
+    fv.write(reinterpret_cast<const char*>(&dv), sizeof(dv));
+  }
+
+  fin.close();
+  fpi.close();
+  fv.close();
 }
 
 uint64_t
@@ -266,6 +317,28 @@ AlphaZero::Node::SetChild(uint64_t action_id, Node* child, size_t visit_count)
   assert(children_[action_id] == nullptr);
   children_[action_id] = child;
   children_visit_counts_[action_id] = visit_count;
+}
+
+std::vector<float>
+AlphaZero::Node::ChildProbability() const
+{
+  std::vector<float> probs(result_.PiEntryCount(), 0.0);
+
+#ifndef NDEBUG
+  // When debugging, make sure 'this' node's visit count equals the
+  // sum of the children visit counts.
+  uint64_t total_child_visit_count = 0;
+  for (uint64_t aid : state_->ValidActionIds()) {
+    total_child_visit_count += children_visit_counts_[aid];
+  }
+  assert(visit_count_ == total_child_visit_count);
+#endif
+
+  for (uint64_t aid : state_->ValidActionIds()) {
+    probs[aid] = float(children_visit_counts_[aid]) / visit_count_;
+  }
+
+  return probs;
 }
 
 uint64_t
