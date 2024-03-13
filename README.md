@@ -8,8 +8,8 @@ Server](https://github.com/triton-inference-server/server) to make
 predictions with the DL model. Docker must be installed on your system
 as described [Installing Docker for NVIDIA
 GPUs](https://docs.nvidia.com/ai-enterprise/deployment-guide-vmware/0.1.0/docker.html).
-Once Docker is installed, you can retrieve and run it with the
-following commands:
+Once Docker is installed, you can run Triton with the following
+commands:
 
 ```bash
 mkdir -p ${CIFRE_REPODIR}
@@ -19,13 +19,16 @@ docker run --gpus=1 --rm --net=host -v ${CIFRE_REPODIR}:/cifre/models nvcr.io/nv
 Where `${CIFRE_REPODIR}` is the full path to the model repository
 directory specified with the *--repodir* flag when you run the
 `cifre_train` executable. `${CIFRE_REPODIR}` must exist before you run
-the Docker command. For example, following the above commands you can
-use the following to train a model for the *celcath* game on an 8x8
-board.
+the Docker command. For example, use the following commands to start
+Triton and train a model for the *celcath* game on an 8x8 board, using
+`/tmp/cifre/models` to hold the Triton repository, and
+`/tmp/cifre/train` to hold the training data.
 
 ```base
+mkdir -p /tmp/cifre/models /tmp/cifre/train
+docker run --gpus=1 --rm --net=host -v /tmp/cifre/models:/cifre/models nvcr.io/nvidia/tritonserver:24.01-py3 tritonserver --model-control-mode=explicit --model-repository=/cifre/models
 cd python
-./cifre_train.py --repodir=${CIFRE_REPODIR} --game=celcath --game-shape=8,8
+./cifre_train.py --repo-dir=/tmp/cifre/models --train-dir=/tmp/cifre/train --game=celcath --game-shape=8,8
 ```
 
 ## Build

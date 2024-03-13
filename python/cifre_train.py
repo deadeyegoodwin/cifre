@@ -16,9 +16,9 @@ from basic_nnet import CifreBasicNNet
 FLAGS = None
 LOG = None
 
-def parse_repodir(arg):
+def parse_existing_dir(arg):
     """
-    Parse 'arg'ument as a repodir path.
+    Parse 'arg'ument as a directory path that must already exist.
     """
     if not os.path.exists(arg):
         raise FileNotFoundError(f"{arg} does not exist")
@@ -84,10 +84,15 @@ def main():
         help='Game shape, for example --game-shape=8,8.')
 
     parser.add_argument(
-        '--repodir',
-        type=parse_repodir,
+        '--repo-dir',
+        type=parse_existing_dir,
         required=True,
         help='Model repository directory.')
+    parser.add_argument(
+        '--train-dir',
+        type=parse_existing_dir,
+        required=True,
+        help='Training data directory.')
 
     FLAGS = parser.parse_args()
     LOG = CifreLogger(verbose=FLAGS.verbose, quiet=FLAGS.quiet,
@@ -113,17 +118,28 @@ def main():
     nnet = CifreBasicNNet(nnet_args)
 
     # Create the manager for the nnet, and write the initial model
-    # into 'repodir'.
-    manager = CifreNNetManager(nnet, FLAGS.game_shape, FLAGS.repodir)
-    manager.save_triton_repository('initial')
+    # into 'repo-dir'.
+    model_name = 'initial'
+    manager = CifreNNetManager(nnet, FLAGS.game_shape, FLAGS.repo_dir)
+    manager.save_triton_repository(model_name)
 
-    # Launch cifre executable to perform MCTS using the just trained
-    # model.
+    train_dir = os.path.join(FLAGS.train_dir, model_name)
+    if os.path.exists(train_dir):
+        shutil.rmtree(train_dir)
+    os.makedirs(train_dir)
+
+    # Launch cifre executable to collect training data. Need to first
+    # play against a random opponent to avoid the case there initial
+    # alphazero model cannot complete any games.
     game_cmd = [
-        '../build/install/bin/celcath',
-        '--log-high' if FLAGS.verbose else '',
-        '--model', 'initial',
-        '--board-size', argify_shape(FLAGS.game_shape, 'x') ]
+        '../build/install/bin/celcath',  # FIXME
+        '--verbose' if FLAGS.verbose else '',
+        '--train-dir', train_dir,
+        '--board-size', argify_shape(FLAGS.game_shape, 'x'),
+        '--player1=alphazero', '--model', model_name,
+        '--player2=random',
+        '--max-actions-per-turn=3',
+        '--game-count=10' ]
     process = subprocess.Popen(game_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     while process.poll() is None:
         print(process.stdout.readline().rstrip())

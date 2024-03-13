@@ -1,6 +1,7 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 
 #include <cstdint>
+#include <filesystem>
 #include <getopt.h>
 #include <iostream>
 #include <memory>
@@ -65,16 +66,17 @@ struct Option {
     OPTION_QUIET,
     OPTION_VERBOSE,
     OPTION_LOG_FILE,
-    OPTION_DATA_DIR,
-    OPTION_MODEL_REPOSITORY_DIR,
-    OPTION_MODEL_NAME,
+    OPTION_TRAIN_DIR,
     OPTION_BOARD_SIZE,
     OPTION_MIN_ACTIONS_PER_TURN,
     OPTION_MAX_ACTIONS_PER_TURN,
     OPTION_MAX_TURNS_PER_GAME,
     OPTION_GAME_COUNT,
+
     OPTION_PLAYER1,
-    OPTION_PLAYER2
+    OPTION_PLAYER2,
+    OPTION_PLAYER_NAME,
+    OPTION_PLAYER_MODEL
   };
 
   Option(OptionId id, std::string flag, std::string arg_desc, std::string desc)
@@ -107,10 +109,9 @@ const std::vector<Option> options_ {
   {Option::OPTION_LOG_FILE, "log-file", Option::ArgStr,
    "File for output. 'stdout' and 'stderr' are allowed."},
 
-  {Option::OPTION_DATA_DIR, "datadir", Option::ArgStr,
-   "Training data directory, defaults to /tmp/cifre/data."},
-  {Option::OPTION_MODEL_NAME, "model", Option::ArgStr,
-   "Name of model to use for predictions."},
+  {Option::OPTION_TRAIN_DIR, "train-dir", Option::ArgStr,
+   "Training data directory. If specified then the directory must exist "
+   "and training data will be output to this directory."},
 
   {Option::OPTION_BOARD_SIZE, "board-size", Option::ArgInt,
    "Size of the game board. A square board with N rows and N columns is specified as '--board-size=N'. "
@@ -129,10 +130,17 @@ const std::vector<Option> options_ {
 
   {Option::OPTION_GAME_COUNT, "game-count", Option::ArgInt,
    "Number of games to play. Default is 1."},
+
   {Option::OPTION_PLAYER1, "player1", Option::ArgStr,
-   "Type of the first player: 'human', 'random', 'alphazero'. Default is 'human'."},
+   "Type of the first player: 'human', 'random', 'alphazero'."},
   {Option::OPTION_PLAYER2, "player2", Option::ArgStr,
-   "Type of the first player: 'human', 'random', 'alphazero'. Default is 'human'."}};
+   "Type of the first player: 'human', 'random', 'alphazero'."},
+  {Option::OPTION_PLAYER_NAME, "name", Option::ArgStr,
+   "Name of player. --player1 or --player2 must be specified before this argument. "
+   "The default name is automatically generated from the player kind."},
+  {Option::OPTION_PLAYER_MODEL, "model", Option::ArgStr,
+   "Model associated with player. --player1 or --player2 must be specified "
+   "before this argument."}};
 
 size_t
 ParseUnsigned(const std::string& str)
@@ -206,29 +214,53 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
   return new common::StreamLogger(level, timestamp_kind, filename, false /* buffered */);
 }
 
+//
+// Settings for each player.
+//
+struct PlayerSettings {
+  enum class Kind { UNKNOWN, HUMAN, RANDOM, ALPHAZERO };
+
+  PlayerSettings() : kind_(Kind::UNKNOWN) { }
+  PlayerSettings(const std::string& kind_str, size_t id) :
+    kind_(StringToKind(kind_str)), id_(id),
+    name_(kind_str + std::to_string(id)) { }
+
+  Kind StringToKind(const std::string& str) const {
+    if (str == "human") { return Kind::HUMAN; }
+    if (str == "random") { return Kind::RANDOM; }
+    if (str == "alphazero") { return Kind::ALPHAZERO; }
+    Fail("unknown player kind '" + str + "'");
+    return Kind::UNKNOWN;
+  }
+
+  Kind kind_;
+  size_t id_;
+  std::string name_;
+  std::string model_;
+};
+
 cifre::celcath::Player*
-CreatePlayer(const std::shared_ptr<common::Logger>& logger,
-             const std::string& player_kind, size_t n,
-             const std::shared_ptr<cifre::Triton>& triton, const std::string& model_name)
+CreatePlayer(const std::shared_ptr<common::Logger>& logger, const PlayerSettings& player_settings,
+             std::unique_ptr<cifre::AlphaZero> alphazero)
 {
-  const char bc = (n == 1) ? 'o' : 'x';
+  const char bc = (player_settings.id_ == 1) ? 'o' : 'x';
 
-  if (player_kind == "human") {
-    return new cifre::celcath::HumanPlayer(logger, "Human" + std::to_string(n), bc, 1.0);
-  }
-  if (player_kind == "random") {
-    return new cifre::celcath::RandomPlayer(logger, "Random" + std::to_string(n), bc, 1.0);
-  }
-  if (player_kind == "alphazero") {
-    return new cifre::celcath::AlphaZeroPlayer(
-      logger, "AlphaZero" + std::to_string(n), bc, 1.0,
-      std::make_unique<cifre::AlphaZero>(logger, triton, model_name, true /* training FIXME */),
-      cifre::AlphaZero::NextActionKind::RANDOM_VISIT_WEIGHTED); // FIXME
+  switch (player_settings.kind_) {
+  case PlayerSettings::Kind::UNKNOWN:
+    break;
+  case PlayerSettings::Kind::HUMAN:
+    return new cifre::celcath::HumanPlayer(logger, player_settings.name_, bc, 1.0);
+  case PlayerSettings::Kind::RANDOM:
+    return new cifre::celcath::RandomPlayer(logger, player_settings.name_, bc, 1.0);
+  case PlayerSettings::Kind::ALPHAZERO:
+    return
+      new cifre::celcath::AlphaZeroPlayer(logger, player_settings.name_, bc, 1.0,
+                                          std::move(alphazero),
+                                          cifre::AlphaZero::NextActionKind::RANDOM_VISIT_WEIGHTED); // FIXME
   }
 
-  Fail("unknown player kind '" + player_kind + "'");
+  Fail("cannot create player '" + player_settings.name_ + "'");
 }
-
 
 }  // namespace
 
@@ -325,15 +357,16 @@ main(int argc, char **argv)
     bool quiet = false;
     bool verbose = false;
     std::string log_filename = "stdout";
-    std::string datadir = "/tmp/cifre/data";
-    std::string model_name;
+    std::string train_dir;
     cifre::BoardSize2D board_size = DEFAULT_BOARD_SIZE;
     size_t min_actions_per_turn = DEFAULT_MIN_ACTIONS_PER_TURN;
     size_t max_actions_per_turn = DEFAULT_MAX_ACTIONS_PER_TURN;
     size_t max_turns_per_game = DEFAULT_MAX_TURNS_PER_GAME;
     size_t game_count = 1;
-    std::string player1_kind = "human";
-    std::string player2_kind = "human";
+
+    PlayerSettings splayer1;
+    PlayerSettings splayer2;
+    PlayerSettings* active_splayer = nullptr;
 
     std::vector<struct option> long_options;
     for (const auto& o : options_) {
@@ -361,11 +394,8 @@ main(int argc, char **argv)
         log_filename = optarg;
         break;
 
-      case Option::OPTION_DATA_DIR:
-        datadir = optarg;
-        break;
-      case Option::OPTION_MODEL_NAME:
-        model_name = optarg;
+      case Option::OPTION_TRAIN_DIR:
+        train_dir = optarg;
         break;
 
       case Option::OPTION_BOARD_SIZE:
@@ -384,11 +414,28 @@ main(int argc, char **argv)
       case Option::OPTION_GAME_COUNT:
         game_count = ParseUnsigned(optarg);
         break;
+
       case Option::OPTION_PLAYER1:
-        player1_kind = optarg;
+        CheckTrueMsg(splayer1.kind_ == PlayerSettings::Kind::UNKNOWN,
+                     "--player1 cannot be specified multiple times");
+        splayer1 = PlayerSettings(optarg, 1);
+        active_splayer = &splayer1;
         break;
       case Option::OPTION_PLAYER2:
-        player2_kind = optarg;
+        CheckTrueMsg(splayer2.kind_ == PlayerSettings::Kind::UNKNOWN,
+                     "--player2 cannot be specified multiple times");
+        splayer2 = PlayerSettings(optarg, 2);
+        active_splayer = &splayer2;
+        break;
+      case Option::OPTION_PLAYER_NAME:
+        CheckTrueMsg(active_splayer != nullptr,
+                     "--player1 or --player2 must be specified before --name");
+        active_splayer->name_ = optarg;
+        break;
+      case Option::OPTION_PLAYER_MODEL:
+        CheckTrueMsg(active_splayer != nullptr,
+                     "--player1 or --player2 must be specified before --model");
+        active_splayer->model_ = optarg;
         break;
       }
     }
@@ -403,7 +450,8 @@ main(int argc, char **argv)
       log_level = (verbose) ? common::Logger::Level::HIGH : common::Logger::Level::LOW;
     }
 
-    if ((player1_kind == "human") || (player2_kind == "human")) {
+    if ((splayer1.kind_ == PlayerSettings::Kind::HUMAN) ||
+        (splayer2.kind_ == PlayerSettings::Kind::HUMAN)) {
       CheckTrueMsg(log_level != common::Logger::Level::OFF,
                    "--quiet cannot be specified if there is a human player");
       if (!verbose) {
@@ -424,13 +472,23 @@ main(int argc, char **argv)
       logger->Log(cifre::celcath::VersionToString(true /* show_dependent_versions */));
     }
 
+    CheckTrueMsg(splayer1.kind_ != PlayerSettings::Kind::UNKNOWN,
+                 "--player1 must be specified");
+    CheckTrueMsg(splayer2.kind_ != PlayerSettings::Kind::UNKNOWN,
+                 "--player2 must be specified");
+
     CheckTrueMsg(max_actions_per_turn >= 1, "--max-actions-per-turn must be >= 1");
     CheckTrueMsg(max_actions_per_turn >= min_actions_per_turn,
                  "--max-actions-per-turn must be >= --min-actions-per-turn");
     CheckTrueMsg(max_turns_per_game >= 1, "--max-turns-per-game must be >= 1");
     CheckTrueMsg(game_count >= 1, "--game-count must be >= 1");
 
-    // Settings
+    // If training, then 'train_dir' must exist.
+    const bool train = !train_dir.empty();
+    CheckTrueMsg(!train || std::filesystem::is_directory(train_dir),
+                 "--train-dir must be an existing directory");
+
+    // Celcath settings
     cifre::celcath::Settings settings;
     settings.SetSetting("board-row-count", board_size.RowCount());
     settings.SetSetting("board-column-count", board_size.ColumnCount());
@@ -445,17 +503,28 @@ main(int argc, char **argv)
     settings.Sync();
     LOGGER_LOGHIGH(*logger, settings.ToString());
 
-    // Create shared triton object if required.
+    // Create shared triton and alphazero object(s) if needed.
     std::shared_ptr<cifre::Triton> triton;
-    if ((player1_kind == "alphazero") || (player2_kind == "alphazero")) {
+    std::unique_ptr<cifre::AlphaZero> alphazero1, alphazero2;
+    if ((splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) ||
+        (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO)) {
       triton.reset(new cifre::Triton(logger));
       CheckTrueMsg(triton->IsReady(), "triton is not ready");
+
+      if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
+        CheckTrueMsg(!splayer1.model_.empty(), "--player1=alphazero requires --model");
+        alphazero1 = std::make_unique<cifre::AlphaZero>(logger, triton, splayer1.model_, train);
+      }
+      if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
+        CheckTrueMsg(!splayer2.model_.empty(), "--player2=alphazero requires --model");
+        alphazero2 = std::make_unique<cifre::AlphaZero>(logger, triton, splayer2.model_, train);
+      }
     }
 
     // Create players. The players are collected in a vector and each
     // player's position in the vector is the players ID.
-    std::unique_ptr<cifre::celcath::Player> player1(CreatePlayer(logger, player1_kind, 1, triton, model_name));
-    std::unique_ptr<cifre::celcath::Player> player2(CreatePlayer(logger, player2_kind, 2, triton, model_name));
+    std::unique_ptr<cifre::celcath::Player> player1(CreatePlayer(logger, splayer1, std::move(alphazero1)));
+    std::unique_ptr<cifre::celcath::Player> player2(CreatePlayer(logger, splayer2, std::move(alphazero2)));
     std::vector<cifre::celcath::Player*> players { player1.get(), player2.get() };
 
     // Create the stepper that evolves board across generations.
@@ -517,6 +586,10 @@ main(int argc, char **argv)
         logger->LogLow(p->Name());
         logger->LogLow(str, 4 /* indent */);
       }
+    }
+
+    // If training, give alphazero opportunity to write training data.
+    if (train) {
     }
 
   } catch (const std::exception& ex) {
