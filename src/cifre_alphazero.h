@@ -39,6 +39,9 @@ private:
     // Return the State represented by this node.
     const State& NodeState() const { return *state_; }
 
+    // Return the Triton result object associated with this node.
+    const TritonInferResult& NodeTritonResult() const { return result_; }
+
     // Return the child for a given action ID.
     Node* Child(uint64_t action_id) const { return children_[action_id]; }
 
@@ -147,6 +150,10 @@ private:
   // the leaf node visited in the search.
   float UpdateTree(
     Node* node, const float cpuct, const size_t generation, const size_t depth_remaining);
+
+  // Return string representation of a shape, using 'batch_count' as
+  // the first/batch dimension value if it is non-zero.
+  std::string ToJsonArray(const std::vector<int64_t> shape, size_t batch_count) const;
 
   std::shared_ptr<common::Logger> logger_;
   std::shared_ptr<Triton> triton_;

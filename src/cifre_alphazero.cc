@@ -103,21 +103,66 @@ AlphaZero::WriteTraining(const std::string& dir) const
 
   // For now we rely on the unordered nature of train_nodes_
   // unordered_map to "randomize" the order that the nodes are
-  // written.
+  // written. Make sure the data sizes from each of the training nodes
+  // is consistent.
+  const TritonInferResult* repr_result = nullptr;
   for (const auto& pr : train_nodes_) {
+    if (repr_result == nullptr) {
+      repr_result = &pr.first->NodeTritonResult();
+    }
+
     auto& din = pr.first->NodeState().TritonRepresentation();
     fin.write(reinterpret_cast<const char*>(din.data()), din.size() * sizeof(uint8_t));
+    assert((din.size() * sizeof(uint8_t)) == repr_result->InputByteSize());
 
     const auto dpi = pr.first->ChildProbability();
     fpi.write(reinterpret_cast<const char*>(dpi.data()), dpi.size() * sizeof(float));
+    assert((dpi.size() * sizeof(float)) == repr_result->PiByteSize());
 
     const float dv = pr.second;
     fv.write(reinterpret_cast<const char*>(&dv), sizeof(dv));
+    assert(sizeof(dv) == repr_result->VByteSize());
   }
 
   fin.close();
   fpi.close();
   fv.close();
+
+  // Write train.json to contain descriptive metadata for the training
+  // data.
+  if (repr_result != nullptr) {
+    std::filesystem::path pjson(dir); pjson /= "train.json";
+    LOGGER_LOGHIGH(*logger_, "writing training metadata to " + pjson.string());
+    std::ofstream fjson(pjson, std::ios::out);
+    fjson
+      << "{\n"
+      << " \"in_shape\" : " << ToJsonArray(repr_result->InputShape(), train_nodes_.size()) << ",\n"
+      << " \"pi_shape\" : " << ToJsonArray(repr_result->PiShape(), train_nodes_.size()) << ",\n"
+      << " \"v_shape\" : " << ToJsonArray(repr_result->VShape(), train_nodes_.size()) << "\n"
+      << "}\n";
+    fjson.close();
+  }
+}
+
+std::string
+AlphaZero::ToJsonArray(const std::vector<int64_t> shape, size_t batch_count) const
+{
+  bool first = true;
+  std::string str("[");
+  for (size_t d : shape) {
+    if (first) {
+      first = false;
+      if (batch_count > 0) {
+        d = batch_count;
+      }
+    } else {
+      str += ',';
+    }
+    str += std::to_string(d);
+  }
+
+  str += "]";
+  return str;
 }
 
 uint64_t
@@ -177,7 +222,7 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
   }
   else {
     auto result = triton_->RunModel(model_name_, state->TritonRepresentation());
-    THROWIF(result.PiEntryCount() != state->TotalActionIdCount(), "model returned incorrect pi");
+    assert(result.PiEntryCount() == state->TotalActionIdCount());
 
     auto created_node_itr =
       nodes_.emplace(std::piecewise_construct,
@@ -288,7 +333,8 @@ AlphaZero::ToStatisticsString() const
 //
 AlphaZero::Node::Node(std::unique_ptr<const State> state, TritonInferResult&& infer_result) :
   state_(std::move(state)), result_(std::move(infer_result)),
-  children_(result_.PiEntryCount(), nullptr), children_visit_counts_(result_.PiEntryCount(), 0),
+  children_(state_->TotalActionIdCount(), nullptr),
+  children_visit_counts_(state_->TotalActionIdCount(), 0),
   visit_count_(0), generation_(0)
 {
   // Is node is a terminal, then its value is based on the terminal
@@ -322,7 +368,7 @@ AlphaZero::Node::SetChild(uint64_t action_id, Node* child, size_t visit_count)
 std::vector<float>
 AlphaZero::Node::ChildProbability() const
 {
-  std::vector<float> probs(result_.PiEntryCount(), 0.0);
+  std::vector<float> probs(state_->TotalActionIdCount(), 0.0);
 
 #ifndef NDEBUG
   // When debugging, make sure 'this' node's visit count equals the

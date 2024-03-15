@@ -30,10 +30,12 @@ CheckTritonError(const triton::client::Error& err, const std::string& msg)
 //
 TritonInferResult::TritonInferResult(
   const TritonModelMetadata& metadata, triton::client::InferResult* r) :
-  result_(r), pi_byte_size_(0), pi_(nullptr), v_byte_size_(0), v_(nullptr)
+  result_(r), input_shape_(metadata.input_shape_),
+  pi_shape_(metadata.output_pi_shape_), v_shape_(metadata.output_v_shape_),
+  input_byte_size_(metadata.required_input_byte_size_)
 {
-  ValidateResult(metadata.output_v_name_, metadata.output_v_shape_);
-  ValidateResult(metadata.output_pi_name_, metadata.output_pi_shape_);
+  ValidateResult(metadata.output_v_name_, v_shape_);
+  ValidateResult(metadata.output_pi_name_, pi_shape_);
 
   CheckTritonError(result_->RawData(metadata.output_pi_name_, (const uint8_t**)&pi_, &pi_byte_size_),
                    "getting result data for '" + metadata.output_pi_name_ + "'");

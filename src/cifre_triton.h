@@ -44,31 +44,47 @@ public:
   TritonInferResult(const TritonInferResult& other) = delete;
   TritonInferResult(const TritonInferResult&& other) = delete;
   TritonInferResult(TritonInferResult&& other) :
-    result_(other.result_), pi_byte_size_(other.pi_byte_size_), pi_(other.pi_),
-    v_byte_size_(other.v_byte_size_), v_(other.v_) {
+    result_(other.result_), input_shape_(std::move(other.input_shape_)),
+    pi_shape_(std::move(other.pi_shape_)), v_shape_(std::move(other.v_shape_)),
+    input_byte_size_(other.input_byte_size_), pi_byte_size_(other.pi_byte_size_),
+    v_byte_size_(other.v_byte_size_), pi_(other.pi_), v_(other.v_) {
     other.result_ = nullptr; other.pi_ = other.v_ = nullptr;
-    other.pi_byte_size_ = other.v_byte_size_ = 0;
+    other.input_byte_size_ = other.pi_byte_size_ = other.v_byte_size_ = 0;
   }
 
-  // Return the number of entries in 'pi'.
-  size_t PiEntryCount() const { return pi_byte_size_ / sizeof(float); }
+  // Return the shape input and output tensors.
+  const std::vector<int64_t>& InputShape() const { return input_shape_; }
+  const std::vector<int64_t>& PiShape() const { return pi_shape_; }
+  const std::vector<int64_t>& VShape() const { return v_shape_; }
 
-  // Return the number of entries in 'v'.
-  size_t VEntryCount() const { return v_byte_size_ / sizeof(float); }
+  // Return the byte-size of input and output tensors.
+  size_t InputByteSize() const { return input_byte_size_; }
+  size_t PiByteSize() const { return pi_byte_size_; }
+  size_t VByteSize() const { return v_byte_size_; }
 
-  // Return 'pi'.
+  // Return the number of entries in each input and output tensor.
+  size_t InputEntryCount() const { return input_shape_[0] * input_shape_[1] * input_shape_[2]; }
+  size_t PiEntryCount() const { return pi_shape_[0] * pi_shape_[1]; }
+  size_t VEntryCount() const { return v_shape_[0] * v_shape_[1]; }
+
+  // Return pointer to the output tensor data.
   const float* Pi() const { return pi_; }
-
-  // Return 'v'.
   const float* V() const { return v_; }
 
 private:
   void ValidateResult(const std::string& name, const std::vector<int64_t>& shape) const;
 
   triton::client::InferResult* result_;
+
+  std::vector<int64_t> input_shape_;
+  std::vector<int64_t> pi_shape_;
+  std::vector<int64_t> v_shape_;
+
+  size_t input_byte_size_;
   size_t pi_byte_size_;
-  float* pi_;
   size_t v_byte_size_;
+
+  float* pi_;
   float* v_;
 };
 
