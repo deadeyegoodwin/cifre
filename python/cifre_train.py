@@ -118,48 +118,56 @@ def main():
         'dropout': 0.25,
         'num_channels': 512 }
     nnet = CifreBasicNNet(nnet_args)
-
-    # Create the manager for the nnet, and write the initial model
-    # into 'repo-dir'.
-    model_name = 'initial'
     manager = CifreNNetManager(nnet, FLAGS.game_shape, FLAGS.repo_dir)
-    manager.save_triton_repository(model_name)
 
-    train_dir = pathlib.Path(FLAGS.train_dir) / model_name
-    if os.path.exists(train_dir):
-        shutil.rmtree(train_dir)
-    os.makedirs(train_dir)
+    # FIXME
+    iter_count = 10
+    game_count = 100
+    max_actions_per_turn = 10
 
-    # Launch cifre executable to collect training data. Need to first
-    # play against a random opponent to avoid the case there initial
-    # alphazero model cannot complete any games.
-    game_cmd = [
-        '../build/install/bin/celcath',  # FIXME
-        '--verbose' if FLAGS.verbose else '',
-        '--train-dir', train_dir,
-        '--board-size', argify_shape(FLAGS.game_shape, 'x'),
-        '--player1=alphazero', '--model', model_name,
-        '--player2=random',
-        '--max-actions-per-turn=3',
-        '--game-count=10' ]
-    process = subprocess.Popen(game_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    while process.poll() is None:
-        print(process.stdout.readline().rstrip())
-    print(process.stdout.read())
-    process.stdout.close()
-    print(f"Return code is {process.poll()}")
+    for iter in range(iter_count):
+        model_name = f'iter{iter}'
+        manager.save_triton_repository(model_name)
 
-    # Dataset
-    dataset = CifreDataset(LOG, train_dir)
+        train_dir = pathlib.Path(FLAGS.train_dir) / model_name
+        if os.path.exists(train_dir):
+            shutil.rmtree(train_dir)
+        os.makedirs(train_dir)
 
-    train_args = {
-        'num_epochs': 16,
-        'batch_size': 8 }
-    manager.train(train_args, dataset)
+        # Launch cifre executable to collect training data. Need to first
+        # play against a random opponent to avoid the case there initial
+        # alphazero model cannot complete any games.
+        game_cmd = [
+            '../build/install/bin/celcath',  # FIXME
+            '--verbose' if FLAGS.verbose else '',
+            '--train-dir', train_dir,
+            '--board-size', argify_shape(FLAGS.game_shape, 'x'),
+            '--player1=alphazero', f'--name=p1iter{iter}', '--model', model_name,
+            f'--max-actions-per-turn={max_actions_per_turn}',
+            f'--game-count={game_count}' ]
+        if iter == 0:
+            game_cmd.extend(['--player2=random', '--name=random'])
+        else:
+            game_cmd.extend(['--player2=alphazero', f'--name=p2iter{iter}', '--model', model_name])
+
+        process = subprocess.Popen(game_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        while process.poll() is None:
+            print(process.stdout.readline().rstrip())
+        print(process.stdout.read())
+        process.stdout.close()
+        cret = process.poll()
+        LOG.fail_if(cret != 0, f'cifre return code is {cret}')
+
+        # Dataset
+        dataset = CifreDataset(LOG, train_dir)
+
+        train_args = {
+            'num_epochs': 16,
+            'batch_size': 8 }
+        manager.train(train_args, dataset)
 #    manager.save_checkpoint('/tmp/cpts', 'cpt.pth.tar', create_folder=True, overwrite=True)
 #    manager.load_checkpoint('/tmp/cpts', 'cpt.pth.tar')
 #    manager.train(train_args, dataset)
-
 
 
 if __name__ == '__main__':
