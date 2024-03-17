@@ -4,12 +4,14 @@
 
 import argparse
 import os
+import pathlib
 import shutil
 import subprocess
 import sys
 sys.path.append('./nnet')
 
 from log import CifreLogger
+from dataset import CifreDataset
 from nnet import CifreNNetManager
 from basic_nnet import CifreBasicNNet
 
@@ -123,7 +125,7 @@ def main():
     manager = CifreNNetManager(nnet, FLAGS.game_shape, FLAGS.repo_dir)
     manager.save_triton_repository(model_name)
 
-    train_dir = os.path.join(FLAGS.train_dir, model_name)
+    train_dir = pathlib.Path(FLAGS.train_dir) / model_name
     if os.path.exists(train_dir):
         shutil.rmtree(train_dir)
     os.makedirs(train_dir)
@@ -147,24 +149,16 @@ def main():
     process.stdout.close()
     print(f"Return code is {process.poll()}")
 
-    sys.exit(0)
-
-    ## FIXME
-    import numpy as np
-    dataset = []
-    for _ in range(2):
-        b = np.random.random((nnet_args['num_rows'], nnet_args['num_cols'])).astype(np.float32) # FIXME
-        p = np.random.random(nnet_args['num_actions']).astype(np.float32)
-        v = 1
-        dataset.append((b, p, v))
+    # Dataset
+    dataset = CifreDataset(LOG, train_dir)
 
     train_args = {
-        'num_epochs': 4,
-        'batch_size': 2 }
+        'num_epochs': 16,
+        'batch_size': 8 }
     manager.train(train_args, dataset)
-    manager.save_checkpoint('/tmp/cpts', 'cpt.pth.tar', create_folder=True, overwrite=True)
-    manager.load_checkpoint('/tmp/cpts', 'cpt.pth.tar')
-    manager.train(train_args, dataset)
+#    manager.save_checkpoint('/tmp/cpts', 'cpt.pth.tar', create_folder=True, overwrite=True)
+#    manager.load_checkpoint('/tmp/cpts', 'cpt.pth.tar')
+#    manager.train(train_args, dataset)
 
 
 
