@@ -52,6 +52,7 @@ HumanPlayer::Usage() const
   sstr << "'h' : help\n";
   sstr << "'q' : quit\n";
   sstr << "'b' : show board\n";
+  sstr << "'s' : step board\n";
   sstr << "'e' : end turn\n";
   sstr << "'<r><c>' : toggle cell [r, c]";
   return sstr.str();

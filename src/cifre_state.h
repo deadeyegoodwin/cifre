@@ -53,7 +53,7 @@ public:
 
   // Apply the action associated with 'action_id' to this state, so
   // that the state is modified due to the action.
-  virtual void Update(uint64_t action_id) = 0;
+  virtual void Update(uint64_t action_id, bool enable_logging = true) = 0;
 
   // Get the representation of the state suitable for feeding to the
   // model via triton. This representation does not need to include

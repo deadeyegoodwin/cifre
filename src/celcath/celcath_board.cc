@@ -70,6 +70,7 @@ Board::StringToAction(const std::string& str) const
     case '?': return Action(Action::ActionKind::HELP);
     case 'q': return Action(Action::ActionKind::QUIT);
     case 'b': return Action(Action::ActionKind::SHOW_BOARD);
+    case 's': return Action(Action::ActionKind::ACTIONID, settings_.StepActionId());
     case 'e': return Action(Action::ActionKind::ACTIONID, settings_.EndTurnActionId());
     default:
       break;
@@ -99,6 +100,9 @@ Board::ActionToString(const Action& action, common::Logger::Level filter_level) 
 
   const uint64_t action_id = action.ActionId();
 
+  if (action_id == settings_.StepActionId()) {
+    return "STEP";
+  }
   if (action_id == settings_.EndTurnActionId()) {
     return "END-TURN";
   }
@@ -213,14 +217,20 @@ Board::Equal(const State* other) const
 }
 
 void
-Board::Update(uint64_t action_id)
+Board::Update(uint64_t action_id, bool enable_logging)
 {
   bool next_player = false;
   bool run_stepper = false;
 
-  // End turn?
+  // End turn
   if (action_id == settings_.EndTurnActionId()) {
-    next_player = run_stepper = true;
+    next_player = true;
+  }
+  // Step
+  else if (action_id == settings_.StepActionId()) {
+    // FIXME need to reorg so that can advance
+    // complete_actions_this_turn_ and perform related logic
+    run_stepper = true;
   }
   // All other action IDs toggle the liveness of the appropriate cell.
   else {
@@ -241,7 +251,7 @@ Board::Update(uint64_t action_id)
     // player's turn is over.
     complete_actions_this_turn_ += 1;
     if (complete_actions_this_turn_ >= settings_.MaxActionsPerTurn()) {
-      next_player = run_stepper = true;
+      next_player = true;
     }
     // Active player's turn is not complete, so only need to update
     // validity of the end-turn action.
@@ -254,14 +264,16 @@ Board::Update(uint64_t action_id)
     UpdateTerminalStatus();
   }
 
-  if (next_player) {
-    LOGGER_LOGMED(*logger_, ToString());
+  if (next_player && enable_logging) {
+    LOGGER_LOGMED(*logger_, ActivePlayer()->Name() + " turn complete\n" + ToString());
   }
 
   // If necessary run the stepper and check to see if there is a
   // change in the terminal status of the board.
   if (run_stepper) {
-    LOGGER_LOGMED(*logger_, std::string("run ") + stepper_.Name());
+    if (enable_logging) {
+      LOGGER_LOGMED(*logger_, std::string("run ") + stepper_.Name());
+    }
     stepper_.Step(this, players_);
     UpdateTerminalStatus();
   }
@@ -276,7 +288,9 @@ Board::Update(uint64_t action_id)
       end_turn_count_ += 1;
     }
 
-    LOGGER_LOGMED(*logger_, ToString());
+    if (enable_logging) {
+      LOGGER_LOGMED(*logger_, ToString());
+    }
   }
 }
 
@@ -352,9 +366,8 @@ Board::UpdateValidActions()
   // The active player's home row is row 0, the opponent player's home
   // row is size_.RowCount() - 1.
 
-  // FIXME ruleset, for now can play on any cell except own home row
-  // and opponents 2 home rows.
-  for (size_t ridx = 1; ridx < (size_.RowCount() - 2); ++ridx) {
+  // FIXME ruleset, can play on 3 home rows.
+  for (size_t ridx = 0; ridx < std::min(size_t(3), size_.RowCount()); ++ridx) {
     for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
       const float current = CellValueAt(ridx, cidx);
       if ((current == active_player_cell_value) || (current == CELL_EMPTY)) {
@@ -363,6 +376,7 @@ Board::UpdateValidActions()
     }
   }
 
+  valid_action_ids_.insert(settings_.StepActionId());
   if (complete_actions_this_turn_ >= settings_.MinActionsPerTurn()) {
     valid_action_ids_.insert(settings_.EndTurnActionId());
   }
@@ -371,29 +385,45 @@ Board::UpdateValidActions()
 void
 Board::UpdateTerminalStatus()
 {
-  // Check winning conditions.
+  // Check winning conditions and set 'terminal_status_'
+  // appropriately.
 
-  // FIXME rulset for now must have cell on opponents first row to win.
+  // FIXME rulset if player has more cells on opponent's side than
+  // opponent does then player wins. If odd number of rows then the
+  // middle row is not counted.
 
-  // Row 0 is active player's home row, so if any opponent on that row
-  // then the opponent wins.
-  bool opponent_winner = false;
-  for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
-    if (PlayerIdAt(0 /* row_idx */, cidx) == OpponentPlayerId()) {
-      opponent_winner = true;
-      break;
+  // Row 0 is active player's home row, count active and opponent
+  // pieces on each side.
+  size_t active_side_active_count = 0;
+  size_t active_side_opponent_count = 0;
+  size_t opponent_side_active_count = 0;
+  size_t opponent_side_opponent_count = 0;
+  for (size_t ridx = 0; ridx < (size_.RowCount() / 2); ++ridx) {
+    for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
+      size_t pid = PlayerIdAt(ridx, cidx);
+      if (pid == ActivePlayerId()) {
+        active_side_active_count++;
+      }
+      else if (pid == OpponentPlayerId()) {
+        active_side_opponent_count++;
+      }
+
+      size_t opid = PlayerIdAt(size_.RowCount() - 1 - ridx, cidx);
+      if (opid == ActivePlayerId()) {
+        opponent_side_active_count++;
+      }
+      else if (opid == OpponentPlayerId()) {
+        opponent_side_opponent_count++;
+      }
     }
   }
 
-  // Row n is opponent player's home row, so if any active player on
-  // that row then active player wins.
-  bool active_winner = false;
-  for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
-    if (PlayerIdAt(size_.RowCount() - 1 /* row_idx */, cidx) == ActivePlayerId()) {
-      active_winner = true;
-      break;
-    }
-  }
+  const bool active_winner = (
+    (active_side_active_count >= active_side_opponent_count) &&
+    (opponent_side_active_count > opponent_side_opponent_count));
+  const bool opponent_winner = (
+    (opponent_side_opponent_count >= opponent_side_active_count) &&
+    (active_side_opponent_count > active_side_active_count));
 
   if (opponent_winner && active_winner) {
     terminal_status_ = cifre::State::TerminalStatusKind::DRAW;

@@ -131,7 +131,7 @@ public:
     return valid_action_ids_; }
 
   // See cifre::State
-  void Update(uint64_t action_id) override;
+  void Update(uint64_t action_id, bool enable_logging = true) override;
 
   // See cifre::State
   std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const override;

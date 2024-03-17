@@ -1,5 +1,6 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 
+#include <cmath>
 #include <sstream>
 
 #include "cifre_triton.h"
@@ -37,7 +38,8 @@ TritonInferResult::TritonInferResult(
   ValidateResult(metadata.output_v_name_, v_shape_);
   ValidateResult(metadata.output_pi_name_, pi_shape_);
 
-  CheckTritonError(result_->RawData(metadata.output_pi_name_, (const uint8_t**)&pi_, &pi_byte_size_),
+  float* fpi;
+  CheckTritonError(result_->RawData(metadata.output_pi_name_, (const uint8_t**)&fpi, &pi_byte_size_),
                    "getting result data for '" + metadata.output_pi_name_ + "'");
   THROWIF(pi_byte_size_ != metadata.required_output_pi_byte_size_,
           "size mismatch for result '" + metadata.output_pi_name_ + "'");
@@ -46,6 +48,11 @@ TritonInferResult::TritonInferResult(
                    "getting result data for '" + metadata.output_v_name_ + "'");
   THROWIF(v_byte_size_ != metadata.required_output_v_byte_size_,
           "size mismatch for result '" + metadata.output_v_name_ + "'");
+
+  pi_.reserve(PiEntryCount());
+  for (size_t i = 0; i < PiEntryCount(); ++i) {
+    pi_.push_back(std::exp(fpi[i]));
+  }
 }
 
 void

@@ -495,9 +495,10 @@ main(int argc, char **argv)
     settings.SetSetting("max-actions-per-turn", max_actions_per_turn);
 
     // One action identifier for each cell on the board (toggle
-    // liveness), plus one action to finish turn.
-    settings.SetSetting("total-action-id-count", board_size.CellCount() + 1);
-    settings.SetSetting("end-turn-action-id", board_size.CellCount());
+    // liveness), plus one action to step, plus one action to finish turn.
+    settings.SetSetting("total-action-id-count", board_size.CellCount() + 2);
+    settings.SetSetting("step-action-id", board_size.CellCount());
+    settings.SetSetting("end-turn-action-id", board_size.CellCount() + 1);
 
     settings.Sync();
     LOGGER_LOGHIGH(*logger, settings.ToString());

@@ -35,6 +35,7 @@ public:
   size_t StartingPlayerId() const { return starting_player_id_; };
 
   size_t TotalActionIdCount() const { return total_action_id_count_; }
+  uint64_t StepActionId() const { return step_action_id_; }
   uint64_t EndTurnActionId() const { return end_turn_action_id_; }
 
 private:
@@ -47,6 +48,7 @@ private:
   size_t starting_player_id_;
 
   size_t total_action_id_count_;
+  uint64_t step_action_id_;
   uint64_t end_turn_action_id_;
 };
 

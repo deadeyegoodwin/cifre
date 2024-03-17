@@ -47,9 +47,10 @@ public:
     result_(other.result_), input_shape_(std::move(other.input_shape_)),
     pi_shape_(std::move(other.pi_shape_)), v_shape_(std::move(other.v_shape_)),
     input_byte_size_(other.input_byte_size_), pi_byte_size_(other.pi_byte_size_),
-    v_byte_size_(other.v_byte_size_), pi_(other.pi_), v_(other.v_) {
-    other.result_ = nullptr; other.pi_ = other.v_ = nullptr;
+    v_byte_size_(other.v_byte_size_), pi_(std::move(other.pi_)), v_(other.v_) {
+    other.result_ = nullptr;
     other.input_byte_size_ = other.pi_byte_size_ = other.v_byte_size_ = 0;
+    other.v_ = nullptr;
   }
 
   // Return the shape input and output tensors.
@@ -67,8 +68,8 @@ public:
   size_t PiEntryCount() const { return pi_shape_[0] * pi_shape_[1]; }
   size_t VEntryCount() const { return v_shape_[0] * v_shape_[1]; }
 
-  // Return pointer to the output tensor data.
-  const float* Pi() const { return pi_; }
+  // Return output tensor data.
+  const std::vector<float>& Pi() const { return pi_; }
   const float* V() const { return v_; }
 
 private:
@@ -84,7 +85,8 @@ private:
   size_t pi_byte_size_;
   size_t v_byte_size_;
 
-  float* pi_;
+  // PI from the model is LogSoftmax so we store in pi_ exp(PI).
+  std::vector<float> pi_;
   float* v_;
 };
 

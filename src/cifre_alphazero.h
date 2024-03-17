@@ -73,8 +73,10 @@ private:
     size_t Generation() const { return generation_; }
     void SetGeneration(size_t g) { generation_ = g; }
 
-    // Return the best action ID based on the current node state.
-    uint64_t BestActionId(const float cpuct) const;
+    // Return the best action ID based on the current node state. If
+    // 'qu's is non-nullptr then it will be filled with the QU value
+    // for each child.
+    uint64_t BestActionId(const float cpuct, std::vector<float>* qus = nullptr) const;
 
     // Return the action ID corresponding to the child edge that has
     // the highest non-zero visited count and that represents a valid
@@ -87,6 +89,10 @@ private:
     // counts, so that the higher visited children have a higher
     // probability of being chosen randomly. Error if no such child.
     uint64_t RandomWeightedValidChild(common::Random& rnd) const;
+
+    // Return string representation of node.
+    std::string ToString(
+      float cpuct, common::Logger::Level filter_level = common::Logger::Level::LOW) const;
 
   private:
     const std::unique_ptr<const State> state_;

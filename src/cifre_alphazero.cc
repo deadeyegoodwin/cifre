@@ -177,11 +177,15 @@ AlphaZero::NextActionId(const State& state, const NextActionKind kind)
 
   // FIXME parameters...
   const size_t search_per_action_count = 50;
-  const size_t max_depth = 10;
+  const size_t max_depth = 100;
   const float cpuct = 4.0;
+
+  LOGGER_LOGHIGH(*logger_, "alphazero: find action");
+  LOGGER_LOGHIGH(*logger_, node->ToString(cpuct));
 
   // Update the tree starting from 'node'.
   for (size_t idx = 0; idx < search_per_action_count; ++idx) {
+    LOGGER_LOGHIGH(*logger_, "search " + std::to_string(idx+1) + "/" + std::to_string(search_per_action_count));
     UpdateTree(node, cpuct, ++node_update_generation_, max_depth);
   }
 
@@ -249,12 +253,16 @@ float
 AlphaZero::UpdateTree(
   AlphaZero::Node* node, const float cpuct, const size_t generation, const size_t depth_remaining)
 {
+  LOGGER_LOGHIGH(*logger_, "visiting <hash " + std::to_string(node->NodeState().Hash()) +
+                 ">\n" + node->ToString(cpuct));
+
   // If 'node's generation equals 'generation', then 'node' has
   // already been visited in this search/update so don't update its
   // visit count (it will be updated as the UpdateTree unwinds) and
   // return its value.
   assert(node->Generation() <= generation);
   if (node->Generation() == generation) {
+    LOGGER_LOGHIGH(*logger_, "loop detected: search complete");
     search_endby_loop_count_++;
     return node->Value();
   }
@@ -267,11 +275,13 @@ AlphaZero::UpdateTree(
   // to equal the sum of the child counts so if we are not going to
   // visit a child we don't want to update the node count.
   if (node->IsTerminal()) {
+    LOGGER_LOGHIGH(*logger_, "terminal node: search complete");
     search_endby_terminal_count_++;
     node->IncrementVisitCount();
     return node->Value();
   }
   if (depth_remaining == 0) {
+    LOGGER_LOGHIGH(*logger_, "search depth reached: search complete");
     search_endby_depth_count_++;
     return node->Value();
   }
@@ -281,12 +291,15 @@ AlphaZero::UpdateTree(
   // Move down tree following best actions until perform an action
   // that doesn't yet have a child node.
   uint64_t best_action_id = node->BestActionId(cpuct);
+  LOGGER_LOGHIGH(*logger_, "selected action id " + std::to_string(best_action_id));
   Node* next = node->Child(best_action_id);
   if (next == nullptr) {
     // Find or create the node representing the state that results
     // when 'best_action_id' is applied to 'node'.
     State* next_state = node->NodeState().Clone();
-    next_state->Update(best_action_id);
+    next_state->Update(
+      best_action_id,
+      logger_->FilterLevel() >= common::Logger::Level::HIGH /* enable_logging */);
     next = FindOrCreateNode(std::unique_ptr<const State>(next_state));
     assert(next != nullptr);
 
@@ -388,10 +401,14 @@ AlphaZero::Node::ChildProbability() const
 }
 
 uint64_t
-AlphaZero::Node::BestActionId(const float cpuct) const
+AlphaZero::Node::BestActionId(const float cpuct, std::vector<float>* qus) const
 {
-  const float *pi = result_.Pi();
+  if (qus != nullptr) {
+    qus->clear();
+    qus->resize(state_->TotalActionIdCount(), 0.0);
+  }
 
+  const auto& pi = result_.Pi();
   float max_qu = -std::numeric_limits<float>::max();
   uint64_t best_action_id = std::numeric_limits<uint64_t>::max();
 
@@ -400,16 +417,21 @@ AlphaZero::Node::BestActionId(const float cpuct) const
     Node* child = children_[aid];
     if (child == nullptr) {
       assert(children_visit_counts_[aid] == 0);
-      qu = std::sqrt(visit_count_) * pi[aid] * cpuct;
+      qu = std::sqrt(std::max(size_t(1), visit_count_)) * pi[aid] * cpuct;
     }
     else {
       qu = (child->value_ +
-            (std::sqrt(visit_count_) * pi[aid] * cpuct / children_visit_counts_[aid]));
+            (std::sqrt(std::max(size_t(1), visit_count_)) *
+             pi[aid] * cpuct / children_visit_counts_[aid]));
     }
 
     if (qu > max_qu) {
       max_qu = qu;
       best_action_id = aid;
+    }
+
+    if (qus != nullptr) {
+      qus->at(aid) = qu;
     }
   }
 
@@ -466,6 +488,37 @@ AlphaZero::Node::RandomWeightedValidChild(common::Random& rnd) const
   }
 
   THROW("alpha-zero unable to find valid child with non-zero visits");
+}
+
+std::string
+AlphaZero::Node::ToString(float cpuct, common::Logger::Level filter_level) const
+{
+  std::stringstream sstr;
+  sstr << state_->ToString() << '\n';
+  sstr << "generation: " << generation_
+       << ", visit count: " << visit_count_
+       << ", value: " << value_ << '\n';
+
+  const auto& pi = result_.Pi();
+  sstr << "pi: [";
+  bool first = true;
+  for (size_t idx = 0; idx < state_->TotalActionIdCount(); ++idx) {
+    sstr << ((first) ? "" : ",") << pi[idx];
+    first = false;
+  }
+  sstr << "]\n";
+
+  std::vector<float> qus;
+  sstr << "cpuct: " << cpuct << ", best action: " << BestActionId(cpuct, &qus)
+       << ", QUs: [";
+  first = true;
+  for (float p : qus) {
+    sstr << ((first) ? "" : ",") << p;
+    first = false;
+  }
+  sstr << "]";
+
+  return sstr.str();
 }
 
 } // namespace cifre

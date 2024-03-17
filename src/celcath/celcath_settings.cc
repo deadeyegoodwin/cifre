@@ -16,6 +16,7 @@ Settings::Settings()
   AllowedSetting("starting-player-id", (int32_t)0);
 
   AllowedSetting("total-action-id-count", (int32_t)0);
+  AllowedSetting("step-action-id", (int32_t)0);
   AllowedSetting("end-turn-action-id", (int32_t)0);
 }
 
@@ -36,6 +37,7 @@ Settings::Sync()
   Setting("starting-player-id", starting_player_id_);
 
   Setting("total-action-id-count", total_action_id_count_);
+  Setting("step-action-id", step_action_id_);
   Setting("end-turn-action-id", end_turn_action_id_);
 }
 

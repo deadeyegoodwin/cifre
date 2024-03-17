@@ -108,7 +108,7 @@ def main():
     # For now there is only 1 game recognized so just hack it in here.
     if FLAGS.game != 'celcath':
         raise ValueError(f"unexpected --game={FLAGS.game}, options are 'celcath'")
-    game_action_count = FLAGS.game_shape[0] * FLAGS.game_shape[1] + 1
+    game_action_count = FLAGS.game_shape[0] * FLAGS.game_shape[1] + 2 # FIXME celcath specific
 
     # Use a simple model...
     nnet_args = {
@@ -122,8 +122,8 @@ def main():
 
     # FIXME
     iter_count = 10
-    game_count = 100
-    max_actions_per_turn = 10
+    game_count = 20
+    max_actions_per_turn = 3
 
     for iter in range(iter_count):
         model_name = f'iter{iter}'
