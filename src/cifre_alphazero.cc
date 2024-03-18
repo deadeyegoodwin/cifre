@@ -177,7 +177,7 @@ AlphaZero::NextActionId(const State& state, const NextActionKind kind)
 
   // FIXME parameters...
   const size_t search_per_action_count = 50;
-  const size_t max_depth = 100;
+  const size_t max_depth = 20;
   const float cpuct = 4.0;
 
   LOGGER_LOGHIGH(*logger_, "alphazero: find action");
@@ -296,11 +296,11 @@ AlphaZero::UpdateTree(
   if (next == nullptr) {
     // Find or create the node representing the state that results
     // when 'best_action_id' is applied to 'node'.
-    State* next_state = node->NodeState().Clone();
+    std::unique_ptr<State> next_state(node->NodeState().Clone());
     next_state->Update(
       best_action_id,
       logger_->FilterLevel() >= common::Logger::Level::HIGH /* enable_logging */);
-    next = FindOrCreateNode(std::unique_ptr<const State>(next_state));
+    next = FindOrCreateNode(std::move(next_state));
     assert(next != nullptr);
 
     // Add the edge to connect 'node' to 'next', then continue search.
