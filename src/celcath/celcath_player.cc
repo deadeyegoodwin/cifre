@@ -106,22 +106,21 @@ HumanPlayer::NextAction(const Board& board) const
 AlphaZeroPlayer::AlphaZeroPlayer(
   const std::shared_ptr<common::Logger>& logger,
   const std::string& name, char board_char, int32_t neighbor_value,
-  const std::shared_ptr<cifre::AlphaZero>& alpha_zero, cifre::AlphaZero::NextActionKind kind) :
-  Player(logger, name, board_char, neighbor_value), alpha_zero_(alpha_zero),
-  kind_(kind)
+  const std::shared_ptr<cifre::AlphaZero>& alphazero) :
+  Player(logger, name, board_char, neighbor_value), alphazero_(alphazero)
 {
 }
 
 void
 AlphaZeroPlayer::GameStart()
 {
-  alpha_zero_->GameStart();
+  alphazero_->GameStart();
 }
 
 void
 AlphaZeroPlayer::GameEnd(const cifre::State* terminal_state)
 {
-  alpha_zero_->GameEnd(terminal_state);
+  alphazero_->GameEnd(terminal_state);
 }
 
 Action
@@ -130,7 +129,7 @@ AlphaZeroPlayer::NextAction(const Board& board) const
   const auto& actionIds = board.ValidActionIds();
   THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
 
-  uint64_t action_id = alpha_zero_->NextActionId(board, kind_);
+  uint64_t action_id = alphazero_->NextActionId(board);
   Action action = board.ActionIdToAction(action_id);
   THROWIF(!board.IsValidAction(action),
           "alpha-zero selected invalid action " + action.ToString());
@@ -146,7 +145,7 @@ AlphaZeroPlayer::NextAction(const Board& board) const
 std::string
 AlphaZeroPlayer::ToStatisticsString(common::Logger::Level filter_level) const
 {
-  return alpha_zero_->ToStatisticsString();
+  return alphazero_->ToStatisticsString();
 }
 
 //

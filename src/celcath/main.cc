@@ -76,7 +76,9 @@ struct Option {
     OPTION_PLAYER1,
     OPTION_PLAYER2,
     OPTION_PLAYER_NAME,
-    OPTION_PLAYER_MODEL
+    OPTION_PLAYER_MODEL,
+    OPTION_PLAYER_ALPHAZERO_UPDATE_COUNT,
+    OPTION_PLAYER_ALPHAZERO_CPUCT
   };
 
   Option(OptionId id, std::string flag, std::string arg_desc, std::string desc)
@@ -140,16 +142,38 @@ const std::vector<Option> options_ {
    "The default name is automatically generated from the player kind."},
   {Option::OPTION_PLAYER_MODEL, "model", Option::ArgStr,
    "Model associated with player. --player1 or --player2 must be specified "
-   "before this argument."}};
+   "before this argument."},
+  {Option::OPTION_PLAYER_ALPHAZERO_UPDATE_COUNT, "alphazero-update-count", Option::ArgInt,
+   "Number of updates (searches) made to alphazero tree before "
+   "choosing the next action for the player. --player1 or --player2 must "
+   "be specified before this argument."},
+  {Option::OPTION_PLAYER_ALPHAZERO_CPUCT, "alphazero-cpuct", Option::ArgFloat,
+   "AlphaZero cpuct value."}};
 
 size_t
-ParseUnsigned(const std::string& str)
+ParseUnsigned(const std::string& str, size_t min_value = 0)
 {
   std::string::size_type idx;
   size_t ul = std::stoull(str, &idx);
   CheckTrueMsg(idx == str.size(),
                "unable to parse argument '" + str + "' as unsigned integer");
+  CheckTrueMsg(ul >= min_value,
+               "expected unsigned integer value >= " + std::to_string(min_value) +
+               ", got " + std::to_string(ul));
   return ul;
+}
+
+float
+ParseFloat(const std::string& str, float min_value = -std::numeric_limits<float>::max())
+{
+  std::string::size_type idx;
+  float f = std::stof(str, &idx);
+  CheckTrueMsg(idx == str.size(),
+               "unable to parse argument '" + str + "' as float");
+  CheckTrueMsg(f >= min_value,
+               "expected float value >= " + std::to_string(min_value) +
+               ", got " + std::to_string(f));
+  return f;
 }
 
 std::string
@@ -237,6 +261,7 @@ struct PlayerSettings {
   size_t id_;
   std::string name_;
   std::string model_;
+  cifre::AlphaZero::NextActionSettings alphazero_settings_;
 };
 
 cifre::celcath::Player*
@@ -249,13 +274,14 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger, const PlayerSettings
   case PlayerSettings::Kind::UNKNOWN:
     break;
   case PlayerSettings::Kind::HUMAN:
+    assert(alphazero == nullptr);
     return new cifre::celcath::HumanPlayer(logger, player_settings.name_, bc, 1.0);
   case PlayerSettings::Kind::RANDOM:
+    assert(alphazero == nullptr);
     return new cifre::celcath::RandomPlayer(logger, player_settings.name_, bc, 1.0);
   case PlayerSettings::Kind::ALPHAZERO:
-    return
-      new cifre::celcath::AlphaZeroPlayer(logger, player_settings.name_, bc, 1.0, alphazero,
-                                          cifre::AlphaZero::NextActionKind::RANDOM_VISIT_WEIGHTED); // FIXME
+    assert(alphazero != nullptr);
+    return new cifre::celcath::AlphaZeroPlayer(logger, player_settings.name_, bc, 1.0, alphazero);
   }
 
   Fail("cannot create player '" + player_settings.name_ + "'");
@@ -436,6 +462,16 @@ main(int argc, char **argv)
                      "--player1 or --player2 must be specified before --model");
         active_splayer->model_ = optarg;
         break;
+      case Option::OPTION_PLAYER_ALPHAZERO_UPDATE_COUNT:
+        CheckTrueMsg(active_splayer != nullptr,
+                     "--player1 or --player2 must be specified before --alphazero-update-count");
+        active_splayer->alphazero_settings_.alphazero_update_count_ = ParseUnsigned(optarg, 1);
+        break;
+      case Option::OPTION_PLAYER_ALPHAZERO_CPUCT:
+        CheckTrueMsg(active_splayer != nullptr,
+                     "--player1 or --player2 must be specified before --alphazero-cpuct");
+        active_splayer->alphazero_settings_.alphazero_cpuct_ = ParseFloat(optarg, 0.0);
+        break;
       }
     }
 
@@ -513,11 +549,23 @@ main(int argc, char **argv)
 
       if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer1.model_.empty(), "--player1=alphazero requires --model");
-        alphazero1 = std::make_shared<cifre::AlphaZero>(logger, triton, splayer1.model_, train);
+        splayer1.alphazero_settings_.training_ = train;
+        splayer1.alphazero_settings_.kind_ = (train) ?
+          cifre::AlphaZero::NextActionSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
+          cifre::AlphaZero::NextActionSettings::NextActionKind::MAX_VISITED;
+        splayer1.alphazero_settings_.alphazero_max_depth_ = max_turns_per_game; // FIXME, should be adjusted after each turn
+        alphazero1 = std::make_shared<cifre::AlphaZero>(
+          logger, triton, splayer1.model_, splayer1.alphazero_settings_);
       }
       if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer2.model_.empty(), "--player2=alphazero requires --model");
-        alphazero2 = std::make_shared<cifre::AlphaZero>(logger, triton, splayer2.model_, train);
+        splayer2.alphazero_settings_.training_ = train;
+        splayer2.alphazero_settings_.kind_ = (train) ?
+          cifre::AlphaZero::NextActionSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
+          cifre::AlphaZero::NextActionSettings::NextActionKind::MAX_VISITED;
+        splayer2.alphazero_settings_.alphazero_max_depth_ = max_turns_per_game; // FIXME, should be adjusted after each turn
+        alphazero2 = std::make_shared<cifre::AlphaZero>(
+          logger, triton, splayer2.model_, splayer2.alphazero_settings_);
       }
     }
 

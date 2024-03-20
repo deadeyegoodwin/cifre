@@ -108,16 +108,42 @@ private:
   };
 
 public:
-  // Options for how NextActionId can choose an action ID.
-  //   MAX_VISITED - choose action ID corresponding to max visited child
-  //   RANDOM_VISIT_WEIGHTED - choose randomly taking into account
-  //   child visits so that the more visited children are
-  //   proportionally more likely to be selected
-  enum class NextActionKind { MAX_VISITED, RANDOM_VISIT_WEIGHTED };
+  //
+  // Settings used by NextActionId() to control the alphazero
+  // search. Default values are default_next_action_settings_ but can be
+  // overridden on each call to NextActionId().
+  //
+  struct NextActionSettings {
+    // True if training data should be collected.
+    bool training_ {false};
 
+    // Options for how NextActionId can choose an action ID.
+    //   MAX_VISITED - choose action ID corresponding to max visited child
+    //   RANDOM_VISIT_WEIGHTED - choose randomly taking into account
+    //   child visits so that the more visited children are
+    //   proportionally more likely to be selected
+    enum class NextActionKind { MAX_VISITED, RANDOM_VISIT_WEIGHTED };
+    NextActionKind kind_ {NextActionKind::MAX_VISITED};
+
+    // Number of updates (searches) made to alphazero tree before
+    // choosing the next action ID.
+    size_t alphazero_update_count_ {50};
+
+    // Maximum depth alphazero will traverse tree for each
+    // search/update. Once this depth is reached the game is
+    // considered a draw and the tree is updated
+    // appropriately. Therefore, this depth should be set to match the
+    // rules of the game.
+    size_t alphazero_max_depth_ {20};
+
+    // The cpuct value for alphazero QU calculation.
+    float alphazero_cpuct_ {4.0};
+  };
+
+public:
   // Create alphazero object using 'model-name' for predictions.
   AlphaZero(const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
-            const std::string& model_name, bool training = false);
+            const std::string& model_name, const NextActionSettings& default_next_action_settings);
 
   // Called to notify that a new game is starting.
   void GameStart();
@@ -138,8 +164,12 @@ public:
   void WriteTraining(const std::string& dir) const;
 
   // Return the next predicted action ID, given current 'state'. If is
-  // an error if 'state' represents a terminal state.
-  uint64_t NextActionId(const State& state, const NextActionKind kind);
+  // an error if 'state' represents a terminal state. First version
+  // uses the default NextActionSettings values defined when this
+  // AlphaZero object is constructed.
+  uint64_t NextActionId(const State& state) {
+    return NextActionId(state, default_next_action_settings_); }
+  uint64_t NextActionId(const State& state, const NextActionSettings& settings);
 
   // Return a string representation of the statistics collected for
   // this alphazero object.
@@ -165,6 +195,9 @@ private:
   std::shared_ptr<Triton> triton_;
   const std::string model_name_;
 
+  // Default settings for NextActionId().
+  const NextActionSettings default_next_action_settings_;
+
   // Random needed for NextActionKind::WEIGHTED_RANDOM.
   common::Random rnd_;
 
@@ -183,9 +216,6 @@ private:
     bool operator()(const State* a, const State* b) const { return a->Equal(b); }
   };
   std::unordered_map<const State*, Node, NodesMapHash, NodesMapEqual> nodes_;
-
-  // True if alphazero should collect data needed for training.
-  const bool training_;
 
   // Nodes for which alphazero selected an action in the current game.
   std::unordered_set<Node*> game_action_nodes_;

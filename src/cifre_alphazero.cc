@@ -15,9 +15,10 @@ namespace cifre {
 //
 AlphaZero::AlphaZero(
   const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
-  const std::string& model_name, bool training) :
+  const std::string& model_name, const NextActionSettings& default_next_action_settings) :
   logger_(logger), triton_(triton), model_name_(model_name),
-  node_update_generation_(0), training_(training)
+  default_next_action_settings_(default_next_action_settings),
+  node_update_generation_(0)
 {
   THROWIF(model_name_.empty(), "model must be specified for alpha-zero");
 
@@ -40,7 +41,7 @@ AlphaZero::GameEnd(const cifre::State* terminal_state)
   // If game actually completed, then record all the action-selected
   // nodes collected for the game with the appropriate game-ending
   // value.
-  if (training_) {
+  if (!game_action_nodes_.empty()) {
     const size_t terminal_player_id = terminal_state->ActivePlayerId();
     float active_value = 0;
     float opponent_value = 0;
@@ -64,17 +65,17 @@ AlphaZero::GameEnd(const cifre::State* terminal_state)
       float value = (n->NodeState().ActivePlayerId() == terminal_player_id) ? active_value : opponent_value;
       train_nodes_[n] = value;
     }
-  }
 
-  LOGGER_LOGHIGH(*logger_, "training nodes for game: " + std::to_string(game_action_nodes_.size()) +
-                 ", total training nodes: " + std::to_string(train_nodes_.size()));
+    LOGGER_LOGHIGH(*logger_, "training nodes for game: " + std::to_string(game_action_nodes_.size()) +
+                   ", total training nodes: " + std::to_string(train_nodes_.size()));
+  }
 }
 
 
 void
 AlphaZero::MergeTraining(const AlphaZero* other)
 {
-  // For training node from 'other' that is not already known by
+  // For each training node from 'other' that is not already known by
   // 'this', add it to 'this' training nodes. This gives priority to
   // 'this' training nodes.
   for (const auto& pr : other->train_nodes_) {
@@ -166,7 +167,7 @@ AlphaZero::ToJsonArray(const std::vector<int64_t> shape, size_t batch_count) con
 }
 
 uint64_t
-AlphaZero::NextActionId(const State& state, const NextActionKind kind)
+AlphaZero::NextActionId(const State& state, const NextActionSettings& settings)
 {
   THROWIF(state.TerminalStatus() != State::TerminalStatusKind::NON_TERMINAL,
           "alpha-zero cannot find next action for terminal state");
@@ -175,29 +176,26 @@ AlphaZero::NextActionId(const State& state, const NextActionKind kind)
   auto node = FindOrCreateNode(std::unique_ptr<const State>(state.Clone()));
   assert(node != nullptr);
 
-  // FIXME parameters...
-  const size_t search_per_action_count = 50;
-  const size_t max_depth = 20;
-  const float cpuct = 4.0;
-
   LOGGER_LOGHIGH(*logger_, "alphazero: find action");
-  LOGGER_LOGHIGH(*logger_, node->ToString(cpuct));
+  LOGGER_LOGHIGH(*logger_, node->ToString(settings.alphazero_cpuct_));
 
   // Update the tree starting from 'node'.
-  for (size_t idx = 0; idx < search_per_action_count; ++idx) {
-    LOGGER_LOGHIGH(*logger_, "search " + std::to_string(idx+1) + "/" + std::to_string(search_per_action_count));
-    UpdateTree(node, cpuct, ++node_update_generation_, max_depth);
+  for (size_t idx = 0; idx < settings.alphazero_update_count_; ++idx) {
+    LOGGER_LOGHIGH(*logger_, "search " + std::to_string(idx+1) + "/" +
+                   std::to_string(settings.alphazero_update_count_));
+    UpdateTree(node, settings.alphazero_cpuct_, ++node_update_generation_,
+               settings.alphazero_max_depth_);
   }
 
   // Based on 'kind', choose the next action. Because 'state' is not a
   // terminal state, there must be at least one action with a non-zero
   // visit count.
   uint64_t action_id;
-  switch (kind) {
-  case NextActionKind::MAX_VISITED:
+  switch (settings.kind_) {
+  case NextActionSettings::NextActionKind::MAX_VISITED:
     action_id = node->MaxVisitedValidChild();
     break;
-  case NextActionKind::RANDOM_VISIT_WEIGHTED:
+  case NextActionSettings::NextActionKind::RANDOM_VISIT_WEIGHTED:
     action_id = node->RandomWeightedValidChild(rnd_);
     break;
   default:
@@ -206,7 +204,7 @@ AlphaZero::NextActionId(const State& state, const NextActionKind kind)
 
   // If training, record the nodes for which alpha-zero makes an
   // action decision.
-  if (training_) {
+  if (settings.training_) {
     game_action_nodes_.insert(node);
   }
 

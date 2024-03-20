@@ -38,6 +38,24 @@ def parse_shape(arg):
         return tuple(int(x) for x in arg.split(','))
     raise Exception(f"{arg} must describe a shape as 'a,b,...'")
 
+def parse_nonnegative_int(value):
+    ival = int(value)
+    if ival < 0:
+        raise Exception(f"non-negative integer expected, got {ival}")
+    return ival
+
+def parse_positive_int(value):
+    ival = int(value)
+    if ival <= 0:
+        raise Exception(f"positive integer expected, got {ival}")
+    return ival
+
+def parse_positive_float(value):
+    fval = float(value)
+    if fval <= 0.0:
+        raise Exception(f"positive float expected, got {fval}")
+    return fval
+
 def argify_shape(shape, delimiter):
     """
     Convert 'shape' tuple into equivalent argument string.
@@ -86,6 +104,48 @@ def main():
         help='Game shape, for example --game-shape=8,8.')
 
     parser.add_argument(
+        '--iteration-count',
+        type=parse_positive_int,
+        default=10,
+        required=False,
+        help=('Number of iterations to run for training. Each iteration plays ' +
+              '--game-count games using AlphaZero to collect training samples. ' +
+              'The training samples are then used to train a new nnet for the next ' +
+              'iteration.'))
+    parser.add_argument(
+        '--game-count',
+        type=parse_positive_int,
+        default=10,
+        required=False,
+        help=('Number of games to play using AlphaZero for each of the --iteration-count ' +
+              'iterations.'))
+    parser.add_argument(
+        '--alphazero-update-count',
+        type=parse_positive_int,
+        default=10,
+        required=False,
+        help=('Number of updates/searches made to the AlphaZero tree before determining ' +
+              'each game action.'))
+    parser.add_argument(
+        '--alphazero-cpuct',
+        type=parse_positive_float,
+        default=4.0,
+        required=False,
+        help=('AlphaZero cpuct value.'))
+    parser.add_argument(
+        '--epoch-count',
+        type=parse_positive_int,
+        default=10,
+        required=False,
+        help=('Number of training epochs to run. Default is 10.'))
+    parser.add_argument(
+        '--batch_size',
+        type=parse_positive_int,
+        default=8,
+        required=False,
+        help=('Batch size to use when training nnet. Default is 8.'))
+
+    parser.add_argument(
         '--repo-dir',
         type=parse_existing_dir,
         required=True,
@@ -120,12 +180,11 @@ def main():
     nnet = CifreBasicNNet(nnet_args)
     manager = CifreNNetManager(nnet, FLAGS.game_shape, FLAGS.repo_dir)
 
-    # FIXME
-    iter_count = 10
-    game_count = 20
+    # FIXME - game specific args
+    min_actions_per_turn = 1
     max_actions_per_turn = 3
 
-    for iter in range(iter_count):
+    for iter in range(FLAGS.iteration_count):
         model_name = f'iter{iter}'
         manager.save_triton_repository(model_name)
 
@@ -143,8 +202,11 @@ def main():
             '--train-dir', train_dir,
             '--board-size', argify_shape(FLAGS.game_shape, 'x'),
             '--player1=alphazero', f'--name=p1iter{iter}', '--model', model_name,
+            f'--alphazero-update-count={FLAGS.alphazero_update_count}',
+            f'--alphazero-cpuct={FLAGS.alphazero_cpuct}',
+            f'--min-actions-per-turn={min_actions_per_turn}',
             f'--max-actions-per-turn={max_actions_per_turn}',
-            f'--game-count={game_count}' ]
+            f'--game-count={FLAGS.game_count}' ]
         if iter == 0:
             game_cmd.extend(['--player2=random', '--name=random'])
         else:
@@ -162,8 +224,8 @@ def main():
         dataset = CifreDataset(LOG, train_dir)
 
         train_args = {
-            'num_epochs': 16,
-            'batch_size': 8 }
+            'num_epochs': FLAGS.epoch_count,
+            'batch_size': FLAGS.batch_size }
         manager.train(train_args, dataset)
 #    manager.save_checkpoint('/tmp/cpts', 'cpt.pth.tar', create_folder=True, overwrite=True)
 #    manager.load_checkpoint('/tmp/cpts', 'cpt.pth.tar')
