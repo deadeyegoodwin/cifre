@@ -209,17 +209,21 @@ def main():
             '--verbose' if FLAGS.verbose else '',
             '--train-dir', train_dir,
             '--board-size', argify_shape(FLAGS.game_shape, 'x'),
-            '--player1=alphazero', f'--name=p1iter{iter}', '--model', model_name,
-            f'--alphazero-update-count={FLAGS.alphazero_update_count}',
-            f'--alphazero-cpuct={FLAGS.alphazero_cpuct}',
             f'--min-actions-per-turn={min_actions_per_turn}',
             f'--max-actions-per-turn={max_actions_per_turn}',
             f'--max-turns-per-game={FLAGS.max_turns_per_game}',
             f'--game-count={FLAGS.game_count}' ]
+
+        game_cmd.extend(['--player1=alphazero', f'--name=p1iter{iter}', '--model', model_name,
+                         f'--alphazero-update-count={FLAGS.alphazero_update_count}',
+                         f'--alphazero-cpuct={FLAGS.alphazero_cpuct}' ])
+
         if iter == 0:
             game_cmd.extend(['--player2=random', '--name=random'])
         else:
-            game_cmd.extend(['--player2=alphazero', f'--name=p2iter{iter}', '--model', model_name])
+            game_cmd.extend(['--player2=alphazero', f'--name=p2iter{iter}', '--model', model_name,
+                             f'--alphazero-update-count={FLAGS.alphazero_update_count}',
+                             f'--alphazero-cpuct={FLAGS.alphazero_cpuct}' ])
 
         LOG.log_verbose(f'\n==== Iteration {iter} ====')
         process = subprocess.Popen(game_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
