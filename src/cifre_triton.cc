@@ -53,6 +53,9 @@ TritonInferResult::TritonInferResult(
   for (size_t i = 0; i < PiEntryCount(); ++i) {
     pi_.push_back(std::exp(fpi[i]));
   }
+
+  // FIXME now that we calculate pi_, do we need to keep result_?
+  // Instead why not just save 'v' and delete result_.
 }
 
 void

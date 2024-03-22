@@ -120,6 +120,13 @@ def main():
         help=('Number of games to play using AlphaZero for each of the --iteration-count ' +
               'iterations.'))
     parser.add_argument(
+        '--max-turns-per-game',
+        type=parse_positive_int,
+        default=50,
+        required=False,
+        help=('Maximum number of turns allowed per game. One turn consists of each ' +
+              'player getting a chance to take actions.'))
+    parser.add_argument(
         '--alphazero-update-count',
         type=parse_positive_int,
         default=10,
@@ -161,6 +168,7 @@ def main():
                       show_id=FLAGS.log_id, debug=FLAGS.log_debug)
 
     if LOG.verbose():
+        LOG.log_verbose('cifre_train.py')
         LOG.log_verbose('Settings:')
         for f in vars(FLAGS):
             LOG.log_verbose(f'\t{f}: {vars(FLAGS)[f]}')
@@ -206,12 +214,14 @@ def main():
             f'--alphazero-cpuct={FLAGS.alphazero_cpuct}',
             f'--min-actions-per-turn={min_actions_per_turn}',
             f'--max-actions-per-turn={max_actions_per_turn}',
+            f'--max-turns-per-game={FLAGS.max_turns_per_game}',
             f'--game-count={FLAGS.game_count}' ]
         if iter == 0:
             game_cmd.extend(['--player2=random', '--name=random'])
         else:
             game_cmd.extend(['--player2=alphazero', f'--name=p2iter{iter}', '--model', model_name])
 
+        LOG.log_verbose(f'\n==== Iteration {iter} ====')
         process = subprocess.Popen(game_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         while process.poll() is None:
             print(process.stdout.readline().rstrip())

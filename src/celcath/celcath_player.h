@@ -45,11 +45,15 @@ public:
   // to do nothing.
   virtual void GameStart() { }
 
-  // Called to notify that game has ended at 'terminal_state'.
-  // 'terminal_state' status State::TerminalStatusKind::NON_TERMINAL
-  // indicates that the game ended for a non-in-game reason
-  // (e.g. player quit). Default behavior is to do nothing.
-  virtual void GameEnd(const cifre::State* terminal_state) { }
+  // Called to notify that game has ended at 'terminal_state' with a
+  // terminal 'status'. Note the 'status' may differ from the actual
+  // terminal status of 'terminal_state', but any end-game actions
+  // should respect 'status'. 'status' of NON_TERMINAL is not allowed
+  // and GameEnd should throw exception if that value is received.
+  virtual void GameEnd(
+    const cifre::State* terminal_state, cifre::State::TerminalStatusKind status) {
+    THROWIF(status == cifre::State::TerminalStatusKind::NON_TERMINAL,
+            "game ended with NON-TERMINAL status"); }
 
   // Get the next action for the player given current 'board' state.
   virtual Action NextAction(const Board& board) const;
@@ -111,7 +115,7 @@ public:
   void GameStart() override;
 
   // See Player::GameEnd().
-  void GameEnd(const cifre::State* terminal_state) override;
+  void GameEnd(const cifre::State* terminal_state, cifre::State::TerminalStatusKind status) override;
 
   // See Player::NextAction().
   Action NextAction(const Board& board) const override;

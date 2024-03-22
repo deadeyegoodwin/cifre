@@ -25,7 +25,19 @@ private:
   // Node representing a state. A node can have multiple parents, the
   // visit counts of an edge from this node to each of the children
   // are tracked in 'children_visit_counts_'. The 'visit_count_' value
-  // on the node is the sum of visits from all parents.
+  // on the node is the sum of visits from all parents. AlphaZero
+  // maintains the invariant that (except for terminal nodes that have
+  // no children) the node's visit count equals 1 + (sum of the visit
+  // counts of the children). This occurs because the first time a
+  // node is visited it is created and given a visit count of 1, but
+  // no child is visited. Thereafter, every time the node is visited a
+  // child must be visited. ValidateVisitCounts() can be used to
+  // validate this property. Note that the "inverse" is not
+  // true... namely the sum of all children visit counts "entering" a
+  // node does not equal a nodes visit count (because when max depth
+  // is reached, the node that reaches that depth is not counted as
+  // visited, even though the incoming child edge is counted as
+  // visited).
   //
   class Node {
   public:
@@ -59,19 +71,19 @@ private:
     // count and the children visit counts.
     std::vector<float> ChildProbability() const;
 
-    // Return 'node's value.
+    // Return and set 'node's value.
     float Value() const { return value_; }
+    void SetValue(float v) { value_ = v; }
 
-    // Update node's value by averaging in 'v', return updated value.
-    float UpdateValue(float v) {
-      value_ = ((value_ * visit_count_) + v) / (visit_count_ + 1); return value_; }
+    // Return node's visit count.
+    size_t VisitCount() const { return visit_count_; }
 
     // Increment node's visit count and return new value.
     size_t IncrementVisitCount() { return ++visit_count_; }
 
-    // Get or set the search/update generation of this node.
-    size_t Generation() const { return generation_; }
-    void SetGeneration(size_t g) { generation_ = g; }
+    // Validate that the node's visit count agrees with the children
+    // visit counts as explained above.
+    void ValidateVisitCounts() const;
 
     // Return the best action ID based on the current node state. If
     // 'qu's is non-nullptr then it will be filled with the QU value
@@ -101,10 +113,6 @@ private:
     std::vector<size_t> children_visit_counts_;
     size_t visit_count_;
     float value_;
-
-    // Used to determine when a search/update of the node tree
-    // traverses a loop.
-    size_t generation_;
   };
 
 public:
@@ -148,11 +156,12 @@ public:
   // Called to notify that a new game is starting.
   void GameStart();
 
-  // Called to notify that game has ended at 'terminal_state'.
-  // 'terminal_state' status State::TerminalStatusKind::NON_TERMINAL
-  // indicates that the game ended for a non-in-game reason
-  // (e.g. player quit).
-  void GameEnd(const cifre::State* terminal_state);
+  // Called to notify that game has ended at 'terminal_state' with a
+  // terminal 'status'. Note the 'status' may differ from the actual
+  // terminal status of 'terminal_state', but any end-game actions
+  // should respect 'status'. 'status' of NON_TERMINAL is not allowed
+  // and GameEnd should throw exception if that value is received.
+  void GameEnd(const State* terminal_state, State::TerminalStatusKind status);
 
   // Add collected training data from 'other' into 'this'. Training
   // data for a given node is only added if it is in 'other' and not
@@ -184,8 +193,7 @@ private:
 
   // Search from 'node' and update the tree. Return the 'V' value for
   // the leaf node visited in the search.
-  float UpdateTree(
-    Node* node, const float cpuct, const size_t generation, const size_t depth_remaining);
+  float UpdateTree(Node* node, const float cpuct, const size_t depth_remaining);
 
   // Return string representation of a shape, using 'batch_count' as
   // the first/batch dimension value if it is non-zero.
@@ -200,10 +208,6 @@ private:
 
   // Random needed for NextActionKind::WEIGHTED_RANDOM.
   common::Random rnd_;
-
-  // Used to determine when a search/update of the node tree
-  // traverses a loop.
-  size_t node_update_generation_;
 
   // Nodes are identified by their State, so we need to use a custom
   // hash and equal for the map containing all the nodes. The "State*"
@@ -231,7 +235,6 @@ private:
   size_t terminal_node_count_ {0};
   size_t edge_count_ {0};
   size_t search_endby_depth_count_ {0};
-  size_t search_endby_loop_count_ {0};
   size_t search_endby_terminal_count_ {0};
 };
 

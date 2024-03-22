@@ -10,6 +10,10 @@
 
 namespace cifre {
 
+constexpr float DRAW_VALUE = 0.0;
+constexpr float WINNER_VALUE = 1.0;
+constexpr float LOSER_VALUE = -1.0;
+
 //
 // AlphaZero
 //
@@ -17,8 +21,7 @@ AlphaZero::AlphaZero(
   const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
   const std::string& model_name, const NextActionSettings& default_next_action_settings) :
   logger_(logger), triton_(triton), model_name_(model_name),
-  default_next_action_settings_(default_next_action_settings),
-  node_update_generation_(0)
+  default_next_action_settings_(default_next_action_settings)
 {
   THROWIF(model_name_.empty(), "model must be specified for alpha-zero");
 
@@ -36,27 +39,28 @@ AlphaZero::GameStart()
 }
 
 void
-AlphaZero::GameEnd(const cifre::State* terminal_state)
+AlphaZero::GameEnd(const State* terminal_state, State::TerminalStatusKind status)
 {
   // If game actually completed, then record all the action-selected
   // nodes collected for the game with the appropriate game-ending
   // value.
   if (!game_action_nodes_.empty()) {
     const size_t terminal_player_id = terminal_state->ActivePlayerId();
-    float active_value = 0;
-    float opponent_value = 0;
-    switch (terminal_state->TerminalStatus()) {
+    float active_value = DRAW_VALUE;
+    float opponent_value = DRAW_VALUE;
+    switch (status) {
     case State::TerminalStatusKind::NON_TERMINAL:
-      return; // no in-game completion
+      THROW("game ended with NON-TERMINAL status");
+      return;
     case State::TerminalStatusKind::DRAW:
       break; // keep default 0 values
     case State::TerminalStatusKind::ACTIVE_WINNER:
-      active_value = 1;
-      opponent_value = -1;
+      active_value = WINNER_VALUE;
+      opponent_value = LOSER_VALUE;
       break;
     case State::TerminalStatusKind::OPPONENT_WINNER:
-      active_value = -1;
-      opponent_value = 1;
+      active_value = LOSER_VALUE;
+      opponent_value = WINNER_VALUE;
       break;
     }
 
@@ -111,6 +115,9 @@ AlphaZero::WriteTraining(const std::string& dir) const
     if (repr_result == nullptr) {
       repr_result = &pr.first->NodeTritonResult();
     }
+
+    LOGGER_LOGHIGH(*logger_, "writing training node, value " + std::to_string(pr.second) + ':');
+    LOGGER_LOGHIGH_IE(*logger_, pr.first->ToString(0.0), 2 /* indent */, true /* endline */);
 
     auto& din = pr.first->NodeState().TritonRepresentation();
     fin.write(reinterpret_cast<const char*>(din.data()), din.size() * sizeof(uint8_t));
@@ -172,20 +179,33 @@ AlphaZero::NextActionId(const State& state, const NextActionSettings& settings)
   THROWIF(state.TerminalStatus() != State::TerminalStatusKind::NON_TERMINAL,
           "alpha-zero cannot find next action for terminal state");
 
-  // Find, creating if necessary, tree node that represents 'state'.
-  auto node = FindOrCreateNode(std::unique_ptr<const State>(state.Clone()));
+  // Find, creating if necessary, tree node that represents
+  // 'state'. If node is created, then that creation needs to be
+  // recognized as the first visit of the node.
+  bool created; // FIXME move increment on creation into FindOrCreateNode
+  auto node = FindOrCreateNode(std::unique_ptr<const State>(state.Clone()), &created);
   assert(node != nullptr);
+  if (created) {
+    node->IncrementVisitCount();
+  }
 
-  LOGGER_LOGHIGH(*logger_, "alphazero: find action");
-  LOGGER_LOGHIGH(*logger_, node->ToString(settings.alphazero_cpuct_));
+  LOGGER_LOGHIGH(*logger_, "\nalphazero: starting node");
+  LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings.alphazero_cpuct_),
+                    2 /* indent */, true /* endline */);
 
   // Update the tree starting from 'node'.
   for (size_t idx = 0; idx < settings.alphazero_update_count_; ++idx) {
-    LOGGER_LOGHIGH(*logger_, "search " + std::to_string(idx+1) + "/" +
-                   std::to_string(settings.alphazero_update_count_));
-    UpdateTree(node, settings.alphazero_cpuct_, ++node_update_generation_,
-               settings.alphazero_max_depth_);
+    LOGGER_LOGHIGH_IE(
+      *logger_,
+      "update " + std::to_string(idx+1) + '/' + std::to_string(settings.alphazero_update_count_) + ':',
+      0 /* indent */, false /* endline */);
+    UpdateTree(node, settings.alphazero_cpuct_, settings.alphazero_max_depth_);
+    LOGGER_LOGHIGH_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
   }
+
+  LOGGER_LOGHIGH(*logger_, "\nalphazero: choosing action for node");
+  LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings.alphazero_cpuct_),
+                    2 /* indent */, true /* endline */);
 
   // Based on 'kind', choose the next action. Because 'state' is not a
   // terminal state, there must be at least one action with a non-zero
@@ -249,47 +269,50 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
 
 float
 AlphaZero::UpdateTree(
-  AlphaZero::Node* node, const float cpuct, const size_t generation, const size_t depth_remaining)
+  AlphaZero::Node* node, const float cpuct, const size_t depth_remaining)
 {
-  LOGGER_LOGHIGH(*logger_, "visiting <hash " + std::to_string(node->NodeState().Hash()) +
-                 ">\n" + node->ToString(cpuct));
-
-  // If 'node's generation equals 'generation', then 'node' has
-  // already been visited in this search/update so don't update its
-  // visit count (it will be updated as the UpdateTree unwinds) and
+  // If 'node' is a terminal node then show that it was visited and
   // return its value.
-  assert(node->Generation() <= generation);
-  if (node->Generation() == generation) {
-    LOGGER_LOGHIGH(*logger_, "loop detected: search complete");
-    search_endby_loop_count_++;
-    return node->Value();
-  }
-  node->SetGeneration(generation);
-
-  // If 'node' is the last node that should be visited (because max
-  // depth has been reached, or node is a terminal node), then just
-  // return value. Note that we don't increment the node count when
-  // stopping for depth, this is because we always want the node count
-  // to equal the sum of the child counts so if we are not going to
-  // visit a child we don't want to update the node count.
   if (node->IsTerminal()) {
-    LOGGER_LOGHIGH(*logger_, "terminal node: search complete");
+    // FIXME once Player class is in cifre, use ActivePlayer()->Char()
+    // instead of ActivePlayerId().
+    LOGGER_LOGHIGH(*logger_, " terminal(" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
+    LOGGER_LOGHIGH_IE(*logger_, node->ToString(cpuct), 2 /* indent */, true /* endline */);
     search_endby_terminal_count_++;
     node->IncrementVisitCount();
     return node->Value();
   }
-  if (depth_remaining == 0) {
-    LOGGER_LOGHIGH(*logger_, "search depth reached: search complete");
-    search_endby_depth_count_++;
-    return node->Value();
-  }
 
-  float v = 0.0;
+#ifndef NDEBUG
+  // Non-terminal nodes must maintain correctness betweeo 'node' visit
+  // count and children visit counts.
+  node->ValidateVisitCounts();
+#endif
+
+  // If depth has been reached then assume game is a draw. Don't
+  // increment the node count when stopping for depth, this is because
+  // we always want the node count to equal the sum of the child
+  // counts so if we are not going to visit a child we don't want to
+  // update the node count.
+  if (depth_remaining == 0) {
+    // FIXME once Player class is in cifre, use ActivePlayer()->Char()
+    // instead of ActivePlayerId().
+    LOGGER_LOGHIGH(*logger_, " depth(" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
+    LOGGER_LOGHIGH_IE(*logger_, node->ToString(cpuct), 2 /* indent */, true /* endline */);
+    search_endby_depth_count_++;
+    return DRAW_VALUE;
+  }
 
   // Move down tree following best actions until perform an action
   // that doesn't yet have a child node.
   uint64_t best_action_id = node->BestActionId(cpuct);
-  LOGGER_LOGHIGH(*logger_, "selected action id " + std::to_string(best_action_id));
+  LOGGER_LOGHIGH_IE(
+    *logger_,
+    // FIXME once Player class is in cifre, use ActivePlayer()->Char()
+    // instead of ActivePlayerId().
+    ' ' + std::to_string(best_action_id) + '(' + std::to_string(node->NodeState().ActivePlayerId()) + ')',
+    0 /* indent */, false /* endline */);
+
   Node* next = node->Child(best_action_id);
   if (next == nullptr) {
     // Find or create the node representing the state that results
@@ -297,16 +320,27 @@ AlphaZero::UpdateTree(
     std::unique_ptr<State> next_state(node->NodeState().Clone());
     next_state->Update(
       best_action_id,
-      logger_->FilterLevel() >= common::Logger::Level::HIGH /* enable_logging */);
-    next = FindOrCreateNode(std::move(next_state));
+      false /*logger_->FilterLevel() >= common::Logger::Level::HIGH *//* enable_logging */);
+
+    bool created;
+    next = FindOrCreateNode(std::move(next_state), &created);
     assert(next != nullptr);
+    if (created) {
+      next->IncrementVisitCount();
+    }
 
     // Add the edge to connect 'node' to 'next', then continue search.
     node->SetChild(best_action_id, next, 0 /* visit_count */);
     edge_count_++;
   }
 
-  v = UpdateTree(next, cpuct, generation, depth_remaining - 1);
+  // We update the visit counts before we move down the tree, this is
+  // because we want the cpuct calculation to take into account this
+  // visit even if we visit this node again in a loop.
+  node->IncrementVisitCount();
+  node->IncrementChildVisitCount(best_action_id);
+
+  float v = UpdateTree(next, cpuct, depth_remaining - 1);
 
   // If 'next' has a different active player than 'node', then need to
   // invert 'v'.
@@ -314,9 +348,10 @@ AlphaZero::UpdateTree(
     v = -v;
   }
 
-  node->UpdateValue(v);
-  node->IncrementVisitCount();
-  node->IncrementChildVisitCount(best_action_id);
+  // Update 'node's value, we have already incremented the visit count
+  // for the node one the way down the tree, so need to take that into
+  // account when updating the value.
+  node->SetValue(((node->Value() * (node->VisitCount() - 1)) + v) / node->VisitCount());
 
   return v;
 }
@@ -330,10 +365,8 @@ AlphaZero::ToStatisticsString() const
   ss << "edges: " << edge_count_ << ", avg outgoing per node "
      << std::fixed << std::setprecision(2) << ((float)edge_count_ / nodes_.size()) << '\n';
 
-  const size_t search_count =
-    search_endby_depth_count_ + search_endby_loop_count_ + search_endby_terminal_count_;
+  const size_t search_count = search_endby_depth_count_ + search_endby_terminal_count_;
   ss << "searches: " << search_count << ", end by depth " << search_endby_depth_count_
-     << ", end by loop " << search_endby_loop_count_
      << ", end by terminal " << search_endby_terminal_count_;
 
   return ss.str();
@@ -346,19 +379,19 @@ AlphaZero::Node::Node(std::unique_ptr<const State> state, TritonInferResult&& in
   state_(std::move(state)), result_(std::move(infer_result)),
   children_(state_->TotalActionIdCount(), nullptr),
   children_visit_counts_(state_->TotalActionIdCount(), 0),
-  visit_count_(0), generation_(0)
+  visit_count_(0)
 {
   // Is node is a terminal, then its value is based on the terminal
   // status, otherwise it comes from the model.
   switch (state_->TerminalStatus()) {
   case State::TerminalStatusKind::DRAW:
-    value_ = 0;
+    value_ = DRAW_VALUE;
     break;
   case State::TerminalStatusKind::ACTIVE_WINNER:
-    value_ = 1;
+    value_ = WINNER_VALUE;
     break;
   case State::TerminalStatusKind::OPPONENT_WINNER:
-    value_ = -1;
+    value_ = LOSER_VALUE;
     break;
   case State::TerminalStatusKind::NON_TERMINAL: {
     assert(result_.VEntryCount() == 1);
@@ -381,18 +414,8 @@ AlphaZero::Node::ChildProbability() const
 {
   std::vector<float> probs(state_->TotalActionIdCount(), 0.0);
 
-#ifndef NDEBUG
-  // When debugging, make sure 'this' node's visit count equals the
-  // sum of the children visit counts.
-  uint64_t total_child_visit_count = 0;
   for (uint64_t aid : state_->ValidActionIds()) {
-    total_child_visit_count += children_visit_counts_[aid];
-  }
-  assert(visit_count_ == total_child_visit_count);
-#endif
-
-  for (uint64_t aid : state_->ValidActionIds()) {
-    probs[aid] = float(children_visit_counts_[aid]) / visit_count_;
+    probs[aid] = float(children_visit_counts_[aid]) / std::max(uint64_t(1), visit_count_ - 1);
   }
 
   return probs;
@@ -415,12 +438,11 @@ AlphaZero::Node::BestActionId(const float cpuct, std::vector<float>* qus) const
     Node* child = children_[aid];
     if (child == nullptr) {
       assert(children_visit_counts_[aid] == 0);
-      qu = std::sqrt(std::max(size_t(1), visit_count_)) * pi[aid] * cpuct;
+      qu = std::sqrt(visit_count_) * pi[aid] * cpuct;
     }
     else {
       qu = (child->value_ +
-            (std::sqrt(std::max(size_t(1), visit_count_)) *
-             pi[aid] * cpuct / children_visit_counts_[aid]));
+            (std::sqrt(visit_count_) * pi[aid] * cpuct / children_visit_counts_[aid]));
     }
 
     if (qu > max_qu) {
@@ -463,7 +485,7 @@ AlphaZero::Node::RandomWeightedValidChild(common::Random& rnd) const
 {
   THROWIF(visit_count_ == 0, "alpha-zero node has zero visits");
 
-  uint64_t visit_offset = rnd(uint64_t(1), uint64_t(visit_count_));
+  uint64_t visit_offset = rnd(uint64_t(1), uint64_t(visit_count_ - 1));
 
 #ifndef NDEBUG
   // When debugging, make sure that there are no children for invalid
@@ -488,33 +510,58 @@ AlphaZero::Node::RandomWeightedValidChild(common::Random& rnd) const
   THROW("alpha-zero unable to find valid child with non-zero visits");
 }
 
+void
+AlphaZero::Node::ValidateVisitCounts() const
+{
+  // Make sure non-terminal 'node's visit count equals 1 + sum of the
+  // children visit counts. See AlphaZero::Node header documentation.
+  uint64_t total_child_visit_count = 1;
+  for (uint64_t aid : state_->ValidActionIds()) {
+    total_child_visit_count += children_visit_counts_[aid];
+  }
+
+  if ((visit_count_ == 0) || (visit_count_ != total_child_visit_count)) {
+    THROW("invalid node and children visit counts\n" + ToString(0.0));
+  }
+}
+
 std::string
 AlphaZero::Node::ToString(float cpuct, common::Logger::Level filter_level) const
 {
   std::stringstream sstr;
-  sstr << state_->ToString() << '\n';
-  sstr << "generation: " << generation_
-       << ", visit count: " << visit_count_
-       << ", value: " << value_ << '\n';
+
+  sstr << "node <hash " + std::to_string(state_->Hash()) + ">\n";
+  sstr << "  visit count: " << visit_count_ << ", value: " << value_ << '\n';
+
+  sstr << "  child visits: [";
+  bool first = true;
+  for (uint64_t aid = 0; aid < state_->TotalActionIdCount(); ++aid) {
+    sstr << ((first) ? "" : ", ") << children_visit_counts_[aid];
+    first = false;
+  }
+  sstr << "]\n";
 
   const auto& pi = result_.Pi();
-  sstr << "pi: [";
-  bool first = true;
+  sstr << "  pi: [";
+  first = true;
   for (size_t idx = 0; idx < state_->TotalActionIdCount(); ++idx) {
-    sstr << ((first) ? "" : ",") << pi[idx];
+    sstr << ((first) ? "" : ", ") << pi[idx];
     first = false;
   }
   sstr << "]\n";
 
   std::vector<float> qus;
-  sstr << "cpuct: " << cpuct << ", best action: " << BestActionId(cpuct, &qus)
+  sstr << "  cpuct: " << cpuct << ", best action: " << BestActionId(cpuct, &qus)
        << ", QUs: [";
   first = true;
   for (float p : qus) {
-    sstr << ((first) ? "" : ",") << p;
+    sstr << ((first) ? "" : ", ") << p;
     first = false;
   }
-  sstr << "]";
+  sstr << "]\n";
+
+  sstr << "  state:\n";
+  sstr << common::IndentMultiline(state_->ToString(), 4 /* indent */);
 
   return sstr.str();
 }

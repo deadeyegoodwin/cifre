@@ -291,7 +291,7 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger, const PlayerSettings
 
 namespace cifre { namespace celcath {
 
-enum class PlayResult { WINNER1, WINNER2, DRAW, TURN_LIMIT_EXCEEDED, QUIT };
+enum class PlayResult { WINNER1, WINNER2, DRAW, QUIT };
 
 // Play one game, return PlayResult indicating outcome.
 PlayResult
@@ -335,26 +335,32 @@ Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
     terminal_status = board->TerminalStatus();
   }
 
-  // Let all players know game is completed. If game stopped for some
-  // reason other than an in-game completion, then 'board' terminal
-  // status will be NON_TERMNAL.
-  for (Player* p : players) {
-    p->GameEnd(board);
+  // Game reached turn-limit before having an in-game completion. Some
+  // games have different completion logic for when a game ends due to
+  // turn-limit, so set the terminal status based on that "turn-limit
+  // end-game logic".
+  if (game_turn_limited && (terminal_status == cifre::State::TerminalStatusKind::NON_TERMINAL)) {
+    LOGGER_LOGMED(*logger, "game reached turn limit " + std::to_string(board->EndTurnCount()));
+    // FIXME, for now assume a draw... should have
+    // State::TurnLimitedStatus() which must return DRAW, or *WINNER
+    terminal_status = cifre::State::TerminalStatusKind::DRAW; // FIXME
+    assert(terminal_status != cifre::State::TerminalStatusKind::NON_TERMINAL);
   }
 
-  // Final board...
+  // Let all players know game is completed.
+  for (Player* p : players) {
+    p->GameEnd(board, terminal_status);
+  }
+
+  // Game was quit.
   if (game_quit) {
     LOGGER_LOGMED(*logger,
                   "game quit on turn " + std::to_string(board->EndTurnCount()) + ": no winner");
     LOGGER_LOGMED(*logger, board->ToString());
     return PlayResult::QUIT;
   }
-  if (game_turn_limited) {
-    LOGGER_LOGMED(*logger,
-                  "game reached turn limit " + std::to_string(board->EndTurnCount()) + ": no winner");
-    LOGGER_LOGMED(*logger, board->ToString());
-    return PlayResult::TURN_LIMIT_EXCEEDED;
-  }
+
+  // Game completed as a draw.
   if (terminal_status == cifre::State::TerminalStatusKind::DRAW) {
     LOGGER_LOGMED(*logger,
                   "game over on turn " + std::to_string(board->EndTurnCount()) + ": draw");
@@ -362,6 +368,7 @@ Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
     return PlayResult::DRAW;
   }
 
+  // Game completed with a winner.
   const size_t winner_id =
     (terminal_status == cifre::State::TerminalStatusKind::ACTIVE_WINNER) ?
     board->ActivePlayerId() : board->OpponentPlayerId();
@@ -597,7 +604,6 @@ main(int argc, char **argv)
       case cifre::celcath::PlayResult::QUIT:
         break;
       case cifre::celcath::PlayResult::DRAW:
-      case cifre::celcath::PlayResult::TURN_LIMIT_EXCEEDED:
         games_completed++;
         draw_count++;
         break;
@@ -612,7 +618,7 @@ main(int argc, char **argv)
       }
     }
 
-    // End of games output...
+    // End of all games output...
     logger->LogLow("==== " + std::to_string(games_completed) + " game" +
                    ((games_completed == 1) ? " " : "s ") + "completed");
     if (games_completed > 0) {
