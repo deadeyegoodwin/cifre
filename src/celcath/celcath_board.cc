@@ -30,34 +30,34 @@ Board::Board(
 }
 
 bool
-Board::IsValidAction(const Action& action) const
+Board::IsValidAction(const cifre::Action& action) const
 {
   switch (action.Kind()) {
-  case Action::ActionKind::INVALID:
+  case cifre::Action::ActionKind::INVALID:
     return false;
 
-  case Action::ActionKind::HELP:
-  case Action::ActionKind::QUIT:
-  case Action::ActionKind::SHOW_BOARD:
+  case cifre::Action::ActionKind::HELP:
+  case cifre::Action::ActionKind::QUIT:
+  case cifre::Action::ActionKind::SHOW_BOARD:
     return true;
 
-  case Action::ActionKind::ACTIONID:
+  case cifre::Action::ActionKind::ACTIONID:
     return valid_action_ids_.find(action.ActionId()) != valid_action_ids_.end();
   }
 
   return false;
 }
 
-Action
+cifre::Action
 Board::ActionIdToAction(uint64_t action_id) const
 {
   THROWIF(action_id >= settings_.TotalActionIdCount(),
           "unsupported action identifier, " + std::to_string(action_id));
 
-  return Action(Action::ActionKind::ACTIONID, action_id);
+  return cifre::Action(cifre::Action::ActionKind::ACTIONID, action_id);
 }
 
-Action
+cifre::Action
 Board::StringToAction(const std::string& str) const
 {
   std::string posstr(str);
@@ -67,11 +67,11 @@ Board::StringToAction(const std::string& str) const
   if (posstr.size() == 1) {
     switch (posstr[0]) {
     case 'h':
-    case '?': return Action(Action::ActionKind::HELP);
-    case 'q': return Action(Action::ActionKind::QUIT);
-    case 'b': return Action(Action::ActionKind::SHOW_BOARD);
-    case 's': return Action(Action::ActionKind::ACTIONID, settings_.StepActionId());
-    case 'e': return Action(Action::ActionKind::ACTIONID, settings_.EndTurnActionId());
+    case '?': return cifre::Action(cifre::Action::ActionKind::HELP);
+    case 'q': return cifre::Action(cifre::Action::ActionKind::QUIT);
+    case 'b': return cifre::Action(cifre::Action::ActionKind::SHOW_BOARD);
+    case 's': return cifre::Action(cifre::Action::ActionKind::ACTIONID, settings_.StepActionId());
+    case 'e': return cifre::Action(cifre::Action::ActionKind::ACTIONID, settings_.EndTurnActionId());
     default:
       break;
     }
@@ -83,18 +83,18 @@ Board::StringToAction(const std::string& str) const
     int32_t col_idx = posstr[1] - 'a';
     if ((col_idx >= 0) && ((size_t)col_idx < size_.ColumnCount()) &&
         (row_idx >= 0) && ((size_t)row_idx < size_.RowCount())) {
-      return Action(Action::ActionKind::ACTIONID,
+      return cifre::Action(cifre::Action::ActionKind::ACTIONID,
                     (row_idx * size_.ColumnCount()) + col_idx);
     }
   }
 
-  return Action(Action::ActionKind::INVALID);
+  return cifre::Action(cifre::Action::ActionKind::INVALID);
 }
 
 std::string
-Board::ActionToString(const Action& action, common::Logger::Level filter_level) const
+Board::ActionToString(const cifre::Action& action, common::Logger::Level filter_level) const
 {
-  if (action.Kind() != Action::ActionKind::ACTIONID) {
+  if (action.Kind() != cifre::Action::ActionKind::ACTIONID) {
     return action.ToString(filter_level);
   }
 

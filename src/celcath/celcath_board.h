@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "celcath_action.h"
+#include "cifre_action.h"
 #include "celcath_player.h"
 #include "celcath_settings.h"
 #include "celcath_stepper.h"
@@ -56,17 +56,17 @@ public:
   size_t MaxActionsThisTurn() const { return settings_.MaxActionsPerTurn(); }
 
   // Is 'action' valid for the current board state.
-  bool IsValidAction(const Action& action) const;
+  bool IsValidAction(const cifre::Action& action) const;
 
   // Return the Action associated with an action identifier.
-  Action ActionIdToAction(uint64_t action_id) const;
+  cifre::Action ActionIdToAction(uint64_t action_id) const;
 
   // Return the Action associated with a string.
-  Action StringToAction(const std::string& str) const;
+  cifre::Action StringToAction(const std::string& str) const;
 
   // Return the string representation of an 'action'.
   std::string ActionToString(
-    const Action& action, common::Logger::Level filter_level = common::Logger::Level::LOW) const;
+    const cifre::Action& action, common::Logger::Level filter_level = common::Logger::Level::LOW) const;
 
   // Return the ID of the player that owns the specified cell. Returns
   // the total number of players to indicate that the cell is not

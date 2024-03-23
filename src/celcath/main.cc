@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "celcath_action.h"
+#include "cifre_action.h"
 #include "celcath_board.h"
 #include "celcath_player.h"
 #include "celcath_settings.h"
@@ -314,19 +314,19 @@ Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
          !game_turn_limited &&
          (terminal_status == cifre::State::TerminalStatusKind::NON_TERMINAL)) {
     Player* player = board->ActivePlayer();
-    Action action = player->NextAction(*board);
+    cifre::Action action = player->NextAction(*board);
     switch (action.Kind()) {
-    case Action::ActionKind::INVALID:
-    case Action::ActionKind::HELP:
-    case Action::ActionKind::SHOW_BOARD:
+    case cifre::Action::ActionKind::INVALID:
+    case cifre::Action::ActionKind::HELP:
+    case cifre::Action::ActionKind::SHOW_BOARD:
       Fail("unexpected player action");
       break;
 
-    case Action::ActionKind::QUIT:
+    case cifre::Action::ActionKind::QUIT:
       game_quit = true;
       break;
 
-    case Action::ActionKind::ACTIONID:
+    case cifre::Action::ActionKind::ACTIONID:
       board->Update(action.ActionId());
       break;
     }

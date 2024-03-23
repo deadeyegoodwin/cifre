@@ -167,6 +167,7 @@ target_link_libraries(
 #
 add_library(
   cifre-library STATIC
+  src/cifre_action.cc
   src/cifre_board2d.cc
   src/cifre_alphazero.cc
   src/cifre_triton.cc

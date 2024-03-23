@@ -1,10 +1,10 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 
-#include "celcath_action.h"
+#include "cifre_action.h"
 #include "common_error.h"
 #include "common_logger.h"
 
-namespace cifre { namespace celcath {
+namespace cifre {
 
 //
 // Action
@@ -29,4 +29,4 @@ Action::ToString(common::Logger::Level filter_level) const
   return "INVALID";
 }
 
-}} // namespace cifre::celcath
+} // namespace cifre

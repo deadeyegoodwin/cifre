@@ -4,12 +4,13 @@
 #include "common_error.h"
 #include "common_logger.h"
 
-namespace cifre { namespace celcath {
+namespace cifre {
 
 //
 // Action
 //
-// An action.
+// An action. Represents both out-of-game actions, like "quit" and
+// in-game actions represented by action IDs.
 //
 class Action {
 public:
@@ -43,4 +44,4 @@ private:
   uint64_t action_id_;
 };
 
-}} // namespace cifre::celcath
+} // namespace cifre

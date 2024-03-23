@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "celcath_action.h"
+#include "cifre_action.h"
 #include "cifre_alphazero.h"
 #include "common_logger.h"
 #include "common_random.h"
@@ -56,7 +56,7 @@ public:
             "game ended with NON-TERMINAL status"); }
 
   // Get the next action for the player given current 'board' state.
-  virtual Action NextAction(const Board& board) const;
+  virtual cifre::Action NextAction(const Board& board) const;
 
   // Return string representation of any player statistics. Default
   // behavior is to return empty string.
@@ -89,7 +89,7 @@ public:
     const std::string& name, char board_char, int32_t neighbor_value);
 
   // See Player::NextAction().
-  Action NextAction(const Board& board) const override;
+  cifre::Action NextAction(const Board& board) const override;
 
 private:
   std::string Usage() const;
@@ -118,7 +118,7 @@ public:
   void GameEnd(const cifre::State* terminal_state, cifre::State::TerminalStatusKind status) override;
 
   // See Player::NextAction().
-  Action NextAction(const Board& board) const override;
+  cifre::Action NextAction(const Board& board) const override;
 
   // See Player::ToStatisticsString().
   std::string ToStatisticsString(common::Logger::Level filter_level = common::Logger::Level::LOW) const override;
@@ -143,7 +143,7 @@ public:
     const std::string& name, char board_char, int32_t neighbor_value);
 
   // See Player::NextAction().
-  Action NextAction(const Board& board) const override;
+  cifre::Action NextAction(const Board& board) const override;
 
 private:
   mutable common::Random rnd_;
