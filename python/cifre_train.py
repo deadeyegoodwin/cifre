@@ -94,9 +94,9 @@ def main():
     parser.add_argument(
         '--game',
         type=str,
-        default="celcath",
+        default="tictactoe",
         required=False,
-        help='The game, default is celcath.')
+        help='The game, default is tictactoe.')
     parser.add_argument(
         '--game-shape',
         type=parse_shape,
@@ -173,10 +173,13 @@ def main():
         for f in vars(FLAGS):
             LOG.log_verbose(f'\t{f}: {vars(FLAGS)[f]}')
 
-    # For now there is only 1 game recognized so just hack it in here.
-    if FLAGS.game != 'celcath':
-        raise ValueError(f"unexpected --game={FLAGS.game}, options are 'celcath'")
-    game_action_count = FLAGS.game_shape[0] * FLAGS.game_shape[1] + 2 # FIXME celcath specific
+    # FIXME
+    if FLAGS.game == 'tictactoe':
+        game_action_count = FLAGS.game_shape[0] * FLAGS.game_shape[1] # FIXME
+    elif FLAGS.game == 'celcath':
+        game_action_count = FLAGS.game_shape[0] * FLAGS.game_shape[1] + 2 # FIXME celcath specific
+    else:
+        raise ValueError(f"unexpected --game={FLAGS.game}, options are 'tictactoe', 'celcath'")
 
     # Use a simple model...
     nnet_args = {
@@ -205,13 +208,13 @@ def main():
         # play against a random opponent to avoid the case there initial
         # alphazero model cannot complete any games.
         game_cmd = [
-            '../build/install/bin/celcath',  # FIXME
+            f'../build/install/bin/{FLAGS.game}',  # FIXME
             '--verbose' if FLAGS.verbose else '',
             '--train-dir', train_dir,
             '--board-size', argify_shape(FLAGS.game_shape, 'x'),
-            f'--min-actions-per-turn={min_actions_per_turn}',
-            f'--max-actions-per-turn={max_actions_per_turn}',
-            f'--max-turns-per-game={FLAGS.max_turns_per_game}',
+#            f'--min-actions-per-turn={min_actions_per_turn}',
+#            f'--max-actions-per-turn={max_actions_per_turn}',
+#            f'--max-turns-per-game={FLAGS.max_turns_per_game}',
             f'--game-count={FLAGS.game_count}' ]
 
         game_cmd.extend(['--player1=alphazero', f'--name=p1iter{iter}', '--model', model_name,

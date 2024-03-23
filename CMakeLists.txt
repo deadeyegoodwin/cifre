@@ -140,6 +140,7 @@ endif(BUILD_TRITON_CLIENT)
 # Games
 #
 add_subdirectory(src/celcath)
+add_subdirectory(src/tictactoe)
 
 #
 # cifre version
