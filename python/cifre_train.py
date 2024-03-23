@@ -13,7 +13,8 @@ sys.path.append('./nnet')
 from log import CifreLogger
 from dataset import CifreDataset
 from nnet import CifreNNetManager
-from basic_nnet import CifreBasicNNet
+from basic_conv_nnet import CifreBasicConvNNet
+from basic_fc_nnet import CifreBasicFcNNet
 
 FLAGS = None
 LOG = None
@@ -173,22 +174,28 @@ def main():
         for f in vars(FLAGS):
             LOG.log_verbose(f'\t{f}: {vars(FLAGS)[f]}')
 
+    #
+
     # FIXME
     if FLAGS.game == 'tictactoe':
-        game_action_count = FLAGS.game_shape[0] * FLAGS.game_shape[1] # FIXME
+        nnet_args = {
+            'num_rows' : FLAGS.game_shape[0],
+            'num_cols' : FLAGS.game_shape[1],
+            'num_actions' : FLAGS.game_shape[0] * FLAGS.game_shape[1],
+            'dropout': 0.25,
+            'num_channels': 512 }
+        nnet = CifreBasicFcNNet(nnet_args)
     elif FLAGS.game == 'celcath':
-        game_action_count = FLAGS.game_shape[0] * FLAGS.game_shape[1] + 2 # FIXME celcath specific
+        nnet_args = {
+            'num_rows' : FLAGS.game_shape[0],
+            'num_cols' : FLAGS.game_shape[1],
+            'num_actions' : FLAGS.game_shape[0] * FLAGS.game_shape[1] + 2,
+            'dropout': 0.25,
+            'num_channels': 512 }
+        nnet = CifreBasicConvNNet(nnet_args)
     else:
         raise ValueError(f"unexpected --game={FLAGS.game}, options are 'tictactoe', 'celcath'")
 
-    # Use a simple model...
-    nnet_args = {
-        'num_rows' : FLAGS.game_shape[0],
-        'num_cols' : FLAGS.game_shape[1],
-        'num_actions' : game_action_count,
-        'dropout': 0.25,
-        'num_channels': 512 }
-    nnet = CifreBasicNNet(nnet_args)
     manager = CifreNNetManager(nnet, FLAGS.game_shape, FLAGS.repo_dir)
 
     # FIXME - game specific args

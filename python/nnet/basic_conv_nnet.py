@@ -26,17 +26,16 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 
 #
-# Basic NNet. 'args' is a dict that must include 'num_rows',
-# 'num_cols', 'num_actions', 'num_channels', 'dropout'.
+# Basic Convolution NNet. 'args' is a dict that must include
+# 'num_rows', 'num_cols', 'num_actions', 'num_channels', 'dropout'.
 #
-class CifreBasicNNet(nn.Module):
+class CifreBasicConvNNet(nn.Module):
     def __init__(self, args):
         self.args = args
 
-        super(CifreBasicNNet, self).__init__()
+        super(CifreBasicConvNNet, self).__init__()
         self.conv1 = nn.Conv2d(1, self.args['num_channels'], 3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(self.args['num_channels'], self.args['num_channels'], 3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(self.args['num_channels'], self.args['num_channels'], 3, stride=1)
