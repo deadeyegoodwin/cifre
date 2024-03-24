@@ -305,21 +305,22 @@ AlphaZero::UpdateTree(
 
   // Move down tree following best actions until perform an action
   // that doesn't yet have a child node.
-  uint64_t best_action_id = node->BestActionId(cpuct);
+  std::optional<uint64_t> best_action_id = node->MaxQU(cpuct);
+  THROWIF(!best_action_id, "alpha-zero unable to find action ID with max QU");
   LOGGER_LOGHIGH_IE(
     *logger_,
     // FIXME once Player class is in cifre, use ActivePlayer()->Char()
     // instead of ActivePlayerId().
-    ' ' + std::to_string(best_action_id) + '(' + std::to_string(node->NodeState().ActivePlayerId()) + ')',
+    ' ' + std::to_string(*best_action_id) + '(' + std::to_string(node->NodeState().ActivePlayerId()) + ')',
     0 /* indent */, false /* endline */);
 
-  Node* next = node->Child(best_action_id);
+  Node* next = node->Child(*best_action_id);
   if (next == nullptr) {
     // Find or create the node representing the state that results
     // when 'best_action_id' is applied to 'node'.
     std::unique_ptr<State> next_state(node->NodeState().Clone());
     next_state->Update(
-      best_action_id,
+      *best_action_id,
       false /*logger_->FilterLevel() >= common::Logger::Level::HIGH *//* enable_logging */);
 
     bool created;
@@ -330,7 +331,7 @@ AlphaZero::UpdateTree(
     }
 
     // Add the edge to connect 'node' to 'next', then continue search.
-    node->SetChild(best_action_id, next, 0 /* visit_count */);
+    node->SetChild(*best_action_id, next, 0 /* visit_count */);
     edge_count_++;
   }
 
@@ -338,7 +339,7 @@ AlphaZero::UpdateTree(
   // because we want the cpuct calculation to take into account this
   // visit even if we visit this node again in a loop.
   node->IncrementVisitCount();
-  node->IncrementChildVisitCount(best_action_id);
+  node->IncrementChildVisitCount(*best_action_id);
 
   float v = UpdateTree(next, cpuct, depth_remaining - 1);
 
@@ -421,8 +422,8 @@ AlphaZero::Node::ChildProbability() const
   return probs;
 }
 
-uint64_t
-AlphaZero::Node::BestActionId(const float cpuct, std::vector<float>* qus) const
+std::optional<uint64_t>
+AlphaZero::Node::MaxQU(const float cpuct, std::vector<float>* qus) const
 {
   if (qus != nullptr) {
     qus->clear();
@@ -441,8 +442,11 @@ AlphaZero::Node::BestActionId(const float cpuct, std::vector<float>* qus) const
       qu = std::sqrt(visit_count_) * pi[aid] * cpuct;
     }
     else {
-      qu = (child->value_ +
-            (std::sqrt(visit_count_) * pi[aid] * cpuct / children_visit_counts_[aid]));
+      float v = child->value_;
+      if (child->state_->ActivePlayerId() != state_->ActivePlayerId()) {
+        v = -v;
+      }
+      qu = (v + (std::sqrt(visit_count_) * pi[aid] * cpuct / children_visit_counts_[aid]));
     }
 
     if (qu > max_qu) {
@@ -455,9 +459,8 @@ AlphaZero::Node::BestActionId(const float cpuct, std::vector<float>* qus) const
     }
   }
 
-  THROWIF(best_action_id == std::numeric_limits<uint64_t>::max(),
-          "alpha-zero unable to find action ID");
-  return best_action_id;
+  return ((best_action_id == std::numeric_limits<uint64_t>::max()) ?
+          std::nullopt : std::make_optional<uint64_t>(best_action_id));
 }
 
 uint64_t
@@ -531,12 +534,18 @@ AlphaZero::Node::ToString(float cpuct, common::Logger::Level filter_level) const
   std::stringstream sstr;
 
   sstr << "node <hash " + std::to_string(state_->Hash()) + ">\n";
-  sstr << "  visit count: " << visit_count_ << ", value: " << value_ << '\n';
+  sstr
+    << "  active player ID: " << state_->ActivePlayerId()
+    << ",  visit count: " << visit_count_ << ", value: " << value_ << '\n';
 
-  sstr << "  child visits: [";
+  sstr << "  child value/visits: [";
   bool first = true;
   for (uint64_t aid = 0; aid < state_->TotalActionIdCount(); ++aid) {
-    sstr << ((first) ? "" : ", ") << children_visit_counts_[aid];
+    const Node* child = children_[aid];
+    sstr
+      << ((first) ? "" : ", ")
+      << ((child != nullptr) ? std::to_string(child->value_) : "-")
+      << '/' << children_visit_counts_[aid];
     first = false;
   }
   sstr << "]\n";
@@ -551,7 +560,9 @@ AlphaZero::Node::ToString(float cpuct, common::Logger::Level filter_level) const
   sstr << "]\n";
 
   std::vector<float> qus;
-  sstr << "  cpuct: " << cpuct << ", best action: " << BestActionId(cpuct, &qus)
+  std::optional<uint64_t> best_action_id = MaxQU(cpuct, &qus);
+  sstr << "  cpuct: " << cpuct
+       << ", best action: " << ((best_action_id) ? std::to_string(*best_action_id) : "<none>")
        << ", QUs: [";
   first = true;
   for (float p : qus) {

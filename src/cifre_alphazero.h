@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -85,10 +86,10 @@ private:
     // visit counts as explained above.
     void ValidateVisitCounts() const;
 
-    // Return the best action ID based on the current node state. If
+    // Return the ID of the action that has the highest QU value. If
     // 'qu's is non-nullptr then it will be filled with the QU value
-    // for each child.
-    uint64_t BestActionId(const float cpuct, std::vector<float>* qus = nullptr) const;
+    // for each action/child.
+    std::optional<uint64_t> MaxQU(const float cpuct, std::vector<float>* qus = nullptr) const;
 
     // Return the action ID corresponding to the child edge that has
     // the highest non-zero visited count and that represents a valid
