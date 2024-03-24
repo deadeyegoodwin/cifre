@@ -116,7 +116,7 @@ AlphaZero::WriteTraining(const std::string& dir) const
 
 
     LOGGER_LOGHIGH(*logger_, "writing training node, value " + std::to_string(pr.second) + ':');
-    LOGGER_LOGHIGH_IE(*logger_, pr.first->ToString(default_next_action_settings_.alphazero_cpuct_), // FIXME need to use default settings here...
+    LOGGER_LOGHIGH_IE(*logger_, pr.first->ToString(default_next_action_settings_.alphazero_cpuct_),
                       2 /* indent */, true /* endline */);
 
     auto& din = pr.first->NodeState().TritonRepresentation();
@@ -179,15 +179,9 @@ AlphaZero::NextActionId(const State& state, const NextActionSettings& settings)
   THROWIF(state.TerminalStatus() != State::TerminalStatusKind::NON_TERMINAL,
           "alpha-zero cannot find next action for terminal state");
 
-  // Find, creating if necessary, tree node that represents
-  // 'state'. If node is created, then that creation needs to be
-  // recognized as the first visit of the node.
-  bool created; // FIXME move increment on creation into FindOrCreateNode
-  auto node = FindOrCreateNode(std::unique_ptr<const State>(state.Clone()), &created);
+  // Find, creating if necessary, tree node that represents 'state'.
+  auto node = FindOrCreateNode(std::unique_ptr<const State>(state.Clone()));
   assert(node != nullptr);
-  if (created) {
-    node->IncrementVisitCount();
-  }
 
   LOGGER_LOGHIGH(*logger_, "\nalphazero: starting node");
   LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings.alphazero_cpuct_),
@@ -254,6 +248,9 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
     new_node = &(created_node_itr.first->second);
     new_created = true;
 
+    // Node creation needs to be recognized as the first visit.
+    new_node->IncrementVisitCount();
+
     if (new_node->IsTerminal()) {
       terminal_node_count_++;
     }
@@ -274,9 +271,7 @@ AlphaZero::UpdateTree(
   // If 'node' is a terminal node then show that it was visited and
   // return its value.
   if (node->IsTerminal()) {
-    // FIXME once Player class is in cifre, use ActivePlayer()->Char()
-    // instead of ActivePlayerId().
-    LOGGER_LOGHIGH(*logger_, " terminal(" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
+    LOGGER_LOGHIGH(*logger_, " terminal(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
     LOGGER_LOGHIGH_IE(*logger_, node->ToString(cpuct), 2 /* indent */, true /* endline */);
     search_endby_terminal_count_++;
     node->IncrementVisitCount();
@@ -295,9 +290,7 @@ AlphaZero::UpdateTree(
   // counts so if we are not going to visit a child we don't want to
   // update the node count.
   if (depth_remaining == 0) {
-    // FIXME once Player class is in cifre, use ActivePlayer()->Char()
-    // instead of ActivePlayerId().
-    LOGGER_LOGHIGH(*logger_, " depth(" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
+    LOGGER_LOGHIGH(*logger_, " depth(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
     LOGGER_LOGHIGH_IE(*logger_, node->ToString(cpuct), 2 /* indent */, true /* endline */);
     search_endby_depth_count_++;
     return DRAW_VALUE;
@@ -309,9 +302,7 @@ AlphaZero::UpdateTree(
   THROWIF(!best_action_id, "alpha-zero unable to find action ID with max QU");
   LOGGER_LOGHIGH_IE(
     *logger_,
-    // FIXME once Player class is in cifre, use ActivePlayer()->Char()
-    // instead of ActivePlayerId().
-    ' ' + std::to_string(*best_action_id) + '(' + std::to_string(node->NodeState().ActivePlayerId()) + ')',
+    ' ' + std::to_string(*best_action_id) + "(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')',
     0 /* indent */, false /* endline */);
 
   Node* next = node->Child(*best_action_id);
@@ -323,12 +314,8 @@ AlphaZero::UpdateTree(
       *best_action_id,
       false /*logger_->FilterLevel() >= common::Logger::Level::HIGH *//* enable_logging */);
 
-    bool created;
-    next = FindOrCreateNode(std::move(next_state), &created);
+    next = FindOrCreateNode(std::move(next_state));
     assert(next != nullptr);
-    if (created) {
-      next->IncrementVisitCount();
-    }
 
     // Add the edge to connect 'node' to 'next', then continue search.
     node->SetChild(*best_action_id, next, 0 /* visit_count */);
