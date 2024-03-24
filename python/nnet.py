@@ -42,6 +42,10 @@ class CifreNNetManager(object):
             print('Epoch ' + str(self._epoch))
             self._epoch += 1
 
+            pi_loss_running = 0
+            v_loss_running = 0
+            loss_running_count = 0
+
             progress = tqdm(total=len(dataloader), desc='Train')
             for d_in, d_pi, d_v in dataloader:
                 tensor_in = torch.FloatTensor(d_in)
@@ -52,20 +56,28 @@ class CifreNNetManager(object):
                     tensor_pi = tensor_pi.contiguous().cuda()
                     tensor_v = tensor_v.contiguous().cuda()
 
+                ibs = tensor_in.size(0)
+                assert (ibs == tensor_pi.size(0)) and (ibs == tensor_v.size(0))
+
                 # Run batch through network
                 pi_result, v_result = self._nnet(tensor_in)
 
                 # Compute loss...
-                pi_loss = -torch.sum(tensor_pi * pi_result) / (tensor_pi.size(0))
-                v_loss = torch.sum((tensor_v - v_result.view(-1)) ** 2) / (tensor_v.size(0))
-                total_loss = pi_loss + v_loss
+                pi_loss = -torch.sum(tensor_pi * pi_result)
+                v_loss = torch.sum((tensor_v - v_result.view(-1)) ** 2)
+                total_loss = (pi_loss + v_loss) / ibs
 
                 # Backprop...
                 self._optimizer.zero_grad()
                 total_loss.backward()
                 self._optimizer.step()
 
-                progress.set_postfix(Loss_pi=pi_loss.item(), Loss_v=v_loss.item())
+                loss_running_count += ibs
+                pi_loss_running += pi_loss.item()
+                v_loss_running += v_loss.item()
+
+                progress.set_postfix(loss_pi=(pi_loss_running / loss_running_count),
+                                     loss_v=(v_loss_running / loss_running_count))
                 progress.update(1)
             progress.close()
 
