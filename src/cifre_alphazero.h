@@ -123,6 +123,14 @@ public:
   // overridden on each call to NextActionId().
   //
   struct NextActionSettings {
+    // Equality operator
+    bool operator==(const NextActionSettings& other) const {
+      return((training_ == other.training_) && (kind_ == other.kind_) &&
+             (alphazero_update_count_ == other.alphazero_update_count_) &&
+             (alphazero_max_depth_ == other.alphazero_max_depth_) &&
+             (alphazero_cpuct_ == other.alphazero_cpuct_));
+    }
+
     // True if training data should be collected.
     bool training_ {false};
 

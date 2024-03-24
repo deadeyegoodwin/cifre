@@ -491,7 +491,10 @@ main(int argc, char **argv)
     CheckTrueMsg(!train || std::filesystem::is_directory(train_dir),
                  "--train-dir must be an existing directory");
 
-    // Create shared triton and alphazero object(s) if needed.
+    // Create shared triton and alphazero object(s) if needed. If
+    // training and both players are using the same alphazero
+    // settings, then share a single alphazero object between them to
+    // get self-play.
     std::shared_ptr<cifre::Triton> triton;
     std::shared_ptr<cifre::AlphaZero> alphazero1, alphazero2;
     if ((splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) ||
@@ -501,23 +504,36 @@ main(int argc, char **argv)
 
       if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer1.model_.empty(), "--player1=alphazero requires --model");
+
+        // Set player1 alphazero settings...
         splayer1.alphazero_settings_.training_ = train;
         splayer1.alphazero_settings_.kind_ = (train) ?
           cifre::AlphaZero::NextActionSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
           cifre::AlphaZero::NextActionSettings::NextActionKind::MAX_VISITED;
         splayer1.alphazero_settings_.alphazero_max_depth_ = 20; // FIXME, should be adjusted after each turn
+
         alphazero1 = std::make_shared<cifre::AlphaZero>(
           logger, triton, splayer1.model_, splayer1.alphazero_settings_);
       }
       if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer2.model_.empty(), "--player2=alphazero requires --model");
+
+        // Set player1 alphazero settings...
         splayer2.alphazero_settings_.training_ = train;
         splayer2.alphazero_settings_.kind_ = (train) ?
           cifre::AlphaZero::NextActionSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
           cifre::AlphaZero::NextActionSettings::NextActionKind::MAX_VISITED;
         splayer2.alphazero_settings_.alphazero_max_depth_ = 20; // FIXME, should be adjusted after each turn
-        alphazero2 = std::make_shared<cifre::AlphaZero>(
-          logger, triton, splayer2.model_, splayer2.alphazero_settings_);
+
+        // If training and same alphazero as player1, then use the
+        // same alphazero object.
+        if (train && (splayer1.alphazero_settings_ == splayer2.alphazero_settings_)) {
+          alphazero2 = alphazero1;
+        }
+        else {
+          alphazero2 = std::make_shared<cifre::AlphaZero>(
+            logger, triton, splayer2.model_, splayer2.alphazero_settings_);
+        }
       }
     }
 
@@ -601,7 +617,7 @@ main(int argc, char **argv)
 
     // If training, write alphazero training data.
     if (train) {
-      if ((alphazero1 != nullptr) && (alphazero2 != nullptr)) {
+      if ((alphazero1 != nullptr) && (alphazero2 != nullptr) && (alphazero1 != alphazero2)) {
         alphazero1->MergeTraining(alphazero2.get());
       }
       if (alphazero1 != nullptr) {

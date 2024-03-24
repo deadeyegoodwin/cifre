@@ -228,7 +228,8 @@ def main():
                          f'--alphazero-cpuct={FLAGS.alphazero_cpuct}' ])
 
         # First play against a random opponent to avoid the case where
-        # initial alphazero model cannot complete any games.
+        # initial alphazero model cannot complete any games. FIXME,
+        # don't want to always do this, should be game specific.
         if iter == 0:
             game_cmd.extend(['--player2=random', '--name=random'])
         else:
