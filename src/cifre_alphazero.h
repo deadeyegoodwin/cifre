@@ -231,14 +231,11 @@ private:
   std::unordered_map<const State*, Node, NodesMapHash, NodesMapEqual> nodes_;
 
   // Nodes for which alphazero selected an action in the current game.
-  std::unordered_set<Node*> game_action_nodes_;
+  std::vector<Node*> game_action_nodes_;
 
   // Aggregated nodes from the 'game_action_nodes_' collected for each
-  // game, and the value associated with the node. For each node only
-  // the most recent value is kept, under the assumption that later
-  // games played on this alphazero have more knowledge collected and
-  // so will provide the best value for training.
-  std::unordered_map<Node*, float> train_nodes_;
+  // game, and the value associated with the node.
+  std::vector<std::pair<Node*, float>> train_nodes_;
 
   // Statistics
   size_t terminal_node_count_ {0};

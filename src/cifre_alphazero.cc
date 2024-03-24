@@ -64,14 +64,20 @@ AlphaZero::GameEnd(const State* terminal_state, State::TerminalStatusKind status
       break;
     }
 
-    // If a node is already collected from a previous game, then we replace it with
+    // Aggregate together all the nodes collected for the game with
+    // the value representing the game outcome.
     for (Node* n : game_action_nodes_) {
       float value = (n->NodeState().ActivePlayerId() == terminal_player_id) ? active_value : opponent_value;
-      train_nodes_[n] = value;
+      train_nodes_.push_back(std::make_pair(n, value));
     }
 
     LOGGER_LOGHIGH(*logger_, "training nodes for game: " + std::to_string(game_action_nodes_.size()) +
                    ", total training nodes: " + std::to_string(train_nodes_.size()));
+
+    // Clear nodes collected for the game so they don't get added
+    // again if another player is using this alphazero object (as in
+    // self-play).
+    game_action_nodes_.clear();
   }
 }
 
@@ -79,14 +85,8 @@ AlphaZero::GameEnd(const State* terminal_state, State::TerminalStatusKind status
 void
 AlphaZero::MergeTraining(const AlphaZero* other)
 {
-  // For each training node from 'other' that is not already known by
-  // 'this', add it to 'this' training nodes. This gives priority to
-  // 'this' training nodes.
-  for (const auto& pr : other->train_nodes_) {
-    if (train_nodes_.find(pr.first) == train_nodes_.end()) {
-      train_nodes_[pr.first] = pr.second;
-    }
-  }
+  train_nodes_.insert(
+    train_nodes_.end(), other->train_nodes_.begin(), other->train_nodes_.end());
 }
 
 void
@@ -106,18 +106,18 @@ AlphaZero::WriteTraining(const std::string& dir) const
   std::ofstream fpi(ppi, std::ios::out | std::ios::binary);
   std::ofstream fv(pv, std::ios::out | std::ios::binary);
 
-  // For now we rely on the unordered nature of train_nodes_
-  // unordered_map to "randomize" the order that the nodes are
-  // written. Make sure the data sizes from each of the training nodes
-  // is consistent.
+  // Write training samples. Make sure the data sizes from each of the
+  // training nodes is consistent.
   const TritonInferResult* repr_result = nullptr;
   for (const auto& pr : train_nodes_) {
     if (repr_result == nullptr) {
       repr_result = &pr.first->NodeTritonResult();
     }
 
+
     LOGGER_LOGHIGH(*logger_, "writing training node, value " + std::to_string(pr.second) + ':');
-    LOGGER_LOGHIGH_IE(*logger_, pr.first->ToString(0.0), 2 /* indent */, true /* endline */);
+    LOGGER_LOGHIGH_IE(*logger_, pr.first->ToString(default_next_action_settings_.alphazero_cpuct_), // FIXME need to use default settings here...
+                      2 /* indent */, true /* endline */);
 
     auto& din = pr.first->NodeState().TritonRepresentation();
     fin.write(reinterpret_cast<const char*>(din.data()), din.size() * sizeof(uint8_t));
@@ -225,7 +225,7 @@ AlphaZero::NextActionId(const State& state, const NextActionSettings& settings)
   // If training, record the nodes for which alpha-zero makes an
   // action decision.
   if (settings.training_) {
-    game_action_nodes_.insert(node);
+    game_action_nodes_.push_back(node);
   }
 
   return action_id;
