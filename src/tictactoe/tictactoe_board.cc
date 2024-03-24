@@ -19,11 +19,13 @@ namespace cifre { namespace tictactoe {
 //
 Board::Board(
   const std::shared_ptr<common::Logger>& logger, const cifre::BoardSize2D& size,
-  const std::vector<Player*>& players) :
+  const std::vector<Player*>& players, size_t starting_player_id) :
   cifre::Board2D<float>(size), logger_(logger), players_(players),
-  active_player_id_(0), terminal_status_(cifre::State::TerminalStatusKind::NON_TERMINAL)
+  active_player_id_(starting_player_id), terminal_status_(cifre::State::TerminalStatusKind::NON_TERMINAL)
 {
   THROWIF(players_.size() != 2, "exactly 2 players are required");
+  THROWIF(active_player_id_ >= players_.size(),
+          "invalid starting player index " + std::to_string(active_player_id_));
   THROWIF(size_.RowCount() != size_.ColumnCount(), "square board is required");
   UpdateValidActions();
 }

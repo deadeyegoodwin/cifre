@@ -26,7 +26,7 @@ class Board : public cifre::Board2D<float> {
 public:
   // Create a board based on 'settings'.
   Board(const std::shared_ptr<common::Logger>& logger, const cifre::BoardSize2D& size,
-        const std::vector<Player*>& players);
+        const std::vector<Player*>& players, size_t starting_player_id);
 
   // Copy constructor.
   Board(const Board& other) = default;

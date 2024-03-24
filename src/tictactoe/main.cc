@@ -61,6 +61,7 @@ struct Option {
     OPTION_QUIET,
     OPTION_VERBOSE,
     OPTION_LOG_FILE,
+    OPTION_REPORT_FILE,
     OPTION_TRAIN_DIR,
     OPTION_BOARD_SIZE,
     OPTION_GAME_COUNT,
@@ -68,6 +69,7 @@ struct Option {
     OPTION_PLAYER1,
     OPTION_PLAYER2,
     OPTION_PLAYER_NAME,
+    OPTION_PLAYER_STARTING,
     OPTION_PLAYER_MODEL,
     OPTION_PLAYER_ALPHAZERO_UPDATE_COUNT,
     OPTION_PLAYER_ALPHAZERO_CPUCT
@@ -101,7 +103,9 @@ const std::vector<Option> options_ {
   {Option::OPTION_VERBOSE, "verbose", Option::ArgNone,
    "Enable verbose output."},
   {Option::OPTION_LOG_FILE, "log-file", Option::ArgStr,
-   "File for output. 'stdout' and 'stderr' are allowed."},
+   "File for console output. 'stdout' and 'stderr' are allowed."},
+  {Option::OPTION_REPORT_FILE, "report-file", Option::ArgStr,
+   "File for report output. Default is no report output."},
 
   {Option::OPTION_TRAIN_DIR, "train-dir", Option::ArgStr,
    "Training data directory. If specified then the directory must exist "
@@ -122,6 +126,9 @@ const std::vector<Option> options_ {
   {Option::OPTION_PLAYER_NAME, "name", Option::ArgStr,
    "Name of player. --player1 or --player2 must be specified before this argument. "
    "The default name is automatically generated from the player kind."},
+  {Option::OPTION_PLAYER_STARTING, "starting", Option::ArgNone,
+   "Indicate that the player should start the game. May only be indicated for a "
+   "single player. --player1 or --player2 must be specified before this argument."},
   {Option::OPTION_PLAYER_MODEL, "model", Option::ArgStr,
    "Model associated with player. --player1 or --player2 must be specified "
    "before this argument."},
@@ -226,10 +233,10 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
 struct PlayerSettings {
   enum class Kind { UNKNOWN, HUMAN, RANDOM, ALPHAZERO };
 
-  PlayerSettings() : kind_(Kind::UNKNOWN) { }
+  PlayerSettings() = default;
   PlayerSettings(const std::string& kind_str, size_t id) :
     kind_(StringToKind(kind_str)), id_(id),
-    name_(kind_str + std::to_string(id)) { }
+    name_(kind_str + std::to_string(id)), starting_(false) { }
 
   Kind StringToKind(const std::string& str) const {
     if (str == "human") { return Kind::HUMAN; }
@@ -239,9 +246,10 @@ struct PlayerSettings {
     return Kind::UNKNOWN;
   }
 
-  Kind kind_;
+  Kind kind_ {Kind::UNKNOWN};
   size_t id_;
   std::string name_;
+  bool starting_ {false};
   std::string model_;
   cifre::AlphaZero::NextActionSettings alphazero_settings_;
 };
@@ -348,6 +356,7 @@ main(int argc, char **argv)
     bool quiet = false;
     bool verbose = false;
     std::string log_filename = "stdout";
+    std::string report_filename;
     std::string train_dir;
     cifre::BoardSize2D board_size = DEFAULT_BOARD_SIZE;
     size_t game_count = 1;
@@ -381,6 +390,9 @@ main(int argc, char **argv)
       case Option::OPTION_LOG_FILE:
         log_filename = optarg;
         break;
+      case Option::OPTION_REPORT_FILE:
+        report_filename = optarg;
+        break;
 
       case Option::OPTION_TRAIN_DIR:
         train_dir = optarg;
@@ -405,6 +417,11 @@ main(int argc, char **argv)
         CheckTrueMsg(active_splayer != nullptr,
                      "--player1 or --player2 must be specified before --name");
         active_splayer->name_ = optarg;
+        break;
+      case Option::OPTION_PLAYER_STARTING:
+        CheckTrueMsg(active_splayer != nullptr,
+                     "--player1 or --player2 must be specified before --starting");
+        active_splayer->starting_ = true;
         break;
       case Option::OPTION_PLAYER_MODEL:
         CheckTrueMsg(active_splayer != nullptr,
@@ -463,6 +480,12 @@ main(int argc, char **argv)
 
     CheckTrueMsg(game_count >= 1, "--game-count must be >= 1");
 
+    // At most one player may be marked as --starting. If none are
+    // specified then start with player1.
+    CheckTrueMsg(!splayer1.starting_ || !splayer2.starting_,
+                 "--starting may only be specified for a single player");
+    const size_t starting_player_idx = (splayer2.starting_) ? 1 : 0;
+
     // If training, then 'train_dir' must exist.
     const bool train = !train_dir.empty();
     CheckTrueMsg(!train || std::filesystem::is_directory(train_dir),
@@ -510,7 +533,7 @@ main(int argc, char **argv)
     size_t winner1_count = 0;
     size_t winner2_count = 0;
     for (size_t gidx = 0; gidx < game_count; gidx++) {
-      cifre::tictactoe::Board board(logger, board_size, players);
+      cifre::tictactoe::Board board(logger, board_size, players, starting_player_idx);
 
       if (game_count > 1) {
         logger->LogMed("====");
@@ -559,6 +582,21 @@ main(int argc, char **argv)
         logger->LogLow(p->Name());
         logger->LogLow(str, 4 /* indent */);
       }
+    }
+
+    // Write report, if requested.
+    if (!report_filename.empty()) {
+      std::ofstream fr(report_filename, std::ios::out);
+      fr
+         << "{\n"
+         << "  \"game-results\" : {\n"
+         << "    \"count\" : " << games_completed << ",\n"
+         << "    \"player1\" : " << winner1_count << ",\n"
+         << "    \"player2\" : " << winner2_count << ",\n"
+         << "    \"draw\" : " << draw_count << "\n"
+         << "  }\n"
+         << "}\n";
+      fr.close();
     }
 
     // If training, write alphazero training data.

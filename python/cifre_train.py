@@ -3,6 +3,7 @@
 # Copyright 2024, David Goodwin. All rights reserved.
 
 import argparse
+import json
 import os
 import pathlib
 import shutil
@@ -174,8 +175,6 @@ def main():
         for f in vars(FLAGS):
             LOG.log_verbose(f'\t{f}: {vars(FLAGS)[f]}')
 
-    #
-
     # FIXME
     if FLAGS.game == 'tictactoe':
         nnet_args = {
@@ -196,11 +195,13 @@ def main():
     else:
         raise ValueError(f"unexpected --game={FLAGS.game}, options are 'tictactoe', 'celcath'")
 
+    # The same nnet is used for all iterations.
     manager = CifreNNetManager(nnet, FLAGS.game_shape, FLAGS.repo_dir)
 
-    # FIXME - game specific args
-    min_actions_per_turn = 1
-    max_actions_per_turn = 3
+    # Keep track of the trained model that gives the best
+    # results. After each iteration, the just trained model competes
+    # against the current best to see if it is better.
+    best_model_name = None
 
     for iter in range(FLAGS.iteration_count):
         model_name = f'iter{iter}'
@@ -211,15 +212,13 @@ def main():
             shutil.rmtree(train_dir)
         os.makedirs(train_dir)
 
-        # Launch cifre executable to collect training data. Need to first
-        # play against a random opponent to avoid the case there initial
-        # alphazero model cannot complete any games.
+        # Launch cifre executable to collect training data.
         game_cmd = [
-            f'../build/install/bin/{FLAGS.game}',  # FIXME
+            f'../build/install/bin/{FLAGS.game}',
             '--verbose' if FLAGS.verbose else '',
             '--train-dir', train_dir,
             '--board-size', argify_shape(FLAGS.game_shape, 'x'),
-#            f'--min-actions-per-turn={min_actions_per_turn}',
+#            f'--min-actions-per-turn={min_actions_per_turn}', FIXME
 #            f'--max-actions-per-turn={max_actions_per_turn}',
 #            f'--max-turns-per-game={FLAGS.max_turns_per_game}',
             f'--game-count={FLAGS.game_count}' ]
@@ -228,6 +227,8 @@ def main():
                          f'--alphazero-update-count={FLAGS.alphazero_update_count}',
                          f'--alphazero-cpuct={FLAGS.alphazero_cpuct}' ])
 
+        # First play against a random opponent to avoid the case where
+        # initial alphazero model cannot complete any games.
         if iter == 0:
             game_cmd.extend(['--player2=random', '--name=random'])
         else:
@@ -235,11 +236,11 @@ def main():
                              f'--alphazero-update-count={FLAGS.alphazero_update_count}',
                              f'--alphazero-cpuct={FLAGS.alphazero_cpuct}' ])
 
-        LOG.log_verbose(f'\n==== Iteration {iter} ====')
+        LOG.log(f'\n==== Iteration {iter} ====')
         process = subprocess.Popen(game_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         while process.poll() is None:
-            print(process.stdout.readline().rstrip())
-        print(process.stdout.read())
+            print(process.stdout.readline(), end='')
+        print(process.stdout.read(), end='')
         process.stdout.close()
         cret = process.poll()
         LOG.fail_if(cret != 0, f'cifre return code is {cret}')
@@ -251,10 +252,54 @@ def main():
             'num_epochs': FLAGS.epoch_count,
             'batch_size': FLAGS.batch_size }
         manager.train(train_args, dataset)
-#    manager.save_checkpoint('/tmp/cpts', 'cpt.pth.tar', create_folder=True, overwrite=True)
-#    manager.load_checkpoint('/tmp/cpts', 'cpt.pth.tar')
-#    manager.train(train_args, dataset)
+        manager.save_checkpoint(train_dir, 'cpt.pth.tar', create_folder=False, overwrite=True)
 
+        # Compare 'model_name' against the best model.
+        if best_model_name is None:
+            best_model_name = model_name
+        else:
+            LOG.log(f'==== Compare {model_name} to {best_model_name} ====')
+            game_count = winner1_count = winner2_count = draw_count = 0
+
+            # Give each player a chance to go first...
+            cmp_game_count = 10  # FIXME
+            for starting_idx in [0, 1]:
+                report_file = train_dir / f'cmp{starting_idx}.json'
+                cmp_cmd = [
+                    f'../build/install/bin/{FLAGS.game}',
+                    '--verbose' if FLAGS.verbose else '--quiet',
+                    '--board-size', argify_shape(FLAGS.game_shape, 'x'),
+                    '--report-file', report_file,
+                    f'--game-count={cmp_game_count}',
+                    '--player1=alphazero', f'--name={model_name}', '--model', model_name,
+                    '--starting' if starting_idx == 0 else '',
+                    f'--alphazero-update-count={FLAGS.alphazero_update_count}',
+                    '--player2=alphazero', f'--name={best_model_name}', '--model', best_model_name,
+                    '--starting' if starting_idx == 1 else '',
+                    f'--alphazero-update-count={FLAGS.alphazero_update_count}']
+
+                process = subprocess.Popen(cmp_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                while process.poll() is None:
+                    print(process.stdout.readline(), end='')
+                print(process.stdout.read(), end='')
+                process.stdout.close()
+                cret = process.poll()
+                LOG.fail_if(cret != 0, f'cifre return code is {cret}')
+
+                # Read and aggregate comparison results
+                with report_file.open('r', encoding ='utf-8') as f:
+                    j = json.load(f)
+                    game_count += j['game-results']['count']
+                    winner1_count += j['game-results']['player1']
+                    winner2_count += j['game-results']['player2']
+                    draw_count += j['game-results']['draw']
+
+            LOG.log(f'games: {game_count}, {model_name} {winner1_count}, '
+                    f'{best_model_name} {winner2_count}, draw {draw_count}')
+            if winner1_count > winner2_count:
+                LOG.log(f'best model now {model_name}')
+                best_model_name = model_name
+    LOG.log(f'==== Training complete, best model {best_model_name} ====')
 
 if __name__ == '__main__':
     main()

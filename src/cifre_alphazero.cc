@@ -102,9 +102,9 @@ AlphaZero::WriteTraining(const std::string& dir) const
   LOGGER_LOGHIGH(*logger_, "writing training pi batch to " + ppi.string());
   LOGGER_LOGHIGH(*logger_, "writing training v batch to " + pv.string());
 
-  std::ofstream fin(pin, std::ios::out | std::ios::binary | std::ios::app);
-  std::ofstream fpi(ppi, std::ios::out | std::ios::binary | std::ios::app);
-  std::ofstream fv(pv, std::ios::out | std::ios::binary | std::ios::app);
+  std::ofstream fin(pin, std::ios::out | std::ios::binary);
+  std::ofstream fpi(ppi, std::ios::out | std::ios::binary);
+  std::ofstream fv(pv, std::ios::out | std::ios::binary);
 
   // For now we rely on the unordered nature of train_nodes_
   // unordered_map to "randomize" the order that the nodes are
