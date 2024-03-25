@@ -318,16 +318,16 @@ Play(const std::shared_ptr<common::Logger>& logger,
     terminal_status = board->TerminalStatus();
   }
 
-  // Let all players know game is completed.
-  for (Player* p : players) {
-    p->GameEnd(board, terminal_status);
-  }
-
   // Game was quit.
   if (game_quit) {
     LOGGER_LOGMED(*logger, "game quit: no winner");
     LOGGER_LOGMED(*logger, board->ToString());
     return PlayResult::QUIT;
+  }
+
+  // Let all players know game is completed.
+  for (Player* p : players) {
+    p->GameEnd(board, terminal_status);
   }
 
   // Game completed as a draw.
