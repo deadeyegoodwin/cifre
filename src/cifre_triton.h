@@ -36,22 +36,13 @@ struct TritonModelMetadata {
 //
 class TritonInferResult {
 public:
-  TritonInferResult(const TritonModelMetadata& metadata, triton::client::InferResult* r);
-  ~TritonInferResult();
+  TritonInferResult(const TritonModelMetadata& metadata, const triton::client::InferResult* result);
 
   // Move/copy constructors
   TritonInferResult(TritonInferResult& other) = delete;
   TritonInferResult(const TritonInferResult& other) = delete;
   TritonInferResult(const TritonInferResult&& other) = delete;
-  TritonInferResult(TritonInferResult&& other) :
-    result_(other.result_), input_shape_(std::move(other.input_shape_)),
-    pi_shape_(std::move(other.pi_shape_)), v_shape_(std::move(other.v_shape_)),
-    input_byte_size_(other.input_byte_size_), pi_byte_size_(other.pi_byte_size_),
-    v_byte_size_(other.v_byte_size_), pi_(std::move(other.pi_)), v_(other.v_) {
-    other.result_ = nullptr;
-    other.input_byte_size_ = other.pi_byte_size_ = other.v_byte_size_ = 0;
-    other.v_ = nullptr;
-  }
+  TritonInferResult(TritonInferResult&& other) = default;
 
   // Return the shape input and output tensors.
   const std::vector<int64_t>& InputShape() const { return input_shape_; }
@@ -70,12 +61,12 @@ public:
 
   // Return output tensor data.
   const std::vector<float>& Pi() const { return pi_; }
-  const float* V() const { return v_; }
+  float V() const { return v_; }
 
 private:
-  void ValidateResult(const std::string& name, const std::vector<int64_t>& shape) const;
-
-  triton::client::InferResult* result_;
+  void ValidateResult(
+    const triton::client::InferResult* result, const std::string& name,
+    const std::vector<int64_t>& shape) const;
 
   std::vector<int64_t> input_shape_;
   std::vector<int64_t> pi_shape_;
@@ -87,7 +78,7 @@ private:
 
   // PI from the model is LogSoftmax so we store in pi_ exp(PI).
   std::vector<float> pi_;
-  float* v_;
+  float v_;
 };
 
 //

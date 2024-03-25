@@ -383,7 +383,7 @@ AlphaZero::Node::Node(std::unique_ptr<const State> state, TritonInferResult&& in
     break;
   case State::TerminalStatusKind::NON_TERMINAL: {
     assert(result_.VEntryCount() == 1);
-    value_ = result_.V()[0];
+    value_ = result_.V();
   } break;
 }
 }

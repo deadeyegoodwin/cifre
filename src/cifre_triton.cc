@@ -30,21 +30,21 @@ CheckTritonError(const triton::client::Error& err, const std::string& msg)
 // TritonInferResult
 //
 TritonInferResult::TritonInferResult(
-  const TritonModelMetadata& metadata, triton::client::InferResult* r) :
-  result_(r), input_shape_(metadata.input_shape_),
-  pi_shape_(metadata.output_pi_shape_), v_shape_(metadata.output_v_shape_),
-  input_byte_size_(metadata.required_input_byte_size_)
+  const TritonModelMetadata& metadata, const triton::client::InferResult* result) :
+  input_shape_(metadata.input_shape_), pi_shape_(metadata.output_pi_shape_),
+  v_shape_(metadata.output_v_shape_), input_byte_size_(metadata.required_input_byte_size_)
 {
-  ValidateResult(metadata.output_v_name_, v_shape_);
-  ValidateResult(metadata.output_pi_name_, pi_shape_);
+  ValidateResult(result, metadata.output_v_name_, v_shape_);
+  ValidateResult(result, metadata.output_pi_name_, pi_shape_);
 
   float* fpi;
-  CheckTritonError(result_->RawData(metadata.output_pi_name_, (const uint8_t**)&fpi, &pi_byte_size_),
+  CheckTritonError(result->RawData(metadata.output_pi_name_, (const uint8_t**)&fpi, &pi_byte_size_),
                    "getting result data for '" + metadata.output_pi_name_ + "'");
   THROWIF(pi_byte_size_ != metadata.required_output_pi_byte_size_,
           "size mismatch for result '" + metadata.output_pi_name_ + "'");
 
-  CheckTritonError(result_->RawData(metadata.output_v_name_, (const uint8_t**)&v_, &v_byte_size_),
+  float* fv;
+  CheckTritonError(result->RawData(metadata.output_v_name_, (const uint8_t**)&fv, &v_byte_size_),
                    "getting result data for '" + metadata.output_v_name_ + "'");
   THROWIF(v_byte_size_ != metadata.required_output_v_byte_size_,
           "size mismatch for result '" + metadata.output_v_name_ + "'");
@@ -54,25 +54,24 @@ TritonInferResult::TritonInferResult(
     pi_.push_back(std::exp(fpi[i]));
   }
 
-  // FIXME now that we calculate pi_, do we need to keep result_?
-  // Instead why not just save 'v' and delete result_.
+  THROWIF(v_byte_size_ != sizeof(v_),
+          "size mismatch for result '" + metadata.output_v_name_ +
+          "', expecting " + std::to_string(sizeof(v_)));
+  v_ = *fv;
 }
 
 void
-TritonInferResult::ValidateResult(const std::string& name, const std::vector<int64_t>& shape) const
+TritonInferResult::ValidateResult(
+  const triton::client::InferResult* result, const std::string& name,
+  const std::vector<int64_t>& shape) const
 {
   std::string rdatatype;
-  CheckTritonError(result_->Datatype(name, &rdatatype), "validating result datatype for '" + name + "'");
+  CheckTritonError(result->Datatype(name, &rdatatype), "validating result datatype for '" + name + "'");
   THROWIF(rdatatype != "FP32", "datatype mismatch for result '" + name + "'");
 
   std::vector<int64_t> rshape;
-  CheckTritonError(result_->Shape(name, &rshape), "validating result shape for '" + name + "'");
+  CheckTritonError(result->Shape(name, &rshape), "validating result shape for '" + name + "'");
   THROWIF(shape != rshape, "shape mismatch for result '" + name + "'");
-}
-
-TritonInferResult::~TritonInferResult()
-{
-  delete result_;
 }
 
 //
@@ -196,7 +195,9 @@ Triton::RunModel(
   auto err = client_->Infer(&result, options, inputs, outputs);
   CheckTritonError(err, "failed to run model '" + model + "'");
 
-  return TritonInferResult(metadata, result);
+  TritonInferResult ires = TritonInferResult(metadata, result);
+  delete result;
+  return ires;
 }
 
 triton::client::Error
