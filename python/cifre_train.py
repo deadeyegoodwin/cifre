@@ -148,7 +148,7 @@ def main():
         required=False,
         help=('Number of training epochs to run. Default is 10.'))
     parser.add_argument(
-        '--batch_size',
+        '--batch-size',
         type=parse_positive_int,
         default=8,
         required=False,
