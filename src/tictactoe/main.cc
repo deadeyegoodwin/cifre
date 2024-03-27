@@ -392,6 +392,8 @@ main(int argc, char **argv)
     PlayerSettings splayer1("human", 1);
     PlayerSettings splayer2("human", 2);
     PlayerSettings* active_splayer = nullptr;
+    bool player1_specified = false;
+    bool player2_specified = false;
 
     std::vector<struct option> long_options;
     for (const auto& o : options_) {
@@ -439,11 +441,13 @@ main(int argc, char **argv)
         break;
 
       case Option::OPTION_PLAYER1:
+        player1_specified = true;
         splayer1.kind_ = PlayerSettings::StringToKind(optarg);
         splayer1.name_ = splayer1.DefaultName();
         active_splayer = &splayer1;
         break;
       case Option::OPTION_PLAYER2:
+        player2_specified = true;
         splayer2.kind_ = PlayerSettings::StringToKind(optarg);
         splayer2.name_ = splayer2.DefaultName();
         active_splayer = &splayer2;
@@ -486,8 +490,8 @@ main(int argc, char **argv)
       log_level = (verbose) ? common::Logger::Level::HIGH : common::Logger::Level::LOW;
     }
 
-    if ((splayer1.kind_ == PlayerSettings::Kind::HUMAN) ||
-        (splayer2.kind_ == PlayerSettings::Kind::HUMAN)) {
+    if (!train && ((splayer1.kind_ == PlayerSettings::Kind::HUMAN) ||
+                   (splayer2.kind_ == PlayerSettings::Kind::HUMAN))) {
       CheckTrueMsg(log_level != common::Logger::Level::OFF,
                    "--quiet cannot be specified if there is a human player");
       if (!verbose) {
@@ -508,11 +512,6 @@ main(int argc, char **argv)
       logger->Log(cifre::tictactoe::VersionToString(true /* show_dependent_versions */));
     }
 
-    CheckTrueMsg(splayer1.kind_ != PlayerSettings::Kind::UNKNOWN,
-                 "--player1 must be specified");
-    CheckTrueMsg(splayer2.kind_ != PlayerSettings::Kind::UNKNOWN,
-                 "--player2 must be specified");
-
     CheckTrueMsg(game_count >= 1, "--game-count must be >= 1");
 
     // At most one player may be marked as --starting. If none are
@@ -521,14 +520,18 @@ main(int argc, char **argv)
                  "--starting may only be specified for a single player");
     const size_t starting_player_idx = (splayer2.starting_) ? 1 : 0;
 
-    // If training, then 'train_dir' must exist.
+    // If training, then 'train_dir' must exist. With training
+    // --player1 must be specified as alphazero.
     CheckTrueMsg(!train || std::filesystem::is_directory(train_dir),
                  "--train-dir must be an existing directory");
+    CheckTrueMsg(!train || (player1_specified &&
+                            (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO)),
+                 "--train requires --player1=alphazero");
 
     // Create shared triton and alphazero object(s) if needed. If
-    // training and both players are using the same alphazero
-    // settings, then share a single alphazero object between them to
-    // get self-play.
+    // training and only player1 was specified then , then share a
+    // single alphazero object between player1 and player2 to get
+    // self-play.
     std::shared_ptr<cifre::Triton> triton;
     std::shared_ptr<cifre::AlphaZero> alphazero1, alphazero2;
     if ((splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) ||
@@ -541,18 +544,21 @@ main(int argc, char **argv)
         alphazero1 = std::make_shared<cifre::AlphaZero>(
           logger, triton, splayer1.alphazero_settings_, splayer1.model_);
       }
-      if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
-        CheckTrueMsg(!splayer2.model_.empty(), "--player2=alphazero requires --model");
 
-        // If training and same alphazero as player1, then use the
-        // same alphazero object (this results in self-play).
-        if (train && (splayer1.alphazero_settings_ == splayer2.alphazero_settings_)) {
-          alphazero2 = alphazero1;
-        }
-        else {
-          alphazero2 = std::make_shared<cifre::AlphaZero>(
-            logger, triton, splayer2.alphazero_settings_, splayer2.model_);
-        }
+      // If training and --player2 is not specified, then self-play
+      // with the same alphazero object as player1.
+      if (train && !player2_specified) {
+        splayer2 = splayer1;
+        splayer2.id_ = 2;
+        splayer1.name_ = "self1";
+        splayer2.name_ = "self2";
+        alphazero2 = alphazero1;
+      }
+      // ... otherwise, player2 is initialized normally.
+      else if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
+        CheckTrueMsg(!splayer2.model_.empty(), "--player2=alphazero requires --model");
+        alphazero2 = std::make_shared<cifre::AlphaZero>(
+          logger, triton, splayer2.alphazero_settings_, splayer2.model_);
       }
     }
 

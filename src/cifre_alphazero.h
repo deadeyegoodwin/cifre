@@ -124,17 +124,6 @@ public:
   // of alphazero.
   //
   struct Settings {
-    // Equality operator
-    bool operator==(const Settings& other) const {
-      return((training_ == other.training_) && (next_action_kind_ == other.next_action_kind_) &&
-             (alphazero_dirichlet_alpha_ == other.alphazero_dirichlet_alpha_) &&
-             (alphazero_dirichlet_sample_count_ == other.alphazero_dirichlet_sample_count_) &&
-             (alphazero_dirichlet_ratio_ == other.alphazero_dirichlet_ratio_) &&
-             (alphazero_update_count_ == other.alphazero_update_count_) &&
-             (alphazero_max_depth_ == other.alphazero_max_depth_) &&
-             (alphazero_cpuct_ == other.alphazero_cpuct_));
-    }
-
     // True if training data should be collected.
     bool training_ {false};
 
