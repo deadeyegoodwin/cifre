@@ -120,12 +120,12 @@ private:
 
 public:
   //
-  // Settings used by NextActionId() to control the alphazero
-  // search. Default settings are for non-training.
+  // Settings for alphazero. Default settings are for non-training use
+  // of alphazero.
   //
-  struct NextActionSettings {
+  struct Settings {
     // Equality operator
-    bool operator==(const NextActionSettings& other) const {
+    bool operator==(const Settings& other) const {
       return((training_ == other.training_) && (next_action_kind_ == other.next_action_kind_) &&
              (alphazero_dirichlet_alpha_ == other.alphazero_dirichlet_alpha_) &&
              (alphazero_dirichlet_sample_count_ == other.alphazero_dirichlet_sample_count_) &&
@@ -155,7 +155,7 @@ public:
     // Number of Dirichlet samples that will be generated (if
     // 'alphazero_dirichlet_alpha_' is non-zero). These values are
     // used round-robin to modify the pi values of root nodes.
-    size_t alphazero_dirichlet_sample_count_ {256};
+    size_t alphazero_dirichlet_sample_count_ {1111};
 
     // The ratio used to combine the Dirichlet values to the pi
     // probabilities. If d == dirichlet value and x ==
@@ -181,7 +181,7 @@ public:
 public:
   // Create alphazero object using 'model-name' for predictions.
   AlphaZero(const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
-            const std::string& model_name, const NextActionSettings& default_next_action_settings);
+            const Settings& settings, const std::string& model_name);
 
   // Called to notify that a new game is starting.
   void GameStart();
@@ -203,12 +203,8 @@ public:
   void WriteTraining(const std::string& dir) const;
 
   // Return the next predicted action ID, given current 'state'. If is
-  // an error if 'state' represents a terminal state. First version
-  // uses the default NextActionSettings values defined when this
-  // AlphaZero object is constructed.
-  uint64_t NextActionId(const State& state) {
-    return NextActionId(state, default_next_action_settings_); }
-  uint64_t NextActionId(const State& state, const NextActionSettings& settings);
+  // an error if 'state' represents a terminal state.
+  uint64_t NextActionId(const State& state);
 
   // Return a string representation of the statistics collected for
   // this alphazero object.
@@ -223,8 +219,8 @@ private:
 
   // Search from 'node' and update the tree. Return the 'V' value for
   // the leaf node visited in the search.
-  float UpdateTree(Node* node, const float cpuct, const size_t depth_remaining,
-                   const std::vector<double>* dirichlet);
+  float UpdateTree(
+    Node* node, const size_t depth_remaining, const std::vector<double>* dirichlet);
 
   // Generate Dirichlet distribution.
   void GenerateDirichletSamples(
@@ -236,10 +232,8 @@ private:
 
   std::shared_ptr<common::Logger> logger_;
   std::shared_ptr<Triton> triton_;
+  const Settings settings_;
   const std::string model_name_;
-
-  // Default settings for NextActionId().
-  const NextActionSettings default_next_action_settings_;
 
   // Random needed for NextActionKind::WEIGHTED_RANDOM.
   common::Random rnd_;

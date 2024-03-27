@@ -236,12 +236,10 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
 struct PlayerSettings {
   enum class Kind { UNKNOWN, HUMAN, RANDOM, ALPHAZERO };
 
-  PlayerSettings() = default;
   PlayerSettings(const std::string& kind_str, size_t id) :
-    kind_(StringToKind(kind_str)), id_(id),
-    name_(kind_str + std::to_string(id)), starting_(false) { }
+    kind_(StringToKind(kind_str)), id_(id), name_(DefaultName()) { }
 
-  Kind StringToKind(const std::string& str) const {
+  static Kind StringToKind(const std::string& str) {
     if (str == "human") { return Kind::HUMAN; }
     if (str == "random") { return Kind::RANDOM; }
     if (str == "alphazero") { return Kind::ALPHAZERO; }
@@ -249,12 +247,27 @@ struct PlayerSettings {
     return Kind::UNKNOWN;
   }
 
+  static std::string KindToString(const Kind kind) {
+    switch (kind) {
+    case Kind::UNKNOWN: return "<unknown>";
+    case Kind::HUMAN: return "human";
+    case Kind::RANDOM: return "random";
+    case Kind::ALPHAZERO: return "alphazero";
+    }
+    Fail("unknown player kind");
+    return "<none>";
+  }
+
+  std::string DefaultName() const {
+    return PlayerSettings::KindToString(kind_) + std::to_string(id_);
+  }
+
   Kind kind_ {Kind::UNKNOWN};
   size_t id_;
   std::string name_;
   bool starting_ {false};
   std::string model_;
-  cifre::AlphaZero::NextActionSettings alphazero_settings_;
+  cifre::AlphaZero::Settings alphazero_settings_;
 };
 
 cifre::tictactoe::Player*
@@ -281,11 +294,11 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger, const PlayerSettings
 }
 
 void
-InitializeAlphaZeroForTraining(cifre::AlphaZero::NextActionSettings* settings)
+InitializeAlphaZeroForTraining(cifre::AlphaZero::Settings* settings)
 {
   settings->training_ = true;
   settings->next_action_kind_ =
-    cifre::AlphaZero::NextActionSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
+    cifre::AlphaZero::Settings::NextActionKind::RANDOM_VISIT_WEIGHTED;
   settings->alphazero_dirichlet_alpha_ = std::min(1.0, 10.0 / 9.0 /* FIXME need total-action-id-count from game */);
   settings->alphazero_max_depth_ = 20; // FIXME, should be adjusted after each turn
   settings->alphazero_cpuct_ = 4.0; // FIXME, default in header needs to be 0.0 for non-training?
@@ -411,6 +424,8 @@ main(int argc, char **argv)
 
       case Option::OPTION_TRAIN:
         train = true;
+        InitializeAlphaZeroForTraining(&splayer1.alphazero_settings_);
+        InitializeAlphaZeroForTraining(&splayer2.alphazero_settings_);
         break;
       case Option::OPTION_TRAIN_DIR:
         train_dir = optarg;
@@ -424,11 +439,13 @@ main(int argc, char **argv)
         break;
 
       case Option::OPTION_PLAYER1:
-        splayer1 = PlayerSettings(optarg, 1);
+        splayer1.kind_ = PlayerSettings::StringToKind(optarg);
+        splayer1.name_ = splayer1.DefaultName();
         active_splayer = &splayer1;
         break;
       case Option::OPTION_PLAYER2:
-        splayer2 = PlayerSettings(optarg, 2);
+        splayer2.kind_ = PlayerSettings::StringToKind(optarg);
+        splayer2.name_ = splayer2.DefaultName();
         active_splayer = &splayer2;
         break;
       case Option::OPTION_PLAYER_NAME:
@@ -521,17 +538,11 @@ main(int argc, char **argv)
 
       if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer1.model_.empty(), "--player1=alphazero requires --model");
-        if (train) {
-          InitializeAlphaZeroForTraining(&splayer1.alphazero_settings_);
-        }
         alphazero1 = std::make_shared<cifre::AlphaZero>(
-          logger, triton, splayer1.model_, splayer1.alphazero_settings_);
+          logger, triton, splayer1.alphazero_settings_, splayer1.model_);
       }
       if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer2.model_.empty(), "--player2=alphazero requires --model");
-        if (train) {
-          InitializeAlphaZeroForTraining(&splayer2.alphazero_settings_);
-        }
 
         // If training and same alphazero as player1, then use the
         // same alphazero object (this results in self-play).
@@ -540,7 +551,7 @@ main(int argc, char **argv)
         }
         else {
           alphazero2 = std::make_shared<cifre::AlphaZero>(
-            logger, triton, splayer2.model_, splayer2.alphazero_settings_);
+            logger, triton, splayer2.alphazero_settings_, splayer2.model_);
         }
       }
     }
