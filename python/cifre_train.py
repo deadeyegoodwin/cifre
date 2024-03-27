@@ -216,7 +216,7 @@ def main():
         game_cmd = [
             f'../build/install/bin/{FLAGS.game}',
             '--verbose' if FLAGS.verbose else '',
-            '--train-dir', train_dir,
+            '--train', '--train-dir', train_dir,
             '--board-size', argify_shape(FLAGS.game_shape, 'x'),
 #            f'--min-actions-per-turn={min_actions_per_turn}', FIXME
 #            f'--max-actions-per-turn={max_actions_per_turn}',
@@ -261,6 +261,9 @@ def main():
         else:
             LOG.log(f'==== Compare {model_name} to {best_model_name} ====')
             game_count = winner1_count = winner2_count = draw_count = 0
+
+            # FIXME should be always pick the new model no matter? Or
+            # perhaps have a high bar not to pick the new model?
 
             # Give each player a chance to go first...
             cmp_game_count = 10  # FIXME

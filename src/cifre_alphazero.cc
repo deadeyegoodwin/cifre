@@ -5,6 +5,8 @@
 #include <limits>
 #include <sstream>
 
+#include "gsl/gsl_rng.h"
+#include "gsl/gsl_randist.h"
 #include "cifre_alphazero.h"
 #include "common_error.h"
 
@@ -30,6 +32,15 @@ AlphaZero::AlphaZero(
           std::string("triton model '" + model_name_ + "' failed to load"));
   THROWIF(!triton_->IsModelReady(model_name_),
           std::string("triton model '" + model_name_ + "' is not ready"));
+
+  // Make sure Dirichlet settings are valid.
+  THROWIF(default_next_action_settings_.alphazero_dirichlet_alpha_ < 0.0,
+          "dirichlet alpha value must be >= 0.0");
+  THROWIF(default_next_action_settings_.alphazero_dirichlet_sample_count_ <= 0,
+          "dirichlet sample count must be > 0");
+  THROWIF((default_next_action_settings_.alphazero_dirichlet_ratio_ <= 0.0) ||
+          (default_next_action_settings_.alphazero_dirichlet_ratio_ >= 1.0),
+          "dirichlet ratio must be in exclusive range (0.0, 1.0)");
 }
 
 void
@@ -179,6 +190,23 @@ AlphaZero::NextActionId(const State& state, const NextActionSettings& settings)
   THROWIF(state.TerminalStatus() != State::TerminalStatusKind::NON_TERMINAL,
           "alpha-zero cannot find next action for terminal state");
 
+  // If Dirichlet distribution is being used but has not yet been
+  // generated, then do so now using GSL (GNU Scientific
+  // Library). This is done lazily because a State object is needed to
+  // get the total number of action IDs.
+  const std::vector<double>* dirichlet = nullptr;
+  if (settings.alphazero_dirichlet_alpha_ > 0.0) {
+    if (dirichlet_samples_.empty()) {
+      GenerateDirichletSamples(
+        settings.alphazero_dirichlet_alpha_, state.TotalActionIdCount(),
+        settings.alphazero_dirichlet_sample_count_);
+    }
+
+    assert(dirichlet_samples_.size() == settings.alphazero_dirichlet_sample_count_);
+    dirichlet = &dirichlet_samples_[dirichlet_samples_idx_];
+    dirichlet_samples_idx_ = (dirichlet_samples_idx_ + 1) % dirichlet_samples_.size();
+  }
+
   // Find, creating if necessary, tree node that represents 'state'.
   auto node = FindOrCreateNode(std::unique_ptr<const State>(state.Clone()));
   assert(node != nullptr);
@@ -193,7 +221,7 @@ AlphaZero::NextActionId(const State& state, const NextActionSettings& settings)
       *logger_,
       "update " + std::to_string(idx+1) + '/' + std::to_string(settings.alphazero_update_count_) + ':',
       0 /* indent */, false /* endline */);
-    UpdateTree(node, settings.alphazero_cpuct_, settings.alphazero_max_depth_);
+    UpdateTree(node, settings.alphazero_cpuct_, settings.alphazero_max_depth_, dirichlet);
     LOGGER_LOGHIGH_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
   }
 
@@ -205,7 +233,7 @@ AlphaZero::NextActionId(const State& state, const NextActionSettings& settings)
   // terminal state, there must be at least one action with a non-zero
   // visit count.
   uint64_t action_id;
-  switch (settings.kind_) {
+  switch (settings.next_action_kind_) {
   case NextActionSettings::NextActionKind::MAX_VISITED:
     action_id = node->MaxVisitedValidChild();
     break;
@@ -266,7 +294,8 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
 
 float
 AlphaZero::UpdateTree(
-  AlphaZero::Node* node, const float cpuct, const size_t depth_remaining)
+  AlphaZero::Node* node, const float cpuct, const size_t depth_remaining,
+  const std::vector<double>* dirichlet)
 {
   // If 'node' is a terminal node then show that it was visited and
   // return its value.
@@ -298,7 +327,8 @@ AlphaZero::UpdateTree(
 
   // Move down tree following best actions until perform an action
   // that doesn't yet have a child node.
-  std::optional<uint64_t> best_action_id = node->MaxQU(cpuct);
+  std::optional<uint64_t> best_action_id =
+    node->MaxQU(cpuct, dirichlet, default_next_action_settings_.alphazero_dirichlet_ratio_);
   THROWIF(!best_action_id, "alpha-zero unable to find action ID with max QU");
   LOGGER_LOGHIGH_IE(
     *logger_,
@@ -328,7 +358,7 @@ AlphaZero::UpdateTree(
   node->IncrementVisitCount();
   node->IncrementChildVisitCount(*best_action_id);
 
-  float v = UpdateTree(next, cpuct, depth_remaining - 1);
+  float v = UpdateTree(next, cpuct, depth_remaining - 1, nullptr /* dirichlet */);
 
   // If 'next' has a different active player than 'node', then need to
   // invert 'v'.
@@ -342,6 +372,26 @@ AlphaZero::UpdateTree(
   node->SetValue(((node->Value() * (node->VisitCount() - 1)) + v) / node->VisitCount());
 
   return v;
+}
+
+void
+AlphaZero::GenerateDirichletSamples(
+  const float alpha, const size_t sample_size, const size_t sample_count)
+{
+  const std::vector<double> alphas(sample_size, alpha);
+
+  gsl_rng *rng = gsl_rng_alloc (gsl_rng_mt19937);
+  gsl_rng_set(rng, (unsigned)time(NULL));
+
+  dirichlet_samples_idx_ = 0;
+
+  for (size_t idx = 0; idx < sample_count; ++idx) {
+    std::vector<double> thetas(sample_size);
+    gsl_ran_dirichlet(rng, sample_size, alphas.data(), thetas.data());
+    dirichlet_samples_.emplace_back(std::move(thetas));
+  }
+
+  gsl_rng_free(rng);
 }
 
 std::string
@@ -410,7 +460,9 @@ AlphaZero::Node::ChildProbability() const
 }
 
 std::optional<uint64_t>
-AlphaZero::Node::MaxQU(const float cpuct, std::vector<float>* qus) const
+AlphaZero::Node::MaxQU(
+  const float cpuct, const std::vector<double>* dirichlet,
+  const float dirichlet_ratio, std::vector<float>* qus) const
 {
   if (qus != nullptr) {
     qus->clear();
@@ -423,17 +475,23 @@ AlphaZero::Node::MaxQU(const float cpuct, std::vector<float>* qus) const
 
   for (uint64_t aid : state_->ValidActionIds()) {
     float qu;
+
+    float dpi = pi[aid];
+    if (dirichlet != nullptr) {
+      dpi = (dpi * (1.0 - dirichlet_ratio)) + (dirichlet->at(aid) * dirichlet_ratio);
+    }
+
     Node* child = children_[aid];
     if (child == nullptr) {
       assert(children_visit_counts_[aid] == 0);
-      qu = std::sqrt(visit_count_) * pi[aid] * cpuct;
+      qu = std::sqrt(visit_count_) * dpi * cpuct;
     }
     else {
       float v = child->value_;
       if (child->state_->ActivePlayerId() != state_->ActivePlayerId()) {
         v = -v;
       }
-      qu = (v + (std::sqrt(visit_count_) * pi[aid] * cpuct / children_visit_counts_[aid]));
+      qu = (v + (std::sqrt(visit_count_) * dpi * cpuct / children_visit_counts_[aid]));
     }
 
     if (qu > max_qu) {
@@ -547,7 +605,8 @@ AlphaZero::Node::ToString(float cpuct, common::Logger::Level filter_level) const
   sstr << "]\n";
 
   std::vector<float> qus;
-  std::optional<uint64_t> best_action_id = MaxQU(cpuct, &qus);
+  std::optional<uint64_t> best_action_id =
+    MaxQU(cpuct, nullptr /* dirichlet */, 0.0 /* dirichlet_ratio */, &qus);
   sstr << "  cpuct: " << cpuct
        << ", best action: " << ((best_action_id) ? std::to_string(*best_action_id) : "<none>")
        << ", QUs: [";

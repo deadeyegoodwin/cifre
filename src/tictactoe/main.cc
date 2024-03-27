@@ -62,7 +62,10 @@ struct Option {
     OPTION_VERBOSE,
     OPTION_LOG_FILE,
     OPTION_REPORT_FILE,
+
+    OPTION_TRAIN,
     OPTION_TRAIN_DIR,
+
     OPTION_BOARD_SIZE,
     OPTION_GAME_COUNT,
 
@@ -107,15 +110,15 @@ const std::vector<Option> options_ {
   {Option::OPTION_REPORT_FILE, "report-file", Option::ArgStr,
    "File for report output. Default is no report output."},
 
+  {Option::OPTION_TRAIN, "train", Option::ArgNone,
+   "Use self-play to generate training data. --train-dir must be specified."},
   {Option::OPTION_TRAIN_DIR, "train-dir", Option::ArgStr,
-   "Training data directory. If specified then the directory must exist "
-   "and training data will be output to this directory."},
+   "Training data directory. Has no effect if --train is not also specified."},
 
   {Option::OPTION_BOARD_SIZE, "board-size", Option::ArgInt,
    "Size of the game board. A square board with N rows and N columns is specified as '--board-size=N'. "
    "A rectangular board with N rows and M columns is specified as '--board-size=NxM'. "
    "Default is '--board-size=" + DEFAULT_BOARD_SIZE.ToString() + "'."},
-
   {Option::OPTION_GAME_COUNT, "game-count", Option::ArgInt,
    "Number of games to play. Default is 1."},
 
@@ -277,6 +280,17 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger, const PlayerSettings
   Fail("cannot create player '" + player_settings.name_ + "'");
 }
 
+void
+InitializeAlphaZeroForTraining(cifre::AlphaZero::NextActionSettings* settings)
+{
+  settings->training_ = true;
+  settings->next_action_kind_ =
+    cifre::AlphaZero::NextActionSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
+  settings->alphazero_dirichlet_alpha_ = std::min(1.0, 10.0 / 9.0 /* FIXME need total-action-id-count from game */);
+  settings->alphazero_max_depth_ = 20; // FIXME, should be adjusted after each turn
+  settings->alphazero_cpuct_ = 4.0; // FIXME, default in header needs to be 0.0 for non-training?
+}
+
 }  // namespace
 
 namespace cifre { namespace tictactoe {
@@ -357,6 +371,7 @@ main(int argc, char **argv)
     bool verbose = false;
     std::string log_filename = "stdout";
     std::string report_filename;
+    bool train = false;
     std::string train_dir;
     cifre::BoardSize2D board_size = DEFAULT_BOARD_SIZE;
     size_t game_count = 1;
@@ -394,6 +409,9 @@ main(int argc, char **argv)
         report_filename = optarg;
         break;
 
+      case Option::OPTION_TRAIN:
+        train = true;
+        break;
       case Option::OPTION_TRAIN_DIR:
         train_dir = optarg;
         break;
@@ -487,7 +505,6 @@ main(int argc, char **argv)
     const size_t starting_player_idx = (splayer2.starting_) ? 1 : 0;
 
     // If training, then 'train_dir' must exist.
-    const bool train = !train_dir.empty();
     CheckTrueMsg(!train || std::filesystem::is_directory(train_dir),
                  "--train-dir must be an existing directory");
 
@@ -504,29 +521,20 @@ main(int argc, char **argv)
 
       if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer1.model_.empty(), "--player1=alphazero requires --model");
-
-        // Set player1 alphazero settings...
-        splayer1.alphazero_settings_.training_ = train;
-        splayer1.alphazero_settings_.kind_ = (train) ?
-          cifre::AlphaZero::NextActionSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
-          cifre::AlphaZero::NextActionSettings::NextActionKind::MAX_VISITED;
-        splayer1.alphazero_settings_.alphazero_max_depth_ = 20; // FIXME, should be adjusted after each turn
-
+        if (train) {
+          InitializeAlphaZeroForTraining(&splayer1.alphazero_settings_);
+        }
         alphazero1 = std::make_shared<cifre::AlphaZero>(
           logger, triton, splayer1.model_, splayer1.alphazero_settings_);
       }
       if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer2.model_.empty(), "--player2=alphazero requires --model");
-
-        // Set player1 alphazero settings...
-        splayer2.alphazero_settings_.training_ = train;
-        splayer2.alphazero_settings_.kind_ = (train) ?
-          cifre::AlphaZero::NextActionSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
-          cifre::AlphaZero::NextActionSettings::NextActionKind::MAX_VISITED;
-        splayer2.alphazero_settings_.alphazero_max_depth_ = 20; // FIXME, should be adjusted after each turn
+        if (train) {
+          InitializeAlphaZeroForTraining(&splayer2.alphazero_settings_);
+        }
 
         // If training and same alphazero as player1, then use the
-        // same alphazero object.
+        // same alphazero object (this results in self-play).
         if (train && (splayer1.alphazero_settings_ == splayer2.alphazero_settings_)) {
           alphazero2 = alphazero1;
         }

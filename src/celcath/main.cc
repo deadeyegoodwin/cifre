@@ -557,7 +557,7 @@ main(int argc, char **argv)
       if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer1.model_.empty(), "--player1=alphazero requires --model");
         splayer1.alphazero_settings_.training_ = train;
-        splayer1.alphazero_settings_.kind_ = (train) ?
+        splayer1.alphazero_settings_.next_action_kind_ = (train) ?
           cifre::AlphaZero::NextActionSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
           cifre::AlphaZero::NextActionSettings::NextActionKind::MAX_VISITED;
         splayer1.alphazero_settings_.alphazero_max_depth_ = max_turns_per_game; // FIXME, should be adjusted after each turn
@@ -567,7 +567,7 @@ main(int argc, char **argv)
       if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer2.model_.empty(), "--player2=alphazero requires --model");
         splayer2.alphazero_settings_.training_ = train;
-        splayer2.alphazero_settings_.kind_ = (train) ?
+        splayer2.alphazero_settings_.next_action_kind_ = (train) ?
           cifre::AlphaZero::NextActionSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
           cifre::AlphaZero::NextActionSettings::NextActionKind::MAX_VISITED;
         splayer2.alphazero_settings_.alphazero_max_depth_ = max_turns_per_game; // FIXME, should be adjusted after each turn

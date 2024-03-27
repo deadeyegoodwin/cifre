@@ -89,7 +89,9 @@ private:
     // Return the ID of the action that has the highest QU value. If
     // 'qu's is non-nullptr then it will be filled with the QU value
     // for each action/child.
-    std::optional<uint64_t> MaxQU(const float cpuct, std::vector<float>* qus = nullptr) const;
+    std::optional<uint64_t> MaxQU(
+      const float cpuct, const std::vector<double>* dirichlet,
+      const float dirichlet_ratio, std::vector<float>* qus = nullptr) const;
 
     // Return the action ID corresponding to the child edge that has
     // the highest non-zero visited count and that represents a valid
@@ -119,13 +121,15 @@ private:
 public:
   //
   // Settings used by NextActionId() to control the alphazero
-  // search. Default values are default_next_action_settings_ but can be
-  // overridden on each call to NextActionId().
+  // search. Default settings are for non-training.
   //
   struct NextActionSettings {
     // Equality operator
     bool operator==(const NextActionSettings& other) const {
-      return((training_ == other.training_) && (kind_ == other.kind_) &&
+      return((training_ == other.training_) && (next_action_kind_ == other.next_action_kind_) &&
+             (alphazero_dirichlet_alpha_ == other.alphazero_dirichlet_alpha_) &&
+             (alphazero_dirichlet_sample_count_ == other.alphazero_dirichlet_sample_count_) &&
+             (alphazero_dirichlet_ratio_ == other.alphazero_dirichlet_ratio_) &&
              (alphazero_update_count_ == other.alphazero_update_count_) &&
              (alphazero_max_depth_ == other.alphazero_max_depth_) &&
              (alphazero_cpuct_ == other.alphazero_cpuct_));
@@ -140,7 +144,24 @@ public:
     //   child visits so that the more visited children are
     //   proportionally more likely to be selected
     enum class NextActionKind { MAX_VISITED, RANDOM_VISIT_WEIGHTED };
-    NextActionKind kind_ {NextActionKind::MAX_VISITED};
+    NextActionKind next_action_kind_ {NextActionKind::MAX_VISITED};
+
+    // Dirichlet alpha value, must be non-negative. Zero indicates
+    // that dirichlet distribution should not be used (this is the
+    // default because when not training the default is to not use
+    // Dirichlet).
+    float alphazero_dirichlet_alpha_ {0.0};
+
+    // Number of Dirichlet samples that will be generated (if
+    // 'alphazero_dirichlet_alpha_' is non-zero). These values are
+    // used round-robin to modify the pi values of root nodes.
+    size_t alphazero_dirichlet_sample_count_ {256};
+
+    // The ratio used to combine the Dirichlet values to the pi
+    // probabilities. If d == dirichlet value and x ==
+    // alphazero_dirichlet_ratio_, the probability used is (pi * (1 -
+    // x)) + (d * x).
+    float alphazero_dirichlet_ratio_ {0.25};
 
     // Number of updates (searches) made to alphazero tree before
     // choosing the next action ID.
@@ -154,7 +175,7 @@ public:
     size_t alphazero_max_depth_ {20};
 
     // The cpuct value for alphazero QU calculation.
-    float alphazero_cpuct_ {4.0};
+    float alphazero_cpuct_ {4.0}; // FIXME cpuct when not training? should default to 0?
   };
 
 public:
@@ -202,7 +223,12 @@ private:
 
   // Search from 'node' and update the tree. Return the 'V' value for
   // the leaf node visited in the search.
-  float UpdateTree(Node* node, const float cpuct, const size_t depth_remaining);
+  float UpdateTree(Node* node, const float cpuct, const size_t depth_remaining,
+                   const std::vector<double>* dirichlet);
+
+  // Generate Dirichlet distribution.
+  void GenerateDirichletSamples(
+    const float alpha, const size_t sample_size, const size_t sample_count);
 
   // Return string representation of a shape, using 'batch_count' as
   // the first/batch dimension value if it is non-zero.
@@ -217,6 +243,12 @@ private:
 
   // Random needed for NextActionKind::WEIGHTED_RANDOM.
   common::Random rnd_;
+
+  // Number of Dirichlet samples (generated if
+  // 'settings_.alphazero_dirichlet_alpha_' is non-zero). These values
+  // are used round-robin to modify the pi values of root nodes.
+  size_t dirichlet_samples_idx_;
+  std::vector<std::vector<double>> dirichlet_samples_;
 
   // Nodes are identified by their State, so we need to use a custom
   // hash and equal for the map containing all the nodes. The "State*"

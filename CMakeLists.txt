@@ -166,6 +166,8 @@ target_link_libraries(
 #
 # cifre library
 #
+find_package(GSL REQUIRED)
+
 add_library(
   cifre-library STATIC
   src/cifre_action.cc
@@ -203,4 +205,6 @@ target_link_libraries(
   PRIVATE
     ${CIFRE_ASAN_FLAGS}
     common-library
+    GSL::gsl
+    GSL::gslcblas
 )
