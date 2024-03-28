@@ -144,12 +144,6 @@ AlphaZeroPlayer::NextAction(const Board& board) const
   return action;
 }
 
-std::string
-AlphaZeroPlayer::ToStatisticsString(common::Logger::Level filter_level) const
-{
-  return alphazero_->Statistics().ToString();
-}
-
 //
 // RandomPlayer
 //

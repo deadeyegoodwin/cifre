@@ -58,11 +58,6 @@ public:
   // Get the next action for the player given current 'board' state.
   virtual Action NextAction(const Board& board) const;
 
-  // Return string representation of any player statistics. Default
-  // behavior is to return empty string.
-  virtual std::string ToStatisticsString(common::Logger::Level filter_level = common::Logger::Level::LOW) const {
-    return std::string(); }
-
   // Return string representation of the player.
   std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
 
@@ -119,9 +114,6 @@ public:
 
   // See Player::NextAction().
   Action NextAction(const Board& board) const override;
-
-  // See Player::ToStatisticsString().
-  std::string ToStatisticsString(common::Logger::Level filter_level = common::Logger::Level::LOW) const override;
 
 private:
   std::shared_ptr<cifre::AlphaZero> alphazero_;

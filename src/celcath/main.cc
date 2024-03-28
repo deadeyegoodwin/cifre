@@ -633,28 +633,6 @@ main(int argc, char **argv)
                      4 /* indent */);
     }
 
-    // Individual player statistics, if any...
-    for (const cifre::celcath::Player* p : players) {
-      std::string str = p->ToStatisticsString();
-      if (!str.empty()) {
-        logger->LogLow(p->Name());
-        logger->LogLow(str, 4 /* indent */);
-      }
-    }
-
-    // If training, write alphazero training data.
-    if (train) {
-      if ((alphazero1 != nullptr) && (alphazero2 != nullptr)) {
-        alphazero1->MergeTraining(alphazero2.get());
-      }
-      if (alphazero1 != nullptr) {
-        alphazero1->WriteTraining(train_dir);
-      }
-      else if (alphazero2 != nullptr) {
-        alphazero2->WriteTraining(train_dir);
-      }
-    }
-
   } catch (const std::exception& ex) {
     std::cerr << "error: " << ex.what() << std::endl;
     exit(1);

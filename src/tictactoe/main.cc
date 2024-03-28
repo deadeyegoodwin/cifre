@@ -538,11 +538,14 @@ main(int argc, char **argv)
     // single alphazero object between player1 and player2 to get
     // self-play.
     std::shared_ptr<cifre::Triton> triton;
+    std::unique_ptr<cifre::AlphaZeroAggregator> alphazero_aggregator;
     std::shared_ptr<cifre::AlphaZero> alphazero1, alphazero2;
     if ((splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) ||
         (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO)) {
       triton.reset(new cifre::Triton(logger));
       CheckTrueMsg(triton->IsReady(), "triton is not ready");
+
+      alphazero_aggregator = std::make_unique<cifre::AlphaZeroAggregator>(logger);
 
       if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer1.model_.empty(), "--player1=alphazero requires --model");
@@ -605,14 +608,16 @@ main(int argc, char **argv)
         break;
       }
 
-      // If training, then reset the alphazero tree(s) so that the
-      // next game starts with an empty tree. FIXME also resets
-      // statistics so need to aggregate those somehow...
+      // If training, aggregate the training samples and statistics
+      // and then reset the alphazero tree(s) so that the next game
+      // starts with an empty tree.
       if (train) {
         if (alphazero1 != nullptr) {
+          alphazero_aggregator->Aggregate(*alphazero1);
           alphazero1->Reset();
         }
-        if (alphazero2 != nullptr) {
+        if ((alphazero2 != nullptr) && (alphazero2 != alphazero1)) {
+          alphazero_aggregator->Aggregate(*alphazero2);
           alphazero2->Reset();
         }
       }
@@ -633,13 +638,10 @@ main(int argc, char **argv)
                      4 /* indent */);
     }
 
-    // Individual player statistics, if any...
-    for (const cifre::tictactoe::Player* p : players) {
-      std::string str = p->ToStatisticsString();
-      if (!str.empty()) {
-        logger->LogLow(p->Name());
-        logger->LogLow(str, 4 /* indent */);
-      }
+    // Aggregated alphazero statistics, if any...
+    if (alphazero_aggregator != nullptr) {
+      logger->LogLow("AlphaZero");
+      logger->LogLow(alphazero_aggregator->ToString(), 4 /* indent */);
     }
 
     // Write report, if requested.
@@ -658,16 +660,8 @@ main(int argc, char **argv)
     }
 
     // If training, write alphazero training data.
-    if (train) {
-      if ((alphazero1 != nullptr) && (alphazero2 != nullptr) && (alphazero1 != alphazero2)) {
-        alphazero1->MergeTraining(alphazero2.get());
-      }
-      if (alphazero1 != nullptr) {
-        alphazero1->WriteTraining(train_dir);
-      }
-      else if (alphazero2 != nullptr) {
-        alphazero2->WriteTraining(train_dir);
-      }
+    if (train && (alphazero_aggregator != nullptr)) {
+      alphazero_aggregator->WriteTraining(train_dir);
     }
 
   } catch (const std::exception& ex) {

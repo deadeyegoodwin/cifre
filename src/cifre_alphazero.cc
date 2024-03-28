@@ -47,6 +47,7 @@ AlphaZero::Reset()
 {
   nodes_.clear();
   game_action_nodes_.clear();
+  train_nodes_.clear();
   statistics_.Reset();
 }
 
@@ -97,98 +98,6 @@ AlphaZero::GameEnd(const State* terminal_state, State::TerminalStatusKind status
     // self-play).
     game_action_nodes_.clear();
   }
-}
-
-
-void
-AlphaZero::MergeTraining(const AlphaZero* other)
-{
-  train_nodes_.insert(
-    train_nodes_.end(), other->train_nodes_.begin(), other->train_nodes_.end());
-}
-
-void
-AlphaZero::WriteTraining(const std::string& dir) const
-{
-  // Write in.bin, pi.bin and v.bin as a single large batch of each of
-  // those training node values.
-  std::filesystem::path pin(dir); pin /= "in.bin";
-  std::filesystem::path ppi(dir); ppi /= "pi.bin";
-  std::filesystem::path pv(dir); pv /= "v.bin";
-
-  LOGGER_LOGHIGH(*logger_, "writing training input batch to " + pin.string());
-  LOGGER_LOGHIGH(*logger_, "writing training pi batch to " + ppi.string());
-  LOGGER_LOGHIGH(*logger_, "writing training v batch to " + pv.string());
-
-  std::ofstream fin(pin, std::ios::out | std::ios::binary);
-  std::ofstream fpi(ppi, std::ios::out | std::ios::binary);
-  std::ofstream fv(pv, std::ios::out | std::ios::binary);
-
-  // Write training samples. Make sure the data sizes from each of the
-  // training nodes is consistent.
-  const TritonInferResult* repr_result = nullptr;
-  for (const auto& pr : train_nodes_) {
-    if (repr_result == nullptr) {
-      repr_result = &pr.first->NodeTritonResult();
-    }
-
-
-    LOGGER_LOGHIGH(*logger_, "writing training node, value " + std::to_string(pr.second) + ':');
-    LOGGER_LOGHIGH_IE(*logger_, pr.first->ToString(settings_.alphazero_cpuct_),
-                      2 /* indent */, true /* endline */);
-
-    auto& din = pr.first->NodeState().TritonRepresentation();
-    fin.write(reinterpret_cast<const char*>(din.data()), din.size() * sizeof(uint8_t));
-    assert((din.size() * sizeof(uint8_t)) == repr_result->InputByteSize());
-
-    const auto dpi = pr.first->ChildProbability();
-    fpi.write(reinterpret_cast<const char*>(dpi.data()), dpi.size() * sizeof(float));
-    assert((dpi.size() * sizeof(float)) == repr_result->PiByteSize());
-
-    const float dv = pr.second;
-    fv.write(reinterpret_cast<const char*>(&dv), sizeof(dv));
-    assert(sizeof(dv) == repr_result->VByteSize());
-  }
-
-  fin.close();
-  fpi.close();
-  fv.close();
-
-  // Write train.json to contain descriptive metadata for the training
-  // data.
-  if (repr_result != nullptr) {
-    std::filesystem::path pjson(dir); pjson /= "train.json";
-    LOGGER_LOGHIGH(*logger_, "writing training metadata to " + pjson.string());
-    std::ofstream fjson(pjson, std::ios::out);
-    fjson
-      << "{\n"
-      << " \"in_shape\" : " << ToJsonArray(repr_result->InputShape(), train_nodes_.size()) << ",\n"
-      << " \"pi_shape\" : " << ToJsonArray(repr_result->PiShape(), train_nodes_.size()) << ",\n"
-      << " \"v_shape\" : " << ToJsonArray(repr_result->VShape(), train_nodes_.size()) << "\n"
-      << "}\n";
-    fjson.close();
-  }
-}
-
-std::string
-AlphaZero::ToJsonArray(const std::vector<int64_t> shape, size_t batch_count) const
-{
-  bool first = true;
-  std::string str("[");
-  for (size_t d : shape) {
-    if (first) {
-      first = false;
-      if (batch_count > 0) {
-        d = batch_count;
-      }
-    } else {
-      str += ',';
-    }
-    str += std::to_string(d);
-  }
-
-  str += "]";
-  return str;
 }
 
 uint64_t
@@ -403,35 +312,6 @@ AlphaZero::GenerateDirichletSamples(
 }
 
 //
-// AlphaZeroStatistics
-//
-void
-AlphaZeroStatistics::Reset()
-{
-  total_node_count_ = 0;
-  terminal_node_count_ = 0;
-  edge_count_ = 0;
-  search_endby_depth_count_ = 0;
-  search_endby_terminal_count_ = 0;
-}
-
-std::string
-AlphaZeroStatistics::ToString() const
-{
-  std::stringstream ss;
-  ss << "nodes: " << total_node_count_ << ", internal " << (total_node_count_ - terminal_node_count_)
-     << ", terminal " << terminal_node_count_ << '\n';
-  ss << "edges: " << edge_count_ << ", avg outgoing per node "
-     << std::fixed << std::setprecision(2) << ((float)edge_count_ / total_node_count_) << '\n';
-
-  const size_t search_count = search_endby_depth_count_ + search_endby_terminal_count_;
-  ss << "searches: " << search_count << ", end by depth " << search_endby_depth_count_
-     << ", end by terminal " << search_endby_terminal_count_;
-
-  return ss.str();
-}
-
-//
 // AlphaZeroNode
 //
 AlphaZeroNode::AlphaZeroNode(std::unique_ptr<const State> state, TritonInferResult&& infer_result) :
@@ -642,6 +522,177 @@ AlphaZeroNode::ToString(float cpuct, common::Logger::Level filter_level) const
   sstr << common::IndentMultiline(state_->ToString(), 4 /* indent */);
 
   return sstr.str();
+}
+
+//
+// AlphaZeroStatistics
+//
+AlphaZeroStatistics&
+AlphaZeroStatistics::operator+=(const AlphaZeroStatistics& rhs)
+{
+  total_node_count_ += rhs.total_node_count_;
+  terminal_node_count_ += rhs.terminal_node_count_;
+  edge_count_ += rhs.edge_count_;
+  search_endby_depth_count_ += rhs.search_endby_depth_count_;
+  search_endby_terminal_count_ += rhs.search_endby_terminal_count_;
+  return *this;
+}
+
+void
+AlphaZeroStatistics::Reset()
+{
+  total_node_count_ = 0;
+  terminal_node_count_ = 0;
+  edge_count_ = 0;
+  search_endby_depth_count_ = 0;
+  search_endby_terminal_count_ = 0;
+}
+
+std::string
+AlphaZeroStatistics::ToString() const
+{
+  std::stringstream ss;
+  ss << "nodes: " << total_node_count_ << ", internal " << (total_node_count_ - terminal_node_count_)
+     << ", terminal " << terminal_node_count_ << '\n';
+  ss << "edges: " << edge_count_ << ", avg outgoing per node "
+     << std::fixed << std::setprecision(2) << ((float)edge_count_ / total_node_count_) << '\n';
+
+  const size_t search_count = search_endby_depth_count_ + search_endby_terminal_count_;
+  ss << "searches: " << search_count << ", end by depth " << search_endby_depth_count_
+     << ", end by terminal " << search_endby_terminal_count_;
+
+  return ss.str();
+}
+
+//
+// AlphaZeroAggregator
+//
+void
+AlphaZeroAggregator::Aggregate(const AlphaZero& alphazero)
+{
+  statistics_ += alphazero.Statistics();
+
+  const auto& msamples = alphazero.TrainingSamples();
+  train_samples_.insert(
+    train_samples_.end(), msamples.begin(), msamples.end());
+
+  aggregate_count_++;
+}
+
+void
+AlphaZeroAggregator::WriteTraining(const std::string& dir) const
+{
+  // Write in.bin, pi.bin and v.bin as a single large batch of each of
+  // those training node values.
+  std::filesystem::path pin(dir); pin /= "in.bin";
+  std::filesystem::path ppi(dir); ppi /= "pi.bin";
+  std::filesystem::path pv(dir); pv /= "v.bin";
+
+  LOGGER_LOGHIGH(*logger_, "writing training input batch to " + pin.string());
+  LOGGER_LOGHIGH(*logger_, "writing training pi batch to " + ppi.string());
+  LOGGER_LOGHIGH(*logger_, "writing training v batch to " + pv.string());
+
+  std::ofstream fin(pin, std::ios::out | std::ios::binary);
+  std::ofstream fpi(ppi, std::ios::out | std::ios::binary);
+  std::ofstream fv(pv, std::ios::out | std::ios::binary);
+
+  // Write training samples. Make sure the data sizes from each of the
+  // training nodes is consistent.
+  const TritonInferResult* repr_result = nullptr;
+  for (const auto& pr : train_samples_) {
+    if (repr_result == nullptr) {
+      repr_result = &pr.first->NodeTritonResult();
+    }
+
+    LOGGER_LOGHIGH(*logger_, "writing training node, value " + std::to_string(pr.second) + ':');
+    LOGGER_LOGHIGH_IE(*logger_, pr.first->NodeState().ToString(),
+                      2 /* indent */, true /* endline */);
+
+    auto& din = pr.first->NodeState().TritonRepresentation();
+    fin.write(reinterpret_cast<const char*>(din.data()), din.size() * sizeof(uint8_t));
+    assert((din.size() * sizeof(uint8_t)) == repr_result->InputByteSize());
+
+    const auto dpi = pr.first->ChildProbability();
+    fpi.write(reinterpret_cast<const char*>(dpi.data()), dpi.size() * sizeof(float));
+    assert((dpi.size() * sizeof(float)) == repr_result->PiByteSize());
+
+    const float dv = pr.second;
+    fv.write(reinterpret_cast<const char*>(&dv), sizeof(dv));
+    assert(sizeof(dv) == repr_result->VByteSize());
+  }
+
+  fin.close();
+  fpi.close();
+  fv.close();
+
+  // Write train.json to contain descriptive metadata for the training
+  // data.
+  if (repr_result != nullptr) {
+    std::filesystem::path pjson(dir); pjson /= "train.json";
+    LOGGER_LOGHIGH(*logger_, "writing training metadata to " + pjson.string());
+    std::ofstream fjson(pjson, std::ios::out);
+    fjson
+      << "{\n"
+      << " \"in_shape\" : " << ToJsonArray(repr_result->InputShape(), train_samples_.size()) << ",\n"
+      << " \"pi_shape\" : " << ToJsonArray(repr_result->PiShape(), train_samples_.size()) << ",\n"
+      << " \"v_shape\" : " << ToJsonArray(repr_result->VShape(), train_samples_.size()) << "\n"
+      << "}\n";
+    fjson.close();
+  }
+}
+
+std::string
+AlphaZeroAggregator::ToJsonArray(const std::vector<int64_t> shape, size_t batch_count) const
+{
+  bool first = true;
+  std::string str("[");
+  for (size_t d : shape) {
+    if (first) {
+      first = false;
+      if (batch_count > 0) {
+        d = batch_count;
+      }
+    } else {
+      str += ',';
+    }
+    str += std::to_string(d);
+  }
+
+  str += "]";
+  return str;
+}
+
+std::string
+AlphaZeroAggregator::ToString() const
+{
+  std::stringstream ss;
+
+  if (aggregate_count_ == 0) {
+    ss << "no statistics";
+  }
+  else {
+    ss
+      << std::fixed << std::setprecision(2)
+      << "avg nodes: " << (statistics_.total_node_count_ / float(aggregate_count_))
+      << ", avg internal "
+      << ((statistics_.total_node_count_ - statistics_.terminal_node_count_) / float(aggregate_count_))
+      << ", avg terminal " << (statistics_.terminal_node_count_ / float(aggregate_count_)) << '\n';
+    ss
+      << std::fixed << std::setprecision(2)
+      << "avg edges: " << (statistics_.edge_count_ / float(aggregate_count_))
+      << ", avg outgoing per node "
+      << ((float)statistics_.edge_count_ / statistics_.total_node_count_) << '\n';
+
+    const size_t search_count =
+      statistics_.search_endby_depth_count_ + statistics_.search_endby_terminal_count_;
+    ss
+      << std::fixed << std::setprecision(2)
+      << "avg searches: " << (search_count / float(aggregate_count_))
+      << ", avg end by depth " << (statistics_.search_endby_depth_count_ / float(aggregate_count_))
+      << ", avg end by terminal " << (statistics_.search_endby_terminal_count_ / float(aggregate_count_));
+  }
+
+  return ss.str();
 }
 
 } // namespace cifre

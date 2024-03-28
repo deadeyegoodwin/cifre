@@ -70,6 +70,9 @@ struct AlphaZeroSettings {
 //
 class AlphaZeroStatistics {
 public:
+  // Add statistics
+  AlphaZeroStatistics& operator+=(const AlphaZeroStatistics& rhs);
+
   // Reset all statistics.
   void Reset();
 
@@ -195,9 +198,13 @@ public:
   // Return the statistics for this alphazero.
   const AlphaZeroStatistics& Statistics() const { return statistics_; }
 
+  // Return the collected training samples.
+  const std::vector<std::pair<std::shared_ptr<AlphaZeroNode>, float>>&
+  TrainingSamples() const { return train_nodes_; }
+
   // Reset the node tree and related statistics. After returning this
   // alphazero object will begin constructing a new tree from
-  // scratch. Any collected training nodes are preserved.
+  // scratch.
   void Reset();
 
   // Called to notify that a new game is starting.
@@ -209,15 +216,6 @@ public:
   // should respect 'status'. 'status' of NON_TERMINAL is not allowed
   // and GameEnd should throw exception if that value is received.
   void GameEnd(const State* terminal_state, State::TerminalStatusKind status);
-
-  // Add collected training data from 'other' into 'this'. Training
-  // data for a given node is only added if it is in 'other' and not
-  // in 'this', thus training data collected by 'this' has priority
-  // and will not be overwritten by 'other's training data.
-  void MergeTraining(const AlphaZero* other);
-
-  // Write collected training data to 'dir'.
-  void WriteTraining(const std::string& dir) const;
 
   // Return the next predicted action ID, given current 'state'. If is
   // an error if 'state' represents a terminal state.
@@ -239,10 +237,6 @@ private:
   // Generate Dirichlet distribution.
   void GenerateDirichletSamples(
     const float alpha, const size_t sample_size, const size_t sample_count);
-
-  // Return string representation of a shape, using 'batch_count' as
-  // the first/batch dimension value if it is non-zero.
-  std::string ToJsonArray(const std::vector<int64_t> shape, size_t batch_count) const;
 
   std::shared_ptr<common::Logger> logger_;
   std::shared_ptr<Triton> triton_;
@@ -280,6 +274,37 @@ private:
 
   // Statistics, these are reset by a call to Reset().
   AlphaZeroStatistics statistics_;
+};
+
+//
+// AlphaZero
+//
+// Implementation of the alpha-zero algorithm. Not necessarily exactly
+// the same, but generally uses the same ideas.
+//
+class AlphaZeroAggregator {
+public:
+  AlphaZeroAggregator(const std::shared_ptr<common::Logger>& logger) :
+    logger_(logger), aggregate_count_(0) { }
+
+  // Include 'alphazero' training and statistics in the aggregate.
+  void Aggregate(const AlphaZero& alphazero);
+
+  // Write collected training data to 'dir'.
+  void WriteTraining(const std::string& dir) const;
+
+  // Return string representation of aggregated statistics.
+  std::string ToString() const;
+
+private:
+  // Return string representation of a shape, using 'batch_count' as
+  // the first/batch dimension value if it is non-zero.
+  std::string ToJsonArray(const std::vector<int64_t> shape, size_t batch_count) const;
+
+  std::shared_ptr<common::Logger> logger_;
+  size_t aggregate_count_;
+  AlphaZeroStatistics statistics_;
+  std::vector<std::pair<std::shared_ptr<AlphaZeroNode>, float>> train_samples_;
 };
 
 } // namespace cifre
