@@ -301,7 +301,7 @@ InitializeAlphaZeroForTraining(cifre::AlphaZero::Settings* settings)
     cifre::AlphaZero::Settings::NextActionKind::RANDOM_VISIT_WEIGHTED;
   settings->alphazero_dirichlet_alpha_ = std::min(1.0, 10.0 / 9.0 /* FIXME need total-action-id-count from game */);
   settings->alphazero_max_depth_ = 20; // FIXME, should be adjusted after each turn
-  settings->alphazero_cpuct_ = 4.0; // FIXME, default in header needs to be 0.0 for non-training?
+  settings->alphazero_cpuct_ = 4.0;
 }
 
 }  // namespace
@@ -425,6 +425,11 @@ main(int argc, char **argv)
         break;
 
       case Option::OPTION_TRAIN:
+        // For the alphazero setting defaults to be handled correctly,
+        // --train must appear before any setting changes that happen
+        // in --player1 or --player2.
+        CheckTrueMsg(!player1_specified && !player2_specified,
+                     "--train must be specified before --player1 and --player2");
         train = true;
         InitializeAlphaZeroForTraining(&splayer1.alphazero_settings_);
         InitializeAlphaZeroForTraining(&splayer2.alphazero_settings_);

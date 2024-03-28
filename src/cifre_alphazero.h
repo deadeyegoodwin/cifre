@@ -163,8 +163,9 @@ public:
     // rules of the game.
     size_t alphazero_max_depth_ {20};
 
-    // The cpuct value for alphazero QU calculation.
-    float alphazero_cpuct_ {4.0}; // FIXME cpuct when not training? should default to 0?
+    // The cpuct value for alphazero QU calculation. The non-training
+    // default is 1.0.
+    float alphazero_cpuct_ {1.0};
   };
 
 public:
