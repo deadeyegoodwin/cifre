@@ -599,6 +599,18 @@ main(int argc, char **argv)
         winner2_count++;
         break;
       }
+
+      // If training, then reset the alphazero tree(s) so that the
+      // next game starts with an empty tree. FIXME also resets
+      // statistics so need to aggregate those somehow...
+      if (train) {
+        if (alphazero1 != nullptr) {
+          alphazero1->Reset();
+        }
+        if (alphazero2 != nullptr) {
+          alphazero2->Reset();
+        }
+      }
     }
 
     // End of all games output...

@@ -172,6 +172,11 @@ public:
   AlphaZero(const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
             const Settings& settings, const std::string& model_name);
 
+  // Reset the node tree and related statistics. After returning this
+  // alphazero object will begin constructing a new tree from
+  // scratch. Any collected training nodes are preserved.
+  void Reset();
+
   // Called to notify that a new game is starting.
   void GameStart();
 
@@ -204,7 +209,8 @@ private:
   // necessary. The created node, if any, takes ownership of 'state'.
   // If 'created' is not nullptr, returns true if node created, false
   // if already exists.
-  Node* FindOrCreateNode(std::unique_ptr<const State> state, bool* created = nullptr);
+  std::shared_ptr<AlphaZero::Node> FindOrCreateNode(
+    std::unique_ptr<const State> state, bool* created = nullptr);
 
   // Search from 'node' and update the tree. Return the 'V' value for
   // the leaf node visited in the search.
@@ -243,16 +249,17 @@ private:
   struct NodesMapEqual {
     bool operator()(const State* a, const State* b) const { return a->Equal(b); }
   };
-  std::unordered_map<const State*, Node, NodesMapHash, NodesMapEqual> nodes_;
+  std::unordered_map<
+    const State*, std::shared_ptr<Node>, NodesMapHash, NodesMapEqual> nodes_;
 
   // Nodes for which alphazero selected an action in the current game.
-  std::vector<Node*> game_action_nodes_;
+  std::vector<std::shared_ptr<Node>> game_action_nodes_;
 
   // Aggregated nodes from the 'game_action_nodes_' collected for each
   // game, and the value associated with the node.
-  std::vector<std::pair<Node*, float>> train_nodes_;
+  std::vector<std::pair<std::shared_ptr<Node>, float>> train_nodes_;
 
-  // Statistics
+  // Statistics, these are reset by a call to Reset().
   size_t terminal_node_count_ {0};
   size_t edge_count_ {0};
   size_t search_endby_depth_count_ {0};

@@ -43,6 +43,17 @@ AlphaZero::AlphaZero(
 }
 
 void
+AlphaZero::Reset()
+{
+  nodes_.clear();
+  game_action_nodes_.clear();
+  terminal_node_count_ = 0;
+  edge_count_ = 0;
+  search_endby_depth_count_ = 0;
+  search_endby_terminal_count_ = 0;
+}
+
+void
 AlphaZero::GameStart()
 {
   game_action_nodes_.clear();
@@ -76,7 +87,7 @@ AlphaZero::GameEnd(const State* terminal_state, State::TerminalStatusKind status
 
     // Aggregate together all the nodes collected for the game with
     // the value representing the game outcome.
-    for (Node* n : game_action_nodes_) {
+    for (auto& n : game_action_nodes_) {
       float value = (n->NodeState().ActivePlayerId() == terminal_player_id) ? active_value : opponent_value;
       train_nodes_.push_back(std::make_pair(n, value));
     }
@@ -220,7 +231,7 @@ AlphaZero::NextActionId(const State& state)
       *logger_,
       "update " + std::to_string(idx+1) + '/' + std::to_string(settings_.alphazero_update_count_) + ':',
       0 /* indent */, false /* endline */);
-    UpdateTree(node, settings_.alphazero_max_depth_, dirichlet);
+    UpdateTree(node.get(), settings_.alphazero_max_depth_, dirichlet);
     LOGGER_LOGHIGH_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
   }
 
@@ -252,28 +263,26 @@ AlphaZero::NextActionId(const State& state)
   return action_id;
 }
 
-AlphaZero::Node*
+std::shared_ptr<AlphaZero::Node>
 AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
 {
-  Node* new_node;
+  std::shared_ptr<Node> new_node;
   bool new_created;
 
   auto node_itr = nodes_.find(state.get());
   if (node_itr != nodes_.end()) {
-    new_node = &(node_itr->second);
+    new_node = node_itr->second;
     new_created = false;
   }
   else {
     auto result = triton_->RunModel(model_name_, state->TritonRepresentation());
     assert(result.PiEntryCount() == state->TotalActionIdCount());
 
-    auto created_node_itr =
-      nodes_.emplace(std::piecewise_construct,
-                     std::forward_as_tuple(state.get()),
-                     std::forward_as_tuple(std::move(state), std::move(result)));
-    assert(created_node_itr.second);
-    new_node = &(created_node_itr.first->second);
+    const State* pstate = state.get();
+
     new_created = true;
+    new_node = std::make_shared<Node>(std::move(state), std::move(result));
+    nodes_[pstate] = new_node;
 
     // Node creation needs to be recognized as the first visit.
     new_node->IncrementVisitCount();
@@ -344,8 +353,9 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t depth_remaining,
       *best_action_id,
       false /*logger_->FilterLevel() >= common::Logger::Level::HIGH *//* enable_logging */);
 
-    next = FindOrCreateNode(std::move(next_state));
-    assert(next != nullptr);
+    std::shared_ptr<Node> snext = FindOrCreateNode(std::move(next_state));
+    assert(snext != nullptr);
+    next = snext.get();
 
     // Add the edge to connect 'node' to 'next', then continue search.
     node->SetChild(*best_action_id, next, 0 /* visit_count */);
