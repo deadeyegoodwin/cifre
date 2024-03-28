@@ -147,7 +147,7 @@ AlphaZeroPlayer::NextAction(const Board& board) const
 std::string
 AlphaZeroPlayer::ToStatisticsString(common::Logger::Level filter_level) const
 {
-  return alphazero_->ToStatisticsString();
+  return alphazero_->Statistics().ToString();
 }
 
 //

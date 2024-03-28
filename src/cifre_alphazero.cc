@@ -21,7 +21,7 @@ constexpr float LOSER_VALUE = -1.0;
 //
 AlphaZero::AlphaZero(
   const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
-  const AlphaZero::Settings& settings, const std::string& model_name) :
+  const AlphaZeroSettings& settings, const std::string& model_name) :
   logger_(logger), triton_(triton), settings_(settings), model_name_(model_name)
 {
   THROWIF(model_name_.empty(), "model must be specified for alpha-zero");
@@ -47,10 +47,7 @@ AlphaZero::Reset()
 {
   nodes_.clear();
   game_action_nodes_.clear();
-  terminal_node_count_ = 0;
-  edge_count_ = 0;
-  search_endby_depth_count_ = 0;
-  search_endby_terminal_count_ = 0;
+  statistics_.Reset();
 }
 
 void
@@ -244,10 +241,10 @@ AlphaZero::NextActionId(const State& state)
   // visit count.
   uint64_t action_id;
   switch (settings_.next_action_kind_) {
-  case Settings::NextActionKind::MAX_VISITED:
+  case AlphaZeroSettings::NextActionKind::MAX_VISITED:
     action_id = node->MaxVisitedValidChild();
     break;
-  case Settings::NextActionKind::RANDOM_VISIT_WEIGHTED:
+  case AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED:
     action_id = node->RandomWeightedValidChild(rnd_);
     break;
   default:
@@ -263,10 +260,10 @@ AlphaZero::NextActionId(const State& state)
   return action_id;
 }
 
-std::shared_ptr<AlphaZero::Node>
+std::shared_ptr<AlphaZeroNode>
 AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
 {
-  std::shared_ptr<Node> new_node;
+  std::shared_ptr<AlphaZeroNode> new_node;
   bool new_created;
 
   auto node_itr = nodes_.find(state.get());
@@ -281,14 +278,15 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
     const State* pstate = state.get();
 
     new_created = true;
-    new_node = std::make_shared<Node>(std::move(state), std::move(result));
+    new_node = std::make_shared<AlphaZeroNode>(std::move(state), std::move(result));
     nodes_[pstate] = new_node;
 
     // Node creation needs to be recognized as the first visit.
     new_node->IncrementVisitCount();
 
+    statistics_.total_node_count_++;
     if (new_node->IsTerminal()) {
-      terminal_node_count_++;
+      statistics_.terminal_node_count_++;
     }
   }
 
@@ -301,7 +299,7 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
 }
 
 float
-AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t depth_remaining,
+AlphaZero::UpdateTree(AlphaZeroNode* node, const size_t depth_remaining,
                       const std::vector<double>* dirichlet)
 {
   // If 'node' is a terminal node then show that it was visited and
@@ -310,7 +308,7 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t depth_remaining,
     LOGGER_LOGHIGH(*logger_, " terminal(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
     LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.alphazero_cpuct_),
                       2 /* indent */, true /* endline */);
-    search_endby_terminal_count_++;
+    statistics_.search_endby_terminal_count_++;
     node->IncrementVisitCount();
     return node->Value();
   }
@@ -330,7 +328,7 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t depth_remaining,
     LOGGER_LOGHIGH(*logger_, " depth(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
     LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.alphazero_cpuct_),
                       2 /* indent */, true /* endline */);
-    search_endby_depth_count_++;
+    statistics_.search_endby_depth_count_++;
     return DRAW_VALUE;
   }
 
@@ -344,7 +342,7 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t depth_remaining,
     ' ' + std::to_string(*best_action_id) + "(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')',
     0 /* indent */, false /* endline */);
 
-  Node* next = node->Child(*best_action_id);
+  AlphaZeroNode* next = node->Child(*best_action_id);
   if (next == nullptr) {
     // Find or create the node representing the state that results
     // when 'best_action_id' is applied to 'node'.
@@ -353,13 +351,13 @@ AlphaZero::UpdateTree(AlphaZero::Node* node, const size_t depth_remaining,
       *best_action_id,
       false /*logger_->FilterLevel() >= common::Logger::Level::HIGH *//* enable_logging */);
 
-    std::shared_ptr<Node> snext = FindOrCreateNode(std::move(next_state));
+    std::shared_ptr<AlphaZeroNode> snext = FindOrCreateNode(std::move(next_state));
     assert(snext != nullptr);
     next = snext.get();
 
     // Add the edge to connect 'node' to 'next', then continue search.
     node->SetChild(*best_action_id, next, 0 /* visit_count */);
-    edge_count_++;
+    statistics_.edge_count_++;
   }
 
   // We update the visit counts before we move down the tree, this is
@@ -404,14 +402,27 @@ AlphaZero::GenerateDirichletSamples(
   gsl_rng_free(rng);
 }
 
+//
+// AlphaZeroStatistics
+//
+void
+AlphaZeroStatistics::Reset()
+{
+  total_node_count_ = 0;
+  terminal_node_count_ = 0;
+  edge_count_ = 0;
+  search_endby_depth_count_ = 0;
+  search_endby_terminal_count_ = 0;
+}
+
 std::string
-AlphaZero::ToStatisticsString() const
+AlphaZeroStatistics::ToString() const
 {
   std::stringstream ss;
-  ss << "nodes: " << nodes_.size() << ", internal " << (nodes_.size() - terminal_node_count_)
+  ss << "nodes: " << total_node_count_ << ", internal " << (total_node_count_ - terminal_node_count_)
      << ", terminal " << terminal_node_count_ << '\n';
   ss << "edges: " << edge_count_ << ", avg outgoing per node "
-     << std::fixed << std::setprecision(2) << ((float)edge_count_ / nodes_.size()) << '\n';
+     << std::fixed << std::setprecision(2) << ((float)edge_count_ / total_node_count_) << '\n';
 
   const size_t search_count = search_endby_depth_count_ + search_endby_terminal_count_;
   ss << "searches: " << search_count << ", end by depth " << search_endby_depth_count_
@@ -421,9 +432,9 @@ AlphaZero::ToStatisticsString() const
 }
 
 //
-// AlphaZero::Node
+// AlphaZeroNode
 //
-AlphaZero::Node::Node(std::unique_ptr<const State> state, TritonInferResult&& infer_result) :
+AlphaZeroNode::AlphaZeroNode(std::unique_ptr<const State> state, TritonInferResult&& infer_result) :
   state_(std::move(state)), result_(std::move(infer_result)),
   children_(state_->TotalActionIdCount(), nullptr),
   children_visit_counts_(state_->TotalActionIdCount(), 0),
@@ -449,7 +460,7 @@ AlphaZero::Node::Node(std::unique_ptr<const State> state, TritonInferResult&& in
 }
 
 void
-AlphaZero::Node::SetChild(uint64_t action_id, Node* child, size_t visit_count)
+AlphaZeroNode::SetChild(uint64_t action_id, AlphaZeroNode* child, size_t visit_count)
 {
   assert(child != nullptr);
   assert(children_[action_id] == nullptr);
@@ -458,7 +469,7 @@ AlphaZero::Node::SetChild(uint64_t action_id, Node* child, size_t visit_count)
 }
 
 std::vector<float>
-AlphaZero::Node::ChildProbability() const
+AlphaZeroNode::ChildProbability() const
 {
   std::vector<float> probs(state_->TotalActionIdCount(), 0.0);
 
@@ -470,7 +481,7 @@ AlphaZero::Node::ChildProbability() const
 }
 
 std::optional<uint64_t>
-AlphaZero::Node::MaxQU(
+AlphaZeroNode::MaxQU(
   const float cpuct, const std::vector<double>* dirichlet,
   const float dirichlet_ratio, std::vector<float>* qus) const
 {
@@ -491,7 +502,7 @@ AlphaZero::Node::MaxQU(
       dpi = (dpi * (1.0 - dirichlet_ratio)) + (dirichlet->at(aid) * dirichlet_ratio);
     }
 
-    Node* child = children_[aid];
+    AlphaZeroNode* child = children_[aid];
     if (child == nullptr) {
       assert(children_visit_counts_[aid] == 0);
       qu = std::sqrt(visit_count_) * dpi * cpuct;
@@ -519,7 +530,7 @@ AlphaZero::Node::MaxQU(
 }
 
 uint64_t
-AlphaZero::Node::MaxVisitedValidChild() const
+AlphaZeroNode::MaxVisitedValidChild() const
 {
   uint64_t max_visit_count = 0;
   uint64_t max_action_id;
@@ -539,7 +550,7 @@ AlphaZero::Node::MaxVisitedValidChild() const
 }
 
 uint64_t
-AlphaZero::Node::RandomWeightedValidChild(common::Random& rnd) const
+AlphaZeroNode::RandomWeightedValidChild(common::Random& rnd) const
 {
   THROWIF(visit_count_ == 0, "alpha-zero node has zero visits");
 
@@ -569,10 +580,10 @@ AlphaZero::Node::RandomWeightedValidChild(common::Random& rnd) const
 }
 
 void
-AlphaZero::Node::ValidateVisitCounts() const
+AlphaZeroNode::ValidateVisitCounts() const
 {
   // Make sure non-terminal 'node's visit count equals 1 + sum of the
-  // children visit counts. See AlphaZero::Node header documentation.
+  // children visit counts. See AlphaZeroNode header documentation.
   uint64_t total_child_visit_count = 1;
   for (uint64_t aid : state_->ValidActionIds()) {
     total_child_visit_count += children_visit_counts_[aid];
@@ -584,7 +595,7 @@ AlphaZero::Node::ValidateVisitCounts() const
 }
 
 std::string
-AlphaZero::Node::ToString(float cpuct, common::Logger::Level filter_level) const
+AlphaZeroNode::ToString(float cpuct, common::Logger::Level filter_level) const
 {
   std::stringstream sstr;
 
@@ -596,7 +607,7 @@ AlphaZero::Node::ToString(float cpuct, common::Logger::Level filter_level) const
   sstr << "  child value/visits: [";
   bool first = true;
   for (uint64_t aid = 0; aid < state_->TotalActionIdCount(); ++aid) {
-    const Node* child = children_[aid];
+    const AlphaZeroNode* child = children_[aid];
     sstr
       << ((first) ? "" : ", ")
       << ((child != nullptr) ? std::to_string(child->value_) : "-")

@@ -267,7 +267,7 @@ struct PlayerSettings {
   std::string name_;
   bool starting_ {false};
   std::string model_;
-  cifre::AlphaZero::Settings alphazero_settings_;
+  cifre::AlphaZeroSettings alphazero_settings_;
 };
 
 cifre::tictactoe::Player*
@@ -294,11 +294,11 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger, const PlayerSettings
 }
 
 void
-InitializeAlphaZeroForTraining(cifre::AlphaZero::Settings* settings)
+InitializeAlphaZeroForTraining(cifre::AlphaZeroSettings* settings)
 {
   settings->training_ = true;
   settings->next_action_kind_ =
-    cifre::AlphaZero::Settings::NextActionKind::RANDOM_VISIT_WEIGHTED;
+    cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
   settings->alphazero_dirichlet_alpha_ = std::min(1.0, 10.0 / 9.0 /* FIXME need total-action-id-count from game */);
   settings->alphazero_max_depth_ = 20; // FIXME, should be adjusted after each turn
   settings->alphazero_cpuct_ = 4.0;

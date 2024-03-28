@@ -261,7 +261,7 @@ struct PlayerSettings {
   size_t id_;
   std::string name_;
   std::string model_;
-  cifre::AlphaZero::Settings alphazero_settings_;
+  cifre::AlphaZeroSettings alphazero_settings_;
 };
 
 cifre::celcath::Player*
@@ -558,8 +558,8 @@ main(int argc, char **argv)
         CheckTrueMsg(!splayer1.model_.empty(), "--player1=alphazero requires --model");
         splayer1.alphazero_settings_.training_ = train;
         splayer1.alphazero_settings_.next_action_kind_ = (train) ?
-          cifre::AlphaZero::Settings::NextActionKind::RANDOM_VISIT_WEIGHTED :
-          cifre::AlphaZero::Settings::NextActionKind::MAX_VISITED;
+          cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
+          cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
         splayer1.alphazero_settings_.alphazero_max_depth_ = max_turns_per_game; // FIXME, should be adjusted after each turn
         alphazero1 = std::make_shared<cifre::AlphaZero>(
           logger, triton, splayer1.alphazero_settings_, splayer1.model_);
@@ -568,8 +568,8 @@ main(int argc, char **argv)
         CheckTrueMsg(!splayer2.model_.empty(), "--player2=alphazero requires --model");
         splayer2.alphazero_settings_.training_ = train;
         splayer2.alphazero_settings_.next_action_kind_ = (train) ?
-          cifre::AlphaZero::Settings::NextActionKind::RANDOM_VISIT_WEIGHTED :
-          cifre::AlphaZero::Settings::NextActionKind::MAX_VISITED;
+          cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
+          cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
         splayer2.alphazero_settings_.alphazero_max_depth_ = max_turns_per_game; // FIXME, should be adjusted after each turn
         alphazero2 = std::make_shared<cifre::AlphaZero>(
           logger, triton, splayer2.alphazero_settings_, splayer2.model_);
