@@ -63,6 +63,10 @@ public:
   const std::vector<float>& Pi() const { return pi_; }
   float V() const { return v_; }
 
+  // Return mutable versions of output tensor data.
+  std::vector<float>& MutablePi() { return pi_; }
+  float& MutableV() { return v_; }
+
 private:
   void ValidateResult(
     const triton::client::InferResult* result, const std::string& name,

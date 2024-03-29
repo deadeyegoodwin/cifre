@@ -87,7 +87,7 @@ public:
 };
 
 //
-// AlphaZero
+// AlphaZeroNode
 //
 // Node representing a state. A node can have multiple parents, the
 // visit counts of an edge from this node to each of the children are
@@ -119,6 +119,13 @@ public:
 
   // Return the Triton result object associated with this node.
   const TritonInferResult& NodeTritonResult() const { return result_; }
+
+  // Acquire ownership of the node's State or TritonResult. Note that
+  // using these methods puts the node into an invalid state. So
+  // typically you cannot access 'this' node after calling one of
+  // these methods.
+  std::unique_ptr<const State> AcquireNodeState() { return std::move(state_); }
+  TritonInferResult AcquireNodeTritonResult() { return std::move(result_); }
 
   // Return the child for a given action ID.
   AlphaZeroNode* Child(uint64_t action_id) const { return children_[action_id]; }
@@ -175,8 +182,8 @@ public:
     float cpuct, common::Logger::Level filter_level = common::Logger::Level::LOW) const;
 
 private:
-  const std::unique_ptr<const State> state_;
-  const TritonInferResult result_;
+  std::unique_ptr<const State> state_;
+  TritonInferResult result_;
   std::vector<AlphaZeroNode*> children_;
   std::vector<size_t> children_visit_counts_;
   size_t visit_count_;
@@ -198,13 +205,14 @@ public:
   // Return the statistics for this alphazero.
   const AlphaZeroStatistics& Statistics() const { return statistics_; }
 
-  // Return the collected training samples.
-  const std::vector<std::pair<std::shared_ptr<AlphaZeroNode>, float>>&
-  TrainingSamples() const { return train_nodes_; }
+  // Acquire ownership of the collected training nodes. 'this'
+  // AlphaZero object is left with an empty set of training nodes.
+  std::vector<std::pair<std::shared_ptr<AlphaZeroNode>, float>>
+  AcquireTrainingNodes() { return std::move(train_nodes_); }
 
-  // Reset the node tree and related statistics. After returning this
-  // alphazero object will begin constructing a new tree from
-  // scratch.
+  // Release all Nodes and related State and reset all
+  // statistics. After returning this alphazero object will begin
+  // constructing a new tree from scratch.
   void Reset();
 
   // Called to notify that a new game is starting.
@@ -284,11 +292,36 @@ private:
 //
 class AlphaZeroAggregator {
 public:
-  AlphaZeroAggregator(const std::shared_ptr<common::Logger>& logger) :
-    logger_(logger), aggregate_count_(0) { }
+  // Options for how training samples for the same node are
+  // aggregated.
+  //   ALL - A training samples is generated for every node, even if
+  //   that results in multiple training samples for the same node.
+  //   AVERAGE - The value and probability values for the training
+  //   samples for a given node are averaged and a single training
+  //   sample for all the nodes is kept using those average value and
+  //   probability values.
+  enum class AggregateKind { ALL, AVERAGE };
 
-  // Include 'alphazero' training and statistics in the aggregate.
-  void Aggregate(const AlphaZero& alphazero);
+  // Options for how training sample target value is calculated. Z is
+  // the game-outcome value (-1, 0 1) assigned to the node. V is the
+  // alphazero calculated value.
+
+  //   Z - Training sample value is set to game outcome value.
+  //   V - Training sample value is set to alphazero calculated value.
+  //   AVERAGE - Training sample value is set to average of Z and V.
+  enum class ValueKind { Z, V, AVERAGE };
+
+public:
+  AlphaZeroAggregator(const std::shared_ptr<common::Logger>& logger,
+                      AggregateKind aggregate_kind, ValueKind value_kind) :
+    logger_(logger), aggregate_kind_(aggregate_kind),
+    value_kind_(value_kind), aggregate_count_(0) { }
+
+  // Include 'alphazero' training and statistics in the
+  // aggregate. This aggregate may take ownership of State and other
+  // objects from 'alphazero'. To avoid leaving it in an invalid
+  // state, 'alphazero' is Reset before this call returns.
+  void Aggregate(AlphaZero* alphazero);
 
   // Write collected training data to 'dir'.
   void WriteTraining(const std::string& dir) const;
@@ -297,14 +330,42 @@ public:
   std::string ToString() const;
 
 private:
+  // Information about a training sample.
+  struct TrainSample {
+    TrainSample(std::unique_ptr<const State> state, TritonInferResult&& result) :
+      state_(std::move(state)), result_(std::move(result)), count_(1) { }
+    // The State for this sample.
+    const std::unique_ptr<const State> state_;
+
+    // The TritonInferResult for this sample.
+    TritonInferResult result_;
+
+    // Number of training nodes represented by this sample.
+    size_t count_;
+  };
+
   // Return string representation of a shape, using 'batch_count' as
   // the first/batch dimension value if it is non-zero.
   std::string ToJsonArray(const std::vector<int64_t> shape, size_t batch_count) const;
 
   std::shared_ptr<common::Logger> logger_;
+  const AggregateKind aggregate_kind_;
+  const ValueKind value_kind_;
   size_t aggregate_count_;
   AlphaZeroStatistics statistics_;
-  std::vector<std::pair<std::shared_ptr<AlphaZeroNode>, float>> train_samples_;
+
+  // Samples are identified by their State, so we need to use a custom
+  // hash and equal for the map containing all the nodes. The "State*"
+  // key is a pointer to the same state that is owned by the
+  // unique_ptr<State> in the Node itself.
+  struct SamplesMapHash {
+    size_t operator()(const State* s) const { return s->Hash(); }
+  };
+  struct SamplesMapEqual {
+    bool operator()(const State* a, const State* b) const { return a->Equal(b); }
+  };
+  std::unordered_map<
+     const State*, TrainSample, SamplesMapHash, SamplesMapEqual> train_samples_;
 };
 
 } // namespace cifre

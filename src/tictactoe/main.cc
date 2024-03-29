@@ -545,7 +545,10 @@ main(int argc, char **argv)
       triton.reset(new cifre::Triton(logger));
       CheckTrueMsg(triton->IsReady(), "triton is not ready");
 
-      alphazero_aggregator = std::make_unique<cifre::AlphaZeroAggregator>(logger);
+      alphazero_aggregator =
+        std::make_unique<cifre::AlphaZeroAggregator>(
+          logger, cifre::AlphaZeroAggregator::AggregateKind::AVERAGE,
+          cifre::AlphaZeroAggregator::ValueKind::AVERAGE); // FIXME provide options
 
       if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer1.model_.empty(), "--player1=alphazero requires --model");
@@ -608,17 +611,16 @@ main(int argc, char **argv)
         break;
       }
 
-      // If training, aggregate the training samples and statistics
-      // and then reset the alphazero tree(s) so that the next game
-      // starts with an empty tree.
+      // If training, aggregate the training samples and
+      // statistics. The aggregation takes ownership of some AlphaZero
+      // state, rendering the node tree invalid, thus the AlphaZero
+      // object is Reset() within Aggregate().
       if (train) {
         if (alphazero1 != nullptr) {
-          alphazero_aggregator->Aggregate(*alphazero1);
-          alphazero1->Reset();
+          alphazero_aggregator->Aggregate(alphazero1.get());
         }
         if ((alphazero2 != nullptr) && (alphazero2 != alphazero1)) {
-          alphazero_aggregator->Aggregate(*alphazero2);
-          alphazero2->Reset();
+          alphazero_aggregator->Aggregate(alphazero2.get());
         }
       }
     }
