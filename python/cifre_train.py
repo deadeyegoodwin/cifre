@@ -83,15 +83,10 @@ def main():
         required=False,
         help='Enable verbose output.')
     parser.add_argument(
-        '--log-id',
+        '--debug',
         action='store_true',
         required=False,
-        help='Enable object IDs in log output.')
-    parser.add_argument(
-        '--log-debug',
-        action='store_true',
-        required=False,
-        help='Enable debug logging.')
+        help='Enable debug output.')
 
     parser.add_argument(
         '--game',
@@ -166,8 +161,7 @@ def main():
         help='Training data directory.')
 
     FLAGS = parser.parse_args()
-    LOG = CifreLogger(verbose=FLAGS.verbose, quiet=FLAGS.quiet,
-                      show_id=FLAGS.log_id, debug=FLAGS.log_debug)
+    LOG = CifreLogger(verbose=FLAGS.verbose, quiet=FLAGS.quiet, debug=FLAGS.debug)
 
     if LOG.verbose():
         LOG.log_verbose('cifre_train.py')
@@ -178,6 +172,7 @@ def main():
     # FIXME
     if FLAGS.game == 'tictactoe':
         nnet_args = {
+            'batch_size': FLAGS.batch_size,
             'num_rows' : FLAGS.game_shape[0],
             'num_cols' : FLAGS.game_shape[1],
             'num_actions' : FLAGS.game_shape[0] * FLAGS.game_shape[1],
@@ -186,6 +181,7 @@ def main():
         nnet = CifreBasicFcNNet(nnet_args)
     elif FLAGS.game == 'celcath':
         nnet_args = {
+            'batch_size': FLAGS.batch_size,
             'num_rows' : FLAGS.game_shape[0],
             'num_cols' : FLAGS.game_shape[1],
             'num_actions' : FLAGS.game_shape[0] * FLAGS.game_shape[1] + 2,
@@ -196,7 +192,7 @@ def main():
         raise ValueError(f"unexpected --game={FLAGS.game}, options are 'tictactoe', 'celcath'")
 
     # The same nnet is used for all iterations.
-    manager = CifreNNetManager(nnet, FLAGS.game_shape, FLAGS.repo_dir)
+    manager = CifreNNetManager(LOG, nnet, FLAGS.game_shape, FLAGS.repo_dir)
 
     # Keep track of the trained model that gives the best
     # results. After each iteration, the just trained model competes

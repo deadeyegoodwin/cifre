@@ -15,10 +15,11 @@ from tqdm import tqdm
 # Manage a neural network.
 #
 class CifreNNetManager(object):
-    def __init__(self, nnet, nnet_input_shape, repodir):
+    def __init__(self, log, nnet, nnet_input_shape, repodir):
         """
         Initialize for 'nnet'.
         """
+        self._log = log
         self._nnet = nnet
         self._nnet_input_shape = nnet_input_shape
         self._repodir = repodir
@@ -34,6 +35,9 @@ class CifreNNetManager(object):
         be a dict that includes entries for 'num_epochs' and
         'batch_size'.
         """
+        if self._log.debug():
+            torch.set_printoptions(profile='default', linewidth=10000)
+
         self._nnet.train()
         dataloader = DataLoader(
             dataset, batch_size=train_args['batch_size'], drop_last=True, shuffle=True)
@@ -46,26 +50,30 @@ class CifreNNetManager(object):
             v_loss_running = 0
             loss_running_count = 0
 
-            progress = tqdm(total=len(dataloader), desc='Train')
+            progress = tqdm(total=len(dataloader), desc='Train', disable=self._log.debug())
             for d_in, d_pi, d_v in dataloader:
-                tensor_in = torch.FloatTensor(d_in)
-                tensor_pi = torch.FloatTensor(d_pi)
-                tensor_v = torch.FloatTensor(d_v)
+                sample_in = torch.FloatTensor(d_in)
+                sample_pi = torch.FloatTensor(d_pi)
+                sample_v = torch.FloatTensor(d_v)
+                self._log.log_debug(f'sample: v = {sample_v}, pi = {sample_pi}')
+                self._log.log_debug(f'in = {sample_in}', extra_indent=8)
                 if self._use_cuda:
-                    tensor_in = tensor_in.contiguous().cuda()
-                    tensor_pi = tensor_pi.contiguous().cuda()
-                    tensor_v = tensor_v.contiguous().cuda()
+                    sample_in = sample_in.contiguous().cuda()
+                    sample_pi = sample_pi.contiguous().cuda()
+                    sample_v = sample_v.contiguous().cuda()
 
-                ibs = tensor_in.size(0)
-                assert (ibs == tensor_pi.size(0)) and (ibs == tensor_v.size(0))
+                ibs = sample_in.size(0)
+                assert (ibs == sample_pi.size(0)) and (ibs == sample_v.size(0))
 
                 # Run batch through network
-                pi_result, v_result = self._nnet(tensor_in)
+                pi_result, v_result = self._nnet(sample_in)
+                self._log.log_debug(f'result: v = {v_result}, pi = {torch.exp(pi_result)}')
 
                 # Compute loss...
-                pi_loss = -torch.sum(tensor_pi * pi_result)
-                v_loss = torch.sum((tensor_v - v_result.view(-1)) ** 2)
+                pi_loss = -torch.sum(sample_pi * pi_result)
+                v_loss = torch.sum((sample_v - v_result.view(-1)) ** 2)
                 total_loss = (pi_loss + v_loss) / ibs
+                self._log.log_debug(f'loss: v = {v_loss/ibs}, pi = {pi_loss/ibs}')
 
                 # Backprop...
                 self._optimizer.zero_grad()
@@ -80,6 +88,9 @@ class CifreNNetManager(object):
                                      loss_v=(v_loss_running / loss_running_count))
                 progress.update(1)
             progress.close()
+
+        if self._log.debug():
+            torch.set_printoptions(profile='default')
 
     def predict(self, board):
         """

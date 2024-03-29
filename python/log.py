@@ -8,30 +8,26 @@ import sys
 # Base class for logging and related utilities
 #
 class CifreLoggerBase:
-    def __init__(self, indent=0, verbose=False, quiet=False, show_id=False, debug=False):
+    def __init__(self, indent=0, verbose=False, quiet=False, debug=False):
         self._verbose = verbose
         self._quiet = quiet
         self._indent = indent
-        self._show_id = show_id
         self._debug = debug
 
     # Create a new logger and initialize its settings from an existing
     # logger. Optionally allow existing logger settings to be
     # overridden.
     @classmethod
-    def copy(cls, other, indent=None, verbose=None, quiet=None, show_id=None, debug=None):
+    def copy(cls, other, indent=None, verbose=None, quiet=None, debug=None):
         return cls(indent=other._indent if indent is None else indent,
                    verbose=other._verbose if verbose is None else verbose,
                    quiet=other._quiet if quiet is None else quiet,
-                   show_id=other._show_id if show_id is None else show_id,
                    debug=other._debug if debug is None else debug)
 
     def verbose(self):
         return self._verbose
     def quiet(self):
         return self._quiet
-    def show_id(self):
-        return self._show_id
     def debug(self):
         return self._debug
     def indent(self):
@@ -85,9 +81,8 @@ class CifreLoggerBase:
 # Log to a file or stdout/stderr
 #
 class CifreLogger(CifreLoggerBase):
-    def __init__(self, log_file=sys.stdout, indent=0, verbose=False, quiet=False,
-                 show_id=False, debug=False):
-        CifreLoggerBase.__init__(self, indent, verbose, quiet, show_id, debug)
+    def __init__(self, log_file=sys.stdout, indent=0, verbose=False, quiet=False, debug=False):
+        CifreLoggerBase.__init__(self, indent, verbose, quiet, debug)
         self._log_file = log_file
 
     def _log(self, msg):
@@ -99,8 +94,8 @@ class CifreLogger(CifreLoggerBase):
 # Log to a string.
 #
 class CifreLoggerString(CifreLoggerBase):
-    def __init__(self, indent=0, verbose=False, quiet=False, show_id=False, debug=False):
-        CifreLoggerBase.__init__(self, indent, verbose, quiet, show_id, debug)
+    def __init__(self, indent=0, verbose=False, quiet=False, debug=False):
+        CifreLoggerBase.__init__(self, indent, verbose, quiet, debug)
         self._lines = []
 
     def _log(self, msg):

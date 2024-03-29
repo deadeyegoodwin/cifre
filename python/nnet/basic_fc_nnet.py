@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 #
 # Basic Fully-Connected NNet. 'args' is a dict that must include
-# 'num_rows', 'num_cols', 'num_actions', 'dropout'.
+# 'batch_size', 'num_rows', 'num_cols', 'num_actions', 'dropout'.
 #
 class CifreBasicFcNNet(nn.Module):
     def __init__(self, args):
@@ -17,10 +17,10 @@ class CifreBasicFcNNet(nn.Module):
 
         super(CifreBasicFcNNet, self).__init__()
         self.fc1 = nn.Linear(self.args['num_cols'] * self.args['num_rows'], 1024)
-        self.fc_bn1 = nn.BatchNorm1d(1024)
+        self.fc_bn1 = nn.BatchNorm1d(1024) if (self.args['batch_size'] > 1) else nn.Identity(1024)
 
         self.fc2 = nn.Linear(1024, 512)
-        self.fc_bn2 = nn.BatchNorm1d(512)
+        self.fc_bn2 = nn.BatchNorm1d(512) if (self.args['batch_size'] > 1) else nn.Identity(512)
 
         self.fc3 = nn.Linear(512, self.args['num_actions'])
         self.fc4 = nn.Linear(512, 1)
