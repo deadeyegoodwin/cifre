@@ -36,33 +36,33 @@ struct AlphaZeroSettings {
   // that dirichlet distribution should not be used (this is the
   // default because when not training the default is to not use
   // Dirichlet).
-  float alphazero_dirichlet_alpha_ {0.0};
+  float dirichlet_alpha_ {0.0};
 
   // Number of Dirichlet samples that will be generated (if
-  // 'alphazero_dirichlet_alpha_' is non-zero). These values are
-  // used round-robin to modify the pi values of root nodes.
-  size_t alphazero_dirichlet_sample_count_ {1111};
+  // 'dirichlet_alpha_' is non-zero). These values are used
+  // round-robin to modify the pi values of root nodes.
+  size_t dirichlet_sample_count_ {1111};
 
   // The ratio used to combine the Dirichlet values to the pi
   // probabilities. If d == dirichlet value and x ==
-  // alphazero_dirichlet_ratio_, the probability used is (pi * (1 -
-  // x)) + (d * x).
-  float alphazero_dirichlet_ratio_ {0.25};
+  // 'dirichlet_ratio_', the probability used is (pi * (1 - x)) + (d *
+  // x).
+  float dirichlet_ratio_ {0.25};
 
   // Number of updates (searches) made to alphazero tree before
   // choosing the next action ID.
-  size_t alphazero_update_count_ {50};
+  size_t update_count_ {50};
 
   // Maximum depth alphazero will traverse tree for each
   // search/update. Once this depth is reached the game is
   // considered a draw and the tree is updated
   // appropriately. Therefore, this depth should be set to match the
   // rules of the game.
-  size_t alphazero_max_depth_ {20};
+  size_t max_depth_ {20};
 
   // The cpuct value for alphazero QU calculation. The non-training
   // default is 1.0.
-  float alphazero_cpuct_ {1.0};
+  float cpuct_ {1.0};
 };
 
 //
@@ -255,8 +255,8 @@ private:
   common::Random rnd_;
 
   // Number of Dirichlet samples (generated if
-  // 'settings_.alphazero_dirichlet_alpha_' is non-zero). These values
-  // are used round-robin to modify the pi values of root nodes.
+  // 'settings_.dirichlet_alpha_' is non-zero). These values are used
+  // round-robin to modify the pi values of root nodes.
   size_t dirichlet_samples_idx_;
   std::vector<std::vector<double>> dirichlet_samples_;
 

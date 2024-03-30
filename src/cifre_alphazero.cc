@@ -33,12 +33,9 @@ AlphaZero::AlphaZero(
           std::string("triton model '" + model_name_ + "' is not ready"));
 
   // Make sure Dirichlet settings are valid.
-  THROWIF(settings_.alphazero_dirichlet_alpha_ < 0.0,
-          "dirichlet alpha value must be >= 0.0");
-  THROWIF(settings_.alphazero_dirichlet_sample_count_ <= 0,
-          "dirichlet sample count must be > 0");
-  THROWIF((settings_.alphazero_dirichlet_ratio_ <= 0.0) ||
-          (settings_.alphazero_dirichlet_ratio_ >= 1.0),
+  THROWIF(settings_.dirichlet_alpha_ < 0.0, "dirichlet alpha value must be >= 0.0");
+  THROWIF(settings_.dirichlet_sample_count_ <= 0, "dirichlet sample count must be > 0");
+  THROWIF((settings_.dirichlet_ratio_ <= 0.0) || (settings_.dirichlet_ratio_ >= 1.0),
           "dirichlet ratio must be in exclusive range (0.0, 1.0)");
 }
 
@@ -111,14 +108,13 @@ AlphaZero::NextActionId(const State& state)
   // Library). This is done lazily because a State object is needed to
   // get the total number of action IDs.
   const std::vector<double>* dirichlet = nullptr;
-  if (settings_.alphazero_dirichlet_alpha_ > 0.0) {
+  if (settings_.dirichlet_alpha_ > 0.0) {
     if (dirichlet_samples_.empty()) {
-      GenerateDirichletSamples(
-        settings_.alphazero_dirichlet_alpha_, state.TotalActionIdCount(),
-        settings_.alphazero_dirichlet_sample_count_);
+      GenerateDirichletSamples(settings_.dirichlet_alpha_, state.TotalActionIdCount(),
+                               settings_.dirichlet_sample_count_);
     }
 
-    assert(dirichlet_samples_.size() == settings_.alphazero_dirichlet_sample_count_);
+    assert(dirichlet_samples_.size() == settings_.dirichlet_sample_count_);
     dirichlet = &dirichlet_samples_[dirichlet_samples_idx_];
     dirichlet_samples_idx_ = (dirichlet_samples_idx_ + 1) % dirichlet_samples_.size();
   }
@@ -128,21 +124,21 @@ AlphaZero::NextActionId(const State& state)
   assert(node != nullptr);
 
   LOGGER_LOGHIGH(*logger_, "\nalphazero: starting node");
-  LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.alphazero_cpuct_),
+  LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_),
                     2 /* indent */, true /* endline */);
 
   // Update the tree starting from 'node'.
-  for (size_t idx = 0; idx < settings_.alphazero_update_count_; ++idx) {
+  for (size_t idx = 0; idx < settings_.update_count_; ++idx) {
     LOGGER_LOGHIGH_IE(
       *logger_,
-      "update " + std::to_string(idx+1) + '/' + std::to_string(settings_.alphazero_update_count_) + ':',
+      "update " + std::to_string(idx+1) + '/' + std::to_string(settings_.update_count_) + ':',
       0 /* indent */, false /* endline */);
-    UpdateTree(node.get(), settings_.alphazero_max_depth_, dirichlet);
+    UpdateTree(node.get(), settings_.max_depth_, dirichlet);
     LOGGER_LOGHIGH_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
   }
 
   LOGGER_LOGHIGH(*logger_, "\nalphazero: choosing action for node");
-  LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.alphazero_cpuct_),
+  LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_),
                     2 /* indent */, true /* endline */);
 
   // Based on 'kind', choose the next action. Because 'state' is not a
@@ -215,7 +211,7 @@ AlphaZero::UpdateTree(AlphaZeroNode* node, const size_t depth_remaining,
   // return its value.
   if (node->IsTerminal()) {
     LOGGER_LOGHIGH(*logger_, " terminal(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
-    LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.alphazero_cpuct_),
+    LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_),
                       2 /* indent */, true /* endline */);
     statistics_.search_endby_terminal_count_++;
     node->IncrementVisitCount();
@@ -235,7 +231,7 @@ AlphaZero::UpdateTree(AlphaZeroNode* node, const size_t depth_remaining,
   // update the node count.
   if (depth_remaining == 0) {
     LOGGER_LOGHIGH(*logger_, " depth(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
-    LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.alphazero_cpuct_),
+    LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_),
                       2 /* indent */, true /* endline */);
     statistics_.search_endby_depth_count_++;
     return DRAW_VALUE;
@@ -244,7 +240,7 @@ AlphaZero::UpdateTree(AlphaZeroNode* node, const size_t depth_remaining,
   // Move down tree following best actions until perform an action
   // that doesn't yet have a child node.
   std::optional<uint64_t> best_action_id =
-    node->MaxQU(settings_.alphazero_cpuct_, dirichlet, settings_.alphazero_dirichlet_ratio_);
+    node->MaxQU(settings_.cpuct_, dirichlet, settings_.dirichlet_ratio_);
   THROWIF(!best_action_id, "alpha-zero unable to find action ID with max QU");
   LOGGER_LOGHIGH_IE(
     *logger_,

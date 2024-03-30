@@ -299,9 +299,9 @@ InitializeAlphaZeroForTraining(cifre::AlphaZeroSettings* settings)
   settings->training_ = true;
   settings->next_action_kind_ =
     cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
-  settings->alphazero_dirichlet_alpha_ = std::min(1.0, 10.0 / 9.0 /* FIXME need total-action-id-count from game */);
-  settings->alphazero_max_depth_ = 20; // FIXME, should be adjusted after each turn
-  settings->alphazero_cpuct_ = 4.0;
+  settings->dirichlet_alpha_ = std::min(1.0, 10.0 / 9.0 /* FIXME need total-action-id-count from game */);
+  settings->max_depth_ = 20; // FIXME, should be adjusted after each turn
+  settings->cpuct_ = 4.0;
 }
 
 }  // namespace
@@ -475,12 +475,12 @@ main(int argc, char **argv)
       case Option::OPTION_PLAYER_ALPHAZERO_UPDATE_COUNT:
         CheckTrueMsg(active_splayer != nullptr,
                      "--player1 or --player2 must be specified before --alphazero-update-count");
-        active_splayer->alphazero_settings_.alphazero_update_count_ = ParseUnsigned(optarg, 1);
+        active_splayer->alphazero_settings_.update_count_ = ParseUnsigned(optarg, 1);
         break;
       case Option::OPTION_PLAYER_ALPHAZERO_CPUCT:
         CheckTrueMsg(active_splayer != nullptr,
                      "--player1 or --player2 must be specified before --alphazero-cpuct");
-        active_splayer->alphazero_settings_.alphazero_cpuct_ = ParseFloat(optarg, 0.0);
+        active_splayer->alphazero_settings_.cpuct_ = ParseFloat(optarg, 0.0);
         break;
       }
     }

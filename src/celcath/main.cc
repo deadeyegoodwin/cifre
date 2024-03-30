@@ -472,12 +472,12 @@ main(int argc, char **argv)
       case Option::OPTION_PLAYER_ALPHAZERO_UPDATE_COUNT:
         CheckTrueMsg(active_splayer != nullptr,
                      "--player1 or --player2 must be specified before --alphazero-update-count");
-        active_splayer->alphazero_settings_.alphazero_update_count_ = ParseUnsigned(optarg, 1);
+        active_splayer->alphazero_settings_.update_count_ = ParseUnsigned(optarg, 1);
         break;
       case Option::OPTION_PLAYER_ALPHAZERO_CPUCT:
         CheckTrueMsg(active_splayer != nullptr,
                      "--player1 or --player2 must be specified before --alphazero-cpuct");
-        active_splayer->alphazero_settings_.alphazero_cpuct_ = ParseFloat(optarg, 0.0);
+        active_splayer->alphazero_settings_.cpuct_ = ParseFloat(optarg, 0.0);
         break;
       }
     }
@@ -560,7 +560,7 @@ main(int argc, char **argv)
         splayer1.alphazero_settings_.next_action_kind_ = (train) ?
           cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
           cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
-        splayer1.alphazero_settings_.alphazero_max_depth_ = max_turns_per_game; // FIXME, should be adjusted after each turn
+        splayer1.alphazero_settings_.max_depth_ = max_turns_per_game; // FIXME, should be adjusted after each turn
         alphazero1 = std::make_shared<cifre::AlphaZero>(
           logger, triton, splayer1.alphazero_settings_, splayer1.model_);
       }
@@ -570,7 +570,7 @@ main(int argc, char **argv)
         splayer2.alphazero_settings_.next_action_kind_ = (train) ?
           cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
           cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
-        splayer2.alphazero_settings_.alphazero_max_depth_ = max_turns_per_game; // FIXME, should be adjusted after each turn
+        splayer2.alphazero_settings_.max_depth_ = max_turns_per_game; // FIXME, should be adjusted after each turn
         alphazero2 = std::make_shared<cifre::AlphaZero>(
           logger, triton, splayer2.alphazero_settings_, splayer2.model_);
       }
