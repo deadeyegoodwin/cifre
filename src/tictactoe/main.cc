@@ -544,6 +544,9 @@ main(int argc, char **argv)
         (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO)) {
       triton.reset(new cifre::Triton(logger));
       CheckTrueMsg(triton->IsReady(), "triton is not ready");
+      // FIXME make sure no models are already loaded into Triton. Due
+      // to an earlier failure, if there is an old model still loaded
+      // it could cause hard to debug failures.
 
       alphazero_aggregator =
         std::make_unique<cifre::AlphaZeroAggregator>(
@@ -645,6 +648,8 @@ main(int argc, char **argv)
       logger->LogLow("AlphaZero");
       logger->LogLow(alphazero_aggregator->ToString(), 4 /* indent */);
     }
+
+    // FIXME write triton statistics...
 
     // Write report, if requested.
     if (!report_filename.empty()) {

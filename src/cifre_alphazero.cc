@@ -26,9 +26,11 @@ AlphaZero::AlphaZero(
 {
   THROWIF(model_name_.empty(), "model must be specified for alpha-zero");
 
-  // Load model and make sure it is ready.
-  THROWIF(!triton_->LoadModel(model_name_),
-          std::string("triton model '" + model_name_ + "' failed to load"));
+  // Load model if it is not already available.
+  if (!triton_->IsModelReady(model_name_)) {
+    THROWIF(!triton_->LoadModel(model_name_, settings_.enable_cache_),
+            std::string("triton model '" + model_name_ + "' failed to load"));
+  }
   THROWIF(!triton_->IsModelReady(model_name_),
           std::string("triton model '" + model_name_ + "' is not ready"));
 
@@ -177,8 +179,8 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
     new_created = false;
   }
   else {
-    auto result = triton_->RunModel(model_name_, state->TritonRepresentation());
-    assert(result.PiEntryCount() == state->TotalActionIdCount());
+    auto result = triton_->RunModel(model_name_, *state);
+    assert(result->PiEntryCount() == state->TotalActionIdCount());
 
     const State* pstate = state.get();
 
@@ -310,8 +312,9 @@ AlphaZero::GenerateDirichletSamples(
 //
 // AlphaZeroNode
 //
-AlphaZeroNode::AlphaZeroNode(std::unique_ptr<const State> state, TritonInferResult&& infer_result) :
-  state_(std::move(state)), result_(std::move(infer_result)),
+  AlphaZeroNode::AlphaZeroNode(
+    std::unique_ptr<const State> state, std::shared_ptr<const TritonInferResult> infer_result) :
+  state_(std::move(state)), result_(infer_result),
   children_(state_->TotalActionIdCount(), nullptr),
   children_visit_counts_(state_->TotalActionIdCount(), 0),
   visit_count_(0)
@@ -329,8 +332,8 @@ AlphaZeroNode::AlphaZeroNode(std::unique_ptr<const State> state, TritonInferResu
     value_ = LOSER_VALUE;
     break;
   case State::TerminalStatusKind::NON_TERMINAL: {
-    assert(result_.VEntryCount() == 1);
-    value_ = result_.V();
+    assert(result_->VEntryCount() == 1);
+    value_ = result_->V();
   } break;
 }
 }
@@ -366,7 +369,7 @@ AlphaZeroNode::MaxQU(
     qus->resize(state_->TotalActionIdCount(), 0.0);
   }
 
-  const auto& pi = result_.Pi();
+  const auto& pi = result_->Pi();
   float max_qu = -std::numeric_limits<float>::max();
   uint64_t best_action_id = std::numeric_limits<uint64_t>::max();
 
@@ -492,7 +495,7 @@ AlphaZeroNode::ToString(float cpuct, common::Logger::Level filter_level) const
   }
   sstr << "]\n";
 
-  const auto& pi = result_.Pi();
+  const auto& pi = result_->Pi();
   sstr << "  pi: [";
   first = true;
   for (size_t idx = 0; idx < state_->TotalActionIdCount(); ++idx) {
@@ -570,14 +573,14 @@ AlphaZeroAggregator::Aggregate(AlphaZero* alphazero)
 
   // Take ownership of the training nodes from 'alphazero'. Also will
   // take ownership of the State and TritonInferResult objects within
-  // the training nodes and thus 'alphazero' is reset by this method
-  // as it's nodes are not longer valid (i.e. some of the nodes will
-  // have no associated State and/or TritonInferResult).
+  // the training nodes and thus 'alphazero' is reset at the end of
+  // this method as it's nodes are not longer valid (i.e. some of the
+  // nodes will have no associated State and/or TritonInferResult).
   auto training_nodes = std::move(alphazero->AcquireTrainingNodes());
 
   for (const auto& pr : training_nodes) {
     const auto node_probs = pr.first->ChildProbability();
-    float node_value;
+    float node_value = 0.0;
     switch (value_kind_) {
     case ValueKind::Z:
       node_value = pr.second;
@@ -590,12 +593,12 @@ AlphaZeroAggregator::Aggregate(AlphaZero* alphazero)
       break;
     }
 
-    // Based on the Kind, set the target Pi and V for the training
-    // sample by reusing the TritonInferResult to store those values.
-
+    // Based on the AggregateKind, set the target Pi and V for the
+    // training sample.
     auto sample_itr = train_samples_.find(&(pr.first->NodeState()));
     if ((aggregate_kind_ == AggregateKind::ALL) || (sample_itr == train_samples_.end())) {
-      // For ALL or a first-time-seen node, create a TrainSample.
+      // For ALL or a first-time-seen node, create a TrainSample and
+      // set Pi from node's probabilities.
       std::unique_ptr<const State> state = pr.first->AcquireNodeState();
       auto created_sample_itr = train_samples_.emplace(
         std::piecewise_construct,
@@ -603,21 +606,20 @@ AlphaZeroAggregator::Aggregate(AlphaZero* alphazero)
         std::forward_as_tuple(std::move(state), std::move(pr.first->AcquireNodeTritonResult())));
       assert(created_sample_itr.second);
       TrainSample& sample = created_sample_itr.first->second;
-      assert((node_probs.size() * sizeof(float)) == sample.result_.PiByteSize());
-      sample.result_.MutablePi() = std::move(node_probs);
-      sample.result_.MutableV() = node_value;
+      assert((node_probs.size() * sizeof(float)) == sample.result_->PiByteSize());
+      sample.target_pi_ = std::move(node_probs);
+      sample.target_v_ = node_value;
     }
     else {
       // Otherwise average 'node_probs' and 'node_value' into the
       // existing sample.
       assert(aggregate_kind_ == AggregateKind::AVERAGE);
       TrainSample& sample = sample_itr->second;
-      sample.result_.MutableV() += node_value;
+      sample.target_v_ += node_value;
 
-      std::vector<float>& pi = sample.result_.MutablePi();
-      assert(node_probs.size() == pi.size());
+      assert(node_probs.size() == sample.target_pi_.size());
       for (size_t i = 0; i < node_probs.size(); ++i) {
-        pi[i] += node_probs[i];
+        sample.target_pi_[i] += node_probs[i];
       }
 
       sample.count_++;
@@ -650,11 +652,11 @@ AlphaZeroAggregator::WriteTraining(const std::string& dir) const
   const TritonInferResult* repr_result = nullptr;
   for (const auto& pr : train_samples_) {
     if (repr_result == nullptr) {
-      repr_result = &pr.second.result_;
+      repr_result = pr.second.result_.get();
     }
 
     LOGGER_LOGHIGH(*logger_, "writing training sample, value " +
-                   std::to_string(pr.second.result_.V()) + ':');
+                   std::to_string(pr.second.target_v_) + ':');
     LOGGER_LOGHIGH_IE(*logger_, pr.first->ToString(),
                       2 /* indent */, true /* endline */);
 
@@ -662,12 +664,12 @@ AlphaZeroAggregator::WriteTraining(const std::string& dir) const
     fin.write(reinterpret_cast<const char*>(din.data()), din.size() * sizeof(uint8_t));
     assert((din.size() * sizeof(uint8_t)) == repr_result->InputByteSize());
 
-    for (const float dpi : pr.second.result_.Pi()) {
+    for (const float dpi : pr.second.target_pi_) {
       float dpi_per = dpi / pr.second.count_;
       fpi.write(reinterpret_cast<const char*>(&dpi_per), sizeof(dpi_per));
     }
 
-    const float dv = pr.second.result_.V() / pr.second.count_;
+    const float dv = pr.second.target_v_ / pr.second.count_;
     fv.write(reinterpret_cast<const char*>(&dv), sizeof(dv));
   }
 

@@ -24,6 +24,10 @@ struct AlphaZeroSettings {
   // True if training data should be collected.
   bool training_ {false};
 
+  // True if triton results should be cached to avoid repeated
+  // inferences of the same state.
+  bool enable_cache_ {true};
+
   // Options for how NextActionId can choose an action ID.
   //   MAX_VISITED - choose action ID corresponding to max visited child
   //   RANDOM_VISIT_WEIGHTED - choose randomly taking into account
@@ -107,8 +111,9 @@ public:
 //
 class AlphaZeroNode {
 public:
-  // Create node for state which model predicts 'infer_result'.
-  AlphaZeroNode(std::unique_ptr<const State> state, TritonInferResult&& infer_result);
+  // Create node for state for which model predicts 'infer_result'.
+  AlphaZeroNode(std::unique_ptr<const State> state,
+                std::shared_ptr<const TritonInferResult> infer_result);
 
   // Is node a terminal?
   bool IsTerminal() const {
@@ -118,14 +123,15 @@ public:
   const State& NodeState() const { return *state_; }
 
   // Return the Triton result object associated with this node.
-  const TritonInferResult& NodeTritonResult() const { return result_; }
+  const TritonInferResult& NodeTritonResult() const { return *result_; }
 
-  // Acquire ownership of the node's State or TritonResult. Note that
-  // using these methods puts the node into an invalid state. So
+  // Acquire ownership of the node's State or TritonInferResult. Note
+  // that using these methods puts the node into an invalid state. So
   // typically you cannot access 'this' node after calling one of
   // these methods.
   std::unique_ptr<const State> AcquireNodeState() { return std::move(state_); }
-  TritonInferResult AcquireNodeTritonResult() { return std::move(result_); }
+  std::shared_ptr<const TritonInferResult> AcquireNodeTritonResult() {
+    return std::move(result_); }
 
   // Return the child for a given action ID.
   AlphaZeroNode* Child(uint64_t action_id) const { return children_[action_id]; }
@@ -183,7 +189,7 @@ public:
 
 private:
   std::unique_ptr<const State> state_;
-  TritonInferResult result_;
+  std::shared_ptr<const TritonInferResult> result_;
   std::vector<AlphaZeroNode*> children_;
   std::vector<size_t> children_visit_counts_;
   size_t visit_count_;
@@ -320,7 +326,7 @@ public:
   // Include 'alphazero' training and statistics in the
   // aggregate. This aggregate may take ownership of State and other
   // objects from 'alphazero'. To avoid leaving it in an invalid
-  // state, 'alphazero' is Reset before this call returns.
+  // state, 'alphazero' is Reset() before this call returns.
   void Aggregate(AlphaZero* alphazero);
 
   // Write collected training data to 'dir'.
@@ -332,13 +338,17 @@ public:
 private:
   // Information about a training sample.
   struct TrainSample {
-    TrainSample(std::unique_ptr<const State> state, TritonInferResult&& result) :
-      state_(std::move(state)), result_(std::move(result)), count_(1) { }
+    TrainSample(std::unique_ptr<const State> state, std::shared_ptr<const TritonInferResult> result) :
+      state_(std::move(state)), result_(result), count_(1) { }
     // The State for this sample.
     const std::unique_ptr<const State> state_;
 
     // The TritonInferResult for this sample.
-    TritonInferResult result_;
+    const std::shared_ptr<const TritonInferResult> result_;
+
+    // Sample pi and v.
+    std::vector<float> target_pi_;
+    float target_v_;
 
     // Number of training nodes represented by this sample.
     size_t count_;
