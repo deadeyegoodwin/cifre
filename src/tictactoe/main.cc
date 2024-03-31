@@ -548,10 +548,12 @@ main(int argc, char **argv)
       // to an earlier failure, if there is an old model still loaded
       // it could cause hard to debug failures.
 
-      alphazero_aggregator =
-        std::make_unique<cifre::AlphaZeroAggregator>(
-          logger, cifre::AlphaZeroAggregator::AggregateKind::AVERAGE,
-          cifre::AlphaZeroAggregator::ValueKind::AVERAGE); // FIXME provide options
+      if (train) {
+        alphazero_aggregator =
+          std::make_unique<cifre::AlphaZeroAggregator>(
+            logger, cifre::AlphaZeroAggregator::AggregateKind::AVERAGE,
+            cifre::AlphaZeroAggregator::ValueKind::AVERAGE); // FIXME provide options
+      }
 
       if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer1.model_.empty(), "--player1=alphazero requires --model");
