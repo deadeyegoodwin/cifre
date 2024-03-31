@@ -649,7 +649,11 @@ main(int argc, char **argv)
       logger->LogLow(alphazero_aggregator->ToString(), 4 /* indent */);
     }
 
-    // FIXME write triton statistics...
+    // Triton statistics, if any...
+    if (triton != nullptr) {
+      logger->LogLow("Triton");
+      logger->LogLow(triton->ToString(), 4 /* indent */);
+    }
 
     // Write report, if requested.
     if (!report_filename.empty()) {

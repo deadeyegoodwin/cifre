@@ -1,6 +1,7 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 
 #include <cmath>
+#include <iomanip>
 #include <sstream>
 
 #include "cifre_triton.h"
@@ -72,6 +73,25 @@ TritonInferResult::ValidateResult(
   std::vector<int64_t> rshape;
   CheckTritonError(result->Shape(name, &rshape), "validating result shape for '" + name + "'");
   THROWIF(shape != rshape, "shape mismatch for result '" + name + "'");
+}
+
+//
+// TritonStatistics
+//
+std::string
+TritonStatistics::ToString() const
+{
+  std::stringstream ss;
+
+  ss
+    << std::fixed << std::setprecision(2)
+    << "predictions: " << prediction_count_
+    << ", inferences: " << inference_count_ << " ("
+    << (100.0 * inference_count_ / prediction_count_) << "%)"
+    << ", cache hits: " << cache_hit_count_ << " ("
+    << (100.0 * cache_hit_count_ / prediction_count_) << "%)";
+
+  return ss.str();
 }
 
 //
@@ -162,6 +182,8 @@ Triton::UnloadModel(const std::string& model)
 std::shared_ptr<const TritonInferResult>
 Triton::RunModel(const std::string& model, const State& state)
 {
+  statistics_.prediction_count_++;
+
   auto model_data_itr = model_datas_.find(model);
   THROWIF(model_data_itr == model_datas_.end(),
           "no data found for model '" + model + "'");
@@ -174,6 +196,7 @@ Triton::RunModel(const std::string& model, const State& state)
   if (model_data.cache_enabled_) {
     auto cache_itr = model_data.cache_.find(&state);
     if (cache_itr != model_data.cache_.end()) {
+      statistics_.cache_hit_count_++;
       return cache_itr->second.result_;
     }
   }
@@ -203,6 +226,7 @@ Triton::RunModel(const std::string& model, const State& state)
   triton::client::InferResult* result;
   auto err = client_->Infer(&result, options, inputs, outputs);
   CheckTritonError(err, "failed to run model '" + model + "'");
+  statistics_.inference_count_++;
 
   auto ires = std::make_shared<const TritonInferResult>(model_data, result);
   delete result;

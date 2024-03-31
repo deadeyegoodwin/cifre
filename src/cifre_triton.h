@@ -114,6 +114,19 @@ struct TritonModelData {
 };
 
 //
+// TritonStatistics
+//
+class TritonStatistics {
+public:
+  // Return string representation of statistics.
+  std::string ToString() const;
+
+  size_t prediction_count_ {0};
+  size_t inference_count_ {0};
+  size_t cache_hit_count_ {0};
+};
+
+//
 // Triton
 //
 // Interface to Triton inference server.
@@ -146,6 +159,9 @@ public:
   std::shared_ptr<const TritonInferResult> RunModel(
     const std::string& model, const State& state);
 
+  // Return string representation.
+  std::string ToString() const { return statistics_.ToString(); }
+
 private:
   triton::client::Error UpdateModelData(const std::string& model, bool enable_cache);
   triton::client::Error UpdateInputMetadata(
@@ -159,6 +175,8 @@ private:
   std::shared_ptr<common::Logger> logger_;
   std::unique_ptr<triton::client::InferenceServerHttpClient> client_;
   std::unordered_map<std::string, TritonModelData> model_datas_;
+
+  TritonStatistics statistics_;
 };
 
 } // namespace cifre
