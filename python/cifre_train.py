@@ -114,8 +114,9 @@ def main():
         type=parse_positive_int,
         default=10,
         required=False,
-        help=('Number of games to play using AlphaZero for each of the --iteration-count ' +
-              'iterations.'))
+        help=('Number of games to play with AlphaZero self-play for each of the ' +
+              '--iteration-count iterations. Training samples are collected from ' +
+              'these games.'))
     parser.add_argument(
         '--max-turns-per-game',
         type=parse_positive_int,
@@ -148,6 +149,15 @@ def main():
         default=8,
         required=False,
         help=('Batch size to use when training nnet. Default is 8.'))
+
+    parser.add_argument(
+        '--cmp-game-count',
+        type=parse_positive_int,
+        default=20,
+        required=False,
+        help=('Number of games to play when comparing two nnet models to decide which ' +
+              'is better. Each player gets this number of games to start first, so the ' +
+              'total number of games played is 2 * --cmp-game-count.'))
 
     parser.add_argument(
         '--repo-dir',
@@ -247,11 +257,7 @@ def main():
             LOG.log(f'==== Compare {model_name} to {best_model_name} ====')
             game_count = winner1_count = winner2_count = draw_count = 0
 
-            # FIXME should be always pick the new model no matter? Or
-            # perhaps have a high bar not to pick the new model?
-
             # Give each player a chance to go first...
-            cmp_game_count = 10  # FIXME
             for starting_idx in [0, 1]:
                 report_file = train_dir / f'cmp{starting_idx}.json'
                 cmp_cmd = [
@@ -259,7 +265,7 @@ def main():
                     '--verbose' if FLAGS.verbose else '--quiet',
                     '--board-size', argify_shape(FLAGS.game_shape, 'x'),
                     '--report-file', report_file,
-                    f'--game-count={cmp_game_count}',
+                    f'--game-count={FLAGS.cmp_game_count}',
                     '--player1=alphazero', f'--name={model_name}', '--model', model_name,
                     '--starting' if starting_idx == 0 else '',
                     f'--alphazero-update-count={FLAGS.alphazero_update_count}',
@@ -278,12 +284,17 @@ def main():
                 # Read and aggregate comparison results
                 with report_file.open('r', encoding ='utf-8') as f:
                     j = json.load(f)
+                    start_model_name = model_name if starting_idx == 0 else best_model_name
+                    LOG.log(f"{start_model_name} starting games: {j['game-results']['count']}, "
+                            f"{model_name} {j['game-results']['player1']}, "
+                            f"{best_model_name} {j['game-results']['player2']}, "
+                            f"draw {j['game-results']['draw']}")
                     game_count += j['game-results']['count']
                     winner1_count += j['game-results']['player1']
                     winner2_count += j['game-results']['player2']
                     draw_count += j['game-results']['draw']
 
-            LOG.log(f'games: {game_count}, {model_name} {winner1_count}, '
+            LOG.log(f'total games: {game_count}, {model_name} {winner1_count}, '
                     f'{best_model_name} {winner2_count}, draw {draw_count}')
             if winner1_count > winner2_count:
                 LOG.log(f'best model now {model_name}')
