@@ -125,11 +125,11 @@ def main():
         help=('Maximum number of turns allowed per game. One turn consists of each ' +
               'player getting a chance to take actions.'))
     parser.add_argument(
-        '--alphazero-update-count',
+        '--alphazero-search-count',
         type=parse_positive_int,
         default=10,
         required=False,
-        help=('Number of updates/searches made to the AlphaZero tree before determining ' +
+        help=('Number of searches made to the AlphaZero tree before determining ' +
               'each game action.'))
     parser.add_argument(
         '--alphazero-cpuct',
@@ -229,7 +229,7 @@ def main():
 #            f'--max-turns-per-game={FLAGS.max_turns_per_game}',
             f'--game-count={FLAGS.game_count}',
             '--player1=alphazero', '--model', model_name,
-            f'--alphazero-update-count={FLAGS.alphazero_update_count}',
+            f'--alphazero-search-count={FLAGS.alphazero_search_count}',
             f'--alphazero-cpuct={FLAGS.alphazero_cpuct}' ]
 
         LOG.log(f'\n==== Iteration {iter} ====')
@@ -268,10 +268,10 @@ def main():
                     f'--game-count={FLAGS.cmp_game_count}',
                     '--player1=alphazero', f'--name={model_name}', '--model', model_name,
                     '--starting' if starting_idx == 0 else '',
-                    f'--alphazero-update-count={FLAGS.alphazero_update_count}',
+                    f'--alphazero-search-count={FLAGS.alphazero_search_count}',
                     '--player2=alphazero', f'--name={best_model_name}', '--model', best_model_name,
                     '--starting' if starting_idx == 1 else '',
-                    f'--alphazero-update-count={FLAGS.alphazero_update_count}']
+                    f'--alphazero-search-count={FLAGS.alphazero_search_count}']
 
                 process = subprocess.Popen(cmp_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 while process.poll() is None:

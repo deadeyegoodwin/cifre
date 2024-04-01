@@ -54,15 +54,14 @@ struct AlphaZeroSettings {
   // x).
   float dirichlet_ratio_ {0.25};
 
-  // Number of updates (searches) made to alphazero tree before
-  // choosing the next action ID.
-  size_t update_count_ {50};
+  // Number of searches made to alphazero tree before choosing the
+  // next action ID.
+  size_t search_count_ {50};
 
-  // Maximum depth alphazero will traverse tree for each
-  // search/update. Once this depth is reached the game is
-  // considered a draw and the tree is updated
-  // appropriately. Therefore, this depth should be set to match the
-  // rules of the game.
+  // Maximum depth alphazero will traverse tree for each search. Once
+  // this depth is reached the game is considered a draw and the tree
+  // is updated appropriately. Therefore, this depth should be set to
+  // match the rules of the game.
   size_t max_depth_ {20};
 
   // The cpuct value for alphazero QU calculation. The non-training
@@ -246,7 +245,7 @@ private:
 
   // Search from 'node' and update the tree. Return the 'V' value for
   // the leaf node visited in the search.
-  float UpdateTree(
+  float SearchTree(
     AlphaZeroNode* node, const size_t depth_remaining, const std::vector<double>* dirichlet);
 
   // Generate Dirichlet distribution.

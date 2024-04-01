@@ -129,13 +129,13 @@ AlphaZero::NextActionId(const State& state)
   LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_),
                     2 /* indent */, true /* endline */);
 
-  // Update the tree starting from 'node'.
-  for (size_t idx = 0; idx < settings_.update_count_; ++idx) {
+  // Update the tree by performing searches starting from 'node'.
+  for (size_t idx = 0; idx < settings_.search_count_; ++idx) {
     LOGGER_LOGHIGH_IE(
       *logger_,
-      "update " + std::to_string(idx+1) + '/' + std::to_string(settings_.update_count_) + ':',
+      "search " + std::to_string(idx+1) + '/' + std::to_string(settings_.search_count_) + ':',
       0 /* indent */, false /* endline */);
-    UpdateTree(node.get(), settings_.max_depth_, dirichlet);
+    SearchTree(node.get(), settings_.max_depth_, dirichlet);
     LOGGER_LOGHIGH_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
   }
 
@@ -206,7 +206,7 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
 }
 
 float
-AlphaZero::UpdateTree(AlphaZeroNode* node, const size_t depth_remaining,
+AlphaZero::SearchTree(AlphaZeroNode* node, const size_t depth_remaining,
                       const std::vector<double>* dirichlet)
 {
   // If 'node' is a terminal node then show that it was visited and
@@ -273,7 +273,7 @@ AlphaZero::UpdateTree(AlphaZeroNode* node, const size_t depth_remaining,
   node->IncrementVisitCount();
   node->IncrementChildVisitCount(*best_action_id);
 
-  float v = UpdateTree(next, depth_remaining - 1, nullptr /* dirichlet */);
+  float v = SearchTree(next, depth_remaining - 1, nullptr /* dirichlet */);
 
   // If 'next' has a different active player than 'node', then need to
   // invert 'v'.

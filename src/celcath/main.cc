@@ -77,7 +77,7 @@ struct Option {
     OPTION_PLAYER2,
     OPTION_PLAYER_NAME,
     OPTION_PLAYER_MODEL,
-    OPTION_PLAYER_ALPHAZERO_UPDATE_COUNT,
+    OPTION_PLAYER_ALPHAZERO_SEARCH_COUNT,
     OPTION_PLAYER_ALPHAZERO_CPUCT
   };
 
@@ -143,8 +143,8 @@ const std::vector<Option> options_ {
   {Option::OPTION_PLAYER_MODEL, "model", Option::ArgStr,
    "Model associated with player. --player1 or --player2 must be specified "
    "before this argument."},
-  {Option::OPTION_PLAYER_ALPHAZERO_UPDATE_COUNT, "alphazero-update-count", Option::ArgInt,
-   "Number of updates (searches) made to alphazero tree before "
+  {Option::OPTION_PLAYER_ALPHAZERO_SEARCH_COUNT, "alphazero-update-count", Option::ArgInt,
+   "Number of searches made to alphazero tree before "
    "choosing the next action for the player. --player1 or --player2 must "
    "be specified before this argument."},
   {Option::OPTION_PLAYER_ALPHAZERO_CPUCT, "alphazero-cpuct", Option::ArgFloat,
@@ -469,10 +469,10 @@ main(int argc, char **argv)
                      "--player1 or --player2 must be specified before --model");
         active_splayer->model_ = optarg;
         break;
-      case Option::OPTION_PLAYER_ALPHAZERO_UPDATE_COUNT:
+      case Option::OPTION_PLAYER_ALPHAZERO_SEARCH_COUNT:
         CheckTrueMsg(active_splayer != nullptr,
-                     "--player1 or --player2 must be specified before --alphazero-update-count");
-        active_splayer->alphazero_settings_.update_count_ = ParseUnsigned(optarg, 1);
+                     "--player1 or --player2 must be specified before --alphazero-search-count");
+        active_splayer->alphazero_settings_.search_count_ = ParseUnsigned(optarg, 1);
         break;
       case Option::OPTION_PLAYER_ALPHAZERO_CPUCT:
         CheckTrueMsg(active_splayer != nullptr,
