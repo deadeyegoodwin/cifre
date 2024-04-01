@@ -18,7 +18,8 @@ namespace cifre {
 // AlphaZeroSettings
 //
 // Settings for alphazero. Default settings are for non-training use
-// of alphazero.
+// of alphazero, but the assumption is that these will be changed by
+// command-line and specific game requirements.
 //
 struct AlphaZeroSettings {
   // True if training data should be collected.

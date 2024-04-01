@@ -294,14 +294,26 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger, const PlayerSettings
 }
 
 void
-InitializeAlphaZeroForTraining(cifre::AlphaZeroSettings* settings)
+InitializeAlphaZeroSettings(const bool train, cifre::AlphaZeroSettings* settings)
 {
-  settings->training_ = true;
-  settings->next_action_kind_ =
-    cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
-  settings->dirichlet_alpha_ = std::min(1.0, 10.0 / 9.0 /* FIXME need total-action-id-count from game */);
-  settings->max_depth_ = 20; // FIXME, should be adjusted after each turn
-  settings->cpuct_ = 4.0;
+  settings->training_ = train;
+  settings->enable_cache_ = true;
+  settings->update_count_ = 50;
+
+  if (train) { // train = true
+    settings->next_action_kind_ =
+      cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
+    settings->dirichlet_alpha_ = std::min(1.0, 10.0 / 9.0 /* FIXME need total-action-id-count from game */);
+    settings->max_depth_ = 20; // FIXME, should be adjusted after each turn
+    settings->cpuct_ = 4.0; // FIXME this and others should be game specific defaults
+  }
+  else { // train = false
+    settings->next_action_kind_ =
+      cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
+    settings->dirichlet_alpha_ = 0.0; // disable dirichlet
+    settings->max_depth_ = 4;
+    settings->cpuct_ = 1.0;
+  }
 }
 
 }  // namespace
@@ -401,6 +413,11 @@ main(int argc, char **argv)
     }
     long_options.push_back({nullptr, 0, nullptr, 0});
 
+    // First pass through the arguments to see if --train and/or
+    // --game are specified. The flags must be parsed first to set
+    // game-specific and training-specific defaults. Also parse help
+    // and logging command here so that they are initialized as soon
+    // as possible.
     int flag;
     while ((flag = getopt_long(argc, argv, "", &long_options[0], NULL)) != -1) {
       switch (flag) {
@@ -420,22 +437,62 @@ main(int argc, char **argv)
       case Option::OPTION_LOG_FILE:
         log_filename = optarg;
         break;
-      case Option::OPTION_REPORT_FILE:
-        report_filename = optarg;
-        break;
 
       case Option::OPTION_TRAIN:
-        // For the alphazero setting defaults to be handled correctly,
-        // --train must appear before any setting changes that happen
-        // in --player1 or --player2.
-        CheckTrueMsg(!player1_specified && !player2_specified,
-                     "--train must be specified before --player1 and --player2");
         train = true;
-        InitializeAlphaZeroForTraining(&splayer1.alphazero_settings_);
-        InitializeAlphaZeroForTraining(&splayer2.alphazero_settings_);
         break;
       case Option::OPTION_TRAIN_DIR:
         train_dir = optarg;
+        break;
+
+        // FIXME Option::OPTION_GAME
+      }
+    }
+
+    // Log level is set based on --quiet, --verbose and if human is
+    // playing or not. If human is playing then default output log
+    // level is MED as that is what is required to see the turn action
+    // prompts. If human is not playing then default is LOW. Verbose
+    // sets level to HIGH.
+    common::Logger::Level log_level = common::Logger::Level::OFF;
+    if (!quiet) {
+      log_level = (verbose) ? common::Logger::Level::HIGH : common::Logger::Level::LOW;
+    }
+
+    auto logger = std::shared_ptr<common::Logger>(
+      CreateLogger(log_filename, log_level, common::Logger::Timestamp::NONE));
+
+    // Echo command-line...
+    if (logger->FilterLevel() != common::Logger::Level::OFF) {
+      std::stringstream ss;
+      for (auto i = 0; i < argc; ++i) {
+        ss << argv[i] << " ";
+      }
+      logger->Log(ss.str());
+      logger->Log(cifre::tictactoe::VersionToString(true /* show_dependent_versions */));
+    }
+
+    // Set default values for training based on --train and --game.
+    // FIXME only handling --train currently as --game NYI.
+    InitializeAlphaZeroSettings(train, &splayer1.alphazero_settings_);
+    InitializeAlphaZeroSettings(train, &splayer2.alphazero_settings_);
+
+    // Second pass through the arguments for everying not handled in
+    // the first pass.
+    optind = 1;
+    while ((flag = getopt_long(argc, argv, "", &long_options[0], NULL)) != -1) {
+      switch (flag) {
+      case Option::OPTION_HELP:
+      case Option::OPTION_QUIET:
+      case Option::OPTION_VERBOSE:
+      case Option::OPTION_LOG_FILE:
+      case Option::OPTION_TRAIN:
+      case Option::OPTION_TRAIN_DIR:
+        // Handled in first pass...
+        break;
+
+      case Option::OPTION_REPORT_FILE:
+        report_filename = optarg;
         break;
 
       case Option::OPTION_BOARD_SIZE:
@@ -485,36 +542,13 @@ main(int argc, char **argv)
       }
     }
 
-    // Log level is set based on --quiet, --verbose and if human is
-    // playing or not. If human is playing then default output log
-    // level is MED as that is what is required to see the turn action
-    // prompts. If human is not playing then default is LOW. Verbose
-    // sets level to HIGH.
-    common::Logger::Level log_level = common::Logger::Level::OFF;
-    if (!quiet) {
-      log_level = (verbose) ? common::Logger::Level::HIGH : common::Logger::Level::LOW;
-    }
-
     if (!train && ((splayer1.kind_ == PlayerSettings::Kind::HUMAN) ||
                    (splayer2.kind_ == PlayerSettings::Kind::HUMAN))) {
-      CheckTrueMsg(log_level != common::Logger::Level::OFF,
+      CheckTrueMsg(logger->FilterLevel() != common::Logger::Level::OFF,
                    "--quiet cannot be specified if there is a human player");
       if (!verbose) {
-        log_level = common::Logger::Level::MED;
+        logger->SetFilterLevel(common::Logger::Level::MED);
       }
-    }
-
-    auto logger = std::shared_ptr<common::Logger>(
-      CreateLogger(log_filename, log_level, common::Logger::Timestamp::NONE));
-
-    // Echo command-line...
-    if (logger->FilterLevel() != common::Logger::Level::OFF) {
-      std::stringstream ss;
-      for (auto i = 0; i < argc; ++i) {
-        ss << argv[i] << " ";
-      }
-      logger->Log(ss.str());
-      logger->Log(cifre::tictactoe::VersionToString(true /* show_dependent_versions */));
     }
 
     CheckTrueMsg(game_count >= 1, "--game-count must be >= 1");
