@@ -544,9 +544,13 @@ main(int argc, char **argv)
         (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO)) {
       triton.reset(new cifre::Triton(logger));
       CheckTrueMsg(triton->IsReady(), "triton is not ready");
-      // FIXME make sure no models are already loaded into Triton. Due
-      // to an earlier failure, if there is an old model still loaded
-      // it could cause hard to debug failures.
+
+      // Make sure that a model of the same name as the model being
+      // used by player1 or player2 is not already loaded into
+      // Triton. If there is an old model of the same name still
+      // loaded then unload it so that it is not used by mistake in
+      // place of the specified model.
+      const auto& triton_repo = triton->ModelRepositoryIndex();
 
       if (train) {
         alphazero_aggregator =
@@ -557,6 +561,9 @@ main(int argc, char **argv)
 
       if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer1.model_.empty(), "--player1=alphazero requires --model");
+        if (triton_repo.find(splayer1.model_) != triton_repo.end()) {
+          triton->UnloadModel(splayer1.model_);
+        }
         alphazero1 = std::make_shared<cifre::AlphaZero>(
           logger, triton, splayer1.alphazero_settings_, splayer1.model_);
       }
@@ -573,6 +580,9 @@ main(int argc, char **argv)
       // ... otherwise, player2 is initialized normally.
       else if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
         CheckTrueMsg(!splayer2.model_.empty(), "--player2=alphazero requires --model");
+        if (triton_repo.find(splayer2.model_) != triton_repo.end()) {
+          triton->UnloadModel(splayer2.model_);
+        }
         alphazero2 = std::make_shared<cifre::AlphaZero>(
           logger, triton, splayer2.alphazero_settings_, splayer2.model_);
       }

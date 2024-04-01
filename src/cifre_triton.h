@@ -114,10 +114,22 @@ struct TritonModelData {
 };
 
 //
+// TritonRepoIndex
+//
+struct TritonRepoIndex {
+  TritonRepoIndex(const std::string& n, const std::string& v,
+                  const std::string& s, const std::string& r) :
+    model_name_(n), model_version_(v), model_state_(s), model_state_reason_(r) { }
+  const std::string model_name_;
+  const std::string model_version_;
+  const std::string model_state_;
+  const std::string model_state_reason_;
+};
+
+//
 // TritonStatistics
 //
-class TritonStatistics {
-public:
+struct TritonStatistics {
   // Return string representation of statistics.
   std::string ToString() const;
 
@@ -141,6 +153,10 @@ public:
 
   // Return true if triton is ready to receive inference requests for 'model'.
   bool IsModelReady(const std::string& model) const;
+
+  // Return index of models in the triton model repository, as a map
+  // from model name to index information about the model.
+  std::unordered_map<std::string, const TritonRepoIndex> ModelRepositoryIndex() const;
 
   // Load 'model' onto triton. If the model is already loaded into
   // triton, it will remain loaded but metadata for the model will be

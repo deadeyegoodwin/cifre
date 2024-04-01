@@ -147,6 +147,44 @@ Triton::IsModelReady(const std::string& model) const
   return ready;
 }
 
+std::unordered_map<std::string, const TritonRepoIndex>
+Triton::ModelRepositoryIndex() const
+{
+  std::string model_repo_index_str;
+  CheckTritonError(client_->ModelRepositoryIndex(&model_repo_index_str),
+                   "unable to read repository index");
+
+  rapidjson::Document d;
+  CheckTritonError(triton::client::ParseJson(&d, model_repo_index_str),
+                   "failed to parse repository index json");
+  THROWIF(!d.IsArray(), "expecting model repository index to be json array");
+
+  std::unordered_map<std::string, const TritonRepoIndex> repo_index;
+
+  for (auto& v : d.GetArray()) {
+    THROWIF(!v.IsObject(), "expecting repository index entry to be json object");
+
+    const std::string& model_name = v["name"].GetString();
+    const std::string& model_version =
+      (v.HasMember("version")) ? v["version"].GetString() : "";
+    const std::string& model_state =
+      (v.HasMember("state")) ? v["state"].GetString() : "";
+    const std::string& model_state_reason =
+      (v.HasMember("reason")) ? v["reason"].GetString() : "";
+
+#ifndef NDEBUG
+    auto created_repo_itr =
+#endif
+      repo_index.emplace(
+        std::piecewise_construct,
+        std::forward_as_tuple(model_name),
+        std::forward_as_tuple(model_name, model_version, model_state, model_state_reason));
+    assert(created_repo_itr.second);
+  }
+
+  return repo_index;
+}
+
 bool
 Triton::LoadModel(const std::string& model, bool enable_cache)
 {
