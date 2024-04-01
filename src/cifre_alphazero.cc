@@ -270,9 +270,7 @@ AlphaZero::SearchTree(
     // Find or create the node representing the state that results
     // when 'best_action_id' is applied to 'node'.
     std::unique_ptr<State> next_state(node->NodeState().Clone());
-    next_state->Update(
-      *best_action_id,
-      false /*logger_->FilterLevel() >= common::Logger::Level::HIGH *//* enable_logging */);
+    next_state->Update(*best_action_id);
 
     std::shared_ptr<AlphaZeroNode> snext = FindOrCreateNode(std::move(next_state));
     assert(snext != nullptr);

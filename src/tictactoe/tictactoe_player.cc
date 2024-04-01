@@ -13,35 +13,11 @@
 namespace cifre { namespace tictactoe {
 
 //
-// Player
-//
-Player::Player(const std::shared_ptr<common::Logger>& logger,
-               const std::string& name, char board_char, int32_t neighbor_value) :
-  logger_(logger), name_(name), board_char_(board_char), neighbor_value_(neighbor_value)
-{
-}
-
-Action
-Player::NextAction(const Board& board, size_t max_game_turns_remaining) const
-{
-  // Base Player class is not capable of choosing an action.
-  return Action(Action::ActionKind::INVALID);
-}
-
-std::string
-Player::ToString(common::Logger::Level filter_level) const
-{
-  std::stringstream sstr;
-  sstr << board_char_;
-  return sstr.str();
-}
-
-//
 // HumanPlayer
 //
 HumanPlayer::HumanPlayer(const std::shared_ptr<common::Logger>& logger,
                          const std::string& name, char board_char, int32_t neighbor_value) :
-  Player(logger, name, board_char, neighbor_value)
+  cifre::Player(logger, name, board_char, neighbor_value)
 {
 }
 
@@ -57,8 +33,10 @@ HumanPlayer::Usage() const
 }
 
 Action
-HumanPlayer::NextAction(const Board& board, size_t max_game_turns_remaining) const
+HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaining) const
 {
+  const Board& board = dynamic_cast<const Board&>(state);
+
   logger_->LogMed(board.ToString());
 
   const auto& actionIds = board.ValidActionIds();
@@ -95,77 +73,6 @@ HumanPlayer::NextAction(const Board& board, size_t max_game_turns_remaining) con
   }
 
   return Action(Action::ActionKind::INVALID);
-}
-
-//
-// AlphaZeroPlayer
-//
-AlphaZeroPlayer::AlphaZeroPlayer(
-  const std::shared_ptr<common::Logger>& logger,
-  const std::string& name, char board_char, int32_t neighbor_value,
-  const std::shared_ptr<cifre::AlphaZero>& alphazero) :
-  Player(logger, name, board_char, neighbor_value), alphazero_(alphazero)
-{
-}
-
-void
-AlphaZeroPlayer::GameStart()
-{
-  alphazero_->GameStart();
-}
-
-void
-AlphaZeroPlayer::GameEnd(const cifre::State* terminal_state, cifre::State::TerminalStatusKind status)
-{
-  THROWIF(status == cifre::State::TerminalStatusKind::NON_TERMINAL,
-          "game ended with NON-TERMINAL status");
-  alphazero_->GameEnd(terminal_state, status);
-}
-
-Action
-AlphaZeroPlayer::NextAction(const Board& board, size_t max_game_turns_remaining) const
-{
-  logger_->LogMed(board.ToString());
-
-  const auto& actionIds = board.ValidActionIds();
-  THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
-
-  uint64_t action_id = alphazero_->NextActionId(board, max_game_turns_remaining);
-  Action action = board.ActionIdToAction(action_id);
-  THROWIF(!board.IsValidAction(action),
-          "alpha-zero selected invalid action " + action.ToString());
-
-  LOGGER_LOGMED(*logger_, Name() + " (" + BoardCharacter() + "): " + board.ActionToString(action));
-
-  return action;
-}
-
-//
-// RandomPlayer
-//
-RandomPlayer::RandomPlayer(const std::shared_ptr<common::Logger>& logger,
-                           const std::string& name, char board_char, int32_t neighbor_value):
-  Player(logger, name, board_char, neighbor_value)
-{
-}
-
-Action
-RandomPlayer::NextAction(const Board& board, size_t max_game_turns_remaining) const
-{
-  logger_->LogMed(board.ToString());
-
-  // Pick a random action from the valid actions. At least one action
-  // must be valid.
-  const auto& actionIds = board.ValidActionIds();
-  THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
-
-  uint64_t action_id =
-    *std::next(actionIds.begin(), rnd_(uint64_t(0), uint64_t(actionIds.size() - 1)));
-  Action action = board.ActionIdToAction(action_id);
-
-  LOGGER_LOGMED(*logger_, Name() + " (" + BoardCharacter() + "): " + board.ActionToString(action));
-
-  return action;
 }
 
 }} // namespace cifre::tictactoe

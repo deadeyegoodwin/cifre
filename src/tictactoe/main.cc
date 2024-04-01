@@ -274,7 +274,7 @@ struct PlayerSettings {
   cifre::AlphaZeroSettings alphazero_settings_;
 };
 
-cifre::tictactoe::Player*
+cifre::Player*
 CreatePlayer(const std::shared_ptr<common::Logger>& logger, const PlayerSettings& player_settings,
              const std::shared_ptr<cifre::AlphaZero>& alphazero)
 {
@@ -288,10 +288,10 @@ CreatePlayer(const std::shared_ptr<common::Logger>& logger, const PlayerSettings
     return new cifre::tictactoe::HumanPlayer(logger, player_settings.name_, bc, 1.0);
   case PlayerSettings::Kind::RANDOM:
     assert(alphazero == nullptr);
-    return new cifre::tictactoe::RandomPlayer(logger, player_settings.name_, bc, 1.0);
+    return new cifre::RandomPlayer(logger, player_settings.name_, bc, 1.0);
   case PlayerSettings::Kind::ALPHAZERO:
     assert(alphazero != nullptr);
-    return new cifre::tictactoe::AlphaZeroPlayer(logger, player_settings.name_, bc, 1.0, alphazero);
+    return new cifre::AlphaZeroPlayer(logger, player_settings.name_, bc, 1.0, alphazero);
   }
 
   Fail("cannot create player '" + player_settings.name_ + "'");
@@ -329,7 +329,7 @@ enum class PlayResult { WINNER1, WINNER2, DRAW, QUIT };
 // Play one game, return PlayResult indicating outcome.
 PlayResult
 Play(const std::shared_ptr<common::Logger>& logger,
-     const std::vector<cifre::tictactoe::Player*>& players,
+     const std::vector<cifre::Player*>& players,
      size_t max_turns_per_game, Board* board)
 {
   // Let all players know a new game is starting.
@@ -651,9 +651,9 @@ main(int argc, char **argv)
 
     // Create players. The players are collected in a vector and each
     // player's position in the vector is the players ID.
-    std::unique_ptr<cifre::tictactoe::Player> player1(CreatePlayer(logger, splayer1, alphazero1));
-    std::unique_ptr<cifre::tictactoe::Player> player2(CreatePlayer(logger, splayer2, alphazero2));
-    std::vector<cifre::tictactoe::Player*> players { player1.get(), player2.get() };
+    std::unique_ptr<cifre::Player> player1(CreatePlayer(logger, splayer1, alphazero1));
+    std::unique_ptr<cifre::Player> player2(CreatePlayer(logger, splayer2, alphazero2));
+    std::vector<cifre::Player*> players { player1.get(), player2.get() };
 
     // Play game(s) starting at the initial board each game.
     size_t games_completed = 0;
@@ -661,7 +661,7 @@ main(int argc, char **argv)
     size_t winner1_count = 0;
     size_t winner2_count = 0;
     for (size_t gidx = 0; gidx < game_count; gidx++) {
-      cifre::tictactoe::Board board(logger, board_size, players, starting_player_idx);
+      cifre::tictactoe::Board board(board_size, players, starting_player_idx);
 
       if (game_count > 1) {
         logger->LogMed("====");

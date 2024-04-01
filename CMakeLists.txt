@@ -139,7 +139,7 @@ endif(BUILD_TRITON_CLIENT)
 #
 # Games
 #
-add_subdirectory(src/celcath)
+#add_subdirectory(src/celcath)
 add_subdirectory(src/tictactoe)
 
 #
@@ -171,8 +171,9 @@ find_package(GSL REQUIRED)
 add_library(
   cifre-library STATIC
   src/cifre_action.cc
-  src/cifre_board2d.cc
   src/cifre_alphazero.cc
+  src/cifre_board2d.cc
+  src/cifre_player.cc
   src/cifre_triton.cc
 )
 

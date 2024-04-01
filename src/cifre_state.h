@@ -5,7 +5,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "common_logger.h"
+#include "cifre_action.h"
 
 namespace cifre {
 
@@ -43,6 +43,13 @@ public:
   // Get the action identifiers that are valid for this state.
   virtual const std::unordered_set<uint64_t>& ValidActionIds() const = 0;
 
+  // Return true if 'action' is a valid action for this state.
+  virtual bool IsValidAction(const Action& action) const = 0;
+
+  // Return the string representation for an 'action' that is
+  // meaningful for this state.
+  virtual std::string ActionToString(const Action& action) const = 0;
+
   // Return the ID of the player that is active (i.e. that is taking a
   // turn) for this state. Individual games can manage the IDs however
   // they like but different players must have different IDs.
@@ -53,7 +60,7 @@ public:
 
   // Apply the action associated with 'action_id' to this state, so
   // that the state is modified due to the action.
-  virtual void Update(uint64_t action_id, bool enable_logging = true) = 0;
+  virtual void Update(uint64_t action_id) = 0;
 
   // Get the representation of the state suitable for feeding to the
   // model via triton. This representation does not need to include
@@ -62,8 +69,7 @@ public:
   virtual const std::vector<uint8_t>& TritonRepresentation() const = 0;
 
   // Return string representation of the state.
-  virtual std::string ToString(
-    common::Logger::Level filter_level = common::Logger::Level::LOW) const = 0;
+  virtual std::string ToString() const = 0;
 };
 
 } // namespace cifre

@@ -1,12 +1,14 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
 
+#include "cifre_action.h"
+#include "cifre_player.h"
 #include "cifre_state.h"
-#include "common_error.h"
 #include "common_util.h"
 
 namespace cifre {
@@ -51,106 +53,217 @@ private:
 //
 // Board2D
 //
-// A 2D game board where the value of each board "cell" is represented
-// by a single value of type T. Acts as a cifre::State with the triton
-// representation being a flattened row-major ordering of the cell T
-// values. Derived classes must implement appropriate action and board
-// update logic.
+// A two player, 2D game board where each cell can be empty or "owned"
+// by one of the players. Provides a console representation of the
+// board and methods to convert text commands to/from actions.
 //
-template <typename T>
+// A board cell has a value of CELL_ACTIVE_PLAYER if it is occupied by
+// the active player, a value of CELL_OPPONENT_PLAYER if it is
+// occupied by the other player, or CELL_EMPTY if it is empty. Acts as
+// a cifre::State with the triton representation being a flattened
+// row-major ordering of the board cell values. Derived classes must
+// implement appropriate action and board update logic.
+//
 class Board2D : public State {
 public:
-  // Create a board of 'size'.
-  Board2D(const BoardSize2D& size);
+  // Create a board based of a given 'size' and 'players', where
+  // player ID is the index of a given player in
+  // 'players'. 'starting_player_id' indicates the player that will go
+  // first.
+  Board2D(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
+          size_t starting_player_id);
 
   // Copy constructor.
   Board2D(const Board2D& other);
 
-  // The size of the board.
+  // Destructor
+  virtual ~Board2D() = default;
+
+  // Return the board size.
   const BoardSize2D& Size() const { return size_; }
 
-  // Return the value of the cell at the given row and column index.
-  const T& CellValueAt(size_t row_idx, size_t col_idx) const;
+  // Return the Action associated with a string.
+  Action StringToAction(const std::string& str) const;
 
-  // Set the value of the cell at the given row and column index.
-  void SetCellValueAt(const T& value, size_t row_idx, size_t col_idx);
+  // Return the string representation of an 'action'. See
+  // cifre::State.
+  std::string ActionToString(const Action& action) const override;
 
-  // Return the value of the cell at the flattened index 'flat_idx'.
-  const T& CellValueAtFlattened(size_t flat_idx) const;
+  // See cifre::State.
+  bool IsValidAction(const Action& action) const override;
 
-  // Set the value of the cell at the flattened index 'flat_idx'.
-  void SetCellValueAtFlattened(const T& value, size_t flat_idx);
+  // Return the ID of the active player. See cifre::State.
+  size_t ActivePlayerId() const override { return active_player_id_; }
 
-  // From State, get the representation of the state suitable
-  // for feeding to the model via triton. Returns flattened row-major
-  // ordering of the cel values.
-  const std::vector<uint8_t>& TritonRepresentation() const override;
+  // Return the active player.
+  Player* ActivePlayer() const { return players_[active_player_id_]; }
+
+  // Return the ID of the opponent player. There must be exactly two
+  // players, so the opponent ID is the opposite of active player ID.
+  size_t OpponentPlayerId() const { return (active_player_id_ == 0) ? 1 : 0; }
+
+  // Return the opponent player.
+  Player* OpponentPlayer() const { return players_[OpponentPlayerId()]; }
+
+  // Return the ID of the player that owns the specified cell. Returns
+  // the total number of players (PLAYER_COUNT) to indicate that the
+  // cell is not owned by any player (i.e. empty).
+  size_t PlayerIdAt(size_t row_idx, size_t col_idx) const {
+    return CellValueToPlayerId(CellValueAt(row_idx, col_idx)); }
+
+  // Set 'id' to be owner of the specified cell. 'id' may be the total
+  // number of players (PLAYER_COUNT) to set the cell to empty.
+  void SetPlayerIdAt(size_t id, size_t row_idx, size_t col_idx) {
+    SetCellValueAt(PlayerIdToCellValue(id), row_idx, col_idx); }
+
+  // Return the ID of the player that owns the specified cell at the
+  // flattened index. Returns the total number of players
+  // (PLAYER_COUNT) to indicate that the cell is not owned by any
+  // player (i.e. empty).
+  size_t PlayerIdAtFlattened(size_t flat_idx) const {
+    return CellValueToPlayerId(CellValueAtFlattened(flat_idx));
+  }
+
+  // Set 'id' to be owner of the specified cell at the flattened
+  // index. 'id' may be the total number of players (PLAYER_COUNT) to
+  // set the cell to empty.
+  void SetPlayerIdAtFlattened(size_t id, size_t flat_idx) {
+    SetCellValueAtFlattened(PlayerIdToCellValue(id), flat_idx);
+  }
+
+  // Return the player that owns the specified cell, or nullptr if
+  // cell is empty.
+  Player* PlayerAt(size_t row_idx, size_t col_idx) const;
+
+  // Set 'player' to be owner of the specified cell. 'player' may be
+  // nullptr to set the cell to empty.
+  void SetPlayerAt(Player* player, size_t row_idx, size_t col_idx) {
+    SetCellValueAt(PlayerToCellValue(player), row_idx, col_idx); }
+
+  // Return the player that owns the specified cell at the flattened
+  // index, or nullptr if cell is empty.
+  Player* PlayerAtFlattened(size_t flat_idx) const;
+
+  // Set 'player' to be owner of the specified cell at the flattend
+  // index. 'player' may be nullptr to set the cell to empty.
+  void SetPlayerAtFlattened(Player* player, size_t flat_idx) {
+    SetCellValueAtFlattened(PlayerToCellValue(player), flat_idx); }
+
+  // Update the board as necessary to make the opponent player the
+  // active player.
+  void SwitchActivePlayer();
+
+  // See cifre::State
+  size_t Hash() const override;
+
+  // See cifre::State
+  bool Equal(const State* other) const override;
+
+  // See cifre::State
+  TerminalStatusKind TerminalStatus() const override { return terminal_status_; }
+
+  // See cifre::State
+  size_t TotalActionIdCount() const override { return size_.CellCount(); }
+
+  // See cifre::State
+  const std::unordered_set<uint64_t>& ValidActionIds() const override {
+    return valid_action_ids_; }
+
+  // Get the representation of the state suitable for feeding to the
+  // model via triton. Returns flattened row-major ordering of the
+  // cell values. See cifre::State.
+  const std::vector<uint8_t>& TritonRepresentation() const override {
+    return cells_flattened_;
+  }
+
+  // See cifre::State
+  std::string ToString() const override;
 
 protected:
+  static constexpr size_t PLAYER_COUNT = 2;
+  static constexpr float CELL_EMPTY = 0.0;
+  static constexpr float CELL_ACTIVE_PLAYER = 1.0;
+  static constexpr float CELL_OPPONENT_PLAYER = -1.0;
+
+  // Update the terminal status for the board by setting
+  // 'terminal_status_'.
+  virtual void UpdateTerminalStatus() = 0;
+
+  // Update the valid actions for the board by setting
+  // 'valid_action_ids_'.
+  virtual void UpdateValidActions() = 0;
+
+  // Return the value of the cell at the given row and column index.
+  float CellValueAt(size_t row_idx, size_t col_idx) const {
+    assert((row_idx < size_.RowCount()) && (col_idx < size_.ColumnCount()));
+    return cells_[(row_idx * size_.ColumnCount()) + col_idx]; }
+
+  // Set the value of the cell at the given row and column index.
+  void SetCellValueAt(const float value, size_t row_idx, size_t col_idx) {
+    assert((row_idx < size_.RowCount()) && (col_idx < size_.ColumnCount()));
+    cells_[(row_idx * size_.ColumnCount()) + col_idx] = value; }
+
+  // Return the value of the cell at the flattened index 'flat_idx'.
+  float CellValueAtFlattened(size_t flat_idx) const {
+    assert(flat_idx < size_.CellCount()); return cells_[flat_idx]; }
+
+  // Set the value of the cell at the flattened index 'flat_idx'.
+  void SetCellValueAtFlattened(const float value, size_t flat_idx) {
+    assert(flat_idx < size_.CellCount()); cells_[flat_idx] = value; }
+
+  // Convert player ID to/from the corresponding cell value. A player
+  // ID of value PLAYER_COUNT represents an empty cell (i.e. no
+  // player).
+  float PlayerIdToCellValue(size_t pid) const {
+    if (pid == ActivePlayerId()) { return CELL_ACTIVE_PLAYER; }
+    if (pid == OpponentPlayerId()) { return CELL_OPPONENT_PLAYER; }
+    assert(pid == PLAYER_COUNT);
+    return CELL_EMPTY;
+  }
+  size_t CellValueToPlayerId(float v) const {
+    if (v == CELL_ACTIVE_PLAYER) { return ActivePlayerId(); }
+    if (v == CELL_OPPONENT_PLAYER) { return OpponentPlayerId(); }
+    assert(v == CELL_EMPTY);
+    return PLAYER_COUNT;
+  }
+
+  // Convert player to/from the corresponding cell value. A nullptr
+  // player represents an empty cell (i.e. no player).
+  float PlayerToCellValue(Player* player) const {
+    if (player == players_[ActivePlayerId()]) { return CELL_ACTIVE_PLAYER; }
+    if (player == players_[OpponentPlayerId()]) { return CELL_OPPONENT_PLAYER; }
+    assert(player == nullptr);
+    return CELL_EMPTY;
+  }
+  Player* CellValueToPlayer(float v) const {
+    if (v == CELL_ACTIVE_PLAYER) { return players_[ActivePlayerId()]; }
+    if (v == CELL_OPPONENT_PLAYER) { return players_[OpponentPlayerId()]; }
+    assert(v == CELL_EMPTY);
+    return nullptr;
+  }
+
+  // Size of the board.
   const BoardSize2D size_;
 
+  // The players. The player's index in this vector is the player ID.
+  const std::vector<cifre::Player*>& players_;
+
+  // ID of the currently active player.
+  size_t active_player_id_;
+
+  // The status of the board indicating winning condition.
+  cifre::State::TerminalStatusKind terminal_status_;
+
+  // The set of action ids that are valid for the current board.
+  std::unordered_set<uint64_t> valid_action_ids_;
+
   // Triton-friendly cell contents. 'cells_' is simply a type-casted
-  // pointer into 'cells_flattened_'.
+  // pointer into 'cells_flattened_'. A board cell has a value of
+  // CELL_ACTIVE_PLAYER if it is occupied by the active player, a
+  // value of CELL_OPPONENT_PLAYER if it is occupied by the other
+  // player, or CELL_EMPTY if it is empty. Acts as
   std::vector<uint8_t> cells_flattened_;
-  T* cells_;
+  float* cells_;
 };
-
-template <typename T>
-Board2D<T>::Board2D(const BoardSize2D& size) :
-  size_(size)
-{
-  // Initialize storage for flattened cell values... derived class
-  // must set initial values.
-  cells_flattened_.resize(size_.CellCount() * sizeof(T));
-  cells_ = reinterpret_cast<T*>(cells_flattened_.data());
-}
-
-template <typename T>
-Board2D<T>::Board2D(const Board2D& other) :
-  size_(other.size_), cells_flattened_(other.cells_flattened_)
-{
-  cells_ = reinterpret_cast<T*>(cells_flattened_.data());
-}
-
-template <typename T>
-const T&
-Board2D<T>::CellValueAt(size_t row_idx, size_t col_idx) const
-{
-  THROWIF((row_idx >= size_.RowCount()) || (col_idx >= size_.ColumnCount()),
-          "invalid Board2D cell coordinates");
-  return cells_[(row_idx * size_.ColumnCount()) + col_idx];
-}
-
-template <typename T>
-void
-Board2D<T>::SetCellValueAt(const T& value, size_t row_idx, size_t col_idx)
-{
-  THROWIF((row_idx >= size_.RowCount()) || (col_idx >= size_.ColumnCount()),
-          "invalid Board2D cell coordinates");
-  cells_[(row_idx * size_.ColumnCount()) + col_idx] = value;
-}
-
-template <typename T>
-const T&
-Board2D<T>::CellValueAtFlattened(size_t flat_idx) const
-{
-  THROWIF(flat_idx >= size_.CellCount(), "invalid Board2D cell coordinates");
-  return cells_[flat_idx];
-}
-
-template <typename T>
-void
-Board2D<T>::SetCellValueAtFlattened(const T& value, size_t flat_idx)
-{
-  THROWIF(flat_idx >= size_.CellCount(), "invalid Board2D cell coordinates");
-  cells_[flat_idx] = value;
-}
-
-template <typename T>
-const std::vector<uint8_t>&
-Board2D<T>::TritonRepresentation() const
-{
-  return cells_flattened_;
-}
 
 } // namespace cifre
