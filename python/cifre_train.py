@@ -226,7 +226,7 @@ def main():
             '--board-size', argify_shape(FLAGS.game_shape, 'x'),
 #            f'--min-actions-per-turn={min_actions_per_turn}', FIXME
 #            f'--max-actions-per-turn={max_actions_per_turn}',
-#            f'--max-turns-per-game={FLAGS.max_turns_per_game}',
+            f'--max-turns-per-game={FLAGS.max_turns_per_game}',
             f'--game-count={FLAGS.game_count}',
             '--player1=alphazero', '--model', model_name,
             f'--alphazero-search-count={FLAGS.alphazero_search_count}',
@@ -265,6 +265,7 @@ def main():
                     '--verbose' if FLAGS.verbose else '--quiet',
                     '--board-size', argify_shape(FLAGS.game_shape, 'x'),
                     '--report-file', report_file,
+                    f'--max-turns-per-game={FLAGS.max_turns_per_game}',
                     f'--game-count={FLAGS.cmp_game_count}',
                     '--player1=alphazero', f'--name={model_name}', '--model', model_name,
                     '--starting' if starting_idx == 0 else '',

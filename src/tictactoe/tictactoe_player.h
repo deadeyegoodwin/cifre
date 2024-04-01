@@ -55,8 +55,10 @@ public:
     THROWIF(status == cifre::State::TerminalStatusKind::NON_TERMINAL,
             "game ended with NON-TERMINAL status"); }
 
-  // Get the next action for the player given current 'board' state.
-  virtual Action NextAction(const Board& board) const;
+  // Get the next action for the player given current 'board' state
+  // and with 'max_game_turns_remaining' indicating the maximum number
+  // of turns remaining in the game.
+  virtual Action NextAction(const Board& board, size_t max_game_turns_remaining) const;
 
   // Return string representation of the player.
   std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
@@ -84,7 +86,7 @@ public:
     const std::string& name, char board_char, int32_t neighbor_value);
 
   // See Player::NextAction().
-  Action NextAction(const Board& board) const override;
+  Action NextAction(const Board& board, size_t max_game_turns_remaining) const override;
 
 private:
   std::string Usage() const;
@@ -113,7 +115,7 @@ public:
   void GameEnd(const cifre::State* terminal_state, cifre::State::TerminalStatusKind status) override;
 
   // See Player::NextAction().
-  Action NextAction(const Board& board) const override;
+  Action NextAction(const Board& board, size_t max_game_turns_remaining) const override;
 
 private:
   std::shared_ptr<cifre::AlphaZero> alphazero_;
@@ -135,7 +137,7 @@ public:
     const std::string& name, char board_char, int32_t neighbor_value);
 
   // See Player::NextAction().
-  Action NextAction(const Board& board) const override;
+  Action NextAction(const Board& board, size_t max_game_turns_remaining) const override;
 
 private:
   mutable common::Random rnd_;

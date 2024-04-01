@@ -67,6 +67,7 @@ struct Option {
     OPTION_TRAIN_DIR,
 
     OPTION_BOARD_SIZE,
+    OPTION_MAX_TURNS_PER_GAME,
     OPTION_GAME_COUNT,
 
     OPTION_PLAYER1,
@@ -119,6 +120,9 @@ const std::vector<Option> options_ {
    "Size of the game board. A square board with N rows and N columns is specified as '--board-size=N'. "
    "A rectangular board with N rows and M columns is specified as '--board-size=NxM'. "
    "Default is '--board-size=" + DEFAULT_BOARD_SIZE.ToString() + "'."},
+  {Option::OPTION_MAX_TURNS_PER_GAME, "max-turns-per-game", Option::ArgInt,
+   "Maximum number of turns allowed per game. One turn consists of each "
+   "player getting a chance to take actions."},
   {Option::OPTION_GAME_COUNT, "game-count", Option::ArgInt,
    "Number of games to play. Default is 1."},
 
@@ -304,14 +308,14 @@ InitializeAlphaZeroSettings(const bool train, cifre::AlphaZeroSettings* settings
     settings->next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
     settings->dirichlet_alpha_ = std::min(1.0, 10.0 / 9.0 /* FIXME need total-action-id-count from game */);
-    settings->max_depth_ = 20; // FIXME, should be adjusted after each turn
+    settings->max_search_depth_ = 20;
     settings->cpuct_ = 4.0; // FIXME this and others should be game specific defaults
   }
   else { // train = false
     settings->next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
     settings->dirichlet_alpha_ = 0.0; // disable dirichlet
-    settings->max_depth_ = 4;
+    settings->max_search_depth_ = 4;
     settings->cpuct_ = 1.0;
   }
 }
@@ -325,19 +329,21 @@ enum class PlayResult { WINNER1, WINNER2, DRAW, QUIT };
 // Play one game, return PlayResult indicating outcome.
 PlayResult
 Play(const std::shared_ptr<common::Logger>& logger,
-     const std::vector<cifre::tictactoe::Player*>& players, Board* board)
+     const std::vector<cifre::tictactoe::Player*>& players,
+     size_t max_turns_per_game, Board* board)
 {
   // Let all players know a new game is starting.
   for (Player* p : players) {
     p->GameStart();
   }
 
+  const Player* const starting_player = board->ActivePlayer();
+
   bool game_quit = false;
   cifre::State::TerminalStatusKind terminal_status = board->TerminalStatus();
-  while (!game_quit &&
-         (terminal_status == cifre::State::TerminalStatusKind::NON_TERMINAL)) {
+  while (!game_quit && (max_turns_per_game > 0)) {
     Player* player = board->ActivePlayer();
-    Action action = player->NextAction(*board);
+    Action action = player->NextAction(*board, max_turns_per_game);
     switch (action.Kind()) {
     case Action::ActionKind::INVALID:
     case Action::ActionKind::HELP:
@@ -355,6 +361,17 @@ Play(const std::shared_ptr<common::Logger>& logger,
     }
 
     terminal_status = board->TerminalStatus();
+    if (terminal_status != cifre::State::TerminalStatusKind::NON_TERMINAL) {
+      break;
+    }
+
+    // If board active player differs from 'player' (indicating that
+    // it changes as a result 'action'), and active player is now
+    // 'starting_player', then a turn has completed.
+    if ((player != board->ActivePlayer()) &&
+        (starting_player == board->ActivePlayer())) {
+      --max_turns_per_game;
+    }
   }
 
   // Game was quit.
@@ -362,6 +379,11 @@ Play(const std::shared_ptr<common::Logger>& logger,
     LOGGER_LOGMED(*logger, "game quit: no winner");
     LOGGER_LOGMED(*logger, board->ToString());
     return PlayResult::QUIT;
+  }
+
+  // If ran out of game turns, then game is a draw.
+  if (max_turns_per_game == 0) {
+    terminal_status = cifre::State::TerminalStatusKind::DRAW;
   }
 
   // Let all players know game is completed.
@@ -399,6 +421,7 @@ main(int argc, char **argv)
     bool train = false;
     std::string train_dir;
     cifre::BoardSize2D board_size = DEFAULT_BOARD_SIZE;
+    size_t max_turns_per_game = std::numeric_limits<size_t>::max();
     size_t game_count = 1;
 
     PlayerSettings splayer1("human", 1);
@@ -498,6 +521,9 @@ main(int argc, char **argv)
       case Option::OPTION_BOARD_SIZE:
         board_size = cifre::BoardSize2D(optarg);
         break;
+      case Option::OPTION_MAX_TURNS_PER_GAME:
+        max_turns_per_game = ParseUnsigned(optarg);
+        break;
       case Option::OPTION_GAME_COUNT:
         game_count = ParseUnsigned(optarg);
         break;
@@ -551,6 +577,7 @@ main(int argc, char **argv)
       }
     }
 
+    CheckTrueMsg(max_turns_per_game >= 1, "--max-turns-per-game must be >= 1");
     CheckTrueMsg(game_count >= 1, "--game-count must be >= 1");
 
     // At most one player may be marked as --starting. If none are
@@ -642,7 +669,7 @@ main(int argc, char **argv)
         logger->LogMed("====");
       }
 
-      cifre::tictactoe::PlayResult presult = Play(logger, players, &board);
+      cifre::tictactoe::PlayResult presult = Play(logger, players, max_turns_per_game, &board);
       switch (presult) {
       case cifre::tictactoe::PlayResult::QUIT:
         break;

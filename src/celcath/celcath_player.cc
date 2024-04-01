@@ -22,7 +22,7 @@ Player::Player(const std::shared_ptr<common::Logger>& logger,
 }
 
 cifre::Action
-Player::NextAction(const Board& board) const
+Player::NextAction(const Board& board, size_t max_game_turns_remaining) const
 {
   // Base Player class is not capable of choosing an action.
   return cifre::Action(cifre::Action::ActionKind::INVALID);
@@ -59,7 +59,7 @@ HumanPlayer::Usage() const
 }
 
 cifre::Action
-HumanPlayer::NextAction(const Board& board) const
+HumanPlayer::NextAction(const Board& board, size_t max_game_turns_remaining) const
 {
   const auto& actionIds = board.ValidActionIds();
   THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
@@ -126,12 +126,12 @@ AlphaZeroPlayer::GameEnd(const cifre::State* terminal_state, cifre::State::Termi
 }
 
 cifre::Action
-AlphaZeroPlayer::NextAction(const Board& board) const
+AlphaZeroPlayer::NextAction(const Board& board, size_t max_game_turns_remaining) const
 {
   const auto& actionIds = board.ValidActionIds();
   THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
 
-  uint64_t action_id = alphazero_->NextActionId(board);
+  uint64_t action_id = alphazero_->NextActionId(board, max_game_turns_remaining);
   cifre::Action action = board.ActionIdToAction(action_id);
   THROWIF(!board.IsValidAction(action),
           "alpha-zero selected invalid action " + action.ToString());
@@ -154,7 +154,7 @@ RandomPlayer::RandomPlayer(const std::shared_ptr<common::Logger>& logger,
 }
 
 cifre::Action
-RandomPlayer::NextAction(const Board& board) const
+RandomPlayer::NextAction(const Board& board, size_t max_game_turns_remaining) const
 {
   // Pick a random action from the valid actions. At least one action
   // must be valid.

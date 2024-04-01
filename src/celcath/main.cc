@@ -314,7 +314,7 @@ Play(const std::shared_ptr<common::Logger>& logger, const Settings& settings,
          !game_turn_limited &&
          (terminal_status == cifre::State::TerminalStatusKind::NON_TERMINAL)) {
     Player* player = board->ActivePlayer();
-    cifre::Action action = player->NextAction(*board);
+    cifre::Action action = player->NextAction(*board, std::numeric_limits<size_t>::max());
     switch (action.Kind()) {
     case cifre::Action::ActionKind::INVALID:
     case cifre::Action::ActionKind::HELP:
@@ -560,7 +560,7 @@ main(int argc, char **argv)
         splayer1.alphazero_settings_.next_action_kind_ = (train) ?
           cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
           cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
-        splayer1.alphazero_settings_.max_depth_ = max_turns_per_game; // FIXME, should be adjusted after each turn
+        splayer1.alphazero_settings_.max_search_depth_ = 20;
         alphazero1 = std::make_shared<cifre::AlphaZero>(
           logger, triton, splayer1.alphazero_settings_, splayer1.model_);
       }
@@ -570,7 +570,7 @@ main(int argc, char **argv)
         splayer2.alphazero_settings_.next_action_kind_ = (train) ?
           cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED :
           cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
-        splayer2.alphazero_settings_.max_depth_ = max_turns_per_game; // FIXME, should be adjusted after each turn
+        splayer2.alphazero_settings_.max_search_depth_ = 20;
         alphazero2 = std::make_shared<cifre::AlphaZero>(
           logger, triton, splayer2.alphazero_settings_, splayer2.model_);
       }

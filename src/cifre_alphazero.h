@@ -59,10 +59,9 @@ struct AlphaZeroSettings {
   size_t search_count_ {50};
 
   // Maximum depth alphazero will traverse tree for each search. Once
-  // this depth is reached the game is considered a draw and the tree
-  // is updated appropriately. Therefore, this depth should be set to
-  // match the rules of the game.
-  size_t max_depth_ {20};
+  // this depth is reached the search stops and the current node value
+  // is used to update the tree.
+  size_t max_search_depth_ {20};
 
   // The cpuct value for alphazero QU calculation. The non-training
   // default is 1.0.
@@ -86,7 +85,8 @@ public:
   size_t total_node_count_ {0};
   size_t terminal_node_count_ {0};
   size_t edge_count_ {0};
-  size_t search_endby_depth_count_ {0};
+  size_t search_endby_search_depth_count_ {0};
+  size_t search_endby_game_depth_count_ {0};
   size_t search_endby_terminal_count_ {0};
 };
 
@@ -105,7 +105,7 @@ public:
 // visited. ValidateVisitCounts() can be used to validate this
 // property. Note that the "inverse" is not true... namely the sum of
 // all children visit counts "entering" a node does not equal a node's
-// visit count (because when max depth is reached, the node that
+// visit count (because when a max depth is reached, the node that
 // reaches that depth is not counted as visited, even though the
 // incoming child edge is counted as visited).
 //
@@ -232,8 +232,13 @@ public:
   void GameEnd(const State* terminal_state, State::TerminalStatusKind status);
 
   // Return the next predicted action ID, given current 'state'. If is
-  // an error if 'state' represents a terminal state.
-  uint64_t NextActionId(const State& state);
+  // an error if 'state' represents a terminal
+  // state. 'max_game_turns_remaining' indicates the maximum number of
+  // game turns remaining and that is used to control the depth that
+  // should be searched update the node tree. Any search that reaches
+  // that depth will assume the game is a DRAW at that point and will
+  // update the tree appropriately.
+  uint64_t NextActionId(const State& state, size_t max_game_turns_remaining);
 
 private:
   // Return the node representing the given 'state', creating if
@@ -246,7 +251,8 @@ private:
   // Search from 'node' and update the tree. Return the 'V' value for
   // the leaf node visited in the search.
   float SearchTree(
-    AlphaZeroNode* node, const size_t depth_remaining, const std::vector<double>* dirichlet);
+    AlphaZeroNode* node, const size_t search_depth_remaining,
+    const size_t game_depth_remaining, const std::vector<double>* dirichlet);
 
   // Generate Dirichlet distribution.
   void GenerateDirichletSamples(

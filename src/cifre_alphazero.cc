@@ -100,10 +100,17 @@ AlphaZero::GameEnd(const State* terminal_state, State::TerminalStatusKind status
 }
 
 uint64_t
-AlphaZero::NextActionId(const State& state)
+AlphaZero::NextActionId(const State& state, size_t max_game_turns_remaining)
 {
   THROWIF(state.TerminalStatus() != State::TerminalStatusKind::NON_TERMINAL,
           "alpha-zero cannot find next action for terminal state");
+
+  // FIXME here we assume the game has two players...
+  // Use the std::max to avoid issues with overflow as
+  // std::numeric_limits<size_t>::max() may be the value of
+  // 'max_game_turns_remaining'.
+  const size_t max_game_depth =
+    std::max(max_game_turns_remaining, max_game_turns_remaining * 2);
 
   // If Dirichlet distribution is being used but has not yet been
   // generated, then do so now using GSL (GNU Scientific
@@ -135,7 +142,7 @@ AlphaZero::NextActionId(const State& state)
       *logger_,
       "search " + std::to_string(idx+1) + '/' + std::to_string(settings_.search_count_) + ':',
       0 /* indent */, false /* endline */);
-    SearchTree(node.get(), settings_.max_depth_, dirichlet);
+    SearchTree(node.get(), settings_.max_search_depth_, max_game_depth, dirichlet);
     LOGGER_LOGHIGH_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
   }
 
@@ -206,8 +213,9 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
 }
 
 float
-AlphaZero::SearchTree(AlphaZeroNode* node, const size_t depth_remaining,
-                      const std::vector<double>* dirichlet)
+AlphaZero::SearchTree(
+  AlphaZeroNode* node, const size_t search_depth_remaining,
+  const size_t game_depth_remaining, const std::vector<double>* dirichlet)
 {
   // If 'node' is a terminal node then show that it was visited and
   // return its value.
@@ -226,17 +234,25 @@ AlphaZero::SearchTree(AlphaZeroNode* node, const size_t depth_remaining,
   node->ValidateVisitCounts();
 #endif
 
-  // If depth has been reached then assume game is a draw. Don't
+  // If game depth has been reached then assume game is a draw. If
+  // search depth is reached then return 'node's value. Don't
   // increment the node count when stopping for depth, this is because
   // we always want the node count to equal the sum of the child
   // counts so if we are not going to visit a child we don't want to
   // update the node count.
-  if (depth_remaining == 0) {
-    LOGGER_LOGHIGH(*logger_, " depth(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
+  if (game_depth_remaining == 0) {
+    LOGGER_LOGHIGH(*logger_, " game-depth(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
     LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_),
                       2 /* indent */, true /* endline */);
-    statistics_.search_endby_depth_count_++;
+    statistics_.search_endby_game_depth_count_++;
     return DRAW_VALUE;
+  }
+  if (search_depth_remaining == 0) {
+    LOGGER_LOGHIGH(*logger_, " search-depth(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
+    LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_),
+                      2 /* indent */, true /* endline */);
+    statistics_.search_endby_search_depth_count_++;
+    return node->Value();
   }
 
   // Move down tree following best actions until perform an action
@@ -273,7 +289,8 @@ AlphaZero::SearchTree(AlphaZeroNode* node, const size_t depth_remaining,
   node->IncrementVisitCount();
   node->IncrementChildVisitCount(*best_action_id);
 
-  float v = SearchTree(next, depth_remaining - 1, nullptr /* dirichlet */);
+  float v = SearchTree(
+    next, search_depth_remaining - 1, game_depth_remaining - 1, nullptr /* dirichlet */);
 
   // If 'next' has a different active player than 'node', then need to
   // invert 'v'.
@@ -532,7 +549,8 @@ AlphaZeroStatistics::operator+=(const AlphaZeroStatistics& rhs)
   total_node_count_ += rhs.total_node_count_;
   terminal_node_count_ += rhs.terminal_node_count_;
   edge_count_ += rhs.edge_count_;
-  search_endby_depth_count_ += rhs.search_endby_depth_count_;
+  search_endby_search_depth_count_ += rhs.search_endby_search_depth_count_;
+  search_endby_game_depth_count_ += rhs.search_endby_game_depth_count_;
   search_endby_terminal_count_ += rhs.search_endby_terminal_count_;
   return *this;
 }
@@ -543,7 +561,8 @@ AlphaZeroStatistics::Reset()
   total_node_count_ = 0;
   terminal_node_count_ = 0;
   edge_count_ = 0;
-  search_endby_depth_count_ = 0;
+  search_endby_search_depth_count_ = 0;
+  search_endby_game_depth_count_ = 0;
   search_endby_terminal_count_ = 0;
 }
 
@@ -556,9 +575,13 @@ AlphaZeroStatistics::ToString() const
   ss << "edges: " << edge_count_ << ", avg outgoing per node "
      << std::fixed << std::setprecision(2) << ((float)edge_count_ / total_node_count_) << '\n';
 
-  const size_t search_count = search_endby_depth_count_ + search_endby_terminal_count_;
-  ss << "searches: " << search_count << ", end by depth " << search_endby_depth_count_
-     << ", end by terminal " << search_endby_terminal_count_;
+  const size_t search_count =
+    search_endby_search_depth_count_ + search_endby_game_depth_count_ + search_endby_terminal_count_;
+  ss
+    << "searches: " << search_count
+    << ", end by search-depth " << search_endby_search_depth_count_
+    << ", end by game-depth " << search_endby_game_depth_count_
+    << ", end by terminal " << search_endby_terminal_count_;
 
   return ss.str();
 }
@@ -736,11 +759,14 @@ AlphaZeroAggregator::ToString() const
       << ((float)statistics_.edge_count_ / statistics_.total_node_count_) << '\n';
 
     const size_t search_count =
-      statistics_.search_endby_depth_count_ + statistics_.search_endby_terminal_count_;
+      statistics_.search_endby_search_depth_count_ +
+      statistics_.search_endby_game_depth_count_ +
+      statistics_.search_endby_terminal_count_;
     ss
       << std::fixed << std::setprecision(2)
       << "avg searches: " << (search_count / float(aggregate_count_))
-      << ", avg end by depth " << (statistics_.search_endby_depth_count_ / float(aggregate_count_))
+      << ", avg end by search-depth " << (statistics_.search_endby_search_depth_count_ / float(aggregate_count_))
+      << ", avg end by game-depth " << (statistics_.search_endby_game_depth_count_ / float(aggregate_count_))
       << ", avg end by terminal " << (statistics_.search_endby_terminal_count_ / float(aggregate_count_));
   }
 
