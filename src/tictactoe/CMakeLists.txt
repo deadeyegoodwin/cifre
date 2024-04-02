@@ -54,28 +54,6 @@ install(
 )
 
 #
-# tictactoe version
-#
-configure_file(tictactoe_version.h.in tictactoe_version.h)
-
-add_library(
-  tictactoe-version INTERFACE
-)
-
-target_include_directories(
-  tictactoe-version
-  INTERFACE
-    ${PROJECT_BINARY_DIR}
-)
-
-target_link_libraries(
-  tictactoe-version
-  INTERFACE
-    cifre-version
-    common-version
-)
-
-#
 # tictactoe library
 #
 add_library(
@@ -108,7 +86,6 @@ set_target_properties(
 target_link_libraries(
   tictactoe-library
   PUBLIC
-    tictactoe-version
     cifre-library
   PRIVATE
     ${CIFRE_ASAN_FLAGS}

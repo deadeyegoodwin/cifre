@@ -173,6 +173,7 @@ add_library(
   src/cifre_action.cc
   src/cifre_alphazero.cc
   src/cifre_board2d.cc
+  src/cifre_game.cc
   src/cifre_player.cc
   src/cifre_triton.cc
 )

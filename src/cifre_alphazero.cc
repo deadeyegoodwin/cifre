@@ -57,13 +57,13 @@ AlphaZero::GameStart()
 }
 
 void
-AlphaZero::GameEnd(const State* terminal_state, State::TerminalStatusKind status)
+AlphaZero::GameEnd(const State& terminal_state, State::TerminalStatusKind status)
 {
   // If game actually completed, then record all the action-selected
   // nodes collected for the game with the appropriate game-ending
   // value.
   if (!game_action_nodes_.empty()) {
-    const size_t terminal_player_id = terminal_state->ActivePlayerId();
+    const size_t terminal_player_id = terminal_state.ActivePlayerId();
     float active_value = DRAW_VALUE;
     float opponent_value = DRAW_VALUE;
     switch (status) {

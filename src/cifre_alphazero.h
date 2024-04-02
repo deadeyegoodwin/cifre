@@ -229,7 +229,7 @@ public:
   // terminal status of 'terminal_state', but any end-game actions
   // should respect 'status'. 'status' of NON_TERMINAL is not allowed
   // and GameEnd should throw exception if that value is received.
-  void GameEnd(const State* terminal_state, State::TerminalStatusKind status);
+  void GameEnd(const State& terminal_state, State::TerminalStatusKind status);
 
   // Return the next predicted action ID, given current 'state'. If is
   // an error if 'state' represents a terminal

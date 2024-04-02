@@ -223,7 +223,7 @@ def main():
             f'../build/install/bin/{FLAGS.game}',
             '--verbose' if FLAGS.verbose else '',
             '--train', '--train-dir', train_dir,
-            '--board-size', argify_shape(FLAGS.game_shape, 'x'),
+            f'--board-size={FLAGS.game_shape[0]}',# FIXME tictactoe specific argify_shape(FLAGS.game_shape, 'x'),
 #            f'--min-actions-per-turn={min_actions_per_turn}', FIXME
 #            f'--max-actions-per-turn={max_actions_per_turn}',
             f'--max-turns-per-game={FLAGS.max_turns_per_game}',
@@ -263,7 +263,7 @@ def main():
                 cmp_cmd = [
                     f'../build/install/bin/{FLAGS.game}',
                     '--verbose' if FLAGS.verbose else '--quiet',
-                    '--board-size', argify_shape(FLAGS.game_shape, 'x'),
+                    f'--board-size={FLAGS.game_shape[0]}',# FIXME tictactoe specific argify_shape(FLAGS.game_shape, 'x'),
                     '--report-file', report_file,
                     f'--max-turns-per-game={FLAGS.max_turns_per_game}',
                     f'--game-count={FLAGS.cmp_game_count}',
