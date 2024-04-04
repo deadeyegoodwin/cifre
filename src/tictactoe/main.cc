@@ -105,19 +105,18 @@ TicTacToe::DefaultAlphaZeroSettings(const bool train) const
   settings.enable_cache_ = true;
   settings.search_count_ = 50;
 
-  // FIXME
   if (train) { // train = true
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
-    settings.dirichlet_alpha_ = std::min(1.0, 10.0 / 9.0 /* FIXME need total-action-id-count from game */);
-    settings.max_search_depth_ = 20;
-    settings.cpuct_ = 4.0; // FIXME this and others should be game specific defaults
+    settings.dirichlet_alpha_ = 1.0;
+    settings.max_search_depth_ = 12;
+    settings.cpuct_ = 10.0;
   }
   else { // train = false
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
     settings.dirichlet_alpha_ = 0.0; // disable dirichlet
-    settings.max_search_depth_ = 4;
+    settings.max_search_depth_ = 12;
     settings.cpuct_ = 1.0;
   }
 
