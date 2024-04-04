@@ -137,7 +137,6 @@ public:
     OPTION_TRAIN,
     OPTION_TRAIN_DIR,
 
-    OPTION_MAX_TURNS_PER_GAME,
     OPTION_GAME_COUNT,
 
     OPTION_PLAYER1,
@@ -160,7 +159,8 @@ public:
 
   // Return the custom GameOptions for the game. At the least, a game
   // must provide a --game-shape custom option that accepts the game
-  // shape as a comma separated tuple (for example, --game-shape=4,5).
+  // shape as a comma separated tuple (for example, --game-shape=4,5),
+  // and must provide --max-turns-per-game.
   virtual std::vector<GameOption> CustomGameOptions() const = 0;
 
   // Parse a custom 'opt'ion. Return false if unable to parse the
@@ -169,6 +169,11 @@ public:
 
   // Return usage message for the game's options.
   std::string Usage() const;
+
+protected:
+  // Game-dependent options. These must be set by the derived game
+  // class to values appropriate for the game.
+  size_t max_turns_per_game_;
 
 private:
   class PlayerSettings;
@@ -190,9 +195,8 @@ private:
   // options plus any custom options added by the deriving game.
   std::vector<GameOption> game_options_;
 
-  // Game settings
+  // Game independent settings
   size_t game_count_;
-  size_t max_turns_per_game_;
   size_t starting_player_idx_;
   std::string report_filename_;
   std::string train_dir_;

@@ -181,6 +181,7 @@ def main():
 
     # FIXME
     if FLAGS.game == 'tictactoe':
+        LOG.fail_if(len(FLAGS.game_shape) != 2, "tictactoe requires shape rank 2")
         nnet_args = {
             'batch_size': FLAGS.batch_size,
             'num_rows' : FLAGS.game_shape[0],
@@ -190,6 +191,7 @@ def main():
             'num_channels': 512 }
         nnet = CifreBasicFcNNet(nnet_args)
     elif FLAGS.game == 'celcath':
+        LOG.fail_if(len(FLAGS.game_shape) != 2, "celcath requires shape rank 2")
         nnet_args = {
             'batch_size': FLAGS.batch_size,
             'num_rows' : FLAGS.game_shape[0],

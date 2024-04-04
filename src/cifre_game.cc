@@ -261,9 +261,7 @@ Game::Usage() const
 // Game
 //
 Game::Game() :
-  initialized_(false), game_count_(1),
-  max_turns_per_game_(std::numeric_limits<size_t>::max()),
-  starting_player_idx_(0)
+  initialized_(false), game_count_(1), starting_player_idx_(0)
 {
   game_options_ = {
     {BuiltInOptionId::OPTION_HELP, "help", GameOption::ArgNone, "Print usage"},
@@ -282,9 +280,6 @@ Game::Game() :
     {BuiltInOptionId::OPTION_TRAIN_DIR, "train-dir", GameOption::ArgStr,
      "Training data directory. Has no effect if --train is not also specified."},
 
-    {BuiltInOptionId::OPTION_MAX_TURNS_PER_GAME, "max-turns-per-game", GameOption::ArgInt,
-     "Maximum number of turns allowed per game. One turn consists of each "
-     "player getting a chance to take actions."},
     {BuiltInOptionId::OPTION_GAME_COUNT, "game-count", GameOption::ArgInt,
      "Number of games to play. Default is 1."},
 
@@ -414,8 +409,7 @@ Game::Parse(int argc, char **argv)
     logger_->Log(cifre::VersionToString(true /* show_dependent_versions */));
   }
 
-  // Set default values for training based on --train.
-  // FIXME only handling --train currently
+  // Set default alphazero values based on --train.
   splayer1_->alphazero_settings_ = DefaultAlphaZeroSettings(train);
   splayer2_->alphazero_settings_ = DefaultAlphaZeroSettings(train);
 
@@ -438,9 +432,6 @@ Game::Parse(int argc, char **argv)
       report_filename_ = optarg;
       break;
 
-    case BuiltInOptionId::OPTION_MAX_TURNS_PER_GAME:
-      max_turns_per_game_ = GameOption::ParseUnsigned(game_option, optarg, 1 /* min */);
-      break;
     case BuiltInOptionId::OPTION_GAME_COUNT:
       game_count_ = GameOption::ParseUnsigned(game_option, optarg, 1 /* min */);
       break;
@@ -485,6 +476,7 @@ Game::Parse(int argc, char **argv)
         GameOption::ParseFloat(game_option, optarg, 0.0 /* min */);
       break;
     default:
+      // Must be a custom option... allow derived game to process...
       GameCheckTrueMsg(ParseCustomOption(game_option, optarg),
                        "unrecognized option " + game_option.FlagWithDash());
       break;

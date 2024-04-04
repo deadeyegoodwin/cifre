@@ -19,6 +19,7 @@
 namespace cifre { namespace tictactoe {
 
 static const cifre::BoardSize2D DEFAULT_GAME_SHAPE {3, 3};
+static const size_t DEFAULT_MAX_TURNS_PER_GAME = 5;
 
 //
 // TicTacToe
@@ -56,6 +57,7 @@ public:
 
 private:
   GameOption::OptionId OPTION_GAME_SHAPE;
+  GameOption::OptionId OPTION_MAX_TURNS_PER_GAME;
 
   cifre::BoardSize2D game_shape_;
 };
@@ -65,6 +67,10 @@ TicTacToe::TicTacToe()
 {
   cifre::GameOption::OptionId custom_id = cifre::Game::FirstCustomOptionId;
   OPTION_GAME_SHAPE = custom_id++;
+  OPTION_MAX_TURNS_PER_GAME = custom_id++;
+
+  // Set game-dependent options that are declared in cifre::Game
+  max_turns_per_game_ = DEFAULT_MAX_TURNS_PER_GAME;
 }
 
 std::vector<cifre::GameOption>
@@ -75,7 +81,10 @@ TicTacToe::CustomGameOptions() const
     {OPTION_GAME_SHAPE, "game-shape", GameOption::ArgInt,
      "Size of the " + Name() + " board. A board with N rows and N columns is specified "
      "as '--game-shape=N,N'. The board shape must be square. "
-     "Default is '--game-shape=" + DEFAULT_GAME_SHAPE.ToString() + "'."}};
+     "Default is '--game-shape=" + DEFAULT_GAME_SHAPE.ToString() + "'."},
+    {OPTION_MAX_TURNS_PER_GAME, "max-turns-per-game", GameOption::ArgInt,
+     "Maximum number of turns allowed per game. One turn consists of each "
+     "player occupying a space on the " + Name() + " board."}};
 
   return custom;
 }
@@ -125,6 +134,9 @@ TicTacToe::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
                      " or larger");
     GameCheckTrueMsg(game_shape_.RowCount() == game_shape_.ColumnCount(),
                      Name() + " board must be square");
+  }
+  else if (opt.Id() == OPTION_MAX_TURNS_PER_GAME) {
+    max_turns_per_game_ = cifre::GameOption::ParseUnsigned(opt, arg_str, 1 /* min */);
   }
   else {
     return false;
