@@ -294,6 +294,10 @@ Game::Game() :
      "Number of searches made to alphazero tree before "
      "choosing the next action for the player. --player1 or --player2 must "
      "be specified before this argument."},
+    {BuiltInOptionId::OPTION_PLAYER_ALPHAZERO_SEARCH_DEPTH, "alphazero-search-depth", GameOption::ArgInt,
+     "Maximum depth of searches made to alphazero tree before "
+     "choosing the next action for the player. --player1 or --player2 must "
+     "be specified before this argument."},
     {BuiltInOptionId::OPTION_PLAYER_ALPHAZERO_CPUCT, "alphazero-cpuct", GameOption::ArgFloat,
      "AlphaZero cpuct value."}};
 }
@@ -461,6 +465,12 @@ Game::Parse(int argc, char **argv)
       GameCheckTrueMsg(active_splayer != nullptr,
                        "--player1 or --player2 must be specified before --alphazero-search-count");
       active_splayer->alphazero_settings_.search_count_ =
+        GameOption::ParseUnsigned(game_option, optarg, 1 /* min */);
+      break;
+    case BuiltInOptionId::OPTION_PLAYER_ALPHAZERO_SEARCH_DEPTH:
+      GameCheckTrueMsg(active_splayer != nullptr,
+                       "--player1 or --player2 must be specified before --alphazero-search-depth");
+      active_splayer->alphazero_settings_.max_search_depth_ =
         GameOption::ParseUnsigned(game_option, optarg, 1 /* min */);
       break;
     case BuiltInOptionId::OPTION_PLAYER_ALPHAZERO_CPUCT:

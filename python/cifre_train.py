@@ -64,6 +64,9 @@ def argify_shape(shape, delimiter):
     """
     return delimiter.join(map(str, shape))
 
+def filter_specified(flag, value):
+    return '' if (value is None) else f'{flag}={value}'
+
 def main():
     global FLAGS
     global LOG
@@ -112,7 +115,7 @@ def main():
     parser.add_argument(
         '--game-count',
         type=parse_positive_int,
-        default=10,
+        default=1,
         required=False,
         help=('Number of games to play with AlphaZero self-play for each of the ' +
               '--iteration-count iterations. Training samples are collected from ' +
@@ -120,27 +123,30 @@ def main():
     parser.add_argument(
         '--max-turns-per-game',
         type=parse_positive_int,
-        default=50,
         required=False,
         help=('Maximum number of turns allowed per game. One turn consists of each ' +
               'player getting a chance to take actions.'))
     parser.add_argument(
         '--alphazero-search-count',
         type=parse_positive_int,
-        default=10,
         required=False,
         help=('Number of searches made to the AlphaZero tree before determining ' +
-              'each game action.'))
+              'each game action during training.'))
+    parser.add_argument(
+        '--alphazero-search-depth',
+        type=parse_positive_int,
+        required=False,
+        help=('Number of searches made to the AlphaZero tree before determining ' +
+              'each game action during training.'))
     parser.add_argument(
         '--alphazero-cpuct',
         type=parse_positive_float,
-        default=4.0,
         required=False,
-        help=('AlphaZero cpuct value.'))
+        help=('AlphaZero cpuct value during training.'))
     parser.add_argument(
         '--epoch-count',
         type=parse_positive_int,
-        default=10,
+        default=16,
         required=False,
         help=('Number of training epochs to run. Default is 10.'))
     parser.add_argument(
@@ -226,11 +232,12 @@ def main():
             '--verbose' if FLAGS.verbose else '',
             '--train', '--train-dir', train_dir,
             '--game-shape', argify_shape(FLAGS.game_shape, ','),
-            f'--max-turns-per-game={FLAGS.max_turns_per_game}',
             f'--game-count={FLAGS.game_count}',
+            filter_specified('--max-turns-per-game', FLAGS.max_turns_per_game),
             '--player1=alphazero', '--alphazero-model', model_name,
-            f'--alphazero-search-count={FLAGS.alphazero_search_count}',
-            f'--alphazero-cpuct={FLAGS.alphazero_cpuct}' ]
+            filter_specified('--alphazero-search-count', FLAGS.alphazero_search_count),
+            filter_specified('--alphazero-search-depth', FLAGS.alphazero_search_depth),
+            filter_specified('--alphazero-cpuct', FLAGS.alphazero_cpuct) ]
 
         LOG.log(f'\n==== Iteration {iter} ====')
         process = subprocess.Popen(game_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -263,16 +270,14 @@ def main():
                 cmp_cmd = [
                     f'../build/install/bin/{FLAGS.game}',
                     '--verbose' if FLAGS.verbose else '--quiet',
-                    '--game-shape', argify_shape(FLAGS.game_shape, ','),
                     '--report-file', report_file,
-                    f'--max-turns-per-game={FLAGS.max_turns_per_game}',
+                    '--game-shape', argify_shape(FLAGS.game_shape, ','),
                     f'--game-count={FLAGS.cmp_game_count}',
+                    filter_specified('--max-turns-per-game', FLAGS.max_turns_per_game),
                     '--player1=alphazero', f'--name={model_name}', '--alphazero-model', model_name,
                     '--starting' if starting_idx == 0 else '',
-                    f'--alphazero-search-count={FLAGS.alphazero_search_count}',
                     '--player2=alphazero', f'--name={best_model_name}', '--alphazero-model', best_model_name,
-                    '--starting' if starting_idx == 1 else '',
-                    f'--alphazero-search-count={FLAGS.alphazero_search_count}']
+                    '--starting' if starting_idx == 1 else '' ]
 
                 process = subprocess.Popen(cmp_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 while process.poll() is None:
