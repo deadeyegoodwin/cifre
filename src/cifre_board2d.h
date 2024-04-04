@@ -161,7 +161,7 @@ public:
   bool Equal(const State* other) const override;
 
   // See cifre::State
-  TerminalStatusKind TerminalStatus() const override { return terminal_status_; }
+  StateTerminalStatus TerminalStatus() const override { return terminal_status_; }
 
   // See cifre::State
   size_t TotalActionIdCount() const override { return size_.CellCount(); }
@@ -253,7 +253,7 @@ protected:
   size_t active_player_id_;
 
   // The status of the board indicating winning condition.
-  cifre::State::TerminalStatusKind terminal_status_;
+  cifre::StateTerminalStatus terminal_status_;
 
   // The set of action ids that are valid for the current board.
   std::unordered_set<uint64_t> valid_action_ids_;

@@ -57,36 +57,28 @@ AlphaZero::GameStart()
 }
 
 void
-AlphaZero::GameEnd(const State& terminal_state, State::TerminalStatusKind status)
+AlphaZero::GameEnd(const State& terminal_state, const StateTerminalStatus& status)
 {
   // If game actually completed, then record all the action-selected
   // nodes collected for the game with the appropriate game-ending
   // value.
   if (!game_action_nodes_.empty()) {
-    const size_t terminal_player_id = terminal_state.ActivePlayerId();
-    float active_value = DRAW_VALUE;
-    float opponent_value = DRAW_VALUE;
-    switch (status) {
-    case State::TerminalStatusKind::NON_TERMINAL:
+    switch (status.Kind()) {
+    case StateTerminalStatus::TerminalKind::NON_TERMINAL:
       THROW("game ended with NON-TERMINAL status");
       return;
-    case State::TerminalStatusKind::DRAW:
-      break; // keep default 0 values
-    case State::TerminalStatusKind::ACTIVE_WINNER:
-      active_value = WINNER_VALUE;
-      opponent_value = LOSER_VALUE;
+    case StateTerminalStatus::TerminalKind::DRAW:
+      for (auto& n : game_action_nodes_) {
+        train_nodes_.push_back(std::make_pair(n, DRAW_VALUE));
+      }
       break;
-    case State::TerminalStatusKind::OPPONENT_WINNER:
-      active_value = LOSER_VALUE;
-      opponent_value = WINNER_VALUE;
+    case StateTerminalStatus::TerminalKind::WINNER:
+      const size_t winner_id = status.WinnerId();
+      for (auto& n : game_action_nodes_) {
+        float value = (n->NodeState().ActivePlayerId() == winner_id) ? WINNER_VALUE : LOSER_VALUE;
+        train_nodes_.push_back(std::make_pair(n, value));
+      }
       break;
-    }
-
-    // Aggregate together all the nodes collected for the game with
-    // the value representing the game outcome.
-    for (auto& n : game_action_nodes_) {
-      float value = (n->NodeState().ActivePlayerId() == terminal_player_id) ? active_value : opponent_value;
-      train_nodes_.push_back(std::make_pair(n, value));
     }
 
     LOGGER_LOGHIGH(*logger_, "training nodes for game: " + std::to_string(game_action_nodes_.size()) +
@@ -102,7 +94,7 @@ AlphaZero::GameEnd(const State& terminal_state, State::TerminalStatusKind status
 uint64_t
 AlphaZero::NextActionId(const State& state, size_t max_game_turns_remaining)
 {
-  THROWIF(state.TerminalStatus() != State::TerminalStatusKind::NON_TERMINAL,
+  THROWIF(state.TerminalStatus().Kind() != StateTerminalStatus::TerminalKind::NON_TERMINAL,
           "alpha-zero cannot find next action for terminal state");
 
   // FIXME here we assume the game has two players...
@@ -336,17 +328,15 @@ AlphaZero::GenerateDirichletSamples(
 {
   // Is node is a terminal, then its value is based on the terminal
   // status, otherwise it comes from the model.
-  switch (state_->TerminalStatus()) {
-  case State::TerminalStatusKind::DRAW:
+  const auto& tstatus = state_->TerminalStatus();
+  switch (tstatus.Kind()) {
+  case StateTerminalStatus::TerminalKind::DRAW:
     value_ = DRAW_VALUE;
     break;
-  case State::TerminalStatusKind::ACTIVE_WINNER:
-    value_ = WINNER_VALUE;
+  case StateTerminalStatus::TerminalKind::WINNER:
+    value_ = (tstatus.WinnerId() == state_->ActivePlayerId()) ? WINNER_VALUE : LOSER_VALUE;
     break;
-  case State::TerminalStatusKind::OPPONENT_WINNER:
-    value_ = LOSER_VALUE;
-    break;
-  case State::TerminalStatusKind::NON_TERMINAL: {
+  case StateTerminalStatus::TerminalKind::NON_TERMINAL: {
     assert(result_->VEntryCount() == 1);
     value_ = result_->V();
   } break;

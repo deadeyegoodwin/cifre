@@ -45,7 +45,7 @@ BoardSize2D::ToString() const
 Board2D::Board2D(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
                  size_t starting_player_id) :
   size_(size), players_(players), active_player_id_(starting_player_id),
-  terminal_status_(cifre::State::TerminalStatusKind::NON_TERMINAL)
+  terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL)
 {
   THROWIF(players_.size() != PLAYER_COUNT, "exactly 2 players are required");
   THROWIF(active_player_id_ >= PLAYER_COUNT,
@@ -196,14 +196,6 @@ Board2D::SwitchActivePlayer()
     if (pid != PLAYER_COUNT) {
       SetPlayerIdAtFlattened((pid == 0) ? 1 : 0, fidx);
     }
-  }
-
-  // Switch terminal status to represent new active player.
-  if (terminal_status_ == cifre::State::TerminalStatusKind::ACTIVE_WINNER) {
-    terminal_status_ = cifre::State::TerminalStatusKind::OPPONENT_WINNER;
-  }
-  else if (terminal_status_ == cifre::State::TerminalStatusKind::OPPONENT_WINNER) {
-    terminal_status_ = cifre::State::TerminalStatusKind::ACTIVE_WINNER;
   }
 
   // Update the valid actions for the now-active player.

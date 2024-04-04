@@ -53,9 +53,9 @@ AlphaZeroPlayer::GameStart()
 }
 
 void
-AlphaZeroPlayer::GameEnd(const cifre::State& terminal_state, cifre::State::TerminalStatusKind status)
+AlphaZeroPlayer::GameEnd(const cifre::State& terminal_state, const cifre::StateTerminalStatus& status)
 {
-  THROWIF(status == cifre::State::TerminalStatusKind::NON_TERMINAL,
+  THROWIF(status.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
           "game ended with NON-TERMINAL status");
   alphazero_->GameEnd(terminal_state, status);
 }

@@ -77,11 +77,15 @@ Board::UpdateTerminalStatus()
     }
 
     if (active_count == size_.ColumnCount()) {
-      terminal_status_ = cifre::State::TerminalStatusKind::ACTIVE_WINNER;
+      terminal_status_ =
+        cifre::StateTerminalStatus(
+          cifre::StateTerminalStatus::TerminalKind::WINNER, ActivePlayerId());
       return;
     }
     if (opponent_count == size_.ColumnCount()) {
-      terminal_status_ = cifre::State::TerminalStatusKind::OPPONENT_WINNER;
+      terminal_status_ =
+        cifre::StateTerminalStatus(
+          cifre::StateTerminalStatus::TerminalKind::WINNER, OpponentPlayerId());
       return;
     }
   }
@@ -101,11 +105,15 @@ Board::UpdateTerminalStatus()
     }
 
     if (active_count == size_.RowCount()) {
-      terminal_status_ = cifre::State::TerminalStatusKind::ACTIVE_WINNER;
+      terminal_status_ =
+        cifre::StateTerminalStatus(
+          cifre::StateTerminalStatus::TerminalKind::WINNER, ActivePlayerId());
       return;
     }
     if (opponent_count == size_.RowCount()) {
-      terminal_status_ = cifre::State::TerminalStatusKind::OPPONENT_WINNER;
+      terminal_status_ =
+        cifre::StateTerminalStatus(
+          cifre::StateTerminalStatus::TerminalKind::WINNER, OpponentPlayerId());
       return;
     }
   }
@@ -124,11 +132,15 @@ Board::UpdateTerminalStatus()
   }
 
   if (active_count == size_.RowCount()) {
-    terminal_status_ = cifre::State::TerminalStatusKind::ACTIVE_WINNER;
+    terminal_status_ =
+      cifre::StateTerminalStatus(
+        cifre::StateTerminalStatus::TerminalKind::WINNER, ActivePlayerId());
     return;
   }
   if (opponent_count == size_.RowCount()) {
-    terminal_status_ = cifre::State::TerminalStatusKind::OPPONENT_WINNER;
+    terminal_status_ =
+      cifre::StateTerminalStatus(
+        cifre::StateTerminalStatus::TerminalKind::WINNER, OpponentPlayerId());
     return;
   }
 
@@ -146,11 +158,15 @@ Board::UpdateTerminalStatus()
   }
 
   if (active_count == size_.RowCount()) {
-    terminal_status_ = cifre::State::TerminalStatusKind::ACTIVE_WINNER;
+    terminal_status_ =
+      cifre::StateTerminalStatus(
+        cifre::StateTerminalStatus::TerminalKind::WINNER, ActivePlayerId());
     return;
   }
   if (opponent_count == size_.RowCount()) {
-    terminal_status_ = cifre::State::TerminalStatusKind::OPPONENT_WINNER;
+    terminal_status_ =
+      cifre::StateTerminalStatus(
+        cifre::StateTerminalStatus::TerminalKind::WINNER, OpponentPlayerId());
     return;
   }
 
@@ -163,11 +179,15 @@ Board::UpdateTerminalStatus()
   }
 
   if (occupied_count == size_.CellCount()) {
-    terminal_status_ = cifre::State::TerminalStatusKind::DRAW;
+    terminal_status_ =
+      cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
+    return;
   }
-  else {
-    terminal_status_ = cifre::State::TerminalStatusKind::NON_TERMINAL;
-  }
+
+  // Otherwise make sure the terminal status is NON_TERMINAL.
+  THROWIF(
+    terminal_status_.Kind() != cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
+    "expected NON_TERMINAL status");
 }
 
 }} // namespace cifre::tictactoe

@@ -120,7 +120,7 @@ public:
 
   // Is node a terminal?
   bool IsTerminal() const {
-    return state_->TerminalStatus() != State::TerminalStatusKind::NON_TERMINAL; }
+    return state_->TerminalStatus().Kind() != StateTerminalStatus::TerminalKind::NON_TERMINAL; }
 
   // Return the State represented by this node.
   const State& NodeState() const { return *state_; }
@@ -232,7 +232,7 @@ public:
   // terminal status of 'terminal_state', but any end-game actions
   // should respect 'status'. 'status' of NON_TERMINAL is not allowed
   // and GameEnd should throw exception if that value is received.
-  void GameEnd(const State& terminal_state, State::TerminalStatusKind status);
+  void GameEnd(const State& terminal_state, const StateTerminalStatus& status);
 
   // Return the next predicted action ID, given current 'state'. If is
   // an error if 'state' represents a terminal

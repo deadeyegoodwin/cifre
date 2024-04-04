@@ -1,6 +1,7 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 #include <unordered_set>
 #include <vector>
@@ -10,6 +11,35 @@
 namespace cifre {
 
 //
+// StateTerminalStatus
+//
+// Indicates the terminal status of a State. A state is a terminal if
+// if represents an end-game state.
+//
+class StateTerminalStatus {
+public:
+  enum class TerminalKind { NON_TERMINAL, WINNER, DRAW };
+
+  StateTerminalStatus(TerminalKind kind) : kind_(kind) {
+    assert(kind_ != TerminalKind::WINNER); }
+  StateTerminalStatus(TerminalKind kind, size_t winner_id) : kind_(kind), winner_id_(winner_id) {
+    assert(kind_ == TerminalKind::WINNER); }
+
+  // Indicates if State is a terminal and if so what kind.
+  TerminalKind Kind() const { return kind_; }
+
+  // Return the ID of the winning player. Call only if TerminalKind is
+  // Kind::WINNER.
+  size_t WinnerId() const {
+    assert(kind_ == TerminalKind::WINNER); return winner_id_; }
+
+private:
+  TerminalKind kind_;
+  size_t winner_id_;
+};
+
+
+//
 // State
 //
 // Interface for game state. State represents all mutable status,
@@ -17,10 +47,6 @@ namespace cifre {
 //
 class State {
 public:
-  // Values returned TerminalStatus() indicating if a state is a
-  // terminal state and if so what kind of terminal state.
-  enum class TerminalStatusKind { NON_TERMINAL, ACTIVE_WINNER, OPPONENT_WINNER, DRAW };
-
   // Virtual copy constructor.
   virtual State* Clone() const = 0;
 
@@ -51,21 +77,22 @@ public:
   virtual std::string ActionToString(const Action& action) const = 0;
 
   // Return the ID of the player that is active (i.e. that is taking a
-  // turn) for this state. Individual games can manage the IDs however
-  // they like but different players must have different IDs.
+  // turn) for this state. Player IDs are derived from the index of
+  // the player in the vector of cifre::Player that is provided to the
+  // game.
   virtual size_t ActivePlayerId() const = 0;
 
-  // Return if state is a terminal state, and if so what kind.
-  virtual TerminalStatusKind TerminalStatus() const = 0;
+  // Return the terminal status of the state.
+  virtual StateTerminalStatus TerminalStatus() const = 0;
 
   // Apply the action associated with 'action_id' to this state, so
   // that the state is modified due to the action.
   virtual void Update(uint64_t action_id) = 0;
 
   // Get the representation of the state suitable for feeding to the
-  // model via triton. This representation does not need to include
-  // all of the state, but must include whatever is required by the
-  // model being used.
+  // nnet via triton. This representation does not need to include all
+  // of the state, but must include whatever is required by the model
+  // being used.
   virtual const std::vector<uint8_t>& TritonRepresentation() const = 0;
 
   // Return string representation of the state.

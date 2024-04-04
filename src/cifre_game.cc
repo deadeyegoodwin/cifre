@@ -113,8 +113,10 @@ PlayOne(const std::shared_ptr<common::Logger>& logger,
   const auto starting_player_id = state->ActivePlayerId();
 
   bool game_quit = false;
-  State::TerminalStatusKind terminal_status = state->TerminalStatus();
-  while (!game_quit && (game_turns_remaining > 0)) {
+  StateTerminalStatus terminal_status = state->TerminalStatus();
+  while (!game_quit &&
+         (game_turns_remaining > 0) &&
+         (terminal_status.Kind() == StateTerminalStatus::TerminalKind::NON_TERMINAL)) {
     const auto player_id = state->ActivePlayerId();
     const Player* player = players[player_id];
     const Action action = player->NextAction(*state, game_turns_remaining);
@@ -131,16 +133,12 @@ PlayOne(const std::shared_ptr<common::Logger>& logger,
 
     case Action::ActionKind::ACTIONID:
       state->Update(action.ActionId());
+      terminal_status = state->TerminalStatus();
       break;
     }
 
-    terminal_status = state->TerminalStatus();
-    if (terminal_status != State::TerminalStatusKind::NON_TERMINAL) {
-      break;
-    }
-
-    // If board active player differs from 'player' (indicating that
-    // it changes as a result 'action'), and active player is now
+    // If 'state' active player differs from 'player' (indicating that
+    // it changed as a result 'action'), and active player is now
     // 'starting_player_id', then a turn has completed.
     if ((player_id != state->ActivePlayerId()) &&
         (starting_player_id == state->ActivePlayerId())) {
@@ -157,7 +155,7 @@ PlayOne(const std::shared_ptr<common::Logger>& logger,
 
   // If ran out of game turns, then game is a draw.
   if (game_turns_remaining == 0) {
-    terminal_status = State::TerminalStatusKind::DRAW;
+    terminal_status = StateTerminalStatus(StateTerminalStatus::TerminalKind::DRAW);
   }
 
   // Let all players know game is completed.
@@ -166,20 +164,16 @@ PlayOne(const std::shared_ptr<common::Logger>& logger,
   }
 
   // Game completed as a draw.
-  if (terminal_status == State::TerminalStatusKind::DRAW) {
+  if (terminal_status.Kind() == StateTerminalStatus::TerminalKind::DRAW) {
     LOGGER_LOGMED(*logger, "game over: draw");
     LOGGER_LOGMED(*logger, state->ToString());
     return PlayResult::DRAW;
   }
 
   // Game completed with a winner.
-  // FIXME need State::WinnerId();
-  const size_t winner_id = 0;
-//    (terminal_status == State::TerminalStatusKind::ACTIVE_WINNER) ?
-//    state->ActivePlayerId() : state->OpponentPlayerId();
-//  LOGGER_LOGMED(*logger, "game over: winner " + players[winner_id]->Name());
-//  LOGGER_LOGMED(*logger, state->ToString());
+  const size_t winner_id = terminal_status.WinnerId();
 
+  // FIXME only supports 2 player games
   return (winner_id == 0) ? PlayResult::WINNER1 : PlayResult::WINNER2;
 }
 
@@ -557,7 +551,7 @@ void
 Game::Play()
 {
   // Play game --game-count times starting at the initial state each
-  // game. Each game episode gets its own board, players, and
+  // game. Each game episode gets its own state, players, and
   // alpha-zero objects so that they can be executed independently.
   size_t games_completed = 0;
   size_t draw_count = 0;
