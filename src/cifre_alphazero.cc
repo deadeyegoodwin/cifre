@@ -21,18 +21,18 @@ constexpr float LOSER_VALUE = -1.0;
 //
 AlphaZero::AlphaZero(
   const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
-  const AlphaZeroSettings& settings, const std::string& model_name) :
-  logger_(logger), triton_(triton), settings_(settings), model_name_(model_name)
+  const AlphaZeroSettings& settings) :
+  logger_(logger), triton_(triton), settings_(settings)
 {
-  THROWIF(model_name_.empty(), "model must be specified for alpha-zero");
+  THROWIF(settings_.model_name_.empty(), "model must be specified for alpha-zero");
 
   // Load model if it is not already available.
-  if (!triton_->IsModelReady(model_name_)) {
-    THROWIF(!triton_->LoadModel(model_name_, settings_.enable_cache_),
-            std::string("triton model '" + model_name_ + "' failed to load"));
+  if (!triton_->IsModelReady(settings_.model_name_)) {
+    THROWIF(!triton_->LoadModel(settings_.model_name_, settings_.enable_cache_),
+            std::string("triton model '" + settings_.model_name_ + "' failed to load"));
   }
-  THROWIF(!triton_->IsModelReady(model_name_),
-          std::string("triton model '" + model_name_ + "' is not ready"));
+  THROWIF(!triton_->IsModelReady(settings_.model_name_),
+          std::string("triton model '" + settings_.model_name_ + "' is not ready"));
 
   // Make sure Dirichlet settings are valid.
   THROWIF(settings_.dirichlet_alpha_ < 0.0, "dirichlet alpha value must be >= 0.0");
@@ -186,7 +186,7 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
     new_created = false;
   }
   else {
-    auto result = triton_->RunModel(model_name_, *state);
+    auto result = triton_->RunModel(settings_.model_name_, *state);
     assert(result->PiEntryCount() == state->TotalActionIdCount());
 
     const State* pstate = state.get();

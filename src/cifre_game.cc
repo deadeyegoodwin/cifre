@@ -93,7 +93,6 @@ struct Game::PlayerSettings {
   size_t id_;
   std::string name_;
   bool starting_ {false};
-  std::string model_;
   AlphaZeroSettings alphazero_settings_;
 };
 
@@ -299,8 +298,8 @@ Game::Game() :
     {BuiltInOptionId::OPTION_PLAYER_STARTING, "starting", GameOption::ArgNone,
      "Indicate that the player should start the game. May only be indicated for a "
      "single player. --player1 or --player2 must be specified before this argument."},
-    {BuiltInOptionId::OPTION_PLAYER_MODEL, "model", GameOption::ArgStr,
-     "Model associated with player. --player1 or --player2 must be specified "
+    {BuiltInOptionId::OPTION_PLAYER_ALPHAZERO_MODEL, "alphazero-model", GameOption::ArgStr,
+     "Alphazero model associated with player. --player1 or --player2 must be specified "
      "before this argument."},
     {BuiltInOptionId::OPTION_PLAYER_ALPHAZERO_SEARCH_COUNT, "alphazero-search-count", GameOption::ArgInt,
      "Number of searches made to alphazero tree before "
@@ -469,10 +468,10 @@ Game::Parse(int argc, char **argv)
                        "--player1 or --player2 must be specified before --starting");
       active_splayer->starting_ = true;
       break;
-    case BuiltInOptionId::OPTION_PLAYER_MODEL:
+    case BuiltInOptionId::OPTION_PLAYER_ALPHAZERO_MODEL:
       GameCheckTrueMsg(active_splayer != nullptr,
-                       "--player1 or --player2 must be specified before --model");
-      active_splayer->model_ = optarg;
+                       "--player1 or --player2 must be specified before --alphazero-model");
+      active_splayer->alphazero_settings_.model_name_ = optarg;
       break;
     case BuiltInOptionId::OPTION_PLAYER_ALPHAZERO_SEARCH_COUNT:
       GameCheckTrueMsg(active_splayer != nullptr,
@@ -530,15 +529,17 @@ Game::Parse(int argc, char **argv)
     // model.
     const auto& triton_repo = triton_->ModelRepositoryIndex();
     if (splayer1_->kind_ == PlayerSettings::Kind::ALPHAZERO) {
-      GameCheckTrueMsg(!splayer1_->model_.empty(), "--player1=alphazero requires --model");
-      if (triton_repo.find(splayer1_->model_) != triton_repo.end()) {
-        triton_->UnloadModel(splayer1_->model_);
+      GameCheckTrueMsg(!splayer1_->alphazero_settings_.model_name_.empty(),
+                       "--player1=alphazero requires --alphazero-model");
+      if (triton_repo.find(splayer1_->alphazero_settings_.model_name_) != triton_repo.end()) {
+        triton_->UnloadModel(splayer1_->alphazero_settings_.model_name_);
       }
     }
     if (splayer2_->kind_ == PlayerSettings::Kind::ALPHAZERO) {
-      GameCheckTrueMsg(!splayer2_->model_.empty(), "--player2=alphazero requires --model");
-      if (triton_repo.find(splayer2_->model_) != triton_repo.end()) {
-        triton_->UnloadModel(splayer2_->model_);
+      GameCheckTrueMsg(!splayer2_->alphazero_settings_.model_name_.empty(),
+                       "--player2=alphazero requires --alphazero-model");
+      if (triton_repo.find(splayer2_->alphazero_settings_.model_name_) != triton_repo.end()) {
+        triton_->UnloadModel(splayer2_->alphazero_settings_.model_name_);
       }
     }
 
@@ -586,7 +587,7 @@ Game::Play()
         (splayer2_->kind_ == PlayerSettings::Kind::ALPHAZERO)) {
       if (splayer1_->kind_ == PlayerSettings::Kind::ALPHAZERO) {
         alphazero1 = std::make_shared<AlphaZero>(
-          logger_, triton_, splayer1_->alphazero_settings_, splayer1_->model_);
+          logger_, triton_, splayer1_->alphazero_settings_);
       }
       if (splayer2_->kind_ == PlayerSettings::Kind::ALPHAZERO) {
         if (!splayer2_->cmdline_specified_) {
@@ -594,7 +595,7 @@ Game::Play()
         }
         else {
           alphazero2 = std::make_shared<AlphaZero>(
-            logger_, triton_, splayer2_->alphazero_settings_, splayer2_->model_);
+            logger_, triton_, splayer2_->alphazero_settings_);
         }
       }
     }

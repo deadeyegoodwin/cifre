@@ -29,6 +29,9 @@ struct AlphaZeroSettings {
   // inferences of the same state.
   bool enable_cache_ {true};
 
+  // Name of the nnet model to use for predictions.
+  std::string model_name_;
+
   // Options for how NextActionId can choose an action ID.
   //   MAX_VISITED - choose action ID corresponding to max visited child
   //   RANDOM_VISIT_WEIGHTED - choose randomly taking into account
@@ -111,7 +114,7 @@ public:
 //
 class AlphaZeroNode {
 public:
-  // Create node for state for which model predicts 'infer_result'.
+  // Create node for 'state'.
   AlphaZeroNode(std::unique_ptr<const State> state,
                 std::shared_ptr<const TritonInferResult> infer_result);
 
@@ -204,9 +207,9 @@ private:
 //
 class AlphaZero {
 public:
-  // Create alphazero object using 'model-name' for predictions.
+  // Create alphazero object using 'settings'.
   AlphaZero(const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
-            const AlphaZeroSettings& settings, const std::string& model_name);
+            const AlphaZeroSettings& settings);
 
   // Return the statistics for this alphazero.
   const AlphaZeroStatistics& Statistics() const { return statistics_; }
@@ -261,7 +264,6 @@ private:
   std::shared_ptr<common::Logger> logger_;
   std::shared_ptr<Triton> triton_;
   const AlphaZeroSettings settings_;
-  const std::string model_name_;
 
   // Random needed for NextActionKind::WEIGHTED_RANDOM.
   common::Random rnd_;
