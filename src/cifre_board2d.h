@@ -27,7 +27,8 @@ public:
   BoardSize2D(size_t rcnt, size_t ccnt) : row_cnt_(rcnt), column_cnt_(ccnt) {}
 
   // Create a BoardSize2D by parsing a string with the format
-  // "<rows>x<columns>", for example, "4x3".
+  // "<rows>x<columns>", for example "4x3"; or format
+  // "<rows>,<columns>", for example "4,3".
   BoardSize2D(const std::string& str);
 
   // Return the number of rows in the board size.

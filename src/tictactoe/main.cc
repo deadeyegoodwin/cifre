@@ -18,7 +18,7 @@
 
 namespace cifre { namespace tictactoe {
 
-static const cifre::BoardSize2D DEFAULT_BOARD_SIZE {3};
+static const cifre::BoardSize2D DEFAULT_GAME_SHAPE {3, 3};
 
 //
 // TicTacToe
@@ -55,16 +55,16 @@ public:
     const std::vector<Player*>& players, size_t starting_player_idx) const override;
 
 private:
-  GameOption::OptionId OPTION_BOARD_SIZE;
+  GameOption::OptionId OPTION_GAME_SHAPE;
 
-  cifre::BoardSize2D board_size_;
+  cifre::BoardSize2D game_shape_;
 };
 
 TicTacToe::TicTacToe()
-  : cifre::Game(), board_size_(DEFAULT_BOARD_SIZE)
+  : cifre::Game(), game_shape_(DEFAULT_GAME_SHAPE)
 {
   cifre::GameOption::OptionId custom_id = cifre::Game::FirstCustomOptionId;
-  OPTION_BOARD_SIZE = custom_id++;
+  OPTION_GAME_SHAPE = custom_id++;
 }
 
 std::vector<cifre::GameOption>
@@ -72,10 +72,10 @@ TicTacToe::CustomGameOptions() const
 {
   std::vector<cifre::GameOption> custom;
   custom = {
-    {OPTION_BOARD_SIZE, "board-size", GameOption::ArgInt,
-     "Size of the tic-tac-toe board. A board with N rows and N columns is specified "
-     "as '--board-size=N'. "
-     "Default is '--board-size=" + DEFAULT_BOARD_SIZE.ToString() + "'."}};
+    {OPTION_GAME_SHAPE, "game-shape", GameOption::ArgInt,
+     "Size of the " + Name() + " board. A board with N rows and N columns is specified "
+     "as '--game-shape=N,N'. The board shape must be square. "
+     "Default is '--game-shape=" + DEFAULT_GAME_SHAPE.ToString() + "'."}};
 
   return custom;
 }
@@ -118,8 +118,13 @@ TicTacToe::DefaultAlphaZeroSettings(const bool train) const
 bool
 TicTacToe::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
 {
-  if (opt.Id() == OPTION_BOARD_SIZE) {
-    board_size_ = cifre::BoardSize2D(GameOption::ParseUnsigned(opt, arg_str, 2 /* min */));
+  if (opt.Id() == OPTION_GAME_SHAPE) {
+    game_shape_ = cifre::BoardSize2D(arg_str);
+    GameCheckTrueMsg(game_shape_.RowCount() >= 2,
+                     Name() + " board must be " + cifre::BoardSize2D(2, 2).ToString() +
+                     " or larger");
+    GameCheckTrueMsg(game_shape_.RowCount() == game_shape_.ColumnCount(),
+                     Name() + " board must be square");
   }
   else {
     return false;
@@ -132,7 +137,7 @@ cifre::State*
 TicTacToe::InitialState(
   const std::vector<Player*>& players, size_t starting_player_idx) const
 {
-  return new Board(board_size_, players, starting_player_idx);
+  return new Board(game_shape_, players, starting_player_idx);
 }
 
 }} // namespace cifre::tictactoe

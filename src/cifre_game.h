@@ -158,7 +158,9 @@ public:
   // not a known option.
   const GameOption& OptionIdToOption(GameOption::OptionId id) const;
 
-  // Return the custom GameOptions for the game.
+  // Return the custom GameOptions for the game. At the least, a game
+  // must provide a --game-shape custom option that accepts the game
+  // shape as a comma separated tuple (for example, --game-shape=4,5).
   virtual std::vector<GameOption> CustomGameOptions() const = 0;
 
   // Parse a custom 'opt'ion. Return false if unable to parse the

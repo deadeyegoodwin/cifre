@@ -223,12 +223,10 @@ def main():
             f'../build/install/bin/{FLAGS.game}',
             '--verbose' if FLAGS.verbose else '',
             '--train', '--train-dir', train_dir,
-            f'--board-size={FLAGS.game_shape[0]}',# FIXME tictactoe specific argify_shape(FLAGS.game_shape, 'x'),
-#            f'--min-actions-per-turn={min_actions_per_turn}', FIXME
-#            f'--max-actions-per-turn={max_actions_per_turn}',
+            '--game-shape', argify_shape(FLAGS.game_shape, ','),
             f'--max-turns-per-game={FLAGS.max_turns_per_game}',
             f'--game-count={FLAGS.game_count}',
-            '--player1=alphazero', '--model', model_name,
+            '--player1=alphazero', '--alphazero-model', model_name,
             f'--alphazero-search-count={FLAGS.alphazero_search_count}',
             f'--alphazero-cpuct={FLAGS.alphazero_cpuct}' ]
 
@@ -263,14 +261,14 @@ def main():
                 cmp_cmd = [
                     f'../build/install/bin/{FLAGS.game}',
                     '--verbose' if FLAGS.verbose else '--quiet',
-                    f'--board-size={FLAGS.game_shape[0]}',# FIXME tictactoe specific argify_shape(FLAGS.game_shape, 'x'),
+                    '--game-shape', argify_shape(FLAGS.game_shape, ','),
                     '--report-file', report_file,
                     f'--max-turns-per-game={FLAGS.max_turns_per_game}',
                     f'--game-count={FLAGS.cmp_game_count}',
-                    '--player1=alphazero', f'--name={model_name}', '--model', model_name,
+                    '--player1=alphazero', f'--name={model_name}', '--alphazero-model', model_name,
                     '--starting' if starting_idx == 0 else '',
                     f'--alphazero-search-count={FLAGS.alphazero_search_count}',
-                    '--player2=alphazero', f'--name={best_model_name}', '--model', best_model_name,
+                    '--player2=alphazero', f'--name={best_model_name}', '--alphazero-model', best_model_name,
                     '--starting' if starting_idx == 1 else '',
                     f'--alphazero-search-count={FLAGS.alphazero_search_count}']
 
