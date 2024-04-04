@@ -20,20 +20,19 @@ namespace cifre {
 //
 class Player {
 public:
-  // Create 'name'd human player that uses 'board_char' as the
-  // character representing them on the board. 'neighbor_value'
-  // indicates the value to use for neighbor cells occupied by this
-  // player.
+  // Create 'name'd human player that uses 'ch' as the one character
+  // representation. 'neighbor_value' indicates the value to use for
+  // neighbor cells occupied by this player.
   Player(
     const std::shared_ptr<common::Logger>& logger,
-    const std::string& name, char board_char, int32_t neighbor_value);
+    const std::string& name, char ch, int32_t neighbor_value);
   virtual ~Player() = default;
 
   // Return the player's name.
   const std::string& Name() const { return name_; }
 
-  // Return the character that represents the player on the board.
-  char BoardCharacter() const { return board_char_; }
+  // Return the one character representation of the player.
+  char Char() const { return ch_; }
 
   // Return the cell neighbor value for this player.
   int32_t NeighborValue() const { return neighbor_value_; }
@@ -63,7 +62,7 @@ public:
 protected:
   std::shared_ptr<common::Logger> logger_;
   const std::string name_;
-  const char board_char_;
+  const char ch_;
   const int32_t neighbor_value_;
 };
 
@@ -74,13 +73,12 @@ protected:
 //
 class AlphaZeroPlayer : public Player {
 public:
-  // Create 'name'd alpha-zero player that uses 'board_char' as the
-  // character representing them on the board. 'neighbor_value'
-  // indicates the value to use for neighbor cells occupied by this
-  // player.
+  // Create 'name'd alpha-zero player that uses 'ch' as the one
+  // character representation. 'neighbor_value' indicates the value to
+  // use for neighbor cells occupied by this player.
   AlphaZeroPlayer(
     const std::shared_ptr<common::Logger>& logger,
-    const std::string& name, char board_char, int32_t neighbor_value,
+    const std::string& name, char ch, int32_t neighbor_value,
     const std::shared_ptr<cifre::AlphaZero>& alphazero);
 
   // See Player::GameStart().
@@ -104,13 +102,12 @@ private:
 //
 class RandomPlayer : public Player {
 public:
-  // Create 'name'd random player that uses 'board_char' as the
-  // character representing them on the board. 'neighbor_value'
-  // indicates the value to use for neighbor cells occupied by this
-  // player.
+  // Create 'name'd random player that uses 'ch' as the one character
+  // representation. 'neighbor_value' indicates the value to use for
+  // neighbor cells occupied by this player.
   RandomPlayer(
     const std::shared_ptr<common::Logger>& logger,
-    const std::string& name, char board_char, int32_t neighbor_value);
+    const std::string& name, char ch, int32_t neighbor_value);
 
   // See Player::NextAction().
   Action NextAction(const State& state, size_t max_game_turns_remaining) const override;

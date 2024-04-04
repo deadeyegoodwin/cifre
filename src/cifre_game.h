@@ -112,7 +112,7 @@ public:
   // Create a human-controlled Player for the game.
   virtual cifre::Player* CreateHumanPlayer(
     const std::shared_ptr<common::Logger>& logger,
-    const std::string& name, const char board_char) const = 0;
+    const std::string& name, const char ch) const = 0;
 
   // Set the default AlphaZero settings for the game, depending on if
   // 'train'ing is being done or not.

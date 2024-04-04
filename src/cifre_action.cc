@@ -20,8 +20,8 @@ Action::ToString(common::Logger::Level filter_level) const
     return "HELP";
   case ActionKind::QUIT:
     return "QUIT";
-  case ActionKind::SHOW_BOARD:
-    return "SHOW-BOARD";
+  case ActionKind::SHOW_STATE:
+    return "SHOW-STATE";
   case ActionKind::ACTIONID:
     return "ACTIONID(" + std::to_string(action_id_) + ")";
   }

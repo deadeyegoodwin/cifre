@@ -15,8 +15,8 @@ namespace cifre {
 // Player
 //
 Player::Player(const std::shared_ptr<common::Logger>& logger,
-               const std::string& name, char board_char, int32_t neighbor_value) :
-  logger_(logger), name_(name), board_char_(board_char), neighbor_value_(neighbor_value)
+               const std::string& name, char ch, int32_t neighbor_value) :
+  logger_(logger), name_(name), ch_(ch), neighbor_value_(neighbor_value)
 {
 }
 
@@ -31,7 +31,7 @@ std::string
 Player::ToString(common::Logger::Level filter_level) const
 {
   std::stringstream sstr;
-  sstr << board_char_;
+  sstr << ch_;
   return sstr.str();
 }
 
@@ -40,9 +40,9 @@ Player::ToString(common::Logger::Level filter_level) const
 //
 AlphaZeroPlayer::AlphaZeroPlayer(
   const std::shared_ptr<common::Logger>& logger,
-  const std::string& name, char board_char, int32_t neighbor_value,
+  const std::string& name, char ch, int32_t neighbor_value,
   const std::shared_ptr<cifre::AlphaZero>& alphazero) :
-  Player(logger, name, board_char, neighbor_value), alphazero_(alphazero)
+  Player(logger, name, ch, neighbor_value), alphazero_(alphazero)
 {
 }
 
@@ -73,7 +73,7 @@ AlphaZeroPlayer::NextAction(const State& state, size_t max_game_turns_remaining)
   THROWIF(!state.IsValidAction(action),
           "alpha-zero selected invalid action " + action.ToString());
 
-  LOGGER_LOGMED(*logger_, Name() + " (" + BoardCharacter() + "): " + state.ActionToString(action));
+  LOGGER_LOGMED(*logger_, Name() + " (" + Char() + "): " + state.ActionToString(action));
 
   return action;
 }
@@ -82,8 +82,8 @@ AlphaZeroPlayer::NextAction(const State& state, size_t max_game_turns_remaining)
 // RandomPlayer
 //
 RandomPlayer::RandomPlayer(const std::shared_ptr<common::Logger>& logger,
-                           const std::string& name, char board_char, int32_t neighbor_value):
-  Player(logger, name, board_char, neighbor_value)
+                           const std::string& name, char ch, int32_t neighbor_value):
+  Player(logger, name, ch, neighbor_value)
 {
 }
 
@@ -100,7 +100,7 @@ RandomPlayer::NextAction(const State& state, size_t max_game_turns_remaining) co
   uint64_t action_id =
     *std::next(actionIds.begin(), rnd_(uint64_t(0), uint64_t(actionIds.size() - 1)));
   Action action(Action::ActionKind::ACTIONID, action_id);
-  LOGGER_LOGMED(*logger_, Name() + " (" + BoardCharacter() + "): " + state.ActionToString(action));
+  LOGGER_LOGMED(*logger_, Name() + " (" + Char() + "): " + state.ActionToString(action));
   return action;
 }
 

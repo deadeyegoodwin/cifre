@@ -123,7 +123,7 @@ PlayOne(const std::shared_ptr<common::Logger>& logger,
     switch (action.Kind()) {
     case Action::ActionKind::INVALID:
     case Action::ActionKind::HELP:
-    case Action::ActionKind::SHOW_BOARD:
+    case Action::ActionKind::SHOW_STATE:
       GameFail("unexpected player action");
       break;
 

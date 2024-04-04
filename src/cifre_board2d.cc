@@ -95,7 +95,7 @@ Board2D::IsValidAction(const Action& action) const
 
   case Action::ActionKind::HELP:
   case Action::ActionKind::QUIT:
-  case Action::ActionKind::SHOW_BOARD:
+  case Action::ActionKind::SHOW_STATE:
     return true;
 
   case Action::ActionKind::ACTIONID:
@@ -117,7 +117,7 @@ Board2D::StringToAction(const std::string& str) const
     case 'h':
     case '?': return Action(Action::ActionKind::HELP);
     case 'q': return Action(Action::ActionKind::QUIT);
-    case 'b': return Action(Action::ActionKind::SHOW_BOARD);
+    case 's': return Action(Action::ActionKind::SHOW_STATE);
     default:
       break;
     }

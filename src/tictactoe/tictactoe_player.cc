@@ -16,8 +16,8 @@ namespace cifre { namespace tictactoe {
 // HumanPlayer
 //
 HumanPlayer::HumanPlayer(const std::shared_ptr<common::Logger>& logger,
-                         const std::string& name, char board_char, int32_t neighbor_value) :
-  cifre::Player(logger, name, board_char, neighbor_value)
+                         const std::string& name, char ch, int32_t neighbor_value) :
+  cifre::Player(logger, name, ch, neighbor_value)
 {
 }
 
@@ -28,7 +28,7 @@ HumanPlayer::Usage() const
   sstr << "tic-tac-toe - Occupy one cell each turn. Get three in a row before your opponent.\n";
   sstr << "'h' : help\n";
   sstr << "'q' : quit\n";
-  sstr << "'b' : show board\n";
+  sstr << "'s' : show board\n";
   sstr << "'<row><column>' : occupy cell [row, column]";
   return sstr.str();
 }
@@ -44,7 +44,7 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
   THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
 
   while (true) {
-    logger_->LogMed(Name()  + " (" + BoardCharacter() + "): ", 0 /* indent */, false /* endline */);
+    logger_->LogMed(Name()  + " (" + Char() + "): ", 0 /* indent */, false /* endline */);
 
     std::string line;
     std::getline(std::cin, line);
@@ -63,7 +63,7 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
       logger_->LogMed(Usage());
       break;
 
-    case Action::ActionKind::SHOW_BOARD:
+    case Action::ActionKind::SHOW_STATE:
       logger_->LogMed(board.ToString());
       break;
 

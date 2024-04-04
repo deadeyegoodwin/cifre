@@ -18,13 +18,12 @@ namespace cifre { namespace tictactoe {
 //
 class HumanPlayer : public cifre::Player {
 public:
-  // Create 'name'd human player that uses 'board_char' as the
-  // character representing them on the board. 'neighbor_value'
-  // indicates the value to use for neighbor cells occupied by this
-  // player.
+  // Create 'name'd human player that uses 'ch' as the one character
+  // representation. 'neighbor_value' indicates the value to use for
+  // neighbor cells occupied by this player.
   HumanPlayer(
     const std::shared_ptr<common::Logger>& logger,
-    const std::string& name, char board_char, int32_t neighbor_value);
+    const std::string& name, char ch, int32_t neighbor_value);
 
   // See cifre::Player::NextAction().
   Action NextAction(const cifre::State& board, size_t max_game_turns_remaining) const override;

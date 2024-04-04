@@ -51,7 +51,7 @@ HumanPlayer::Usage() const
   std::stringstream sstr;
   sstr << "'h' : help\n";
   sstr << "'q' : quit\n";
-  sstr << "'b' : show board\n";
+  sstr << "'b' : show board\n";  // FIXME cifre::Board2D::StringToAction
   sstr << "'s' : step board\n";
   sstr << "'e' : end turn\n";
   sstr << "'<r><c>' : toggle cell [r, c]";

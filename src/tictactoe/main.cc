@@ -49,7 +49,7 @@ public:
   // See cifre::Game
   cifre::Player* CreateHumanPlayer(
     const std::shared_ptr<common::Logger>& logger,
-    const std::string& name, const char board_char) const override;
+    const std::string& name, const char ch) const override;
 
   // See cifre::Game
   State* InitialState(
@@ -140,9 +140,9 @@ TicTacToe::DefaultAlphaZeroSettings(const bool train) const
 cifre::Player*
 TicTacToe::CreateHumanPlayer(
   const std::shared_ptr<common::Logger>& logger,
-  const std::string& name, const char board_char) const
+  const std::string& name, const char ch) const
 {
-  return new HumanPlayer(logger, name, board_char, 1.0);
+  return new HumanPlayer(logger, name, ch, 1.0);
 }
 
 cifre::State*
