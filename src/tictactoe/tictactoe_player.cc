@@ -25,10 +25,11 @@ std::string
 HumanPlayer::Usage() const
 {
   std::stringstream sstr;
+  sstr << "tic-tac-toe - Occupy one cell each turn. Get three in a row before your opponent.\n";
   sstr << "'h' : help\n";
   sstr << "'q' : quit\n";
   sstr << "'b' : show board\n";
-  sstr << "'<r><c>' : claim cell [r, c]";
+  sstr << "'<row><column>' : occupy cell [row, column]";
   return sstr.str();
 }
 

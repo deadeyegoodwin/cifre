@@ -44,12 +44,12 @@ public:
   bool ParseCustomOption(const GameOption& opt, const std::string& arg_str) override;
 
   // See cifre::Game
+  cifre::AlphaZeroSettings DefaultAlphaZeroSettings(const bool train) const override;
+
+  // See cifre::Game
   cifre::Player* CreateHumanPlayer(
     const std::shared_ptr<common::Logger>& logger,
     const std::string& name, const char board_char) const override;
-
-  // See cifre::Game
-  cifre::AlphaZeroSettings DefaultAlphaZeroSettings(const bool train) const override;
 
   // See cifre::Game
   State* InitialState(
@@ -89,12 +89,25 @@ TicTacToe::CustomGameOptions() const
   return custom;
 }
 
-cifre::Player*
-TicTacToe::CreateHumanPlayer(
-  const std::shared_ptr<common::Logger>& logger,
-  const std::string& name, const char board_char) const
+bool
+TicTacToe::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
 {
-  return new HumanPlayer(logger, name, board_char, 1.0);
+  if (opt.Id() == OPTION_GAME_SHAPE) {
+    game_shape_ = cifre::BoardSize2D(arg_str);
+    GameCheckTrueMsg(game_shape_.RowCount() >= 2,
+                     Name() + " board must be " + cifre::BoardSize2D(2, 2).ToString() +
+                     " or larger");
+    GameCheckTrueMsg(game_shape_.RowCount() == game_shape_.ColumnCount(),
+                     Name() + " board must be square");
+  }
+  else if (opt.Id() == OPTION_MAX_TURNS_PER_GAME) {
+    max_turns_per_game_ = cifre::GameOption::ParseUnsigned(opt, arg_str, 1 /* min */);
+  }
+  else {
+    return false;
+  }
+
+  return true;
 }
 
 cifre::AlphaZeroSettings
@@ -123,25 +136,12 @@ TicTacToe::DefaultAlphaZeroSettings(const bool train) const
   return settings;
 }
 
-bool
-TicTacToe::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
+cifre::Player*
+TicTacToe::CreateHumanPlayer(
+  const std::shared_ptr<common::Logger>& logger,
+  const std::string& name, const char board_char) const
 {
-  if (opt.Id() == OPTION_GAME_SHAPE) {
-    game_shape_ = cifre::BoardSize2D(arg_str);
-    GameCheckTrueMsg(game_shape_.RowCount() >= 2,
-                     Name() + " board must be " + cifre::BoardSize2D(2, 2).ToString() +
-                     " or larger");
-    GameCheckTrueMsg(game_shape_.RowCount() == game_shape_.ColumnCount(),
-                     Name() + " board must be square");
-  }
-  else if (opt.Id() == OPTION_MAX_TURNS_PER_GAME) {
-    max_turns_per_game_ = cifre::GameOption::ParseUnsigned(opt, arg_str, 1 /* min */);
-  }
-  else {
-    return false;
-  }
-
-  return true;
+  return new HumanPlayer(logger, name, board_char, 1.0);
 }
 
 cifre::State*
