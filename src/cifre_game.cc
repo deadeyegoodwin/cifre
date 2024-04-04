@@ -357,11 +357,10 @@ Game::Parse(int argc, char **argv)
   }
   long_options.push_back({nullptr, 0, nullptr, 0});
 
-  // First pass through the arguments to see if --train and/or --game
-  // are specified. The flags must be parsed first to set
-  // game-specific and training-specific defaults. Also parse help and
-  // logging command here so that they are initialized as soon as
-  // possible.
+  // First pass through the arguments to see if --train is
+  // specified. The flags must be parsed first to set game-specific
+  // and training-specific defaults. Also parse help and logging
+  // command here so that they are initialized as soon as possible.
   int flag;
   while ((flag = getopt_long(argc, argv, "", &long_options[0], NULL)) != -1) {
     switch (flag) {
@@ -415,8 +414,8 @@ Game::Parse(int argc, char **argv)
     logger_->Log(cifre::VersionToString(true /* show_dependent_versions */));
   }
 
-  // Set default values for training based on --train and --game.
-  // FIXME only handling --train currently as --game NYI.
+  // Set default values for training based on --train.
+  // FIXME only handling --train currently
   splayer1_->alphazero_settings_ = DefaultAlphaZeroSettings(train);
   splayer2_->alphazero_settings_ = DefaultAlphaZeroSettings(train);
 
@@ -546,7 +545,7 @@ Game::Parse(int argc, char **argv)
     // If training and --player2 is not specified, then initialize
     // player2 settings for self-play.
     if (train && !splayer2_->cmdline_specified_) {
-      splayer2_ = splayer1_;
+      *splayer2_ = *splayer1_;
       splayer2_->cmdline_specified_ = false;
       splayer2_->id_ = 2;
       splayer1_->name_ = "self1";
