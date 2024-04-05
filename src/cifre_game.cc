@@ -9,6 +9,7 @@
 #include "cifre_version.h"
 #include "common_error.h"
 #include "common_logger.h"
+#include "common_task_pool.h"
 #include "common_util.h"
 
 namespace cifre {
@@ -59,52 +60,112 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
 } // namespace
 
 //
-// Settings for a player.
+// PlayOneTask
 //
-struct Game::PlayerSettings {
-  enum class Kind { UNKNOWN, HUMAN, RANDOM, ALPHAZERO };
+// A common::TaskPool::Task that creates players and initial game
+// state and then plays one game using those players and initial
+// state.
+//
+class PlayOneTask : public common::TaskPool::Task {
+public:
+  enum class GameResult { WINNER1, WINNER2, DRAW, QUIT };
 
-  PlayerSettings(const std::string& kind_str, size_t id) :
-    kind_(StringToKind(kind_str)), id_(id), name_(DefaultName()) { }
+  PlayOneTask(
+    const Game& game,
+    const std::shared_ptr<common::Logger>& logger,
+    const std::shared_ptr<TritonServer>& triton_server,
+    const std::vector<PlayerSettings>& player_settings,
+    size_t starting_player_idx, size_t max_turns_per_game);
 
-  static Kind StringToKind(const std::string& str) {
-    if (str == "human") { return Kind::HUMAN; }
-    if (str == "random") { return Kind::RANDOM; }
-    if (str == "alphazero") { return Kind::ALPHAZERO; }
-    return Kind::UNKNOWN;
-  }
+  // Return the AlphaZero objects for player1 and player2, or nullptr
+  // if corresponding player does not use alphazero. Note that the
+  // returned objects are mutable and so these methods should not be
+  // used until Invoke() has completed.
+  AlphaZero* MutableAlphaZero1() const { return alphazero1_.get(); }
+  AlphaZero* MutableAlphaZero2() const { return alphazero2_.get(); }
 
-  static std::string KindToString(const Kind kind) {
-    switch (kind) {
-    case Kind::UNKNOWN: return "<unknown>";
-    case Kind::HUMAN: return "human";
-    case Kind::RANDOM: return "random";
-    case Kind::ALPHAZERO: return "alphazero";
-    }
-    return "<none>";
-  }
+  // Return the result of playing one game. Undefined until Invoke()
+  // is called and returns.
+  GameResult Result() const { return result_; }
 
-  std::string DefaultName() const {
-    return PlayerSettings::KindToString(kind_) + std::to_string(id_);
-  }
+  // See common::TaskPool::Task
+  bool Invoke() override;
 
-  Kind kind_ {Kind::UNKNOWN};
-  bool cmdline_specified_ {false};
-  size_t id_;
-  std::string name_;
-  bool starting_ {false};
-  AlphaZeroSettings alphazero_settings_;
+  // Return player created from settings.
+  Player* CreatePlayer(const PlayerSettings& player_settings,
+                       const std::shared_ptr<AlphaZero>& alphazero) const;
+
+private:
+  const Game& game_;
+  std::shared_ptr<common::Logger> logger_;
+  std::shared_ptr<TritonServer> triton_server_;
+  const std::vector<PlayerSettings>& player_settings_;
+  const size_t starting_player_idx_;
+  size_t game_turns_remaining_;
+
+  std::unique_ptr<TritonModel> triton_model1_, triton_model2_;
+  std::shared_ptr<AlphaZero> alphazero1_, alphazero2_;
+  GameResult result_;
 };
 
-
-// Play one game, return PlayResult indicating outcome.
-enum class PlayResult { WINNER1, WINNER2, DRAW, QUIT };
-PlayResult
-PlayOne(const std::shared_ptr<common::Logger>& logger,
-        std::unique_ptr<State> state,
-        const std::vector<Player*>& players,
-        size_t game_turns_remaining)
+PlayOneTask::PlayOneTask(
+    const Game& game,
+    const std::shared_ptr<common::Logger>& logger,
+    const std::shared_ptr<TritonServer>& triton_server,
+    const std::vector<PlayerSettings>& player_settings,
+    size_t starting_player_idx, size_t max_turns_per_game) :
+  game_(game), logger_(logger), triton_server_(triton_server), player_settings_(player_settings),
+  starting_player_idx_(starting_player_idx), game_turns_remaining_(max_turns_per_game)
 {
+}
+
+bool
+PlayOneTask::Invoke()
+{
+  // Create players for this game. If only player1 was specified and
+  // is alphazero, then share a single alphazero object between
+  // player1 and player2 to get self-play.
+  const PlayerSettings& splayer1 = player_settings_[0];
+  const PlayerSettings& splayer2 = player_settings_[1];
+
+  // Create TritonModel objects...
+  if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
+    triton_model1_.reset(
+      triton_server_->CreateTritonModel(splayer1.alphazero_settings_.model_name_));
+  }
+  if (splayer2.cmdline_specified_ && (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO)) {
+    triton_model2_.reset(
+      triton_server_->CreateTritonModel(splayer2.alphazero_settings_.model_name_));
+  }
+
+  // FIXME a mess...
+  if ((splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) ||
+      (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO)) {
+    if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
+      alphazero1_ = std::make_shared<AlphaZero>(
+        logger_, triton_model1_.get(), splayer1.alphazero_settings_);
+    }
+    if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
+      if (!splayer2.cmdline_specified_) {
+        alphazero2_ = alphazero1_;
+      }
+      else {
+        alphazero2_ = std::make_shared<AlphaZero>(
+          logger_, triton_model2_.get(), splayer2.alphazero_settings_);
+      }
+    }
+  }
+
+  // Create players. The players are collected in a vector and each
+  // player's position in the vector is the players ID.
+  std::unique_ptr<Player> player1(CreatePlayer(splayer1, alphazero1_));
+  std::unique_ptr<Player> player2(CreatePlayer(splayer2, alphazero2_));
+  std::vector<Player*> players { player1.get(), player2.get() };
+
+  // Create initial state for the game that gets modified as the game
+  // progresses.
+  std::unique_ptr<State> state(game_.InitialState(players, starting_player_idx_));
+
   // Let all players know a new game is starting.
   for (Player* p : players) {
     p->GameStart();
@@ -115,11 +176,11 @@ PlayOne(const std::shared_ptr<common::Logger>& logger,
   bool game_quit = false;
   StateTerminalStatus terminal_status = state->TerminalStatus();
   while (!game_quit &&
-         (game_turns_remaining > 0) &&
+         (game_turns_remaining_ > 0) &&
          (terminal_status.Kind() == StateTerminalStatus::TerminalKind::NON_TERMINAL)) {
     const auto player_id = state->ActivePlayerId();
     const Player* player = players[player_id];
-    const Action action = player->NextAction(*state, game_turns_remaining);
+    const Action action = player->NextAction(*state, game_turns_remaining_);
     switch (action.Kind()) {
     case Action::ActionKind::INVALID:
     case Action::ActionKind::HELP:
@@ -142,19 +203,20 @@ PlayOne(const std::shared_ptr<common::Logger>& logger,
     // 'starting_player_id', then a turn has completed.
     if ((player_id != state->ActivePlayerId()) &&
         (starting_player_id == state->ActivePlayerId())) {
-      --game_turns_remaining;
+      --game_turns_remaining_;
     }
   }
 
   // Game was quit.
   if (game_quit) {
-    LOGGER_LOGMED(*logger, "game quit: no winner");
-    LOGGER_LOGMED(*logger, state->ToString());
-    return PlayResult::QUIT;
+    LOGGER_LOGMED(*logger_, "game quit: no winner");
+    LOGGER_LOGMED(*logger_, state->ToString());
+    result_ = GameResult::QUIT;
+    return false;
   }
 
   // If ran out of game turns, then game is a draw.
-  if (game_turns_remaining == 0) {
+  if (game_turns_remaining_ == 0) {
     terminal_status = StateTerminalStatus(StateTerminalStatus::TerminalKind::DRAW);
   }
 
@@ -165,16 +227,44 @@ PlayOne(const std::shared_ptr<common::Logger>& logger,
 
   // Game completed as a draw.
   if (terminal_status.Kind() == StateTerminalStatus::TerminalKind::DRAW) {
-    LOGGER_LOGMED(*logger, "game over: draw");
-    LOGGER_LOGMED(*logger, state->ToString());
-    return PlayResult::DRAW;
+    LOGGER_LOGMED(*logger_, "game over: draw");
+    LOGGER_LOGMED(*logger_, state->ToString());
+    result_ = GameResult::DRAW;
+    return false;
   }
 
   // Game completed with a winner.
   const size_t winner_id = terminal_status.WinnerId();
 
   // FIXME only supports 2 player games
-  return (winner_id == 0) ? PlayResult::WINNER1 : PlayResult::WINNER2;
+  result_ = (winner_id == 0) ? GameResult::WINNER1 : GameResult::WINNER2;
+
+  // Return false to indicate that this task should be returned by
+  // the TaskPool on the completed queue.
+  return false;
+}
+
+Player*
+PlayOneTask::CreatePlayer(
+  const PlayerSettings& player_settings, const std::shared_ptr<AlphaZero>& alphazero) const
+{
+  const char bc = (player_settings.id_ == 1) ? 'o' : 'x';
+
+  switch (player_settings.kind_) {
+  case PlayerSettings::Kind::UNKNOWN:
+    break;
+  case PlayerSettings::Kind::HUMAN:
+    assert(alphazero == nullptr);
+    return game_.CreateHumanPlayer(logger_, player_settings.name_, bc);
+  case PlayerSettings::Kind::RANDOM:
+    assert(alphazero == nullptr);
+    return new RandomPlayer(logger_, player_settings.name_, bc, 1.0);
+  case PlayerSettings::Kind::ALPHAZERO:
+    assert(alphazero != nullptr);
+    return new AlphaZeroPlayer(logger_, player_settings.name_, bc, 1.0, alphazero);
+  }
+
+  GameFail("cannot create player '" + player_settings.name_ + "'");
 }
 
 //
@@ -255,7 +345,7 @@ Game::Usage() const
 // Game
 //
 Game::Game() :
-  initialized_(false), game_count_(1), starting_player_idx_(0)
+  initialized_(false), parallel_(8), game_count_(1), starting_player_idx_(0)
 {
   game_options_ = {
     {BuiltInOptionId::OPTION_HELP, "help", GameOption::ArgNone, "Print usage"},
@@ -274,6 +364,8 @@ Game::Game() :
     {BuiltInOptionId::OPTION_TRAIN_DIR, "train-dir", GameOption::ArgStr,
      "Training data directory. Has no effect if --train is not also specified."},
 
+    {BuiltInOptionId::OPTION_PARALLEL, "parallel", GameOption::ArgInt,
+     "Number of games to play in parallel. Default is 8."},
     {BuiltInOptionId::OPTION_GAME_COUNT, "game-count", GameOption::ArgInt,
      "Number of games to play. Default is 1."},
 
@@ -340,8 +432,8 @@ Game::Parse(int argc, char **argv)
   std::string log_filename = "stdout";
   bool train = false;
 
-  splayer1_ = std::make_shared<PlayerSettings>("human", 1);
-  splayer2_ = std::make_shared<PlayerSettings>("human", 2);
+  PlayerSettings splayer1("human", 1);
+  PlayerSettings splayer2("human", 2);
   PlayerSettings* active_splayer = nullptr;
 
   std::vector<struct option> long_options;
@@ -408,8 +500,8 @@ Game::Parse(int argc, char **argv)
   }
 
   // Set default alphazero values based on --train.
-  splayer1_->alphazero_settings_ = DefaultAlphaZeroSettings(train);
-  splayer2_->alphazero_settings_ = DefaultAlphaZeroSettings(train);
+  splayer1.alphazero_settings_ = DefaultAlphaZeroSettings(train);
+  splayer2.alphazero_settings_ = DefaultAlphaZeroSettings(train);
 
   // Second pass through the arguments for everying not handled in the
   // first pass.
@@ -430,21 +522,24 @@ Game::Parse(int argc, char **argv)
       report_filename_ = optarg;
       break;
 
+    case BuiltInOptionId::OPTION_PARALLEL:
+      parallel_ = GameOption::ParseUnsigned(game_option, optarg, 1 /* min */);
+      break;
     case BuiltInOptionId::OPTION_GAME_COUNT:
       game_count_ = GameOption::ParseUnsigned(game_option, optarg, 1 /* min */);
       break;
 
     case BuiltInOptionId::OPTION_PLAYER1:
-      splayer1_->cmdline_specified_ = true;
-      splayer1_->kind_ = PlayerSettings::StringToKind(optarg);
-      splayer1_->name_ = splayer1_->DefaultName();
-      active_splayer = splayer1_.get();
+      splayer1.cmdline_specified_ = true;
+      splayer1.kind_ = PlayerSettings::StringToKind(optarg);
+      splayer1.name_ = splayer1.DefaultName();
+      active_splayer = &splayer1;
       break;
     case BuiltInOptionId::OPTION_PLAYER2:
-      splayer2_->cmdline_specified_ = true;
-      splayer2_->kind_ = PlayerSettings::StringToKind(optarg);
-      splayer2_->name_ = splayer2_->DefaultName();
-      active_splayer = splayer2_.get();
+      splayer2.cmdline_specified_ = true;
+      splayer2.kind_ = PlayerSettings::StringToKind(optarg);
+      splayer2.name_ = splayer2.DefaultName();
+      active_splayer = &splayer2;
       break;
     case BuiltInOptionId::OPTION_PLAYER_NAME:
       GameCheckTrueMsg(active_splayer != nullptr,
@@ -487,8 +582,8 @@ Game::Parse(int argc, char **argv)
     }
   }
 
-  if (!train && ((splayer1_->kind_ == PlayerSettings::Kind::HUMAN) ||
-                 (splayer2_->kind_ == PlayerSettings::Kind::HUMAN))) {
+  if (!train && ((splayer1.kind_ == PlayerSettings::Kind::HUMAN) ||
+                 (splayer2.kind_ == PlayerSettings::Kind::HUMAN))) {
     GameCheckTrueMsg(logger_->FilterLevel() != common::Logger::Level::OFF,
                      "--quiet cannot be specified if there is a human player");
     if (!verbose) {
@@ -498,54 +593,68 @@ Game::Parse(int argc, char **argv)
 
   // At most one player may be marked as --starting. If none are
   // specified then start with player1.
-  GameCheckTrueMsg(!splayer1_->starting_ || !splayer2_->starting_,
+  GameCheckTrueMsg(!splayer1.starting_ || !splayer2.starting_,
                    "--starting may only be specified for a single player");
-  starting_player_idx_ = (splayer2_->starting_) ? 1 : 0;
+  starting_player_idx_ = (splayer2.starting_) ? 1 : 0;
 
   // If training, then 'train_dir_' must exist and --player1 must be
   // specified as alphazero.
   GameCheckTrueMsg(!train || std::filesystem::is_directory(train_dir_),
                    "--train-dir must be an existing directory");
-  GameCheckTrueMsg(!train || (splayer1_->cmdline_specified_ &&
-                              (splayer1_->kind_ == PlayerSettings::Kind::ALPHAZERO)),
+  GameCheckTrueMsg(!train || (splayer1.cmdline_specified_ &&
+                              (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO)),
                    "--train requires --player1=alphazero");
 
-  // Create shared triton and alphazero aggregator object(s) if
-  // needed.
-  if ((splayer1_->kind_ == PlayerSettings::Kind::ALPHAZERO) ||
-      (splayer2_->kind_ == PlayerSettings::Kind::ALPHAZERO)) {
-    triton_.reset(new Triton(logger_));
-    GameCheckTrueMsg(triton_->IsReady(), "triton is not ready");
+  // Create shared triton and alphazero aggregator object(s).
+  if ((splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) ||
+      (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO)) {
+    triton_server_.reset(new TritonServer("http://localhost:8000", verbose));
+    GameCheckTrueMsg(triton_server_->IsReady(), "triton server is not ready");
 
-    // Make sure that a model of the same name as the model being used
+    // Load any models needed by player1 or player2. Before loading,
+    // make sure that a model of the same name as the model being used
     // by player1 or player2 is not already loaded into Triton. If
     // there is an old model of the same name still loaded then unload
     // it so that it is not used by mistake in place of the specified
     // model.
-    const auto& triton_repo = triton_->ModelRepositoryIndex();
-    if (splayer1_->kind_ == PlayerSettings::Kind::ALPHAZERO) {
-      GameCheckTrueMsg(!splayer1_->alphazero_settings_.model_name_.empty(),
+    const auto& triton_repo = triton_server_->ModelRepositoryIndex();
+    if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
+      GameCheckTrueMsg(!splayer1.alphazero_settings_.model_name_.empty(),
                        "--player1=alphazero requires --alphazero-model");
-      if (triton_repo.find(splayer1_->alphazero_settings_.model_name_) != triton_repo.end()) {
-        triton_->UnloadModel(splayer1_->alphazero_settings_.model_name_);
+      if (triton_repo.find(splayer1.alphazero_settings_.model_name_) != triton_repo.end()) {
+        GameCheckTrueMsg(triton_server_->UnloadModel(splayer1.alphazero_settings_.model_name_),
+                         "failed to unload existing player1 model '" +
+                         splayer1.alphazero_settings_.model_name_ + "'");
       }
+
+      GameCheckTrueMsg(triton_server_->LoadModel(
+                         splayer1.alphazero_settings_.model_name_, true /* cache */),
+                       "failed to load player1 model '" +
+                       splayer1.alphazero_settings_.model_name_ + "'");
     }
-    if (splayer2_->kind_ == PlayerSettings::Kind::ALPHAZERO) {
-      GameCheckTrueMsg(!splayer2_->alphazero_settings_.model_name_.empty(),
+    if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
+      GameCheckTrueMsg(!splayer2.alphazero_settings_.model_name_.empty(),
                        "--player2=alphazero requires --alphazero-model");
-      if (triton_repo.find(splayer2_->alphazero_settings_.model_name_) != triton_repo.end()) {
-        triton_->UnloadModel(splayer2_->alphazero_settings_.model_name_);
+      if (triton_repo.find(splayer2.alphazero_settings_.model_name_) != triton_repo.end()) {
+        GameCheckTrueMsg(triton_server_->UnloadModel(splayer2.alphazero_settings_.model_name_),
+                         "failed to unload existing player2 model '" +
+                         splayer2.alphazero_settings_.model_name_ + "'");
       }
+
+      GameCheckTrueMsg(triton_server_->LoadModel(
+                         splayer2.alphazero_settings_.model_name_, true /* cache */),
+                       "failed to load player2 model '" +
+                       splayer2.alphazero_settings_.model_name_ + "'");
     }
 
     // If training and --player2 is not specified, then initialize
-    // player2 settings for self-play.
-    if (train && !splayer2_->cmdline_specified_) {
-      *splayer2_ = *splayer1_;
-      splayer2_->cmdline_specified_ = false;
-      splayer2_->id_ = 2;
-      splayer1_->name_ = "self1";
-      splayer2_->name_ = "self2";
+    // player1 and player2 settings for self-play.
+    if (train && !splayer2.cmdline_specified_) {
+      splayer2 = splayer1;
+      splayer2.cmdline_specified_ = false;
+      splayer2.id_ = 2;
+      splayer1.name_ = "self1";
+      splayer2.name_ = "self2";
     }
 
     if (train) {
@@ -555,6 +664,11 @@ Game::Parse(int argc, char **argv)
           AlphaZeroAggregator::ValueKind::AVERAGE);
     }
   }
+
+  // Put players settings into a const vector as they are not allowed
+  // to be changed after this point.
+  const auto ps = new std::vector<PlayerSettings> {std::move(splayer1), std::move(splayer2)};
+  player_settings_.reset(ps);
 }
 
 void
@@ -563,62 +677,48 @@ Game::Play()
   // Play game --game-count times starting at the initial state each
   // game. Each game episode gets its own state, players, and
   // alpha-zero objects so that they can be executed independently.
+
+  //
+  // PlayOneTasks are enqueued into a TaskPool and then this thread
+  // pulls each completed game from the TaskPool's completed queue and
+  // aggregates the results. Because this thread is doing all the
+  // aggregation, there is no need to synchronization in
+  // AlphaZeroAggregator.
+  common::TaskPool pool(parallel_);
+
   size_t games_completed = 0;
   size_t draw_count = 0;
   size_t winner1_count = 0;
   size_t winner2_count = 0;
   for (size_t gidx = 0; gidx < game_count_; gidx++) {
-    if (game_count_ > 1) {
-      logger_->LogMed("====");
-      logger_->LogMed("==== Game " + std::to_string(gidx + 1) + " of " + std::to_string(game_count_) + " ====");
-      logger_->LogMed("====");
+    // Enqueue a PlayOneTask for each game...
+    pool.Enqueue(std::make_unique<PlayOneTask>(
+                   *this, logger_, triton_server_, *player_settings_,
+                   starting_player_idx_, max_turns_per_game_));
+  }
+
+  // Dequeue completed tasks and aggregate...
+  for (size_t gidx = 0; gidx < game_count_; gidx++) {
+    std::unique_ptr<common::TaskPool::Task> task;
+    if (!pool.Dequeue(task)) {
+      logger_->LogLow("warning: failed to dequeue game result");
+      continue;
     }
 
-    // Create players for this game. If only player1 was specified,
-    // then share a single alphazero object between player1 and
-    // player2 to get self-play.
-    std::shared_ptr<AlphaZero> alphazero1, alphazero2;
-    if ((splayer1_->kind_ == PlayerSettings::Kind::ALPHAZERO) ||
-        (splayer2_->kind_ == PlayerSettings::Kind::ALPHAZERO)) {
-      if (splayer1_->kind_ == PlayerSettings::Kind::ALPHAZERO) {
-        alphazero1 = std::make_shared<AlphaZero>(
-          logger_, triton_, splayer1_->alphazero_settings_);
-      }
-      if (splayer2_->kind_ == PlayerSettings::Kind::ALPHAZERO) {
-        if (!splayer2_->cmdline_specified_) {
-          alphazero2 = alphazero1;
-        }
-        else {
-          alphazero2 = std::make_shared<AlphaZero>(
-            logger_, triton_, splayer2_->alphazero_settings_);
-        }
-      }
-    }
-
-    // Create players. The players are collected in a vector and each
-    // player's position in the vector is the players ID.
-    std::unique_ptr<Player> player1(CreatePlayer(*splayer1_, alphazero1));
-    std::unique_ptr<Player> player2(CreatePlayer(*splayer2_, alphazero2));
-    std::vector<Player*> players { player1.get(), player2.get() };
-
-    // Create initial state for the game.
-    std::unique_ptr<State> initial_state(InitialState(players, starting_player_idx_));
-
-    // Play the game...
-    PlayResult presult = PlayOne(
-      logger_, std::move(initial_state), players, max_turns_per_game_);
+    std::unique_ptr<PlayOneTask> ptask(dynamic_cast<PlayOneTask*>(task.release()));
+    PlayOneTask::GameResult presult = ptask->Result();
     switch (presult) {
-    case PlayResult::QUIT:
+    case PlayOneTask::GameResult::QUIT:
       break;
-    case PlayResult::DRAW:
+    case PlayOneTask::GameResult::DRAW:
       games_completed++;
       draw_count++;
       break;
-    case PlayResult::WINNER1:
+    case PlayOneTask::GameResult::WINNER1:
       games_completed++;
       winner1_count++;
       break;
-    case PlayResult::WINNER2:
+    case PlayOneTask::GameResult::WINNER2:
       games_completed++;
       winner2_count++;
       break;
@@ -629,11 +729,13 @@ Game::Play()
     // tree invalid, thus the AlphaZero object is Reset() within
     // Aggregate().
     if (alphazero_aggregator_ != nullptr) {
-      if (alphazero1 != nullptr) {
-        alphazero_aggregator_->Aggregate(alphazero1.get());
+      AlphaZero* az1 = ptask->MutableAlphaZero1();
+      if (az1 != nullptr) {
+        alphazero_aggregator_->Aggregate(az1);
       }
-      if ((alphazero2 != nullptr) && (alphazero2 != alphazero1)) {
-        alphazero_aggregator_->Aggregate(alphazero2.get());
+      AlphaZero* az2 = ptask->MutableAlphaZero2();
+      if ((az2 != nullptr) && (az2 != az1)) {
+        alphazero_aggregator_->Aggregate(az2);
       }
     }
   }
@@ -642,10 +744,10 @@ Game::Play()
   logger_->LogLow("==== " + std::to_string(games_completed) + " game" +
                   ((games_completed == 1) ? " " : "s ") + "completed");
   if (games_completed > 0) {
-    logger_->LogLow(splayer1_->name_ + ": " + std::to_string(winner1_count) +
+    logger_->LogLow((*player_settings_)[0].name_ + ": " + std::to_string(winner1_count) +
                     " (" + FloatToString(100.0 * winner1_count / games_completed, 1 /* precision */) + "%)",
                     4 /* indent */);
-    logger_->LogLow(splayer2_->name_ + ": " + std::to_string(winner2_count) +
+    logger_->LogLow((*player_settings_)[1].name_ + ": " + std::to_string(winner2_count) +
                     " (" + FloatToString(100.0 * winner2_count / games_completed, 1 /* precision */) + "%)",
                     4 /* indent */);
     logger_->LogLow("draw: " + std::to_string(draw_count) +
@@ -660,9 +762,9 @@ Game::Play()
   }
 
   // Triton statistics, if any...
-  if (triton_ != nullptr) {
+  if (triton_server_ != nullptr) {
     logger_->LogLow("Triton");
-    logger_->LogLow(triton_->ToString(), 4 /* indent */);
+    logger_->LogLow(triton_server_->ToString(), 4 /* indent */);
   }
 
   // Write report, if requested.
@@ -684,29 +786,6 @@ Game::Play()
   if (!train_dir_.empty() && (alphazero_aggregator_ != nullptr)) {
     alphazero_aggregator_->WriteTraining(train_dir_);
   }
-}
-
-Player*
-Game::CreatePlayer(
-  const Game::PlayerSettings& player_settings, const std::shared_ptr<AlphaZero>& alphazero) const
-{
-  const char bc = (player_settings.id_ == 1) ? 'o' : 'x';
-
-  switch (player_settings.kind_) {
-  case PlayerSettings::Kind::UNKNOWN:
-    break;
-  case PlayerSettings::Kind::HUMAN:
-    assert(alphazero == nullptr);
-    return CreateHumanPlayer(logger_, player_settings.name_, bc);
-  case PlayerSettings::Kind::RANDOM:
-    assert(alphazero == nullptr);
-    return new RandomPlayer(logger_, player_settings.name_, bc, 1.0);
-  case PlayerSettings::Kind::ALPHAZERO:
-    assert(alphazero != nullptr);
-    return new AlphaZeroPlayer(logger_, player_settings.name_, bc, 1.0, alphazero);
-  }
-
-  GameFail("cannot create player '" + player_settings.name_ + "'");
 }
 
 } // namespace cifre

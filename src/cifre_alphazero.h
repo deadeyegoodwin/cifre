@@ -25,10 +25,6 @@ struct AlphaZeroSettings {
   // True if training data should be collected.
   bool training_ {false};
 
-  // True if triton results should be cached to avoid repeated
-  // inferences of the same state.
-  bool enable_cache_ {true};
-
   // Name of the nnet model to use for predictions.
   std::string model_name_;
 
@@ -208,8 +204,8 @@ private:
 class AlphaZero {
 public:
   // Create alphazero object using 'settings'.
-  AlphaZero(const std::shared_ptr<common::Logger>& logger, const std::shared_ptr<Triton>& triton,
-            const AlphaZeroSettings& settings);
+  AlphaZero(const std::shared_ptr<common::Logger>& logger,
+            TritonModel* triton_model, const AlphaZeroSettings& settings);
 
   // Return the statistics for this alphazero.
   const AlphaZeroStatistics& Statistics() const { return statistics_; }
@@ -262,7 +258,7 @@ private:
     const float alpha, const size_t sample_size, const size_t sample_count);
 
   std::shared_ptr<common::Logger> logger_;
-  std::shared_ptr<Triton> triton_;
+  TritonModel* triton_model_;
   const AlphaZeroSettings settings_;
 
   // Random needed for NextActionKind::WEIGHTED_RANDOM.

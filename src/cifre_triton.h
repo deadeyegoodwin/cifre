@@ -1,30 +1,34 @@
 // Copyright 2024, David Goodwin. All rights reserved.
 #pragma once
 
+#include <atomic>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <set>
 #include <unordered_map>
 
 #include "cifre_state.h"
-#include "common_logger.h"
+#include "common_spinlock.h"
 #include "http_client.h"
 #include "json_utils.h"
 
 namespace cifre {
 
-class TritonModelData;
+class TritonServer;
+class TritonModel;
 
 //
 // TritonInferResult
 //
 // The output tensors returned by an inference. A TritonInferResult
-// can be cached to avoid mulitple identical inference requests being
+// can be cached to avoid multiple identical inference requests being
 // sent to triton server. To avoid the cached object being modified,
 // all methods are const.
 //
 class TritonInferResult {
 public:
-  TritonInferResult(const TritonModelData& model_data, const triton::client::InferResult* result);
+  TritonInferResult(const TritonModel& triton_model, const triton::client::InferResult* result);
 
   // Don't allow move or copy (to avoid accidental performance
   // overhead).
@@ -71,12 +75,109 @@ private:
 };
 
 //
-// TritonModelData
+// TritonStatistics
 //
-// Metadata collected from triton about a model, and also any cached
-// results for the model.
+struct TritonStatistics {
+  // Return string representation of statistics.
+  std::string ToString() const;
+
+  std::atomic<size_t> prediction_count_ {0};
+  std::atomic<size_t> inference_count_ {0};
+  std::atomic<size_t> cache_hit_count_ {0};
+};
+
 //
-struct TritonModelData {
+// TritonCache
+//
+// Cache results to avoid running inference multiple times on the same
+// State. The "State*" key is a pointer to the same state that is
+// owned by the unique_ptr<State> in the TritonCache::CacheEntry
+// itself. All methods are thread-safe.
+class TritonCache {
+public:
+  // Lookup 'state' and return any cached result.
+  std::shared_ptr<const TritonInferResult> Lookup(const State& state);
+
+  // Insert 'result' as the prediction for 'state', if there is not
+  // already an entry.
+  void Insert(
+    const State& state, const std::shared_ptr<const TritonInferResult>& result);
+
+private:
+  struct CacheEntry {
+    CacheEntry(std::unique_ptr<const State> state,
+               std::shared_ptr<const TritonInferResult> result) :
+      state_(std::move(state)), result_(result) { }
+    const std::unique_ptr<const State> state_;
+    const std::shared_ptr<const TritonInferResult> result_;
+  };
+
+  struct CacheMapHash {
+    size_t operator()(const State* s) const { return s->Hash(); }
+  };
+  struct CacheMapEqual {
+    bool operator()(const State* a, const State* b) const { return a->Equal(b); }
+  };
+  std::unordered_map<const State*, CacheEntry, CacheMapHash, CacheMapEqual> cache_;
+  common::Spinlock lock_;
+};
+
+//
+// TritonModel
+//
+// Provides access to triton model for a single thread. Methods of
+// this class are not thread safe and the intended usage is that each
+// thread that wants to access a model must create its own TritonModel
+// object. Having a TritonModel object for a particular model does not
+// guarantee that the model is available on the corresponding triton
+// server; loading of the model must be managed independently with
+// TritonServer.
+//
+class TritonModel {
+public:
+  // Return the name of the model.
+  const std::string& Name() const { return model_name_; }
+
+  // Return true if the model is ready to receive inference requests.
+  bool IsReady() const;
+
+  // Run model with 'state' as input to get a prediction result. If
+  // caching is enable the result can be returned from the cache
+  // instead of needing to be generated from triton server.
+  std::shared_ptr<const TritonInferResult> Infer(const State& state);
+
+private:
+  friend class TritonServer;
+  friend class TritonInferResult;
+
+  // Create object that provides access to 'model_name' model running
+  // on server 'triton_server'. This method is not publically visible,
+  // use TritonServer::CreateTritonModel.
+  TritonModel(const std::string& model_name,
+              const std::shared_ptr<TritonCache>& cache,
+              const std::shared_ptr<TritonStatistics>& statistics,
+              const std::string& url, bool verbose);
+
+  triton::client::Error UpdateInputMetadata(
+    const rapidjson::Document& model_metadata);
+  triton::client::Error UpdateOutputMetadata(
+    const rapidjson::Document& model_metadata, size_t oidx);
+
+  // Name of the model represented by this object.
+  const std::string model_name_;
+
+  // Shared statistics for the triton server.
+  std::shared_ptr<TritonStatistics> statistics_;
+
+  // Client to access the triton server. See TritonModel description
+  // above as to why there is no mutex for this object even though
+  // InferenceServerHttpClient is not thread safe.
+  std::unique_ptr<triton::client::InferenceServerHttpClient> client_;
+
+  // If non-nullptr, then cache inference results to avoid redundant
+  // server inference requests.
+  std::shared_ptr<TritonCache> cache_;
+
   // Input and output tensor names for the model.
   std::string input_name_;
   std::string output_pi_name_;
@@ -92,29 +193,13 @@ struct TritonModelData {
   size_t required_input_byte_size_;
   size_t required_output_pi_byte_size_;
   size_t required_output_v_byte_size_;
-
-  // Cache results to avoid running inference multiple times on the
-  // same State. The "State*" key is a pointer to the same state that
-  // is owned by the unique_ptr<State> in the CacheEntry itself.
-  struct CacheEntry {
-    CacheEntry(std::unique_ptr<const State> state,
-               std::shared_ptr<const TritonInferResult> result) :
-      state_(std::move(state)), result_(result) { }
-    const std::unique_ptr<const State> state_;
-    const std::shared_ptr<const TritonInferResult> result_;
-  };
-  struct CacheMapHash {
-    size_t operator()(const State* s) const { return s->Hash(); }
-  };
-  struct CacheMapEqual {
-    bool operator()(const State* a, const State* b) const { return a->Equal(b); }
-  };
-  std::unordered_map<const State*, CacheEntry, CacheMapHash, CacheMapEqual> cache_;
-  bool cache_enabled_;
 };
 
 //
 // TritonRepoIndex
+//
+// Repository index results returned by
+// TritonServer::ModelRepositoryIndex.
 //
 struct TritonRepoIndex {
   TritonRepoIndex(const std::string& n, const std::string& v,
@@ -127,72 +212,61 @@ struct TritonRepoIndex {
 };
 
 //
-// TritonStatistics
+// TritonServer
 //
-struct TritonStatistics {
-  // Return string representation of statistics.
-  std::string ToString() const;
-
-  size_t prediction_count_ {0};
-  size_t inference_count_ {0};
-  size_t cache_hit_count_ {0};
-};
-
+// Interface to Triton inference server. All methods are thread-safe
+// and all methods that access the server (IsReady, LoadModel,
+// UnloadModel, ModelRepositoryIndex) are serialized.
 //
-// Triton
-//
-// Interface to Triton inference server.
-//
-class Triton {
+class TritonServer {
 public:
-  Triton(const std::shared_ptr<common::Logger>& logger);
-  ~Triton();
+  // Create an object for accessing the triton server running at
+  // 'url'. Set triton client interface output to verbose if 'verbose'
+  // is true.
+  TritonServer(const std::string& url, bool verbose = false);
+  ~TritonServer();
 
   // Return true if triton is ready to receive inference requests.
   bool IsReady() const;
-
-  // Return true if triton is ready to receive inference requests for 'model'.
-  bool IsModelReady(const std::string& model) const;
 
   // Return index of models in the triton model repository, as a map
   // from model name to index information about the model.
   std::unordered_map<std::string, const TritonRepoIndex> ModelRepositoryIndex() const;
 
-  // Load 'model' onto triton. If the model is already loaded into
-  // triton, it will remain loaded but metadata for the model will be
-  // re-initialized from the server, and any cached results for the
-  // model will be discarded. To avoid these side-effects, use
-  // IsModelReady to determine if the model is already loaded. Return
-  // true if model load is successful.
-  bool LoadModel(const std::string& model, bool enable_cache);
+  // Load 'model_name' into triton. Enable caching for the model if
+  // 'enable_cache' is true. Nothing is done if the model is already
+  // loaded into triton. Return true if model load is successful.
+  bool LoadModel(const std::string& model_name, bool enable_cache);
 
-  // Unload 'model' from triton. Return true if model unload is successful.
-  bool UnloadModel(const std::string& model);
+  // Unload 'model_name' from triton. Remove any results cached for the
+  // model. Return true if successful.
+  bool UnloadModel(const std::string& model_name);
 
-  // Run 'model' to get a prediction result. If caching is enable the
-  // result can be returned from the cache instead of needing to be
-  // generated from triton server.
-  std::shared_ptr<const TritonInferResult> RunModel(
-    const std::string& model, const State& state);
+  // Return a TritonModel object that can be used to access
+  // 'model_name' on this server.  Set triton client interface output
+  // to verbose if 'verbose' is true.
+  TritonModel* CreateTritonModel(const std::string& model_name, bool verbose = false) const;
 
   // Return string representation.
-  std::string ToString() const { return statistics_.ToString(); }
+  std::string ToString() const { return statistics_->ToString(); }
 
 private:
-  triton::client::Error UpdateModelData(const std::string& model, bool enable_cache);
-  triton::client::Error UpdateInputMetadata(
-    TritonModelData* model_data, const rapidjson::Document& model_metadata);
-  triton::client::Error UpdateOutputMetadata(
-    TritonModelData* model_data, const rapidjson::Document& model_metadata, size_t oidx);
+  const std::string url_;
+  std::shared_ptr<TritonStatistics> statistics_;
 
-  void LogTritonError(
-    const triton::client::Error& err, const std::string& msg = std::string()) const;
-
-  std::shared_ptr<common::Logger> logger_;
+  // Client to access the triton server. InferenceServerHttpClient is
+  // not thread-safe so use of 'client_' is protected by 'client_mu_'.
   std::unique_ptr<triton::client::InferenceServerHttpClient> client_;
-  std::unordered_map<std::string, TritonModelData> model_datas_;
 
-  TritonStatistics statistics_;
+  // Mutex to serialize access to 'client_'.
+  mutable std::mutex client_mu_;
+
+  // Names of all models loaded by this TritonServer that have not
+  // been unloaded. Protected by 'client_mu_'.
+  std::set<std::string> loaded_model_names_;
+
+  // Map from model name to the cache of results for that model.
+  std::unordered_map<std::string, std::shared_ptr<TritonCache>> model_cache_;
 };
 
 } // namespace cifre

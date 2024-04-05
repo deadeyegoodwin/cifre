@@ -115,7 +115,6 @@ TicTacToe::DefaultAlphaZeroSettings(const bool train) const
 {
   cifre::AlphaZeroSettings settings;
   settings.training_ = train;
-  settings.enable_cache_ = true;
 
   if (train) { // train = true
     settings.next_action_kind_ =

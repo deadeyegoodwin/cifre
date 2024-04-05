@@ -90,6 +90,46 @@ private:
 };
 
 //
+// PlayerSettings
+//
+// Class for collecting command-line player options and settings.
+//
+struct PlayerSettings {
+  enum class Kind { UNKNOWN, HUMAN, RANDOM, ALPHAZERO };
+
+  PlayerSettings(const std::string& kind_str, size_t id) :
+    kind_(StringToKind(kind_str)), id_(id), name_(DefaultName()) { }
+
+  static Kind StringToKind(const std::string& str) {
+    if (str == "human") { return Kind::HUMAN; }
+    if (str == "random") { return Kind::RANDOM; }
+    if (str == "alphazero") { return Kind::ALPHAZERO; }
+    return Kind::UNKNOWN;
+  }
+
+  static std::string KindToString(const Kind kind) {
+    switch (kind) {
+    case Kind::UNKNOWN: return "<unknown>";
+    case Kind::HUMAN: return "human";
+    case Kind::RANDOM: return "random";
+    case Kind::ALPHAZERO: return "alphazero";
+    }
+    return "<none>";
+  }
+
+  std::string DefaultName() const {
+    return PlayerSettings::KindToString(kind_) + std::to_string(id_);
+  }
+
+  Kind kind_ {Kind::UNKNOWN};
+  bool cmdline_specified_ {false};
+  size_t id_;
+  std::string name_;
+  bool starting_ {false};
+  AlphaZeroSettings alphazero_settings_;
+};
+
+//
 // Game
 //
 // Base class on which cifre-based games can be derived.
@@ -137,6 +177,7 @@ public:
     OPTION_TRAIN,
     OPTION_TRAIN_DIR,
 
+    OPTION_PARALLEL,
     OPTION_GAME_COUNT,
 
     OPTION_PLAYER1,
@@ -177,14 +218,8 @@ protected:
   size_t max_turns_per_game_;
 
 private:
-  class PlayerSettings;
-
   // Parse command-line arguments.
   void Parse(int argc, char **argv);
-
-  // Return player created from settings.
-  Player* CreatePlayer(const PlayerSettings& player_settings,
-                       const std::shared_ptr<AlphaZero>& alphazero) const;
 
   // Logger for the game.
   std::shared_ptr<common::Logger> logger_;
@@ -197,18 +232,21 @@ private:
   std::vector<GameOption> game_options_;
 
   // Game independent settings
+  size_t parallel_;
   size_t game_count_;
   size_t starting_player_idx_;
   std::string report_filename_;
   std::string train_dir_;
 
-  // Player settings
-  std::shared_ptr<PlayerSettings> splayer1_;
-  std::shared_ptr<PlayerSettings> splayer2_;
+  // Ordered player settings so that player_settings_[0] is the
+  // settings for "player 1" which is player ID 0, etc. These settings
+  // are assigned during Initialize() and are constant as they cannot
+  // be changed after that point.
+  std::unique_ptr<const std::vector<PlayerSettings>> player_settings_;
 
-  // Shared triton and alpha-zero objects. These objects are shared
-  // across all games.
-  std::shared_ptr<Triton> triton_;
+  // Shared triton and alpha-zero aggregator objects. These objects
+  // are shared across all games.
+  std::shared_ptr<TritonServer> triton_server_;
   std::unique_ptr<AlphaZeroAggregator> alphazero_aggregator_;
 };
 
