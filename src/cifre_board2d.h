@@ -247,7 +247,7 @@ protected:
   const BoardSize2D size_;
 
   // The players. The player's index in this vector is the player ID.
-  const std::vector<cifre::Player*>& players_;
+  const std::vector<cifre::Player*> players_;
 
   // ID of the currently active player.
   size_t active_player_id_;

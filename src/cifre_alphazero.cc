@@ -20,15 +20,15 @@ constexpr float LOSER_VALUE = -1.0;
 // AlphaZero
 //
 AlphaZero::AlphaZero(
-  const std::shared_ptr<common::Logger>& logger, TritonModel* triton_model,
+  const std::shared_ptr<common::Logger>& logger, std::unique_ptr<TritonModel> triton_model,
   const AlphaZeroSettings& settings) :
-  logger_(logger), triton_model_(triton_model), settings_(settings)
+  logger_(logger), triton_model_(std::move(triton_model)), settings_(settings)
 {
   THROWIF(triton_model_->Name() != settings_.model_name_,
           "alphazero settings model-name differs from triton model name");
 
   // Model must be ready...
-  THROWIF(!triton_model->IsReady(),
+  THROWIF(!triton_model_->IsReady(),
           std::string("triton model '" + triton_model_->Name() + "' is not ready"));
 
   // Make sure Dirichlet settings are valid.
@@ -43,49 +43,44 @@ AlphaZero::Reset()
 {
   nodes_.clear();
   game_action_nodes_.clear();
-  train_nodes_.clear();
   statistics_.Reset();
 }
 
 void
 AlphaZero::GameStart()
 {
-  game_action_nodes_.clear();
+  Reset();
 }
 
 void
-AlphaZero::GameEnd(const State& terminal_state, const StateTerminalStatus& status)
+AlphaZero::GameEnd(const State& terminal_state, const StateTerminalStatus& status,
+                   std::vector<AlphaZeroTrainingSamples::Sample>* samples)
 {
-  // If game actually completed, then record all the action-selected
-  // nodes collected for the game with the appropriate game-ending
-  // value.
-  if (!game_action_nodes_.empty()) {
-    switch (status.Kind()) {
-    case StateTerminalStatus::TerminalKind::NON_TERMINAL:
-      THROW("game ended with NON-TERMINAL status");
-      return;
-    case StateTerminalStatus::TerminalKind::DRAW:
-      for (auto& n : game_action_nodes_) {
-        train_nodes_.push_back(std::make_pair(n, DRAW_VALUE));
+  THROWIF(status.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
+          "game ended with NON-TERMINAL status");
+
+  // If 'samples' is non-nullptr, then append all the collected
+  // training samples to 'samples'. At this point each training sample
+  // consists of just the node and the z-value (game outcome value).
+  if (samples != nullptr) {
+    for (auto& n : game_action_nodes_) {
+      // Game outcome value (Z).
+      float z_value = DRAW_VALUE;
+      switch (status.Kind()) {
+      case StateTerminalStatus::TerminalKind::NON_TERMINAL:
+      case StateTerminalStatus::TerminalKind::DRAW:
+        break;
+      case StateTerminalStatus::TerminalKind::WINNER:
+        const size_t winner_id = status.WinnerId();
+        z_value = (n->NodeState().ActivePlayerId() == winner_id) ? WINNER_VALUE : LOSER_VALUE;
+        break;
       }
-      break;
-    case StateTerminalStatus::TerminalKind::WINNER:
-      const size_t winner_id = status.WinnerId();
-      for (auto& n : game_action_nodes_) {
-        float value = (n->NodeState().ActivePlayerId() == winner_id) ? WINNER_VALUE : LOSER_VALUE;
-        train_nodes_.push_back(std::make_pair(n, value));
-      }
-      break;
+
+      samples->emplace_back(n, z_value);
     }
-
-    LOGGER_LOGHIGH(*logger_, "training nodes for game: " + std::to_string(game_action_nodes_.size()) +
-                   ", total training nodes: " + std::to_string(train_nodes_.size()));
-
-    // Clear nodes collected for the game so they don't get added
-    // again if another player is using this alphazero object (as in
-    // self-play).
-    game_action_nodes_.clear();
   }
+
+  Reset();
 }
 
 uint64_t
@@ -572,60 +567,54 @@ AlphaZeroStatistics::ToString() const
 }
 
 //
-// AlphaZeroAggregator
+// AlphaZeroTrainingSamples
 //
 void
-AlphaZeroAggregator::Aggregate(AlphaZero* alphazero)
+AlphaZeroTrainingSamples::AcquireAndAggregate(
+  std::vector<AlphaZeroTrainingSamples::Sample>&& samples)
 {
-  statistics_ += alphazero->Statistics();
-
-  // Take ownership of the training nodes from 'alphazero'. Also will
-  // take ownership of the State and TritonInferResult objects within
-  // the training nodes and thus 'alphazero' is reset at the end of
-  // this method as it's nodes are not longer valid (i.e. some of the
-  // nodes will have no associated State and/or TritonInferResult).
-  auto training_nodes = std::move(alphazero->AcquireTrainingNodes());
-
-  for (const auto& pr : training_nodes) {
-    const auto node_probs = pr.first->ChildProbability();
+  for (auto& sample : samples) {
+    // Sample value is either game outcome value, predicted 'v' or
+    // some combination.
     float node_value = 0.0;
     switch (value_kind_) {
     case ValueKind::Z:
-      node_value = pr.second;
+      node_value = sample.z_value_;
       break;
     case ValueKind::V:
-      node_value = pr.first->Value();
+      node_value = sample.node_->Value();
       break;
     case ValueKind::AVERAGE:
-      node_value = (pr.second + pr.first->Value()) / 2.0;
+      node_value = (sample.z_value_ + sample.node_->Value()) / 2.0;
       break;
     }
 
-    // Based on the AggregateKind, set the target Pi and V for the
-    // training sample.
-    auto sample_itr = train_samples_.find(&(pr.first->NodeState()));
+    // Set target 'pi' and 'v' for the training sample.
+    const State* sample_state = &sample.node_->NodeState();
+    auto sample_itr = train_samples_.find(sample_state);
     if ((aggregate_kind_ == AggregateKind::ALL) || (sample_itr == train_samples_.end())) {
-      // For ALL or a first-time-seen node, create a TrainSample and
-      // set Pi from node's probabilities.
-      std::unique_ptr<const State> state = pr.first->AcquireNodeState();
-      auto created_sample_itr = train_samples_.emplace(
-        std::piecewise_construct,
-        std::forward_as_tuple(state.get()),
-        std::forward_as_tuple(std::move(state), std::move(pr.first->AcquireNodeTritonResult())));
+      // For ALL or a first-time-seen node, create a new Sample.
+      auto node_probs = sample.node_->ChildProbability();
+      assert((node_probs.size() * sizeof(float)) == sample.node_->NodeTritonResult().PiByteSize());
+
+#ifndef NDEBUG
+      auto created_sample_itr =
+#endif
+        train_samples_.emplace(
+          std::piecewise_construct,
+          std::forward_as_tuple(sample_state),
+          std::forward_as_tuple(sample.node_, sample.z_value_, std::move(node_probs), node_value));
       assert(created_sample_itr.second);
-      TrainSample& sample = created_sample_itr.first->second;
-      assert((node_probs.size() * sizeof(float)) == sample.result_->PiByteSize());
-      sample.target_pi_ = std::move(node_probs);
-      sample.target_v_ = node_value;
     }
     else {
       // Otherwise average 'node_probs' and 'node_value' into the
       // existing sample.
       assert(aggregate_kind_ == AggregateKind::AVERAGE);
-      TrainSample& sample = sample_itr->second;
+      Sample& sample = sample_itr->second;
       sample.target_v_ += node_value;
 
-      assert(node_probs.size() == sample.target_pi_.size());
+      auto node_probs = sample.node_->ChildProbability();
+      assert((node_probs.size() * sizeof(float)) == sample.node_->NodeTritonResult().PiByteSize());
       for (size_t i = 0; i < node_probs.size(); ++i) {
         sample.target_pi_[i] += node_probs[i];
       }
@@ -633,13 +622,10 @@ AlphaZeroAggregator::Aggregate(AlphaZero* alphazero)
       sample.count_++;
     }
   }
-
-  aggregate_count_++;
-  alphazero->Reset();
 }
 
 void
-AlphaZeroAggregator::WriteTraining(const std::string& dir) const
+AlphaZeroTrainingSamples::WriteTraining(const std::string& dir) const
 {
   // Write in.bin, pi.bin and v.bin as a single large batch of each of
   // those training node values.
@@ -660,7 +646,7 @@ AlphaZeroAggregator::WriteTraining(const std::string& dir) const
   const TritonInferResult* repr_result = nullptr;
   for (const auto& pr : train_samples_) {
     if (repr_result == nullptr) {
-      repr_result = pr.second.result_.get();
+      repr_result = &(pr.second.node_->NodeTritonResult());
     }
 
     LOGGER_LOGHIGH(*logger_, "writing training sample, value " +
@@ -702,7 +688,7 @@ AlphaZeroAggregator::WriteTraining(const std::string& dir) const
 }
 
 std::string
-AlphaZeroAggregator::ToJsonArray(const std::vector<int64_t> shape, size_t batch_count) const
+AlphaZeroTrainingSamples::ToJsonArray(const std::vector<int64_t> shape, size_t batch_count) const
 {
   bool first = true;
   std::string str("[");
@@ -720,42 +706,6 @@ AlphaZeroAggregator::ToJsonArray(const std::vector<int64_t> shape, size_t batch_
 
   str += "]";
   return str;
-}
-
-std::string
-AlphaZeroAggregator::ToString() const
-{
-  std::stringstream ss;
-
-  if (aggregate_count_ == 0) {
-    ss << "no statistics";
-  }
-  else {
-    ss
-      << std::fixed << std::setprecision(2)
-      << "avg nodes: " << (statistics_.total_node_count_ / float(aggregate_count_))
-      << ", avg internal "
-      << ((statistics_.total_node_count_ - statistics_.terminal_node_count_) / float(aggregate_count_))
-      << ", avg terminal " << (statistics_.terminal_node_count_ / float(aggregate_count_)) << '\n';
-    ss
-      << std::fixed << std::setprecision(2)
-      << "avg edges: " << (statistics_.edge_count_ / float(aggregate_count_))
-      << ", avg outgoing per node "
-      << ((float)statistics_.edge_count_ / statistics_.total_node_count_) << '\n';
-
-    const size_t search_count =
-      statistics_.search_endby_search_depth_count_ +
-      statistics_.search_endby_game_depth_count_ +
-      statistics_.search_endby_terminal_count_;
-    ss
-      << std::fixed << std::setprecision(2)
-      << "avg searches: " << (search_count / float(aggregate_count_))
-      << ", avg end by search-depth " << (statistics_.search_endby_search_depth_count_ / float(aggregate_count_))
-      << ", avg end by game-depth " << (statistics_.search_endby_game_depth_count_ / float(aggregate_count_))
-      << ", avg end by terminal " << (statistics_.search_endby_terminal_count_ / float(aggregate_count_));
-  }
-
-  return ss.str();
 }
 
 } // namespace cifre

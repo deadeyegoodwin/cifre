@@ -81,13 +81,6 @@ public:
     const std::string& name, char ch, int32_t neighbor_value,
     const std::shared_ptr<cifre::AlphaZero>& alphazero);
 
-  // See Player::GameStart().
-  void GameStart() override;
-
-  // See Player::GameEnd().
-  void GameEnd(const cifre::State& terminal_state,
-               const cifre::StateTerminalStatus& status) override;
-
   // See Player::NextAction().
   Action NextAction(const State& state, size_t max_game_turns_remaining) const override;
 

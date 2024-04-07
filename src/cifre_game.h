@@ -143,6 +143,9 @@ public:
   // before game(s) can be played. Can be called only once.
   void Initialize(int argc, char **argv);
 
+  // Play number of games specified by --game-count.
+  void Play();
+
   // Return the name of the game.
   virtual const std::string& Name() const = 0;
 
@@ -157,9 +160,6 @@ public:
   // Set the default AlphaZero settings for the game, depending on if
   // 'train'ing is being done or not.
   virtual cifre::AlphaZeroSettings DefaultAlphaZeroSettings(const bool train) const = 0;
-
-  // Play number of games specified by --game-count.
-  void Play();
 
   // Return the cifre::State representing the initial game state.
   virtual State* InitialState(
@@ -221,6 +221,10 @@ private:
   // Parse command-line arguments.
   void Parse(int argc, char **argv);
 
+  // Return player created from settings.
+  Player* CreatePlayer(const PlayerSettings& player_settings,
+                       const std::shared_ptr<AlphaZero>& alphazero) const;
+
   // Logger for the game.
   std::shared_ptr<common::Logger> logger_;
 
@@ -244,10 +248,10 @@ private:
   // be changed after that point.
   std::unique_ptr<const std::vector<PlayerSettings>> player_settings_;
 
-  // Shared triton and alpha-zero aggregator objects. These objects
-  // are shared across all games.
+  // Shared triton and alpha-zero training samples objects. These
+  // objects are shared across all games.
   std::shared_ptr<TritonServer> triton_server_;
-  std::unique_ptr<AlphaZeroAggregator> alphazero_aggregator_;
+  std::unique_ptr<AlphaZeroTrainingSamples> alphazero_train_samples_;
 };
 
 // Macros for error checking and error reporting in game

@@ -46,20 +46,6 @@ AlphaZeroPlayer::AlphaZeroPlayer(
 {
 }
 
-void
-AlphaZeroPlayer::GameStart()
-{
-  alphazero_->GameStart();
-}
-
-void
-AlphaZeroPlayer::GameEnd(const cifre::State& terminal_state, const cifre::StateTerminalStatus& status)
-{
-  THROWIF(status.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
-          "game ended with NON-TERMINAL status");
-  alphazero_->GameEnd(terminal_state, status);
-}
-
 Action
 AlphaZeroPlayer::NextAction(const State& state, size_t max_game_turns_remaining) const
 {

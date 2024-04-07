@@ -62,125 +62,83 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
 //
 // PlayOneTask
 //
-// A common::TaskPool::Task that creates players and initial game
-// state and then plays one game using those players and initial
-// state.
+// A common::TaskPool::Task object that manages its own TritonModel,
+// Player and AlphaZero objects; and (re)uses those objects to play
+// one or more games. Each Invoke() plays one game.
 //
 class PlayOneTask : public common::TaskPool::Task {
 public:
   enum class GameResult { WINNER1, WINNER2, DRAW, QUIT };
 
   PlayOneTask(
-    const Game& game,
     const std::shared_ptr<common::Logger>& logger,
-    const std::shared_ptr<TritonServer>& triton_server,
-    const std::vector<PlayerSettings>& player_settings,
-    size_t starting_player_idx, size_t max_turns_per_game);
-
-  // Return the AlphaZero objects for player1 and player2, or nullptr
-  // if corresponding player does not use alphazero. Note that the
-  // returned objects are mutable and so these methods should not be
-  // used until Invoke() has completed.
-  AlphaZero* MutableAlphaZero1() const { return alphazero1_.get(); }
-  AlphaZero* MutableAlphaZero2() const { return alphazero2_.get(); }
+    std::unique_ptr<State> initial_state,
+    std::vector<std::unique_ptr<Player>> players,
+    std::vector<std::shared_ptr<AlphaZero>> alphazeros,
+    size_t max_turns_per_game) :
+    logger_(logger), initial_state_(std::move(initial_state)),
+    players_(std::move(players)), alphazeros_(std::move(alphazeros)),
+    max_turns_per_game_(max_turns_per_game) { }
 
   // Return the result of playing one game. Undefined until Invoke()
   // is called and returns.
   GameResult Result() const { return result_; }
 
+  // Return AlphaZero statistics collected for all alphazero activity.
+  const AlphaZeroStatistics& AlphaZeroStats() const { return alphazero_statistics_; }
+
+  // Return the training samples collected from playing one
+  // game. Undefined until Invoke() is called and returns.
+  std::vector<AlphaZeroTrainingSamples::Sample>&& AcquireTrainSamples() {
+    return std::move(train_samples_); }
+
   // See common::TaskPool::Task
   bool Invoke() override;
 
-  // Return player created from settings.
-  Player* CreatePlayer(const PlayerSettings& player_settings,
-                       const std::shared_ptr<AlphaZero>& alphazero) const;
-
 private:
-  const Game& game_;
   std::shared_ptr<common::Logger> logger_;
-  std::shared_ptr<TritonServer> triton_server_;
-  const std::vector<PlayerSettings>& player_settings_;
-  const size_t starting_player_idx_;
-  size_t game_turns_remaining_;
+  std::unique_ptr<State> initial_state_;
+  std::vector<std::unique_ptr<Player>> players_;
+  std::vector<std::shared_ptr<AlphaZero>> alphazeros_;
+  const size_t max_turns_per_game_;
 
-  std::unique_ptr<TritonModel> triton_model1_, triton_model2_;
-  std::shared_ptr<AlphaZero> alphazero1_, alphazero2_;
+  AlphaZeroStatistics alphazero_statistics_;
+  std::vector<AlphaZeroTrainingSamples::Sample> train_samples_;
   GameResult result_;
 };
-
-PlayOneTask::PlayOneTask(
-    const Game& game,
-    const std::shared_ptr<common::Logger>& logger,
-    const std::shared_ptr<TritonServer>& triton_server,
-    const std::vector<PlayerSettings>& player_settings,
-    size_t starting_player_idx, size_t max_turns_per_game) :
-  game_(game), logger_(logger), triton_server_(triton_server), player_settings_(player_settings),
-  starting_player_idx_(starting_player_idx), game_turns_remaining_(max_turns_per_game)
-{
-}
 
 bool
 PlayOneTask::Invoke()
 {
-  // Create players for this game. If only player1 was specified and
-  // is alphazero, then share a single alphazero object between
-  // player1 and player2 to get self-play.
-  const PlayerSettings& splayer1 = player_settings_[0];
-  const PlayerSettings& splayer2 = player_settings_[1];
-
-  // Create TritonModel objects...
-  if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
-    triton_model1_.reset(
-      triton_server_->CreateTritonModel(splayer1.alphazero_settings_.model_name_));
-  }
-  if (splayer2.cmdline_specified_ && (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO)) {
-    triton_model2_.reset(
-      triton_server_->CreateTritonModel(splayer2.alphazero_settings_.model_name_));
-  }
-
-  // FIXME a mess...
-  if ((splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) ||
-      (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO)) {
-    if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
-      alphazero1_ = std::make_shared<AlphaZero>(
-        logger_, triton_model1_.get(), splayer1.alphazero_settings_);
-    }
-    if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
-      if (!splayer2.cmdline_specified_) {
-        alphazero2_ = alphazero1_;
-      }
-      else {
-        alphazero2_ = std::make_shared<AlphaZero>(
-          logger_, triton_model2_.get(), splayer2.alphazero_settings_);
-      }
-    }
-  }
-
-  // Create players. The players are collected in a vector and each
-  // player's position in the vector is the players ID.
-  std::unique_ptr<Player> player1(CreatePlayer(splayer1, alphazero1_));
-  std::unique_ptr<Player> player2(CreatePlayer(splayer2, alphazero2_));
-  std::vector<Player*> players { player1.get(), player2.get() };
-
   // Create initial state for the game that gets modified as the game
   // progresses.
-  std::unique_ptr<State> state(game_.InitialState(players, starting_player_idx_));
+  std::unique_ptr<State> state(initial_state_->Clone());
 
-  // Let all players know a new game is starting.
-  for (Player* p : players) {
+  // Let all players and alphazeros know a new game is starting.
+  for (auto& p : players_) {
     p->GameStart();
   }
+  for (auto& a : alphazeros_) {
+    if (a != nullptr) {
+      a->GameStart();
+    }
+  }
+
+  alphazero_statistics_.Reset();
+  train_samples_.clear();
+  result_ = GameResult::QUIT;
 
   const auto starting_player_id = state->ActivePlayerId();
+  size_t game_turns_remaining = max_turns_per_game_;
 
   bool game_quit = false;
   StateTerminalStatus terminal_status = state->TerminalStatus();
   while (!game_quit &&
-         (game_turns_remaining_ > 0) &&
+         (game_turns_remaining > 0) &&
          (terminal_status.Kind() == StateTerminalStatus::TerminalKind::NON_TERMINAL)) {
     const auto player_id = state->ActivePlayerId();
-    const Player* player = players[player_id];
-    const Action action = player->NextAction(*state, game_turns_remaining_);
+    const Player* player = players_[player_id].get();
+    const Action action = player->NextAction(*state, game_turns_remaining);
     switch (action.Kind()) {
     case Action::ActionKind::INVALID:
     case Action::ActionKind::HELP:
@@ -203,7 +161,7 @@ PlayOneTask::Invoke()
     // 'starting_player_id', then a turn has completed.
     if ((player_id != state->ActivePlayerId()) &&
         (starting_player_id == state->ActivePlayerId())) {
-      --game_turns_remaining_;
+      --game_turns_remaining;
     }
   }
 
@@ -216,13 +174,20 @@ PlayOneTask::Invoke()
   }
 
   // If ran out of game turns, then game is a draw.
-  if (game_turns_remaining_ == 0) {
+  if (game_turns_remaining == 0) {
     terminal_status = StateTerminalStatus(StateTerminalStatus::TerminalKind::DRAW);
   }
 
-  // Let all players know game is completed.
-  for (Player* p : players) {
+  // Let all players and alphazeros know game is completed. Collect
+  // statistics.
+  for (auto& p : players_) {
     p->GameEnd(*state, terminal_status);
+  }
+  for (auto& a : alphazeros_) {
+    if (a != nullptr) {
+      alphazero_statistics_ += a->Statistics();
+      a->GameEnd(*state, terminal_status, &train_samples_);
+    }
   }
 
   // Game completed as a draw.
@@ -242,29 +207,6 @@ PlayOneTask::Invoke()
   // Return false to indicate that this task should be returned by
   // the TaskPool on the completed queue.
   return false;
-}
-
-Player*
-PlayOneTask::CreatePlayer(
-  const PlayerSettings& player_settings, const std::shared_ptr<AlphaZero>& alphazero) const
-{
-  const char bc = (player_settings.id_ == 1) ? 'o' : 'x';
-
-  switch (player_settings.kind_) {
-  case PlayerSettings::Kind::UNKNOWN:
-    break;
-  case PlayerSettings::Kind::HUMAN:
-    assert(alphazero == nullptr);
-    return game_.CreateHumanPlayer(logger_, player_settings.name_, bc);
-  case PlayerSettings::Kind::RANDOM:
-    assert(alphazero == nullptr);
-    return new RandomPlayer(logger_, player_settings.name_, bc, 1.0);
-  case PlayerSettings::Kind::ALPHAZERO:
-    assert(alphazero != nullptr);
-    return new AlphaZeroPlayer(logger_, player_settings.name_, bc, 1.0, alphazero);
-  }
-
-  GameFail("cannot create player '" + player_settings.name_ + "'");
 }
 
 //
@@ -605,9 +547,10 @@ Game::Parse(int argc, char **argv)
                               (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO)),
                    "--train requires --player1=alphazero");
 
-  // Create shared triton and alphazero aggregator object(s).
+  // Alphazero initialization if required.
   if ((splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) ||
       (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO)) {
+    // Create shared triton...
     triton_server_.reset(new TritonServer("http://localhost:8000", verbose));
     GameCheckTrueMsg(triton_server_->IsReady(), "triton server is not ready");
 
@@ -657,11 +600,12 @@ Game::Parse(int argc, char **argv)
       splayer2.name_ = "self2";
     }
 
+    // Create shared object for collecting alphazero training samples.
     if (train) {
-      alphazero_aggregator_ =
-        std::make_unique<AlphaZeroAggregator>(
-          logger_, AlphaZeroAggregator::AggregateKind::AVERAGE,
-          AlphaZeroAggregator::ValueKind::AVERAGE);
+      alphazero_train_samples_ =
+        std::make_unique<AlphaZeroTrainingSamples>(
+          logger_, AlphaZeroTrainingSamples::AggregateKind::AVERAGE,
+          AlphaZeroTrainingSamples::ValueKind::AVERAGE);
     }
   }
 
@@ -674,118 +618,188 @@ Game::Parse(int argc, char **argv)
 void
 Game::Play()
 {
-  // Play game --game-count times starting at the initial state each
-  // game. Each game episode gets its own state, players, and
-  // alpha-zero objects so that they can be executed independently.
+  try {
+    const std::vector<cifre::PlayerSettings>& psettings = *player_settings_;
+    std::unique_ptr<AlphaZeroStatistics> alphazero_statistics;
 
-  //
-  // PlayOneTasks are enqueued into a TaskPool and then this thread
-  // pulls each completed game from the TaskPool's completed queue and
-  // aggregates the results. Because this thread is doing all the
-  // aggregation, there is no need to synchronization in
-  // AlphaZeroAggregator.
-  common::TaskPool pool(parallel_);
+    // PlayOneTask objects are enqueued into a TaskPool and then this
+    // thread pulls each completed game from the TaskPool's completed
+    // queue, aggregates the results and then re-enqueues the task for
+    // another game (if necessary).
+    common::TaskPool pool(parallel_);
 
-  size_t games_completed = 0;
-  size_t draw_count = 0;
-  size_t winner1_count = 0;
-  size_t winner2_count = 0;
-  for (size_t gidx = 0; gidx < game_count_; gidx++) {
-    // Enqueue a PlayOneTask for each game...
-    pool.Enqueue(std::make_unique<PlayOneTask>(
-                   *this, logger_, triton_server_, *player_settings_,
-                   starting_player_idx_, max_turns_per_game_));
-  }
+    // Create enough PlayOneTask objects to keep all pool threads
+    // busy, but not more than 'game_count'. Each task gets its own
+    // Players and AlphaZeros so that it can execute independently of
+    // other tasks.
+    size_t games_started = std::min(game_count_, std::max(size_t(2), size_t(parallel_ * 1.5)));
+    for (size_t gidx = 0; gidx < games_started; ++gidx) {
+      // Create AlphaZero objects. If only player1 was specified on
+      // cmdline and is alphazero, then share a single alphazero
+      // object between player1 and player2 to get self-play.
+      std::vector<std::shared_ptr<AlphaZero>> alphazeros(2);
+      if ((psettings[0].kind_ == PlayerSettings::Kind::ALPHAZERO) ||
+          (psettings[1].kind_ == PlayerSettings::Kind::ALPHAZERO)) {
+        // Collect statistics from alphazero...
+        alphazero_statistics = std::make_unique<AlphaZeroStatistics>();
 
-  // Dequeue completed tasks and aggregate...
-  for (size_t gidx = 0; gidx < game_count_; gidx++) {
-    std::unique_ptr<common::TaskPool::Task> task;
-    if (!pool.Dequeue(task)) {
-      logger_->LogLow("warning: failed to dequeue game result");
-      continue;
-    }
-
-    std::unique_ptr<PlayOneTask> ptask(dynamic_cast<PlayOneTask*>(task.release()));
-    PlayOneTask::GameResult presult = ptask->Result();
-    switch (presult) {
-    case PlayOneTask::GameResult::QUIT:
-      break;
-    case PlayOneTask::GameResult::DRAW:
-      games_completed++;
-      draw_count++;
-      break;
-    case PlayOneTask::GameResult::WINNER1:
-      games_completed++;
-      winner1_count++;
-      break;
-    case PlayOneTask::GameResult::WINNER2:
-      games_completed++;
-      winner2_count++;
-      break;
-    }
-
-    // Aggregate the training samples and statistics. The aggregation
-    // takes ownership of some AlphaZero state, rendering the node
-    // tree invalid, thus the AlphaZero object is Reset() within
-    // Aggregate().
-    if (alphazero_aggregator_ != nullptr) {
-      AlphaZero* az1 = ptask->MutableAlphaZero1();
-      if (az1 != nullptr) {
-        alphazero_aggregator_->Aggregate(az1);
+        if (psettings[0].kind_ == PlayerSettings::Kind::ALPHAZERO) {
+          std::unique_ptr<TritonModel> triton_model(
+            triton_server_->CreateTritonModel(psettings[0].alphazero_settings_.model_name_));
+          alphazeros[0] = std::make_shared<AlphaZero>(
+            logger_, std::move(triton_model),
+            psettings[0].alphazero_settings_);
+        }
+        if (psettings[1].kind_ == PlayerSettings::Kind::ALPHAZERO) {
+          if (!psettings[1].cmdline_specified_) {
+            alphazeros[1] = alphazeros[0];
+          }
+          else {
+            std::unique_ptr<TritonModel> triton_model(
+              triton_server_->CreateTritonModel(psettings[1].alphazero_settings_.model_name_));
+            alphazeros[1] = std::make_shared<AlphaZero>(
+              logger_, std::move(triton_model),
+              psettings[1].alphazero_settings_);
+          }
+        }
       }
-      AlphaZero* az2 = ptask->MutableAlphaZero2();
-      if ((az2 != nullptr) && (az2 != az1)) {
-        alphazero_aggregator_->Aggregate(az2);
+
+      // Create players. The players are collected in a vector and each
+      // player's position in the vector is the players ID.
+      std::vector<std::unique_ptr<Player>> players;
+      players.emplace_back(CreatePlayer(psettings[0], alphazeros[0]));
+      players.emplace_back(CreatePlayer(psettings[1], alphazeros[1]));
+
+      // Initial state for all games.
+      std::unique_ptr<State> istate(
+        InitialState({ players[0].get(), players[1].get() }, starting_player_idx_));
+
+      pool.Enqueue(std::make_unique<PlayOneTask>(
+                     logger_, std::move(istate),
+                     std::move(players), std::move(alphazeros),
+                     max_turns_per_game_));
+    }
+
+    // Dequeue completed tasks, aggregate results and re-enqueue the
+    // task until all the games have been completed.
+    size_t games_completed = 0;
+    size_t draw_count = 0;
+    size_t winner1_count = 0;
+    size_t winner2_count = 0;
+    while (games_completed < game_count_) {
+      std::unique_ptr<common::TaskPool::Task> task;
+      THROWIF(!pool.Dequeue(task), "failed to dequeue game result");
+
+      std::unique_ptr<PlayOneTask> ptask(dynamic_cast<PlayOneTask*>(task.release()));
+      PlayOneTask::GameResult presult = ptask->Result();
+      switch (presult) {
+      case PlayOneTask::GameResult::QUIT:
+        break;
+      case PlayOneTask::GameResult::DRAW:
+        games_completed++;
+        draw_count++;
+        break;
+      case PlayOneTask::GameResult::WINNER1:
+        games_completed++;
+        winner1_count++;
+        break;
+      case PlayOneTask::GameResult::WINNER2:
+        games_completed++;
+        winner2_count++;
+        break;
+      }
+
+      // Aggregate the training samples.
+      if (alphazero_train_samples_ != nullptr) {
+        alphazero_train_samples_->AcquireAndAggregate(
+          std::move(ptask->AcquireTrainSamples()));
+      }
+
+      // Collect alphazero statistics
+      if (alphazero_statistics != nullptr) {
+        *alphazero_statistics += ptask->AlphaZeroStats();
+      }
+
+      // If 'game_count_' games have not yet been started, then
+      // re-enqueue 'ptask' to play another game.
+      if (games_started < game_count_) {
+        pool.Enqueue(std::move(ptask));
+        games_started++;
       }
     }
+
+    // End of all games output...
+    logger_->LogLow("==== " + std::to_string(games_completed) + " game" +
+                    ((games_completed == 1) ? " " : "s ") + "completed");
+    if (games_completed > 0) {
+      logger_->LogLow(psettings[0].name_ + ": " + std::to_string(winner1_count) +
+                      " (" + FloatToString(100.0 * winner1_count / games_completed, 1 /* precision */) + "%)",
+                      4 /* indent */);
+      logger_->LogLow(psettings[1].name_ + ": " + std::to_string(winner2_count) +
+                      " (" + FloatToString(100.0 * winner2_count / games_completed, 1 /* precision */) + "%)",
+                      4 /* indent */);
+      logger_->LogLow("draw: " + std::to_string(draw_count) +
+                      " (" + FloatToString(100.0 * draw_count / games_completed, 1 /* precision */) + "%)",
+                      4 /* indent */);
+    }
+
+    // Alphazero statistics, if any...
+    if (alphazero_statistics != nullptr) {
+      logger_->LogLow("AlphaZero");
+      logger_->LogLow(alphazero_statistics->ToString(), 4 /* indent */);
+    }
+
+    // Triton statistics, if any...
+    if (triton_server_ != nullptr) {
+      logger_->LogLow("Triton");
+      logger_->LogLow(triton_server_->ToString(), 4 /* indent */);
+    }
+
+    // Write report, if requested.
+    if (!report_filename_.empty()) {
+      std::ofstream fr(report_filename_, std::ios::out);
+      fr
+        << "{\n"
+        << "  \"game-results\" : {\n"
+        << "    \"count\" : " << games_completed << ",\n"
+        << "    \"player1\" : " << winner1_count << ",\n"
+        << "    \"player2\" : " << winner2_count << ",\n"
+        << "    \"draw\" : " << draw_count << "\n"
+        << "  }\n"
+        << "}\n";
+      fr.close();
+    }
+
+    // Write alphazero training data.
+    if (!train_dir_.empty() && (alphazero_train_samples_ != nullptr)) {
+      alphazero_train_samples_->WriteTraining(train_dir_);
+    }
+  } catch (const std::exception& ex) {
+    GameFail(ex.what());
+  }
+}
+
+Player*
+Game::CreatePlayer(
+  const PlayerSettings& player_settings, const std::shared_ptr<AlphaZero>& alphazero) const
+{
+  const char bc = (player_settings.id_ == 1) ? 'o' : 'x';
+
+  switch (player_settings.kind_) {
+  case PlayerSettings::Kind::UNKNOWN:
+    break;
+  case PlayerSettings::Kind::HUMAN:
+    assert(alphazero == nullptr);
+    return CreateHumanPlayer(logger_, player_settings.name_, bc);
+  case PlayerSettings::Kind::RANDOM:
+    assert(alphazero == nullptr);
+    return new RandomPlayer(logger_, player_settings.name_, bc, 1.0);
+  case PlayerSettings::Kind::ALPHAZERO:
+    assert(alphazero != nullptr);
+    return new AlphaZeroPlayer(logger_, player_settings.name_, bc, 1.0, alphazero);
   }
 
-  // End of all games output...
-  logger_->LogLow("==== " + std::to_string(games_completed) + " game" +
-                  ((games_completed == 1) ? " " : "s ") + "completed");
-  if (games_completed > 0) {
-    logger_->LogLow((*player_settings_)[0].name_ + ": " + std::to_string(winner1_count) +
-                    " (" + FloatToString(100.0 * winner1_count / games_completed, 1 /* precision */) + "%)",
-                    4 /* indent */);
-    logger_->LogLow((*player_settings_)[1].name_ + ": " + std::to_string(winner2_count) +
-                    " (" + FloatToString(100.0 * winner2_count / games_completed, 1 /* precision */) + "%)",
-                    4 /* indent */);
-    logger_->LogLow("draw: " + std::to_string(draw_count) +
-                    " (" + FloatToString(100.0 * draw_count / games_completed, 1 /* precision */) + "%)",
-                    4 /* indent */);
-  }
-
-  // Aggregated alphazero statistics, if any...
-  if (alphazero_aggregator_ != nullptr) {
-    logger_->LogLow("AlphaZero");
-    logger_->LogLow(alphazero_aggregator_->ToString(), 4 /* indent */);
-  }
-
-  // Triton statistics, if any...
-  if (triton_server_ != nullptr) {
-    logger_->LogLow("Triton");
-    logger_->LogLow(triton_server_->ToString(), 4 /* indent */);
-  }
-
-  // Write report, if requested.
-  if (!report_filename_.empty()) {
-    std::ofstream fr(report_filename_, std::ios::out);
-    fr
-      << "{\n"
-      << "  \"game-results\" : {\n"
-      << "    \"count\" : " << games_completed << ",\n"
-      << "    \"player1\" : " << winner1_count << ",\n"
-      << "    \"player2\" : " << winner2_count << ",\n"
-      << "    \"draw\" : " << draw_count << "\n"
-      << "  }\n"
-      << "}\n";
-    fr.close();
-  }
-
-  // Write alphazero training data.
-  if (!train_dir_.empty() && (alphazero_aggregator_ != nullptr)) {
-    alphazero_aggregator_->WriteTraining(train_dir_);
-  }
+  GameFail("cannot create player '" + player_settings.name_ + "'");
 }
 
 } // namespace cifre
