@@ -793,10 +793,10 @@ Game::CreatePlayer(
     return CreateHumanPlayer(logger_, player_settings.name_, bc);
   case PlayerSettings::Kind::RANDOM:
     assert(alphazero == nullptr);
-    return new RandomPlayer(logger_, player_settings.name_, bc, 1.0);
+    return new RandomPlayer(logger_, player_settings.name_, bc);
   case PlayerSettings::Kind::ALPHAZERO:
     assert(alphazero != nullptr);
-    return new AlphaZeroPlayer(logger_, player_settings.name_, bc, 1.0, alphazero);
+    return new AlphaZeroPlayer(logger_, player_settings.name_, bc, alphazero);
   }
 
   GameFail("cannot create player '" + player_settings.name_ + "'");

@@ -141,7 +141,7 @@ TicTacToe::CreateHumanPlayer(
   const std::shared_ptr<common::Logger>& logger,
   const std::string& name, const char ch) const
 {
-  return new HumanPlayer(logger, name, ch, 1.0);
+  return new HumanPlayer(logger, name, ch);
 }
 
 cifre::State*

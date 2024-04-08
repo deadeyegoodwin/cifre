@@ -16,8 +16,8 @@ namespace cifre { namespace tictactoe {
 // HumanPlayer
 //
 HumanPlayer::HumanPlayer(const std::shared_ptr<common::Logger>& logger,
-                         const std::string& name, char ch, int32_t neighbor_value) :
-  cifre::Player(logger, name, ch, neighbor_value)
+                         const std::string& name, char ch) :
+  cifre::Player(logger, name, ch)
 {
 }
 

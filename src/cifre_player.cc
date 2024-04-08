@@ -15,8 +15,8 @@ namespace cifre {
 // Player
 //
 Player::Player(const std::shared_ptr<common::Logger>& logger,
-               const std::string& name, char ch, int32_t neighbor_value) :
-  logger_(logger), name_(name), ch_(ch), neighbor_value_(neighbor_value)
+               const std::string& name, char ch) :
+  logger_(logger), name_(name), ch_(ch)
 {
 }
 
@@ -40,9 +40,9 @@ Player::ToString(common::Logger::Level filter_level) const
 //
 AlphaZeroPlayer::AlphaZeroPlayer(
   const std::shared_ptr<common::Logger>& logger,
-  const std::string& name, char ch, int32_t neighbor_value,
+  const std::string& name, char ch,
   const std::shared_ptr<cifre::AlphaZero>& alphazero) :
-  Player(logger, name, ch, neighbor_value), alphazero_(alphazero)
+  Player(logger, name, ch), alphazero_(alphazero)
 {
 }
 
@@ -68,8 +68,8 @@ AlphaZeroPlayer::NextAction(const State& state, size_t max_game_turns_remaining)
 // RandomPlayer
 //
 RandomPlayer::RandomPlayer(const std::shared_ptr<common::Logger>& logger,
-                           const std::string& name, char ch, int32_t neighbor_value):
-  Player(logger, name, ch, neighbor_value)
+                           const std::string& name, char ch):
+  Player(logger, name, ch)
 {
 }
 

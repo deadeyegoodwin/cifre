@@ -21,11 +21,9 @@ namespace cifre {
 class Player {
 public:
   // Create 'name'd human player that uses 'ch' as the one character
-  // representation. 'neighbor_value' indicates the value to use for
-  // neighbor cells occupied by this player.
+  // representation.
   Player(
-    const std::shared_ptr<common::Logger>& logger,
-    const std::string& name, char ch, int32_t neighbor_value);
+    const std::shared_ptr<common::Logger>& logger, const std::string& name, char ch);
   virtual ~Player() = default;
 
   // Return the player's name.
@@ -33,9 +31,6 @@ public:
 
   // Return the one character representation of the player.
   char Char() const { return ch_; }
-
-  // Return the cell neighbor value for this player.
-  int32_t NeighborValue() const { return neighbor_value_; }
 
   // Called to notify that a new game is starting. Default behavior is
   // to do nothing.
@@ -63,7 +58,6 @@ protected:
   std::shared_ptr<common::Logger> logger_;
   const std::string name_;
   const char ch_;
-  const int32_t neighbor_value_;
 };
 
 //
@@ -74,11 +68,10 @@ protected:
 class AlphaZeroPlayer : public Player {
 public:
   // Create 'name'd alpha-zero player that uses 'ch' as the one
-  // character representation. 'neighbor_value' indicates the value to
-  // use for neighbor cells occupied by this player.
+  // character representation.
   AlphaZeroPlayer(
     const std::shared_ptr<common::Logger>& logger,
-    const std::string& name, char ch, int32_t neighbor_value,
+    const std::string& name, char ch,
     const std::shared_ptr<cifre::AlphaZero>& alphazero);
 
   // See Player::NextAction().
@@ -96,11 +89,9 @@ private:
 class RandomPlayer : public Player {
 public:
   // Create 'name'd random player that uses 'ch' as the one character
-  // representation. 'neighbor_value' indicates the value to use for
-  // neighbor cells occupied by this player.
+  // representation.
   RandomPlayer(
-    const std::shared_ptr<common::Logger>& logger,
-    const std::string& name, char ch, int32_t neighbor_value);
+    const std::shared_ptr<common::Logger>& logger, const std::string& name, char ch);
 
   // See Player::NextAction().
   Action NextAction(const State& state, size_t max_game_turns_remaining) const override;
