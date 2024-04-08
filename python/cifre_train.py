@@ -196,6 +196,16 @@ def main():
             'dropout': 0.25,
             'num_channels': 512 }
         nnet = CifreBasicFcNNet(nnet_args)
+    elif FLAGS.game == 'othello':
+        LOG.fail_if(len(FLAGS.game_shape) != 2, "othello requires shape rank 2")
+        nnet_args = {
+            'batch_size': FLAGS.batch_size,
+            'num_rows' : FLAGS.game_shape[0],
+            'num_cols' : FLAGS.game_shape[1],
+            'num_actions' : FLAGS.game_shape[0] * FLAGS.game_shape[1] + 1,
+            'dropout': 0.25,
+            'num_channels': 512 }
+        nnet = CifreBasicConvNNet(nnet_args)
     elif FLAGS.game == 'celcath':
         LOG.fail_if(len(FLAGS.game_shape) != 2, "celcath requires shape rank 2")
         nnet_args = {

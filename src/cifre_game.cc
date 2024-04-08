@@ -683,10 +683,11 @@ Game::Play()
     // Dequeue completed tasks, aggregate results and re-enqueue the
     // task until all the games have been completed.
     size_t games_completed = 0;
+    size_t games_quit = 0;
     size_t draw_count = 0;
     size_t winner1_count = 0;
     size_t winner2_count = 0;
-    while (games_completed < game_count_) {
+    while ((games_completed + games_quit) < game_count_) {
       std::unique_ptr<common::TaskPool::Task> task;
       THROWIF(!pool.Dequeue(task), "failed to dequeue game result");
 
@@ -694,6 +695,7 @@ Game::Play()
       PlayOneTask::GameResult presult = ptask->Result();
       switch (presult) {
       case PlayOneTask::GameResult::QUIT:
+        games_quit++;
         break;
       case PlayOneTask::GameResult::DRAW:
         games_completed++;

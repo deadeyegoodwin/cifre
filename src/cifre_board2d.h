@@ -55,8 +55,12 @@ private:
 // Board2D
 //
 // A two player, 2D game board where each cell can be empty or "owned"
-// by one of the players. Provides a console representation of the
-// board and methods to convert text commands to/from actions.
+// by one of the players. By default the board has one action for each
+// board cell (i.e. "occupy the cell"), but derived classes can
+// override TotalActionIdCount() and ActionToString() to change.
+//
+// Provides a console representation of the board and methods to
+// convert text commands to/from actions.
 //
 // A board cell has a value of CELL_ACTIVE_PLAYER if it is occupied by
 // the active player, a value of CELL_OPPONENT_PLAYER if it is
@@ -88,7 +92,7 @@ public:
 
   // Return the string representation of an 'action'. See
   // cifre::State.
-  std::string ActionToString(const Action& action) const override;
+  virtual std::string ActionToString(const Action& action) const override;
 
   // See cifre::State.
   bool IsValidAction(const Action& action) const override;
@@ -164,7 +168,7 @@ public:
   StateTerminalStatus TerminalStatus() const override { return terminal_status_; }
 
   // See cifre::State
-  size_t TotalActionIdCount() const override { return size_.CellCount(); }
+  virtual size_t TotalActionIdCount() const override { return size_.CellCount(); }
 
   // See cifre::State
   const std::unordered_set<uint64_t>& ValidActionIds() const override {
