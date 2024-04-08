@@ -1,6 +1,7 @@
 # Copyright 2024, David Goodwin. All rights reserved.
 
 import os
+import pathlib
 import random
 import sys
 import time
@@ -15,13 +16,14 @@ from tqdm import tqdm
 # Manage a neural network.
 #
 class CifreNNetManager(object):
-    def __init__(self, log, nnet, nnet_input_shape, repodir):
+    def __init__(self, log, nnet, nnet_input_shape, nnet_max_batch_size, repodir):
         """
         Initialize for 'nnet'.
         """
         self._log = log
         self._nnet = nnet
         self._nnet_input_shape = nnet_input_shape
+        self._nnet_max_batch_size = nnet_max_batch_size
         self._repodir = repodir
         self._optimizer = torch.optim.Adam(self._nnet.parameters())
         self._epoch = 0
@@ -154,8 +156,14 @@ class CifreNNetManager(object):
         if os.path.exists(model_dir):
             raise FileExistsError(f"directory {model_dir} already exists")
         os.mkdir(model_dir)
-        model_dir = os.path.join(model_dir, str(model_version))
-        os.mkdir(model_dir)
+        model_version_dir = os.path.join(model_dir, str(model_version))
+        os.mkdir(model_version_dir)
+
+        # Write triton configuration file.
+        model_config_file = pathlib.Path(model_dir) / 'config.pbtxt'
+        with model_config_file.open('w', encoding ='utf-8') as f:
+            f.write('backend: "onnxruntime"\n')
+            f.write(f'max_batch_size: {self._nnet_max_batch_size}\n')
 
         # Appropriately sized input.
         input_shape_with_batch = (1,) + self._nnet_input_shape
@@ -167,7 +175,7 @@ class CifreNNetManager(object):
         torch.onnx.export(
             self._nnet,
             board_tensor,
-            os.path.join(model_dir, "model.onnx"),
+            os.path.join(model_version_dir, "model.onnx"),
             export_params=True,        # store the trained parameter weights inside the model file
             opset_version=10,          # the ONNX version to export the model to
             do_constant_folding=True,  # whether to execute constant folding for optimization

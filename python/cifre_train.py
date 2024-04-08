@@ -100,8 +100,9 @@ def main():
     parser.add_argument(
         '--game-shape',
         type=parse_shape,
-        required=True,
-        help='Game shape, for example --game-shape=8,8.')
+        required=False,
+        help=('Game shape, for example --game-shape=8,8. By default game '
+              'shape is determined by game selected with --game.'))
 
     parser.add_argument(
         '--iteration-count',
@@ -150,11 +151,15 @@ def main():
         required=False,
         help=('Number of training epochs to run. Default is 10.'))
     parser.add_argument(
-        '--batch-size',
+        '--train-batch-size',
         type=parse_positive_int,
-        default=8,
         required=False,
-        help=('Batch size to use when training nnet. Default is 8.'))
+        help=('Batch size to use when training nnet. Default determined by nnet.'))
+    parser.add_argument(
+        '--infer-batch-size',
+        type=parse_positive_int,
+        required=False,
+        help=('Batch size to use when running inference on nnet. Default determined by nnet.'))
 
     parser.add_argument(
         '--cmp-game-count',
@@ -185,34 +190,44 @@ def main():
         for f in vars(FLAGS):
             LOG.log_verbose(f'\t{f}: {vars(FLAGS)[f]}')
 
-    # FIXME
+    # FIXME Should get default game shape, number actions from game
+    # executable using --report-file.
     if FLAGS.game == 'tictactoe':
-        LOG.fail_if(len(FLAGS.game_shape) != 2, "tictactoe requires shape rank 2")
+        game_shape = (3, 3) if ('game-shape' not in vars(FLAGS)) else FLAGS.game_shape
+        train_batch_size = 2 if ('train-batch-size' not in vars(FLAGS)) else FLAGS.train_batch_size
+        infer_batch_size = 32 if ('infer-batch-size' not in vars(FLAGS)) else FLAGS.infer_batch_size
+        LOG.fail_if(len(game_shape) != 2, "tictactoe requires shape rank 2")
         nnet_args = {
-            'batch_size': FLAGS.batch_size,
-            'num_rows' : FLAGS.game_shape[0],
-            'num_cols' : FLAGS.game_shape[1],
-            'num_actions' : FLAGS.game_shape[0] * FLAGS.game_shape[1],
+            'batch_size': train_batch_size,
+            'num_rows' : game_shape[0],
+            'num_cols' : game_shape[1],
+            'num_actions' : game_shape[0] * game_shape[1],
             'dropout': 0.25,
             'num_channels': 512 }
         nnet = CifreBasicFcNNet(nnet_args)
     elif FLAGS.game == 'othello':
-        LOG.fail_if(len(FLAGS.game_shape) != 2, "othello requires shape rank 2")
+        game_shape = (8, 8) if ('game-shape' not in vars(FLAGS)) else FLAGS.game_shape
+        train_batch_size = 2 if ('train-batch-size' not in vars(FLAGS)) else FLAGS.train_batch_size
+        infer_batch_size = 32 if ('infer-batch-size' not in vars(FLAGS)) else FLAGS.infer_batch_size
+        LOG.fail_if(len(game_shape) != 2, "othello requires shape rank 2")
         nnet_args = {
-            'batch_size': FLAGS.batch_size,
-            'num_rows' : FLAGS.game_shape[0],
-            'num_cols' : FLAGS.game_shape[1],
-            'num_actions' : FLAGS.game_shape[0] * FLAGS.game_shape[1] + 1,
+            'batch_size': train_batch_size,
+            'num_rows' : game_shape[0],
+            'num_cols' : game_shape[1],
+            'num_actions' : game_shape[0] * game_shape[1] + 1,
             'dropout': 0.25,
             'num_channels': 512 }
         nnet = CifreBasicConvNNet(nnet_args)
     elif FLAGS.game == 'celcath':
-        LOG.fail_if(len(FLAGS.game_shape) != 2, "celcath requires shape rank 2")
+        game_shape = (8, 8) if ('game-shape' not in vars(FLAGS)) else FLAGS.game_shape
+        train_batch_size = 2 if ('train-batch-size' not in vars(FLAGS)) else FLAGS.train_batch_size
+        infer_batch_size = 32 if ('infer-batch-size' not in vars(FLAGS)) else FLAGS.infer_batch_size
+        LOG.fail_if(len(game_shape) != 2, "celcath requires shape rank 2")
         nnet_args = {
-            'batch_size': FLAGS.batch_size,
-            'num_rows' : FLAGS.game_shape[0],
-            'num_cols' : FLAGS.game_shape[1],
-            'num_actions' : FLAGS.game_shape[0] * FLAGS.game_shape[1] + 2,
+            'batch_size': train_batch_size,
+            'num_rows' : game_shape[0],
+            'num_cols' : game_shape[1],
+            'num_actions' : game_shape[0] * game_shape[1] + 2,
             'dropout': 0.25,
             'num_channels': 512 }
         nnet = CifreBasicConvNNet(nnet_args)
@@ -220,7 +235,7 @@ def main():
         raise ValueError(f"unexpected --game={FLAGS.game}, options are 'tictactoe', 'celcath'")
 
     # The same nnet is used for all iterations.
-    manager = CifreNNetManager(LOG, nnet, FLAGS.game_shape, FLAGS.repo_dir)
+    manager = CifreNNetManager(LOG, nnet, game_shape, infer_batch_size, FLAGS.repo_dir)
 
     # Keep track of the trained model that gives the best
     # results. After each iteration, the just trained model competes
@@ -241,7 +256,7 @@ def main():
             f'../build/install/bin/{FLAGS.game}',
             '--verbose' if FLAGS.verbose else '',
             '--train', '--train-dir', train_dir,
-            '--game-shape', argify_shape(FLAGS.game_shape, ','),
+            '--game-shape', argify_shape(game_shape, ','),
             f'--game-count={FLAGS.game_count}',
             filter_specified('--max-turns-per-game', FLAGS.max_turns_per_game),
             '--player1=alphazero', '--alphazero-model', model_name,
@@ -263,7 +278,7 @@ def main():
 
         train_args = {
             'num_epochs': FLAGS.epoch_count,
-            'batch_size': FLAGS.batch_size }
+            'batch_size': train_batch_size }
         manager.train(train_args, dataset)
         manager.save_checkpoint(train_dir, 'cpt.pth.tar', create_folder=False, overwrite=True)
 
@@ -281,7 +296,7 @@ def main():
                     f'../build/install/bin/{FLAGS.game}',
                     '--verbose' if FLAGS.verbose else '--quiet',
                     '--report-file', report_file,
-                    '--game-shape', argify_shape(FLAGS.game_shape, ','),
+                    '--game-shape', argify_shape(game_shape, ','),
                     f'--game-count={FLAGS.cmp_game_count}',
                     filter_specified('--max-turns-per-game', FLAGS.max_turns_per_game),
                     '--player1=alphazero', f'--name={model_name}', '--alphazero-model', model_name,
