@@ -626,7 +626,7 @@ Game::Play()
     // thread pulls each completed game from the TaskPool's completed
     // queue, aggregates the results and then re-enqueues the task for
     // another game (if necessary).
-    common::TaskPool pool(parallel_);
+    common::TaskPool pool(std::min(parallel_, game_count_));
     std::vector<std::unique_ptr<common::TaskPool::Task>> completed_tasks;
 
     // Create enough PlayOneTask objects to keep all pool threads
