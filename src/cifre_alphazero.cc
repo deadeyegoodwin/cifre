@@ -213,7 +213,7 @@ AlphaZero::SearchTree(
   }
 
 #ifndef NDEBUG
-  // Non-terminal nodes must maintain correctness betweeo 'node' visit
+  // Non-terminal nodes must maintain correctness between 'node' visit
   // count and children visit counts.
   node->ValidateVisitCounts();
 #endif
@@ -249,6 +249,7 @@ AlphaZero::SearchTree(
     ' ' + std::to_string(*best_action_id) + "(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')',
     0 /* indent */, false /* endline */);
 
+  bool next_created = false;
   AlphaZeroNode* next = node->Child(*best_action_id);
   if (next == nullptr) {
     // Find or create the node representing the state that results
@@ -256,11 +257,11 @@ AlphaZero::SearchTree(
     std::unique_ptr<State> next_state(node->NodeState().Clone());
     next_state->Update(*best_action_id);
 
-    std::shared_ptr<AlphaZeroNode> snext = FindOrCreateNode(std::move(next_state));
+    std::shared_ptr<AlphaZeroNode> snext = FindOrCreateNode(std::move(next_state), &next_created);
     assert(snext != nullptr);
     next = snext.get();
 
-    // Add the edge to connect 'node' to 'next', then continue search.
+    // Add the edge to connect 'node' to 'next'.
     node->SetChild(*best_action_id, next, 0 /* visit_count */);
     statistics_.edge_count_++;
   }
@@ -271,8 +272,13 @@ AlphaZero::SearchTree(
   node->IncrementVisitCount();
   node->IncrementChildVisitCount(*best_action_id);
 
-  float v = SearchTree(
-    next, search_depth_remaining - 1, game_depth_remaining - 1, nullptr /* dirichlet */);
+  // If next node to be visited was just created, then instead of
+  // visiting it we simply set 'v' to its value.
+  float v = ((next_created) ?
+             next->Value() :
+             SearchTree(
+               next, search_depth_remaining - 1,
+               game_depth_remaining - 1, nullptr /* dirichlet */));
 
   // If 'next' has a different active player than 'node', then need to
   // invert 'v'.
