@@ -627,6 +627,7 @@ Game::Play()
     // queue, aggregates the results and then re-enqueues the task for
     // another game (if necessary).
     common::TaskPool pool(parallel_);
+    std::vector<std::unique_ptr<common::TaskPool::Task>> completed_tasks;
 
     // Create enough PlayOneTask objects to keep all pool threads
     // busy, but not more than 'game_count'. Each task gets its own
@@ -723,10 +724,18 @@ Game::Play()
       }
 
       // If 'game_count_' games have not yet been started, then
-      // re-enqueue 'ptask' to play another game.
+      // re-enqueue 'ptask' to play another game. If we don't need
+      // 'ptask' anymore then put it in 'completed_tasks', because we
+      // need the lifetime of the tasks to extend to the end of the
+      // function since we access their contents below (sometimes
+      // indirectly, like accessing Player objects in State::ToString
+      // function).
       if (games_started < game_count_) {
         pool.Enqueue(std::move(ptask));
         games_started++;
+      }
+      else {
+        completed_tasks.push_back(std::move(ptask));
       }
     }
 
