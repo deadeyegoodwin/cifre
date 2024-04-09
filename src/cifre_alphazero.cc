@@ -130,6 +130,8 @@ AlphaZero::NextActionId(const State& state, size_t max_game_turns_remaining)
     LOGGER_LOGHIGH_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
   }
 
+  statistics_.search_count_ += settings_.search_count_;
+
   LOGGER_LOGHIGH(*logger_, "\nalphazero: choosing action for node");
   LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_),
                     2 /* indent */, true /* endline */);
@@ -535,6 +537,7 @@ AlphaZeroStatistics::operator+=(const AlphaZeroStatistics& rhs)
   total_node_count_ += rhs.total_node_count_;
   terminal_node_count_ += rhs.terminal_node_count_;
   edge_count_ += rhs.edge_count_;
+  search_count_ += rhs.search_count_;
   search_endby_search_depth_count_ += rhs.search_endby_search_depth_count_;
   search_endby_game_depth_count_ += rhs.search_endby_game_depth_count_;
   search_endby_terminal_count_ += rhs.search_endby_terminal_count_;
@@ -547,6 +550,7 @@ AlphaZeroStatistics::Reset()
   total_node_count_ = 0;
   terminal_node_count_ = 0;
   edge_count_ = 0;
+  search_count_ = 0;
   search_endby_search_depth_count_ = 0;
   search_endby_game_depth_count_ = 0;
   search_endby_terminal_count_ = 0;
@@ -560,11 +564,8 @@ AlphaZeroStatistics::ToString() const
      << ", terminal " << terminal_node_count_ << '\n';
   ss << "edges: " << edge_count_ << ", avg outgoing per node "
      << std::fixed << std::setprecision(2) << ((float)edge_count_ / total_node_count_) << '\n';
-
-  const size_t search_count =
-    search_endby_search_depth_count_ + search_endby_game_depth_count_ + search_endby_terminal_count_;
   ss
-    << "searches: " << search_count
+    << "searches: " << search_count_
     << ", end by search-depth " << search_endby_search_depth_count_
     << ", end by game-depth " << search_endby_game_depth_count_
     << ", end by terminal " << search_endby_terminal_count_;

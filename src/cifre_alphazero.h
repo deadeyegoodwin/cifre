@@ -87,6 +87,7 @@ public:
   std::atomic<size_t> total_node_count_ {0};
   std::atomic<size_t> terminal_node_count_ {0};
   std::atomic<size_t> edge_count_ {0};
+  std::atomic<size_t> search_count_ {0};
   std::atomic<size_t> search_endby_search_depth_count_ {0};
   std::atomic<size_t> search_endby_game_depth_count_ {0};
   std::atomic<size_t> search_endby_terminal_count_ {0};
