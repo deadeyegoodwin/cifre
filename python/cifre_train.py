@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import pathlib
+import multiprocessing
 import shutil
 import subprocess
 import sys
@@ -122,6 +123,12 @@ def main():
               '--iteration-count iterations. Training samples are collected from ' +
               'these games.'))
     parser.add_argument(
+        '--game-parallel',
+        type=parse_positive_int,
+        required=False,
+        help=('When playing the --game-count games, the number of games to play ' +
+              'in parallel.'))
+    parser.add_argument(
         '--max-turns-per-game',
         type=parse_positive_int,
         required=False,
@@ -193,9 +200,9 @@ def main():
     # FIXME Should get default game shape, number actions from game
     # executable using --report-file.
     if FLAGS.game == 'tictactoe':
-        game_shape = (3, 3) if ('game-shape' not in vars(FLAGS)) else FLAGS.game_shape
-        train_batch_size = 2 if ('train-batch-size' not in vars(FLAGS)) else FLAGS.train_batch_size
-        infer_batch_size = 32 if ('infer-batch-size' not in vars(FLAGS)) else FLAGS.infer_batch_size
+        game_shape = (3, 3) if (FLAGS.game_shape is None) else FLAGS.game_shape
+        train_batch_size = 2 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
+        infer_batch_size = 64 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "tictactoe requires shape rank 2")
         nnet_args = {
             'batch_size': train_batch_size,
@@ -206,9 +213,9 @@ def main():
             'num_channels': 512 }
         nnet = CifreBasicFcNNet(nnet_args)
     elif FLAGS.game == 'othello':
-        game_shape = (8, 8) if ('game-shape' not in vars(FLAGS)) else FLAGS.game_shape
-        train_batch_size = 2 if ('train-batch-size' not in vars(FLAGS)) else FLAGS.train_batch_size
-        infer_batch_size = 32 if ('infer-batch-size' not in vars(FLAGS)) else FLAGS.infer_batch_size
+        game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
+        train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
+        infer_batch_size = 64 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "othello requires shape rank 2")
         nnet_args = {
             'batch_size': train_batch_size,
@@ -219,9 +226,9 @@ def main():
             'num_channels': 512 }
         nnet = CifreBasicConvNNet(nnet_args)
     elif FLAGS.game == 'celcath':
-        game_shape = (8, 8) if ('game-shape' not in vars(FLAGS)) else FLAGS.game_shape
-        train_batch_size = 2 if ('train-batch-size' not in vars(FLAGS)) else FLAGS.train_batch_size
-        infer_batch_size = 32 if ('infer-batch-size' not in vars(FLAGS)) else FLAGS.infer_batch_size
+        game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
+        train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
+        infer_batch_size = 64 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "celcath requires shape rank 2")
         nnet_args = {
             'batch_size': train_batch_size,
@@ -236,6 +243,9 @@ def main():
 
     # The same nnet is used for all iterations.
     manager = CifreNNetManager(LOG, nnet, game_shape, infer_batch_size, FLAGS.repo_dir)
+
+    # Set parallelism for cifre game execution based on the number of cpu cores.
+    game_parallel = (multiprocessing.cpu_count() * 2) if (FLAGS.game_parallel is None) else FLAGS.game_parallel
 
     # Keep track of the trained model that gives the best
     # results. After each iteration, the just trained model competes
@@ -255,6 +265,7 @@ def main():
         game_cmd = [
             f'../build/install/bin/{FLAGS.game}',
             '--verbose' if FLAGS.verbose else '',
+            '--parallel', str(game_parallel),
             '--train', '--train-dir', train_dir,
             '--game-shape', argify_shape(game_shape, ','),
             f'--game-count={FLAGS.game_count}',
