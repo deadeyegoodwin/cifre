@@ -215,7 +215,7 @@ def main():
     elif FLAGS.game == 'othello':
         game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
         train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
-        infer_batch_size = 64 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
+        infer_batch_size = 32 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "othello requires shape rank 2")
         nnet_args = {
             'batch_size': train_batch_size,
@@ -228,7 +228,7 @@ def main():
     elif FLAGS.game == 'celcath':
         game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
         train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
-        infer_batch_size = 64 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
+        infer_batch_size = 32 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "celcath requires shape rank 2")
         nnet_args = {
             'batch_size': train_batch_size,

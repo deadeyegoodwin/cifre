@@ -123,17 +123,19 @@ Othello::DefaultAlphaZeroSettings(const bool train) const
   if (train) { // train = true
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
-    settings.dirichlet_alpha_ = 1.0;
-    settings.search_count_ = 256;
-    settings.max_search_depth_ = 8;
+    settings.dirichlet_alpha_ = 10.0 / 64.0;
+    settings.dirichlet_sample_count_ = 2117;
+    settings.dirichlet_ratio_ = 0.25;
+    settings.search_count_ = 500;
+    settings.max_search_depth_ = 64;
     settings.cpuct_ = 10.0;
   }
   else { // train = false
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
     settings.dirichlet_alpha_ = 0.0; // disable dirichlet
-    settings.search_count_ = 256;
-    settings.max_search_depth_ = 8;
+    settings.search_count_ = 500;
+    settings.max_search_depth_ = 64;
     settings.cpuct_ = 1.0;
   }
 

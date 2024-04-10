@@ -120,6 +120,8 @@ TicTacToe::DefaultAlphaZeroSettings(const bool train) const
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
     settings.dirichlet_alpha_ = 1.0;
+    settings.dirichlet_sample_count_ = 1111;
+    settings.dirichlet_ratio_ = 0.25;
     settings.search_count_ = 256;
     settings.max_search_depth_ = 12;
     settings.cpuct_ = 10.0;
