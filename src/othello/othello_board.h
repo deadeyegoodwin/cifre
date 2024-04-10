@@ -24,7 +24,8 @@ public:
 
   // Copy constructor.
   Board(const Board& other) :
-    cifre::Board2D(other), do_nothing_action_id_(other.do_nothing_action_id_) { }
+    cifre::Board2D(other), do_nothing_action_id_(other.do_nothing_action_id_),
+    active_do_nothing_(other.active_do_nothing_), opponent_do_nothing_(other.opponent_do_nothing_) { }
 
   // Return the action ID representing "do nothing".
   size_t DoNothingActionId() const { return do_nothing_action_id_; }
@@ -51,6 +52,8 @@ public:
 
 private:
   const size_t do_nothing_action_id_;
+  bool active_do_nothing_;
+  bool opponent_do_nothing_;
 };
 
 }} // namespace cifre::othello

@@ -17,7 +17,8 @@ namespace cifre { namespace othello {
 //
 Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
              size_t starting_player_id) :
-  cifre::Board2D(size, players, starting_player_id), do_nothing_action_id_(size_.CellCount())
+  cifre::Board2D(size, players, starting_player_id), do_nothing_action_id_(size_.CellCount()),
+  active_do_nothing_(false), opponent_do_nothing_(false)
 {
   // Each player has two pieces diagonal from each other in the middle
   // of the board. Board must have even number of rows and columns
@@ -28,8 +29,9 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   SetPlayerIdAt(OpponentPlayerId(), iidx, iidx - 1);
   SetPlayerIdAt(OpponentPlayerId(), iidx - 1, iidx);
 
-  // Initialize 'valid_action_ids_'.
+  // Initialize 'valid_action_ids_' and 'terminal_status_'.
   UpdateValidActions();
+  UpdateTerminalStatus();
 }
 
 std::string
@@ -46,17 +48,7 @@ Board::ActionToString(const Action& action) const
 void
 Board::Update(uint64_t action_id)
 {
-  // If action is "do nothing", then switch to other player and check
-  // if they also have no move. If so, then game is over so set
-  // terminal status appropriately.
-  if (action_id == do_nothing_action_id_) {
-    SwitchActivePlayer();
-    if ((valid_action_ids_.size() == 1) &&
-        (valid_action_ids_.find(do_nothing_action_id_) != valid_action_ids_.end())) {
-      UpdateTerminalStatus();
-    }
-  }
-  else {
+  if (action_id != do_nothing_action_id_) {
     // Cell corresponding to action must be empty.
     THROWIF(PlayerIdAtFlattened(action_id) != PLAYER_COUNT,
             "player " + ActivePlayer()->Name() + " cannot occupy cell owned by " +
@@ -115,10 +107,16 @@ Board::Update(uint64_t action_id)
     }
 
     assert(total_outflank_count > 0);
-
-    // Switch board state to represent the "other" player.
-    SwitchActivePlayer();
   }
+
+  // Switch board state to represent the "other" player. This also
+  // calls UpdateValidActions() to get updated actions and also set
+  // 'active_do_nothing_'. 'opponent_do_nothing_' becomes what is
+  // currently 'active_do_nothing_'.
+  opponent_do_nothing_ = active_do_nothing_;
+  SwitchActivePlayer();
+
+  UpdateTerminalStatus();
 }
 
 void
@@ -173,7 +171,8 @@ Board::UpdateValidActions()
 
   // If unable to find any cell where a move can be made, then must
   // "do nothing".
-  if (valid_action_ids_.empty()) {
+  active_do_nothing_ = valid_action_ids_.empty();
+  if (active_do_nothing_) {
     valid_action_ids_.insert(do_nothing_action_id_);
   }
 }
@@ -181,9 +180,7 @@ Board::UpdateValidActions()
 void
 Board::UpdateTerminalStatus()
 {
-  // Check winning conditions and set 'terminal_status_'. This method
-  // is only called if neither player can move, so the winner is the
-  // player with the most occupied cells.
+  // Check winning conditions and set 'terminal_status_'.
   size_t active_count = 0;
   size_t opponent_count = 0;
   for (size_t cidx = 0; cidx < size_.CellCount(); ++cidx) {
@@ -196,19 +193,28 @@ Board::UpdateTerminalStatus()
     }
   }
 
-  if (active_count > opponent_count) {
-    terminal_status_ =
-      cifre::StateTerminalStatus(
-        cifre::StateTerminalStatus::TerminalKind::WINNER, ActivePlayerId());
-  }
-  else if (opponent_count > active_count) {
-    terminal_status_ =
-      cifre::StateTerminalStatus(
-        cifre::StateTerminalStatus::TerminalKind::WINNER, OpponentPlayerId());
+  // If neither player can move or all squares taken, then game is over.
+  if ((active_do_nothing_ && opponent_do_nothing_) ||
+      ((active_count + opponent_count) == size_.CellCount())) {
+    if (active_count > opponent_count) {
+      terminal_status_ =
+        cifre::StateTerminalStatus(
+          cifre::StateTerminalStatus::TerminalKind::WINNER, ActivePlayerId());
+    }
+    else if (opponent_count > active_count) {
+      terminal_status_ =
+        cifre::StateTerminalStatus(
+          cifre::StateTerminalStatus::TerminalKind::WINNER, OpponentPlayerId());
+    }
+    else {
+      terminal_status_ =
+        cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
+    }
   }
   else {
-    terminal_status_ =
-      cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
+    THROWIF(
+      terminal_status_.Kind() != cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
+      "expected NON_TERMINAL status");
   }
 }
 
