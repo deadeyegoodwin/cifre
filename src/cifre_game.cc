@@ -68,7 +68,7 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
 //
 class PlayOneTask : public common::TaskPool::Task {
 public:
-  enum class GameResult { WINNER1, WINNER2, DRAW, QUIT };
+  enum class GameResult { WINNER1, WINNER2, DRAW, QUIT, ABORT };
 
   PlayOneTask(
     const std::shared_ptr<common::Logger>& logger,
@@ -114,98 +114,104 @@ PlayOneTask::Invoke()
   // progresses.
   std::unique_ptr<State> state(initial_state_->Clone());
 
-  // Let all players and alphazeros know a new game is starting.
-  for (auto& p : players_) {
-    p->GameStart();
-  }
-  for (auto& a : alphazeros_) {
-    if (a != nullptr) {
-      a->GameStart();
+  try {
+    // Let all players and alphazeros know a new game is starting.
+    for (auto& p : players_) {
+      p->GameStart();
     }
-  }
-
-  alphazero_statistics_.Reset();
-  train_samples_.clear();
-  result_ = GameResult::QUIT;
-
-  const auto starting_player_id = state->ActivePlayerId();
-  size_t game_turns_remaining = max_turns_per_game_;
-
-  bool game_quit = false;
-  StateTerminalStatus terminal_status = state->TerminalStatus();
-  while (!game_quit &&
-         (game_turns_remaining > 0) &&
-         (terminal_status.Kind() == StateTerminalStatus::TerminalKind::NON_TERMINAL)) {
-    const auto player_id = state->ActivePlayerId();
-    const Player* player = players_[player_id].get();
-    const Action action = player->NextAction(*state, game_turns_remaining);
-    switch (action.Kind()) {
-    case Action::ActionKind::INVALID:
-    case Action::ActionKind::HELP:
-    case Action::ActionKind::SHOW_STATE:
-      GameFail("unexpected player action");
-      break;
-
-    case Action::ActionKind::QUIT:
-      game_quit = true;
-      break;
-
-    case Action::ActionKind::ACTIONID:
-      state->Update(action.ActionId());
-      terminal_status = state->TerminalStatus();
-      break;
+    for (auto& a : alphazeros_) {
+      if (a != nullptr) {
+        a->GameStart();
+      }
     }
 
-    // If 'state' active player differs from 'player' (indicating that
-    // it changed as a result 'action'), and active player is now
-    // 'starting_player_id', then a turn has completed.
-    if ((player_id != state->ActivePlayerId()) &&
-        (starting_player_id == state->ActivePlayerId())) {
-      --game_turns_remaining;
+    alphazero_statistics_.Reset();
+    train_samples_.clear();
+    result_ = GameResult::ABORT;
+
+    const auto starting_player_id = state->ActivePlayerId();
+    size_t game_turns_remaining = max_turns_per_game_;
+
+    bool game_quit = false;
+    StateTerminalStatus terminal_status = state->TerminalStatus();
+    while (!game_quit && (game_turns_remaining > 0) &&
+           (terminal_status.Kind() == StateTerminalStatus::TerminalKind::NON_TERMINAL)) {
+      const auto player_id = state->ActivePlayerId();
+      const Player* player = players_[player_id].get();
+      const Action action = player->NextAction(*state, game_turns_remaining);
+      switch (action.Kind()) {
+      case Action::ActionKind::INVALID:
+      case Action::ActionKind::HELP:
+      case Action::ActionKind::SHOW_STATE:
+        GameFail("unexpected player action");
+        break;
+      case Action::ActionKind::QUIT:
+        game_quit = true;
+        break;
+      case Action::ActionKind::ACTIONID:
+        state->Update(action.ActionId());
+        terminal_status = state->TerminalStatus();
+        break;
+      }
+
+      // If 'state' active player differs from 'player' (indicating
+      // that it changed as a result 'action'), and active player is
+      // now 'starting_player_id', then a turn has completed.
+      if ((player_id != state->ActivePlayerId()) &&
+          (starting_player_id == state->ActivePlayerId())) {
+        --game_turns_remaining;
+      }
     }
-  }
 
-  // Game was quit.
-  if (game_quit) {
-    LOGGER_LOGMED(*logger_, "game quit: no winner");
-    LOGGER_LOGMED(*logger_, state->ToString());
-    result_ = GameResult::QUIT;
-    return false;
-  }
-
-  // If ran out of game turns, then game is a draw.
-  if (game_turns_remaining == 0) {
-    terminal_status = StateTerminalStatus(StateTerminalStatus::TerminalKind::DRAW);
-  }
-
-  // Let all players and alphazeros know game is completed. Collect
-  // statistics.
-  for (auto& p : players_) {
-    p->GameEnd(*state, terminal_status);
-  }
-  for (auto& a : alphazeros_) {
-    if (a != nullptr) {
-      alphazero_statistics_ += a->Statistics();
-      a->GameEnd(*state, terminal_status, &train_samples_);
+    // Game was quit.
+    if (game_quit) {
+      LOGGER_LOGMED(*logger_, "game quit: no winner");
+      LOGGER_LOGMED(*logger_, state->ToString());
+      result_ = GameResult::QUIT;
+      return false;
     }
+
+    // If ran out of game turns, then game is a draw.
+    if (game_turns_remaining == 0) {
+      terminal_status = StateTerminalStatus(StateTerminalStatus::TerminalKind::DRAW);
+    }
+
+    // Let all players and alphazeros know game is completed. Collect
+    // statistics.
+    for (auto& p : players_) {
+      p->GameEnd(*state, terminal_status);
+    }
+    for (auto& a : alphazeros_) {
+      if (a != nullptr) {
+        alphazero_statistics_ += a->Statistics();
+        a->GameEnd(*state, terminal_status, &train_samples_);
+      }
+    }
+
+    // Game completed as a draw.
+    if (terminal_status.Kind() == StateTerminalStatus::TerminalKind::DRAW) {
+      LOGGER_LOGMED(*logger_, "game over: draw");
+      LOGGER_LOGMED(*logger_, state->ToString());
+      result_ = GameResult::DRAW;
+      return false;
+    }
+
+    // Game completed with a winner.
+    const size_t winner_id = terminal_status.WinnerId();
+
+    // FIXME only supports 2 player games
+    result_ = (winner_id == 0) ? GameResult::WINNER1 : GameResult::WINNER2;
+  }
+  catch (const std::exception& ex) {
+    // Game was aborted due to an internal error. Propagate this error
+    // to the main thread so game playing can continue.
+    LOGGER_LOGLOW(*logger_, std::string("game aborted: ") + ex.what());
+    LOGGER_LOGLOW(*logger_, state->ToString());
+    result_ = GameResult::ABORT;
   }
 
-  // Game completed as a draw.
-  if (terminal_status.Kind() == StateTerminalStatus::TerminalKind::DRAW) {
-    LOGGER_LOGMED(*logger_, "game over: draw");
-    LOGGER_LOGMED(*logger_, state->ToString());
-    result_ = GameResult::DRAW;
-    return false;
-  }
-
-  // Game completed with a winner.
-  const size_t winner_id = terminal_status.WinnerId();
-
-  // FIXME only supports 2 player games
-  result_ = (winner_id == 0) ? GameResult::WINNER1 : GameResult::WINNER2;
-
-  // Return false to indicate that this task should be returned by
-  // the TaskPool on the completed queue.
+  // Return false to indicate that this task should be returned by the
+  // TaskPool on the completed queue.
   return false;
 }
 
@@ -685,10 +691,11 @@ Game::Play()
     // task until all the games have been completed.
     size_t games_completed = 0;
     size_t games_quit = 0;
+    size_t games_abort = 0;
     size_t draw_count = 0;
     size_t winner1_count = 0;
     size_t winner2_count = 0;
-    while ((games_completed + games_quit) < game_count_) {
+    while ((games_completed + games_quit + games_abort) < game_count_) {
       std::unique_ptr<common::TaskPool::Task> task;
       THROWIF(!pool.Dequeue(task), "failed to dequeue game result");
 
@@ -697,6 +704,9 @@ Game::Play()
       switch (presult) {
       case PlayOneTask::GameResult::QUIT:
         games_quit++;
+        break;
+      case PlayOneTask::GameResult::ABORT:
+        games_abort++;
         break;
       case PlayOneTask::GameResult::DRAW:
         games_completed++;
