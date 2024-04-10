@@ -164,6 +164,7 @@ class CifreNNetManager(object):
         with model_config_file.open('w', encoding ='utf-8') as f:
             f.write('backend: "onnxruntime"\n')
             f.write(f'max_batch_size: {self._nnet_max_batch_size}\n')
+            f.write('dynamic_batching: { }\n')
 
         # Appropriately sized input.
         input_shape_with_batch = (1,) + self._nnet_input_shape
