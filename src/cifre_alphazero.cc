@@ -100,7 +100,6 @@ AlphaZero::NextActionId(const State& state, size_t max_game_turns_remaining)
   // generated, then do so now using GSL (GNU Scientific
   // Library). This is done lazily because a State object is needed to
   // get the total number of action IDs.
-  const std::vector<double>* dirichlet = nullptr;
   if (settings_.dirichlet_alpha_ > 0.0) {
     if (dirichlet_samples_.empty()) {
       GenerateDirichletSamples(settings_.dirichlet_alpha_, state.TotalActionIdCount(),
@@ -108,8 +107,6 @@ AlphaZero::NextActionId(const State& state, size_t max_game_turns_remaining)
     }
 
     assert(dirichlet_samples_.size() == settings_.dirichlet_sample_count_);
-    dirichlet = &dirichlet_samples_[dirichlet_samples_idx_];
-    dirichlet_samples_idx_ = (dirichlet_samples_idx_ + 1) % dirichlet_samples_.size();
   }
 
   // Find, creating if necessary, tree node that represents 'state'.
@@ -122,6 +119,13 @@ AlphaZero::NextActionId(const State& state, size_t max_game_turns_remaining)
 
   // Update the tree by performing searches starting from 'node'.
   for (size_t idx = 0; idx < settings_.search_count_; ++idx) {
+    // Use dirichlet if enabled...
+    const std::vector<double>* dirichlet = nullptr;
+    if (settings_.dirichlet_alpha_ > 0.0) {
+      dirichlet = &dirichlet_samples_[dirichlet_samples_idx_];
+      dirichlet_samples_idx_ = (dirichlet_samples_idx_ + 1) % dirichlet_samples_.size();
+    }
+
     LOGGER_LOGHIGH_IE(
       *logger_,
       "search " + std::to_string(idx+1) + '/' + std::to_string(settings_.search_count_) + ':',
@@ -275,7 +279,9 @@ AlphaZero::SearchTree(
   node->IncrementChildVisitCount(*best_action_id);
 
   // If next node to be visited was just created, then instead of
-  // visiting it we simply set 'v' to its value.
+  // visiting it we simply set 'v' to its value. Dirichlet is only
+  // used on the root node of a search, so set to nullptr for
+  // subsequent nodes.
   float v = ((next_created) ?
              next->Value() :
              SearchTree(
