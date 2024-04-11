@@ -166,7 +166,8 @@ private:
   // Name of the model represented by this object.
   const std::string model_name_;
 
-  // Shared statistics for the triton server.
+  // Statistics for the model. This object is shared across all
+  // TritonModels that represent the same nnet model.
   std::shared_ptr<TritonStatistics> statistics_;
 
   // Client to access the triton server. See TritonModel description
@@ -212,6 +213,32 @@ struct TritonRepoIndex {
 };
 
 //
+// TritonInferStatistics
+//
+// Model inference statistics returned by
+// TritonServer::InferenceStatistics.
+//
+struct TritonInferStatistics {
+  // Return string representation of statistics.
+  std::string ToString() const;
+
+  std::string model_name_;
+  std::string model_version_;
+  uint64_t inference_count_;
+  uint64_t execution_count_;
+  uint64_t success_count_;
+  uint64_t queue_count_;
+  uint64_t compute_input_count_;
+  uint64_t compute_infer_count_;
+  uint64_t compute_output_count_;
+  uint64_t cumm_time_ns_;
+  uint64_t queue_time_ns_;
+  uint64_t compute_input_time_ns_;
+  uint64_t compute_infer_time_ns_;
+  uint64_t compute_output_time_ns_;
+};
+
+//
 // TritonServer
 //
 // Interface to Triton inference server. All methods are thread-safe
@@ -233,6 +260,10 @@ public:
   // from model name to index information about the model.
   std::unordered_map<std::string, const TritonRepoIndex> ModelRepositoryIndex() const;
 
+  // Return a map from model name to a TritonInferStatistics object
+  // holding the inference statistics for the model.
+  std::unordered_map<std::string, const TritonInferStatistics> InferenceStatistics() const;
+
   // Load 'model_name' into triton. Enable caching for the model if
   // 'enable_cache' is true. Nothing is done if the model is already
   // loaded into triton. Return true if model load is successful.
@@ -245,14 +276,18 @@ public:
   // Return a TritonModel object that can be used to access
   // 'model_name' on this server.  Set triton client interface output
   // to verbose if 'verbose' is true.
-  TritonModel* CreateTritonModel(const std::string& model_name, bool verbose = false) const;
+  TritonModel* CreateTritonModel(const std::string& model_name, bool verbose = false);
 
   // Return string representation.
-  std::string ToString() const { return statistics_->ToString(); }
+  std::string ToString() const;
 
 private:
   const std::string url_;
-  std::shared_ptr<TritonStatistics> statistics_;
+
+  // Map from model name to statistics for that model. All TritonModel
+  // objects that represent the same model name share a
+  // TritonStatistics object from this map.
+  std::unordered_map<std::string, std::shared_ptr<TritonStatistics>> model_statistics_;
 
   // Client to access the triton server. InferenceServerHttpClient is
   // not thread-safe so use of 'client_' is protected by 'client_mu_'.

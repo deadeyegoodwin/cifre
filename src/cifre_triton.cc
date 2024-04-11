@@ -6,6 +6,7 @@
 
 #include "cifre_triton.h"
 #include "common_error.h"
+#include "common_time.h"
 
 namespace cifre {
 
@@ -90,6 +91,37 @@ TritonStatistics::ToString() const
     << (100.0 * inference_count_ / prediction_count_) << "%)"
     << ", cache hits: " << cache_hit_count_ << " ("
     << (100.0 * cache_hit_count_ / prediction_count_) << "%)";
+
+  return ss.str();
+}
+
+//
+// TritonInferStatistics
+//
+std::string
+TritonInferStatistics::ToString() const
+{
+  std::stringstream ss;
+
+  const common::Time queue_avg_time =
+    common::Time(queue_time_ns_ / 1000) / std::max(queue_count_, size_t(1));
+  const common::Time compute_input_avg_time =
+    common::Time(compute_input_time_ns_ / 1000) / std::max(compute_input_count_, size_t(1));
+  const common::Time compute_infer_avg_time =
+    common::Time(compute_infer_time_ns_ / 1000) / std::max(compute_infer_count_, size_t(1));
+  const common::Time compute_output_avg_time =
+    common::Time(compute_output_time_ns_ / 1000) / std::max(compute_output_count_, size_t(1));
+
+  ss
+    << "inferences: " << inference_count_
+    << ", batch-size avg: "
+    << std::fixed << std::setprecision(2)
+    << ((float)inference_count_ / execution_count_) << '\n'
+    << "queue avg: " << queue_avg_time.ToString()
+    << ", compute input/infer/output avg: "
+    << compute_input_avg_time.ToString() << " / "
+    << compute_infer_avg_time.ToString() << " / "
+    << compute_output_avg_time.ToString();
 
   return ss.str();
 }
@@ -353,7 +385,7 @@ TritonModel::UpdateOutputMetadata(const rapidjson::Document& model_metadata, siz
 // TritonServer
 //
 TritonServer::TritonServer(const std::string& url, bool verbose) :
-  url_(url), statistics_(std::make_shared<TritonStatistics>())
+  url_(url)
 {
   CheckTritonError(
     triton::client::InferenceServerHttpClient::Create(&client_, url_, verbose),
@@ -426,6 +458,51 @@ TritonServer::ModelRepositoryIndex() const
   return repo_index;
 }
 
+std::unordered_map<std::string, const TritonInferStatistics>
+TritonServer::InferenceStatistics() const
+{
+  std::string infer_stats_str;
+  {
+    std::unique_lock<std::mutex> lk(client_mu_);
+    CheckTritonError(client_->ModelInferenceStatistics(&infer_stats_str),
+                     "unable to read model inference statistics");
+  }
+
+  rapidjson::Document d;
+  CheckTritonError(triton::client::ParseJson(&d, infer_stats_str),
+                   "failed to parse inference statistics json");
+  THROWIF(!d.IsObject(), "expecting inference statistics to be json object");
+  THROWIF(!d["model_stats"].IsArray(), "expecting inference statistics to contain models array");
+
+  // Parse statistics into map indexed by model name.
+  std::unordered_map<std::string, const TritonInferStatistics> stats;
+  for (const auto& stat : d["model_stats"].GetArray()) {
+    TritonInferStatistics mstat;
+    mstat.model_name_ = stat["name"].GetString();
+    mstat.model_version_ = stat["version"].GetString();
+    mstat.inference_count_ = stat["inference_count"].GetUint64();
+    mstat.execution_count_ = stat["execution_count"].GetUint64();
+    mstat.success_count_ = stat["inference_stats"]["success"]["count"].GetUint64();
+    mstat.queue_count_ = stat["inference_stats"]["queue"]["count"].GetUint64();
+    mstat.compute_input_count_ = stat["inference_stats"]["compute_input"]["count"].GetUint64();
+    mstat.compute_infer_count_ = stat["inference_stats"]["compute_infer"]["count"].GetUint64();
+    mstat.compute_output_count_ = stat["inference_stats"]["compute_output"]["count"].GetUint64();
+    mstat.cumm_time_ns_ = stat["inference_stats"]["success"]["ns"].GetUint64();
+    mstat.queue_time_ns_ = stat["inference_stats"]["queue"]["ns"].GetUint64();
+    mstat.compute_input_time_ns_ = stat["inference_stats"]["compute_input"]["ns"].GetUint64();
+    mstat.compute_infer_time_ns_ = stat["inference_stats"]["compute_infer"]["ns"].GetUint64();
+    mstat.compute_output_time_ns_ = stat["inference_stats"]["compute_output"]["ns"].GetUint64();
+
+#ifndef NDEBUG
+    auto created_stat_itr =
+#endif
+      stats.emplace(mstat.model_name_, mstat);
+    assert(created_stat_itr.second);
+  }
+
+  return stats;
+}
+
 bool
 TritonServer::LoadModel(const std::string& model_name, bool enable_cache)
 {
@@ -467,18 +544,60 @@ TritonServer::UnloadModel(const std::string& model_name)
 }
 
 TritonModel*
-TritonServer::CreateTritonModel(const std::string& model_name, bool verbose) const
+TritonServer::CreateTritonModel(const std::string& model_name, bool verbose)
 {
   // If 'model_name' is using a cache, then provide it to the
   // TritonModel so that it can use it when inferring.
   std::shared_ptr<TritonCache> cache;
-
   auto cache_itr = model_cache_.find(model_name);
   if (cache_itr != model_cache_.end()) {
     cache = cache_itr->second;
   }
 
-  return new TritonModel(model_name, cache, statistics_, url_, verbose);
+  // Statistics for 'model_name'.
+  std::shared_ptr<TritonStatistics> statistics;
+  auto stats_itr = model_statistics_.find(model_name);
+  if (stats_itr == model_statistics_.end()) {
+    statistics.reset(new TritonStatistics());
+    model_statistics_[model_name] = statistics;
+  }
+  else {
+    statistics = stats_itr->second;
+  }
+
+  return new TritonModel(model_name, cache, statistics, url_, verbose);
+}
+
+std::string
+TritonServer::ToString() const
+{
+  std::stringstream ss;
+
+  const auto& infer_stats = InferenceStatistics();
+
+  bool first = true;
+  for (auto& pr : model_statistics_) {
+    const std::string& model_name = pr.first;
+    const auto& stats = pr.second;
+
+    if (!first) {
+      ss << '\n';
+    }
+
+    ss
+      << "model " << model_name << '\n'
+      << common::IndentMultiline(stats->ToString(), 4 /* indent */);
+
+    auto infer_stats_itr = infer_stats.find(model_name);
+    if (infer_stats_itr != infer_stats.end()) {
+      const TritonInferStatistics& infer_stat = infer_stats_itr->second;
+      ss << '\n' << common::IndentMultiline(infer_stat.ToString(), 4 /* indent */);
+    }
+
+    first = false;
+  }
+
+  return ss.str();
 }
 
 } // namespace cifre
