@@ -44,6 +44,8 @@ class CifreNNetManager(object):
         dataloader = DataLoader(
             dataset, batch_size=train_args['batch_size'], drop_last=True, shuffle=True)
 
+        scaler = torch.cuda.amp.GradScaler()
+
         for _ in range(train_args['num_epochs']):
             print('Epoch ' + str(self._epoch))
             self._epoch += 1
@@ -68,8 +70,9 @@ class CifreNNetManager(object):
                 assert (ibs == sample_pi.size(0)) and (ibs == sample_v.size(0))
 
                 # Run batch through network
-                pi_result, v_result = self._nnet(sample_in)
-                self._log.log_debug(f'result: v = {v_result}, pi = {torch.exp(pi_result)}')
+                with torch.cuda.amp.autocast():
+                    pi_result, v_result = self._nnet(sample_in)
+                    self._log.log_debug(f'result: v = {v_result}, pi = {torch.exp(pi_result)}')
 
                 # Compute loss...
                 pi_loss = -torch.sum(sample_pi * pi_result)
@@ -79,8 +82,9 @@ class CifreNNetManager(object):
 
                 # Backprop...
                 self._optimizer.zero_grad()
-                total_loss.backward()
-                self._optimizer.step()
+                scaler.scale(total_loss).backward()
+                scaler.step(self._optimizer)
+                scaler.update()
 
                 loss_running_count += ibs
                 pi_loss_running += pi_loss.item()
@@ -178,7 +182,7 @@ class CifreNNetManager(object):
             board_tensor,
             os.path.join(model_version_dir, "model.onnx"),
             export_params=True,        # store the trained parameter weights inside the model file
-            opset_version=10,          # the ONNX version to export the model to
+            opset_version=15,          # the ONNX version to export the model to
             do_constant_folding=True,  # whether to execute constant folding for optimization
             input_names = ['board'],   # the model's input names
             output_names = ['pi', 'v'], # the model's output names
