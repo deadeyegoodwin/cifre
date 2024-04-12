@@ -3,6 +3,15 @@
 A Python / C++ Alpha-Zero implementation. Cifre is Old French for
 "nought" or "zero".
 
+To run the training application, cifre_train.py, it is recommended
+that you use anaconda. The following command creates an appropriate
+environment called `cifre` and activates it.
+
+```bash
+conda env create -f environment.yml
+conda activate cifre
+```
+
 Cifre uses the containerized [Triton Inference
 Server](https://github.com/triton-inference-server/server) to make
 predictions with the DL model. Docker must be installed on your system

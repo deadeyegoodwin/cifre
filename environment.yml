@@ -1,0 +1,15 @@
+name: cifre
+channels:
+  - pytorch
+  - nvidia
+  - defaults
+dependencies:
+  - numpy
+  - onnx
+  - onnxruntime
+  - python
+  - pytorch
+  - pytorch-cuda=12.1
+  - torchvision
+  - torchaudio
+  - tqdm
