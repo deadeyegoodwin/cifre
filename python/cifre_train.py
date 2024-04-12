@@ -257,6 +257,7 @@ def main():
     # results. After each iteration, the just trained model competes
     # against the current best to see if it is better.
     best_model_name = None
+    best_model_cpt_dir = None
 
     for iter in range(FLAGS.iteration_count):
         model_name = f'iter{iter}'
@@ -303,6 +304,7 @@ def main():
         # Compare 'model_name' against the best model.
         if best_model_name is None:
             best_model_name = model_name
+            best_model_cpt_dir = train_dir
         else:
             LOG.log(f'==== Compare {model_name} to {best_model_name} ====')
             game_count = winner1_count = winner2_count = draw_count = 0
@@ -348,6 +350,12 @@ def main():
             if winner1_count > winner2_count:
                 LOG.log(f'best model now {model_name}')
                 best_model_name = model_name
+                best_model_cpt_dir = train_dir
+            else:
+                LOG.log(f'keeping best model {best_model_name}')
+                manager.load_checkpoint(best_model_cpt_dir, 'cpt.pth.tar')
+        sys.stdout.flush()
+
     LOG.log(f'==== Training complete, best model {best_model_name} ====')
 
 if __name__ == '__main__':

@@ -141,6 +141,7 @@ class CifreNNetManager(object):
         """
         if not os.path.isdir(folder):
             raise NotADirectoryError(f"directory {folder} does not exist")
+
         fullpath = os.path.join(folder, filename)
         if not os.path.exists(fullpath):
             raise FileNotFoundError(f"{fullpath} does not exist")
