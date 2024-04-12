@@ -249,7 +249,8 @@ AlphaZero::SearchTree(
   // that doesn't yet have a child node.
   std::optional<uint64_t> best_action_id =
     node->MaxQU(settings_.cpuct_, dirichlet, settings_.dirichlet_ratio_);
-  THROWIF(!best_action_id, "alpha-zero unable to find action ID with max QU");
+  THROWIF(!best_action_id,
+          "alpha-zero unable to find action ID with max QU\n" + node->ToString(settings_.cpuct_));
   LOGGER_LOGHIGH_IE(
     *logger_,
     ' ' + std::to_string(*best_action_id) + "(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')',
@@ -345,6 +346,9 @@ AlphaZero::GenerateDirichletSamples(
   case StateTerminalStatus::TerminalKind::NON_TERMINAL: {
     assert(result_->VEntryCount() == 1);
     value_ = result_->V();
+    if (std::isnan(value_)) {
+      value_ = 0.0;
+    }
   } break;
 }
 }
@@ -387,7 +391,10 @@ AlphaZeroNode::MaxQU(
   for (uint64_t aid : state_->ValidActionIds()) {
     float qu;
 
-    float dpi = pi[aid];
+    // Handle nan's in pi. Such a model probably isn't any good, but
+    // using nan in below logic will produce invalid results.
+    float dpi = (std::isnan(pi[aid])) ? 0.0 : pi[aid];
+
     if (dirichlet != nullptr) {
       dpi = (dpi * (1.0 - dirichlet_ratio)) + (dirichlet->at(aid) * dirichlet_ratio);
     }
