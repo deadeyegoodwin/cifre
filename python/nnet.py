@@ -25,7 +25,6 @@ class CifreNNetManager(object):
         self._nnet_input_shape = nnet_input_shape
         self._nnet_max_batch_size = nnet_max_batch_size
         self._repodir = repodir
-        self._optimizer = torch.optim.Adam(self._nnet.parameters())
         self._epoch = 0
         self._use_cuda = torch.cuda.is_available()
         if self._use_cuda:
@@ -34,7 +33,7 @@ class CifreNNetManager(object):
     def train(self, train_args, dataset):
         """
         Train network using CifreDataset 'dataset'.  'train_args' should
-        be a dict that includes entries for 'num_epochs' and
+        be a dict that includes entries for 'num_epochs', 'lr' and
         'batch_size'.
         """
         if self._log.debug():
@@ -44,7 +43,8 @@ class CifreNNetManager(object):
         dataloader = DataLoader(
             dataset, batch_size=train_args['batch_size'], drop_last=True, shuffle=True)
 
-        scaler = torch.cuda.amp.GradScaler()
+        self._optimizer = torch.optim.Adam(self._nnet.parameters(), lr=train_args['lr'])
+        scaler = torch.cuda.amp.GradScaler(enabled=True)
 
         for _ in range(train_args['num_epochs']):
             print('Epoch ' + str(self._epoch))
@@ -81,10 +81,10 @@ class CifreNNetManager(object):
                 self._log.log_debug(f'loss: v = {v_loss/ibs}, pi = {pi_loss/ibs}')
 
                 # Backprop...
-                self._optimizer.zero_grad()
                 scaler.scale(total_loss).backward()
                 scaler.step(self._optimizer)
                 scaler.update()
+                self._optimizer.zero_grad()
 
                 loss_running_count += ibs
                 pi_loss_running += pi_loss.item()

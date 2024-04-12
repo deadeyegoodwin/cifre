@@ -158,6 +158,12 @@ def main():
         required=False,
         help=('Number of training epochs to run. Default is 10.'))
     parser.add_argument(
+        '--train-lr',
+        type=parse_positive_float,
+        required=False,
+        default=0.001,
+        help=('Learning rate to use when training nnet. Default 0.001.'))
+    parser.add_argument(
         '--train-batch-size',
         type=parse_positive_int,
         required=False,
@@ -205,12 +211,12 @@ def main():
         infer_batch_size = 64 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "tictactoe requires shape rank 2")
         nnet_args = {
-            'batch_size': train_batch_size,
+            'batch_size' : train_batch_size,
             'num_rows' : game_shape[0],
             'num_cols' : game_shape[1],
             'num_actions' : game_shape[0] * game_shape[1],
-            'dropout': 0.25,
-            'num_channels': 512 }
+            'dropout' : 0.25,
+            'num_channels' : 512 }
         nnet = CifreBasicFcNNet(nnet_args)
     elif FLAGS.game == 'othello':
         game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
@@ -218,12 +224,12 @@ def main():
         infer_batch_size = 32 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "othello requires shape rank 2")
         nnet_args = {
-            'batch_size': train_batch_size,
+            'batch_size' : train_batch_size,
             'num_rows' : game_shape[0],
             'num_cols' : game_shape[1],
             'num_actions' : game_shape[0] * game_shape[1] + 1,
-            'dropout': 0.25,
-            'num_channels': 512 }
+            'dropout' : 0.25,
+            'num_channels' : 512 }
         nnet = CifreBasicConvNNet(nnet_args)
     elif FLAGS.game == 'celcath':
         game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
@@ -231,12 +237,12 @@ def main():
         infer_batch_size = 32 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "celcath requires shape rank 2")
         nnet_args = {
-            'batch_size': train_batch_size,
+            'batch_size' : train_batch_size,
             'num_rows' : game_shape[0],
             'num_cols' : game_shape[1],
             'num_actions' : game_shape[0] * game_shape[1] + 2,
-            'dropout': 0.25,
-            'num_channels': 512 }
+            'dropout' : 0.25,
+            'num_channels' : 512 }
         nnet = CifreBasicConvNNet(nnet_args)
     else:
         raise ValueError(f"unexpected --game={FLAGS.game}, options are 'tictactoe', 'celcath'")
@@ -288,8 +294,9 @@ def main():
         dataset = CifreDataset(LOG, train_dir)
 
         train_args = {
-            'num_epochs': FLAGS.epoch_count,
-            'batch_size': train_batch_size }
+            'num_epochs' : FLAGS.epoch_count,
+            'batch_size' : train_batch_size,
+            'lr' : FLAGS.train_lr }
         manager.train(train_args, dataset)
         manager.save_checkpoint(train_dir, 'cpt.pth.tar', create_folder=False, overwrite=True)
 
