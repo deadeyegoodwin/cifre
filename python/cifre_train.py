@@ -285,8 +285,8 @@ def main():
         LOG.log(f'\n==== Iteration {iter} ====')
         process = subprocess.Popen(game_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         while process.poll() is None:
-            print(process.stdout.readline(), end='')
-        print(process.stdout.read(), end='')
+            print(process.stdout.readline(), end='', flush=True)
+        print(process.stdout.read(), end='', flush=True)
         process.stdout.close()
         cret = process.poll()
         LOG.fail_if(cret != 0, f'cifre return code is {cret}')
@@ -348,13 +348,12 @@ def main():
             LOG.log(f'total games: {game_count}, {model_name} {winner1_count}, '
                     f'{best_model_name} {winner2_count}, draw {draw_count}')
             if winner1_count > winner2_count:
-                LOG.log(f'best model now {model_name}')
+                LOG.log(f'best model now {model_name}', flush=True)
                 best_model_name = model_name
                 best_model_cpt_dir = train_dir
             else:
-                LOG.log(f'keeping best model {best_model_name}')
+                LOG.log(f'keeping best model {best_model_name}', flush=True)
                 manager.load_checkpoint(best_model_cpt_dir, 'cpt.pth.tar')
-        sys.stdout.flush()
 
     LOG.log(f'==== Training complete, best model {best_model_name} ====')
 

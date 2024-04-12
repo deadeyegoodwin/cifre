@@ -49,21 +49,21 @@ class CifreLoggerBase:
             msg = ['{}{}'.format('\t' * indent, msg)]
         return msg
 
-    def log(self, msg, extra_indent=0, force=False):
+    def log(self, msg, extra_indent=0, force=False, flush=False):
         if force or not self._quiet:
             msg = self.indent_multiline(msg, self._indent + extra_indent)
             try:
-                self._log(msg)
+                self._log(msg, flush)
             except Exception as e:
                 self.fail(f'<failed to log>: {e}')
 
     def log_verbose(self, msg, extra_indent=0):
         if self._verbose:
-            self.log(msg, extra_indent=extra_indent, force=True)
+            self.log(msg, extra_indent=extra_indent, force=True, flush=False)
 
     def log_debug(self, msg, extra_indent=0):
         if self._debug:
-            self.log(msg, extra_indent=extra_indent, force=True)
+            self.log(msg, extra_indent=extra_indent, force=True, flush=False)
 
     def fail(self, msg):
         self.fail_if(True, msg)
@@ -72,7 +72,7 @@ class CifreLoggerBase:
         if __debug__:
             assert not p, 'error: {}'.format(msg)
         elif p:
-            print('error: {}'.format(msg), file=sys.stderr)
+            print('error: {}'.format(msg), file=sys.stderr, flush=True)
             sys.exit(1)
 
 
@@ -85,8 +85,8 @@ class CifreLogger(CifreLoggerBase):
         CifreLoggerBase.__init__(self, indent, verbose, quiet, debug)
         self._log_file = log_file
 
-    def _log(self, msg):
-        print(msg, file=self._log_file)
+    def _log(self, msg, flush):
+        print(msg, file=self._log_file, flush=flush)
 
 
 # CifreLoggerString
@@ -98,7 +98,7 @@ class CifreLoggerString(CifreLoggerBase):
         CifreLoggerBase.__init__(self, indent, verbose, quiet, debug)
         self._lines = []
 
-    def _log(self, msg):
+    def _log(self, msg, flush):
         self._lines.append(msg)
 
     def __str__(self):
