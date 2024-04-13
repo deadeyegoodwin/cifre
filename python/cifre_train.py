@@ -314,7 +314,7 @@ def main():
                 report_file = train_dir / f'cmp{starting_idx}.json'
                 cmp_cmd = [
                     f'../build/install/bin/{FLAGS.game}',
-                    '--verbose' if FLAGS.verbose else '--quiet',
+                    '--verbose' if FLAGS.verbose else '',
                     '--report-file', report_file,
                     '--game-shape', argify_shape(game_shape, ','),
                     f'--game-count={FLAGS.cmp_game_count}',
@@ -347,7 +347,7 @@ def main():
 
             LOG.log(f'total games: {game_count}, {model_name} {winner1_count}, '
                     f'{best_model_name} {winner2_count}, draw {draw_count}')
-            if winner1_count > winner2_count:
+            if winner1_count >= winner2_count:
                 LOG.log(f'best model now {model_name}', flush=True)
                 best_model_name = model_name
                 best_model_cpt_dir = train_dir
