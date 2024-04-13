@@ -6,7 +6,7 @@
 #include <memory>
 
 #include "cifre_action.h"
-#include "cifre_alphazero.h"
+#include "cifre_algo.h"
 #include "common_logger.h"
 #include "common_random.h"
 
@@ -15,23 +15,14 @@ namespace cifre {
 //
 // Player
 //
-// A player. Typically this serves as a base-class for more
-// interesting characters.
+// Base class for a player.
 //
 class Player {
 public:
-  enum class PlayerKind { UNKNOWN, HUMAN, RANDOM, ALPHAZERO, PERFECT };
-  static PlayerKind StringToPlayerKind(const std::string& str);
-  static std::string PlayerKindToString(const PlayerKind kind);
+  enum class Kind { UNKNOWN, HUMAN, ALGO };
 
 public:
-  // Create player of given 'kind'. Return nullptr if unable to create
-  // the player.
-  static Player* Create(
-    const std::shared_ptr<common::Logger>& logger,
-    const PlayerKind kind, const std::string& name, const char ch,
-    const std::shared_ptr<AlphaZero>& alphazero);
-
+  Player(const std::shared_ptr<common::Logger>& logger, const std::string& name, char ch);
   virtual ~Player() = default;
 
   // Return the player's name.
@@ -63,52 +54,28 @@ public:
   std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
 
 protected:
-  Player(
-    const std::shared_ptr<common::Logger>& logger, const std::string& name, char ch);
-
   std::shared_ptr<common::Logger> logger_;
   const std::string name_;
   const char ch_;
 };
 
 //
-// AlphaZeroPlayer
+// AlgoPlayer
 //
-// A player controlled by alpha-zero.
+// A player controlled by a cifre::Algo.
 //
-class AlphaZeroPlayer : public Player {
+class AlgoPlayer : public Player {
 public:
-  // Create 'name'd alpha-zero player that uses 'ch' as the one
-  // character representation.
-  AlphaZeroPlayer(
+  AlgoPlayer(
     const std::shared_ptr<common::Logger>& logger,
     const std::string& name, char ch,
-    const std::shared_ptr<cifre::AlphaZero>& alphazero);
+    const std::shared_ptr<cifre::Algo>& algo);
 
   // See Player::NextAction().
   Action NextAction(const State& state, size_t max_game_turns_remaining) const override;
 
 private:
-  std::shared_ptr<cifre::AlphaZero> alphazero_;
-};
-
-//
-// RandomPlayer
-//
-// A player that randomly chooses actions.
-//
-class RandomPlayer : public Player {
-public:
-  // Create 'name'd random player that uses 'ch' as the one character
-  // representation.
-  RandomPlayer(
-    const std::shared_ptr<common::Logger>& logger, const std::string& name, char ch);
-
-  // See Player::NextAction().
-  Action NextAction(const State& state, size_t max_game_turns_remaining) const override;
-
-private:
-  mutable common::Random rnd_;
+  std::shared_ptr<cifre::Algo> algo_;
 };
 
 } // namespace cifre

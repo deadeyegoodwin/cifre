@@ -5,6 +5,7 @@
 #include <sstream>
 #include <vector>
 
+#include "cifre_algo_random.h"
 #include "cifre_game.h"
 #include "cifre_version.h"
 #include "common_error.h"
@@ -63,8 +64,8 @@ CreateLogger(const std::string& filename, common::Logger::Level level,
 // PlayOneTask
 //
 // A common::TaskPool::Task object that manages its own TritonModel,
-// Player and AlphaZero objects; and (re)uses those objects to play
-// one or more games. Each Invoke() plays one game.
+// Player, AlphaZero and other objects; and (re)uses those objects to
+// play one or more games. Each Invoke() plays one game.
 //
 class PlayOneTask : public common::TaskPool::Task {
 public:
@@ -74,23 +75,25 @@ public:
     const std::shared_ptr<common::Logger>& logger,
     std::unique_ptr<State> initial_state,
     std::vector<std::unique_ptr<Player>> players,
-    std::vector<std::shared_ptr<AlphaZero>> alphazeros,
+    std::vector<std::shared_ptr<Algo>> algos,
     size_t max_turns_per_game) :
     logger_(logger), initial_state_(std::move(initial_state)),
-    players_(std::move(players)), alphazeros_(std::move(alphazeros)),
+    players_(std::move(players)), algos_(std::move(algos)),
     max_turns_per_game_(max_turns_per_game) { }
 
   // Return the result of playing one game. Undefined until Invoke()
   // is called and returns.
   GameResult Result() const { return result_; }
 
-  // Return AlphaZero statistics collected for all alphazero activity.
+  // Return AlphaZero statistics collected for all alphazero
+  // activity. Currently this is not generalized for other Algo types.
   const AlphaZeroStatistics& AlphaZeroStats() const { return alphazero_statistics_; }
 
-  // Return the training samples collected from playing one
-  // game. Undefined until Invoke() is called and returns.
+  // Return the alphazero training samples collected from playing one
+  // game. Undefined until Invoke() is called and returns.  Currently
+  // this is not generalized for other Algo types.
   std::vector<AlphaZeroTrainingSamples::Sample>&& AcquireTrainSamples() {
-    return std::move(train_samples_); }
+    return std::move(alphazero_train_samples_); }
 
   // See common::TaskPool::Task
   bool Invoke() override;
@@ -99,11 +102,11 @@ private:
   std::shared_ptr<common::Logger> logger_;
   std::unique_ptr<State> initial_state_;
   std::vector<std::unique_ptr<Player>> players_;
-  std::vector<std::shared_ptr<AlphaZero>> alphazeros_;
+  std::vector<std::shared_ptr<Algo>> algos_;
   const size_t max_turns_per_game_;
 
   AlphaZeroStatistics alphazero_statistics_;
-  std::vector<AlphaZeroTrainingSamples::Sample> train_samples_;
+  std::vector<AlphaZeroTrainingSamples::Sample> alphazero_train_samples_;
   GameResult result_;
 };
 
@@ -115,18 +118,18 @@ PlayOneTask::Invoke()
   std::unique_ptr<State> state(initial_state_->Clone());
 
   try {
-    // Let all players and alphazeros know a new game is starting.
+    // Let all players and algos know a new game is starting.
     for (auto& p : players_) {
       p->GameStart();
     }
-    for (auto& a : alphazeros_) {
+    for (auto& a : algos_) {
       if (a != nullptr) {
         a->GameStart();
       }
     }
 
     alphazero_statistics_.Reset();
-    train_samples_.clear();
+    alphazero_train_samples_.clear();
     result_ = GameResult::ABORT;
 
     const auto starting_player_id = state->ActivePlayerId();
@@ -176,15 +179,21 @@ PlayOneTask::Invoke()
       terminal_status = StateTerminalStatus(StateTerminalStatus::TerminalKind::DRAW);
     }
 
-    // Let all players and alphazeros know game is completed. Collect
+    // Let all players and algos know game is completed. Collect
     // statistics.
     for (auto& p : players_) {
       p->GameEnd(*state, terminal_status);
     }
-    for (auto& a : alphazeros_) {
+    for (auto& a : algos_) {
       if (a != nullptr) {
-        alphazero_statistics_ += a->Statistics();
-        a->GameEnd(*state, terminal_status, &train_samples_);
+        AlphaZero* az = dynamic_cast<AlphaZero*>(a.get());
+        if (az != nullptr) {
+          alphazero_statistics_ += az->Statistics();
+          az->GameEnd(*state, terminal_status, &alphazero_train_samples_);
+        }
+        else {
+          a->GameEnd(*state, terminal_status);
+        }
       }
     }
 
@@ -479,13 +488,13 @@ Game::Parse(int argc, char **argv)
 
     case BuiltInOptionId::OPTION_PLAYER1:
       splayer1.cmdline_specified_ = true;
-      splayer1.kind_ = Player::StringToPlayerKind(optarg);
+      splayer1.kind_ = PlayerSettings::StringToKind(optarg);
       splayer1.name_ = splayer1.DefaultName();
       active_splayer = &splayer1;
       break;
     case BuiltInOptionId::OPTION_PLAYER2:
       splayer2.cmdline_specified_ = true;
-      splayer2.kind_ = Player::StringToPlayerKind(optarg);
+      splayer2.kind_ = PlayerSettings::StringToKind(optarg);
       splayer2.name_ = splayer2.DefaultName();
       active_splayer = &splayer2;
       break;
@@ -530,8 +539,8 @@ Game::Parse(int argc, char **argv)
     }
   }
 
-  if (!train && ((splayer1.kind_ == Player::PlayerKind::HUMAN) ||
-                 (splayer2.kind_ == Player::PlayerKind::HUMAN))) {
+  if (!train && ((splayer1.kind_ == PlayerSettings::Kind::HUMAN) ||
+                 (splayer2.kind_ == PlayerSettings::Kind::HUMAN))) {
     GameCheckTrueMsg(logger_->FilterLevel() != common::Logger::Level::OFF,
                      "--quiet cannot be specified if there is a human player");
     if (!verbose) {
@@ -550,12 +559,12 @@ Game::Parse(int argc, char **argv)
   GameCheckTrueMsg(!train || std::filesystem::is_directory(train_dir_),
                    "--train-dir must be an existing directory");
   GameCheckTrueMsg(!train || (splayer1.cmdline_specified_ &&
-                              (splayer1.kind_ == Player::PlayerKind::ALPHAZERO)),
+                              (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO)),
                    "--train requires --player1=alphazero");
 
   // Alphazero initialization if required.
-  if ((splayer1.kind_ == Player::PlayerKind::ALPHAZERO) ||
-      (splayer2.kind_ == Player::PlayerKind::ALPHAZERO)) {
+  if ((splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) ||
+      (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO)) {
     // Create shared triton...
     triton_server_.reset(new TritonServer("http://localhost:8000", verbose));
     GameCheckTrueMsg(triton_server_->IsReady(), "triton server is not ready");
@@ -567,7 +576,7 @@ Game::Parse(int argc, char **argv)
     // it so that it is not used by mistake in place of the specified
     // model.
     const auto& triton_repo = triton_server_->ModelRepositoryIndex();
-    if (splayer1.kind_ == Player::PlayerKind::ALPHAZERO) {
+    if (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) {
       GameCheckTrueMsg(!splayer1.alphazero_settings_.model_name_.empty(),
                        "--player1=alphazero requires --alphazero-model");
       if (triton_repo.find(splayer1.alphazero_settings_.model_name_) != triton_repo.end()) {
@@ -581,7 +590,7 @@ Game::Parse(int argc, char **argv)
                        "failed to load player1 model '" +
                        splayer1.alphazero_settings_.model_name_ + "'");
     }
-    if (splayer2.kind_ == Player::PlayerKind::ALPHAZERO) {
+    if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
       GameCheckTrueMsg(!splayer2.alphazero_settings_.model_name_.empty(),
                        "--player2=alphazero requires --alphazero-model");
       if (triton_repo.find(splayer2.alphazero_settings_.model_name_) != triton_repo.end()) {
@@ -637,45 +646,56 @@ Game::Play()
 
     // Create enough PlayOneTask objects to keep all pool threads
     // busy, but not more than 'game_count'. Each task gets its own
-    // Players and AlphaZeros so that it can execute independently of
+    // Players, Algos, etc. so that it can execute independently of
     // other tasks.
     size_t games_started = std::min(game_count_, std::max(size_t(2), size_t(parallel_ * 1.5)));
     for (size_t gidx = 0; gidx < games_started; ++gidx) {
+      // Each player can optionally have a Algo controlling its action
+      // selection. Initially nullptr indicating no Algo.
+      std::vector<std::shared_ptr<Algo>> algos(2);
+
       // Create AlphaZero objects. If only player1 was specified on
       // cmdline and is alphazero, then share a single alphazero
       // object between player1 and player2 to get self-play.
-      std::vector<std::shared_ptr<AlphaZero>> alphazeros(2);
-      if ((psettings[0].kind_ == Player::PlayerKind::ALPHAZERO) ||
-          (psettings[1].kind_ == Player::PlayerKind::ALPHAZERO)) {
+      if ((psettings[0].kind_ == PlayerSettings::Kind::ALPHAZERO) ||
+          (psettings[1].kind_ == PlayerSettings::Kind::ALPHAZERO)) {
         // Collect statistics from alphazero...
         alphazero_statistics = std::make_unique<AlphaZeroStatistics>();
 
-        if (psettings[0].kind_ == Player::PlayerKind::ALPHAZERO) {
+        if (psettings[0].kind_ == PlayerSettings::Kind::ALPHAZERO) {
           std::unique_ptr<TritonModel> triton_model(
             triton_server_->CreateTritonModel(psettings[0].alphazero_settings_.model_name_));
-          alphazeros[0] = std::make_shared<AlphaZero>(
-            logger_, std::move(triton_model),
-            psettings[0].alphazero_settings_);
+          algos[0] = std::make_shared<AlphaZero>(
+            logger_, std::move(triton_model), psettings[0].alphazero_settings_);
         }
-        if (psettings[1].kind_ == Player::PlayerKind::ALPHAZERO) {
+        if (psettings[1].kind_ == PlayerSettings::Kind::ALPHAZERO) {
           if (!psettings[1].cmdline_specified_) {
-            alphazeros[1] = alphazeros[0];
+            algos[1] = algos[0];
           }
           else {
             std::unique_ptr<TritonModel> triton_model(
               triton_server_->CreateTritonModel(psettings[1].alphazero_settings_.model_name_));
-            alphazeros[1] = std::make_shared<AlphaZero>(
-              logger_, std::move(triton_model),
-              psettings[1].alphazero_settings_);
+            algos[1] = std::make_shared<AlphaZero>(
+              logger_, std::move(triton_model), psettings[1].alphazero_settings_);
           }
         }
+      }
+
+      // Create RandomAlgo objects.
+      if (psettings[0].kind_ == PlayerSettings::Kind::RANDOM) {
+        assert(algos[0] == nullptr);
+        algos[0] = std::make_shared<RandomAlgo>();
+      }
+      if (psettings[1].kind_ == PlayerSettings::Kind::RANDOM) {
+        assert(algos[1] == nullptr);
+        algos[1] = std::make_shared<RandomAlgo>();
       }
 
       // Create players. The players are collected in a vector and each
       // player's position in the vector is the players ID.
       std::vector<std::unique_ptr<Player>> players;
-      players.emplace_back(CreatePlayerInternal(psettings[0], alphazeros[0]));
-      players.emplace_back(CreatePlayerInternal(psettings[1], alphazeros[1]));
+      players.emplace_back(CreatePlayerInternal(psettings[0], algos[0]));
+      players.emplace_back(CreatePlayerInternal(psettings[1], algos[1]));
 
       // Initial state for all games.
       std::unique_ptr<State> istate(
@@ -683,7 +703,7 @@ Game::Play()
 
       pool.Enqueue(std::make_unique<PlayOneTask>(
                      logger_, std::move(istate),
-                     std::move(players), std::move(alphazeros),
+                     std::move(players), std::move(algos),
                      max_turns_per_game_));
     }
 
@@ -802,12 +822,13 @@ Game::Play()
 
 Player*
 Game::CreatePlayerInternal(
-  const PlayerSettings& player_settings, const std::shared_ptr<AlphaZero>& alphazero) const
+  const PlayerSettings& player_settings, const std::shared_ptr<Algo>& algo) const
 {
   const char bc = (player_settings.id_ == 1) ? 'o' : 'x';
-  Player* p = CreatePlayer(logger_, player_settings.kind_, player_settings.name_, bc, alphazero);
+  Player::Kind player_kind = PlayerSettings::KindToPlayerKind(player_settings.kind_);
+  Player* p = CreatePlayer(logger_, player_kind, player_settings.name_, bc, algo);
   GameCheckTrueMsg(p != nullptr,
-                   "'" + Player::PlayerKindToString(player_settings.kind_) +
+                   "'" + PlayerSettings::KindToString(player_settings.kind_) +
                    "' player not supported by game '" + Name() + "'");
   return p;
 }

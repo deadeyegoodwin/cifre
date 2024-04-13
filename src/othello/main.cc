@@ -49,8 +49,8 @@ public:
   // See cifre::Game
   Player* CreatePlayer(
     const std::shared_ptr<common::Logger>& logger,
-    const Player::PlayerKind kind, const std::string& name, const char ch,
-    const std::shared_ptr<AlphaZero>& alphazero) const override;
+    const Player::Kind kind, const std::string& name, const char ch,
+    const std::shared_ptr<cifre::Algo>& algo) const override;
 
   // See cifre::Game
   State* CreateInitialState(
@@ -146,21 +146,21 @@ Othello::DefaultAlphaZeroSettings(const bool train) const
 cifre::Player*
 Othello::CreatePlayer(
   const std::shared_ptr<common::Logger>& logger,
-  const Player::PlayerKind kind, const std::string& name, const char ch,
-  const std::shared_ptr<AlphaZero>& alphazero) const
+  const Player::Kind kind, const std::string& name, const char ch,
+  const std::shared_ptr<cifre::Algo>& algo) const
 {
-  // PERFECT player is not available for othello.
-  if (kind == Player::PlayerKind::PERFECT) {
-    return nullptr;
-  }
-
-  // Use default players except for HUMAN.
-  if (kind == Player::PlayerKind::HUMAN) {
-    assert(alphazero == nullptr);
+  switch (kind) {
+  case Player::Kind::UNKNOWN:
+    break;
+  case Player::Kind::HUMAN:
+    assert(algo == nullptr);
     return new HumanPlayer(logger, name, ch);
+  case Player::Kind::ALGO:
+    assert(algo != nullptr);
+    return new cifre::AlgoPlayer(logger, name, ch, algo);
   }
 
-  return Player::Create(logger, kind, name, ch, alphazero);
+  return nullptr;
 }
 
 cifre::State*

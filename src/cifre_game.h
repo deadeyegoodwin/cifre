@@ -95,14 +95,47 @@ private:
 // Class for collecting command-line player options and settings.
 //
 struct PlayerSettings {
-  PlayerSettings(const std::string& kind_str, size_t id) :
-    kind_(Player::StringToPlayerKind(kind_str)), id_(id), name_(DefaultName()) { }
+  enum class Kind { UNKNOWN, HUMAN, RANDOM, ALPHAZERO, PERFECT };
 
-  std::string DefaultName() const {
-    return Player::PlayerKindToString(kind_) + std::to_string(id_);
+  PlayerSettings(const std::string& kind_str, size_t id) :
+    kind_(StringToKind(kind_str)), id_(id), name_(DefaultName()) { }
+
+  static Kind StringToKind(const std::string& str) {
+    if (str == "human") { return Kind::HUMAN; }
+    if (str == "random") { return Kind::RANDOM; }
+    if (str == "alphazero") { return Kind::ALPHAZERO; }
+    if (str == "perfect") { return Kind::PERFECT; }
+    return Kind::UNKNOWN;
   }
 
-  Player::PlayerKind kind_ {Player::PlayerKind::UNKNOWN};
+  static std::string KindToString(const Kind kind) {
+    switch (kind) {
+    case Kind::UNKNOWN: return "<unknown>";
+    case Kind::HUMAN: return "human";
+    case Kind::RANDOM: return "random";
+    case Kind::ALPHAZERO: return "alphazero";
+    case Kind::PERFECT: return "perfect";
+    }
+    return "<none>"; // unreachable
+  }
+
+  static Player::Kind KindToPlayerKind(const Kind kind) {
+    switch (kind) {
+    case Kind::UNKNOWN: return Player::Kind::UNKNOWN;
+    case Kind::HUMAN: return Player::Kind::HUMAN;
+    case Kind::RANDOM:
+    case Kind::ALPHAZERO:
+    case Kind::PERFECT:
+      return Player::Kind::ALGO;
+    }
+    return Player::Kind::UNKNOWN; // unreachable
+  }
+
+  std::string DefaultName() const {
+    return PlayerSettings::KindToString(kind_) + std::to_string(id_);
+  }
+
+  Kind kind_ {Kind::UNKNOWN};
   bool cmdline_specified_ {false};
   size_t id_;
   std::string name_;
@@ -141,13 +174,13 @@ public:
   virtual State* CreateInitialState(
     const std::vector<Player*>& players, size_t starting_player_idx) const = 0;
 
-  // Create Player for the game. 'alphazero' must be nullptr for
-  // non-alphazero players. Returns nullptr if the game does not
+  // Create Player for the game. 'algo' must be nullptr for
+  // non-algorithmic players. Returns nullptr if the game does not
   // support players of 'kind'.
   virtual Player* CreatePlayer(
     const std::shared_ptr<common::Logger>& logger,
-    const Player::PlayerKind kind, const std::string& name, const char ch,
-    const std::shared_ptr<AlphaZero>& alphazero) const = 0;
+    const Player::Kind kind, const std::string& name, const char ch,
+    const std::shared_ptr<Algo>& algo) const = 0;
 
   // Built-in command-line options. Specific games should start their
   // options with Game::FirstCustomOptionId.
@@ -207,7 +240,7 @@ private:
 
   // Return player created from settings.
   Player* CreatePlayerInternal(
-    const PlayerSettings& player_settings, const std::shared_ptr<AlphaZero>& alphazero) const;
+    const PlayerSettings& player_settings, const std::shared_ptr<Algo>& algo) const;
 
   // Logger for the game.
   std::shared_ptr<common::Logger> logger_;

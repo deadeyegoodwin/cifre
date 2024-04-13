@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "cifre_algo.h"
 #include "cifre_state.h"
 #include "cifre_triton.h"
 #include "common_logger.h"
@@ -289,7 +290,7 @@ private:
 // Implementation of the alpha-zero algorithm. Not necessarily exactly
 // the same, but generally uses the same ideas.
 //
-class AlphaZero {
+class AlphaZero : public Algo {
 public:
   // Create alphazero object using 'settings'.
   AlphaZero(const std::shared_ptr<common::Logger>& logger,
@@ -303,15 +304,23 @@ public:
   // constructing a new tree from scratch.
   void Reset();
 
-  // Called to notify that a new game is starting. 'this' alphazero
-  // object is Reset() in preparation of the new game.
-  void GameStart();
+  // See cifre::Algo. Called to notify that a new game is
+  // starting. 'this' alphazero object is Reset() in preparation of
+  // the new game.
+  void GameStart() override;
 
-  // Called to notify that game has ended at 'terminal_state' with a
-  // terminal 'status'. Note the 'status' may differ from the actual
-  // terminal status of 'terminal_state', but any end-game actions
-  // should respect 'status'. 'status' of NON_TERMINAL is not allowed
-  // and GameEnd should throw exception if that value is received.  If
+  // See cifre::Algo. Called to notify that game has ended at
+  // 'terminal_state' with a terminal 'status'. Note the 'status' may
+  // differ from the actual terminal status of 'terminal_state', but
+  // any end-game actions should respect 'status'. 'status' of
+  // NON_TERMINAL is not allowed and GameEnd should throw exception if
+  // that value is received.  If 'samples' is non-nullptr, then the
+  // collected AlphaZeroTrainingSamples::Samples are returned. Lastly,
+  // 'this' alphazero object is Reset().
+  void GameEnd(const State& terminal_state, const StateTerminalStatus& status) override {
+    GameEnd(terminal_state, status, nullptr); }
+
+  // Version of GameEnd that also collects training samples. If
   // 'samples' is non-nullptr, then the collected
   // AlphaZeroTrainingSamples::Samples are returned. Lastly, 'this'
   // alphazero object is Reset().
@@ -319,14 +328,12 @@ public:
     const State& terminal_state, const StateTerminalStatus& status,
     std::vector<AlphaZeroTrainingSamples::Sample>* samples);
 
-  // Return the next predicted action ID, given current 'state'. If is
-  // an error if 'state' represents a terminal state.
-  // 'max_game_turns_remaining' indicates the maximum number of game
-  // turns remaining and that is used to control the depth that should
-  // be searched update the node tree. Any search that reaches that
-  // depth will assume the game is a DRAW at that point and will
-  // update the tree appropriately.
-  uint64_t NextActionId(const State& state, size_t max_game_turns_remaining);
+  // See cifre::Algo. 'max_game_turns_remaining' indicates the maximum
+  // number of game turns remaining and is used to control the depth
+  // that should be searched update the node tree. Any search that
+  // reaches that depth will assume the game is a DRAW at that point
+  // and will update the tree appropriately.
+  uint64_t NextActionId(const State& state, size_t max_game_turns_remaining) override;
 
 private:
   // Return the node representing the given 'state', creating if
