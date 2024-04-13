@@ -76,7 +76,7 @@ class CifreNNetManager(object):
 
                 # Compute loss...
                 pi_loss = -torch.sum(sample_pi * pi_result)
-                v_loss = torch.sum((sample_v - v_result.view(-1)) ** 2)
+                v_loss = torch.sum((sample_v - v_result) ** 2)
                 total_loss = (pi_loss + v_loss) / ibs
                 self._log.log_debug(f'loss: v = {v_loss/ibs}, pi = {pi_loss/ibs}')
 
