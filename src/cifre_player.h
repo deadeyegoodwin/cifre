@@ -20,10 +20,18 @@ namespace cifre {
 //
 class Player {
 public:
-  // Create 'name'd human player that uses 'ch' as the one character
-  // representation.
-  Player(
-    const std::shared_ptr<common::Logger>& logger, const std::string& name, char ch);
+  enum class PlayerKind { UNKNOWN, HUMAN, RANDOM, ALPHAZERO, PERFECT };
+  static PlayerKind StringToPlayerKind(const std::string& str);
+  static std::string PlayerKindToString(const PlayerKind kind);
+
+public:
+  // Create player of given 'kind'. Return nullptr if unable to create
+  // the player.
+  static Player* Create(
+    const std::shared_ptr<common::Logger>& logger,
+    const PlayerKind kind, const std::string& name, const char ch,
+    const std::shared_ptr<AlphaZero>& alphazero);
+
   virtual ~Player() = default;
 
   // Return the player's name.
@@ -55,6 +63,9 @@ public:
   std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
 
 protected:
+  Player(
+    const std::shared_ptr<common::Logger>& logger, const std::string& name, char ch);
+
   std::shared_ptr<common::Logger> logger_;
   const std::string name_;
   const char ch_;

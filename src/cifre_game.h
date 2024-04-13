@@ -95,33 +95,14 @@ private:
 // Class for collecting command-line player options and settings.
 //
 struct PlayerSettings {
-  enum class Kind { UNKNOWN, HUMAN, RANDOM, ALPHAZERO };
-
   PlayerSettings(const std::string& kind_str, size_t id) :
-    kind_(StringToKind(kind_str)), id_(id), name_(DefaultName()) { }
-
-  static Kind StringToKind(const std::string& str) {
-    if (str == "human") { return Kind::HUMAN; }
-    if (str == "random") { return Kind::RANDOM; }
-    if (str == "alphazero") { return Kind::ALPHAZERO; }
-    return Kind::UNKNOWN;
-  }
-
-  static std::string KindToString(const Kind kind) {
-    switch (kind) {
-    case Kind::UNKNOWN: return "<unknown>";
-    case Kind::HUMAN: return "human";
-    case Kind::RANDOM: return "random";
-    case Kind::ALPHAZERO: return "alphazero";
-    }
-    return "<none>";
-  }
+    kind_(Player::StringToPlayerKind(kind_str)), id_(id), name_(DefaultName()) { }
 
   std::string DefaultName() const {
-    return PlayerSettings::KindToString(kind_) + std::to_string(id_);
+    return Player::PlayerKindToString(kind_) + std::to_string(id_);
   }
 
-  Kind kind_ {Kind::UNKNOWN};
+  Player::PlayerKind kind_ {Player::PlayerKind::UNKNOWN};
   bool cmdline_specified_ {false};
   size_t id_;
   std::string name_;
@@ -152,18 +133,21 @@ public:
   // Return the name of the game's executable.
   virtual const std::string& ExecutableName() const = 0;
 
-  // Create a human-controlled Player for the game.
-  virtual cifre::Player* CreateHumanPlayer(
-    const std::shared_ptr<common::Logger>& logger,
-    const std::string& name, const char ch) const = 0;
-
   // Set the default AlphaZero settings for the game, depending on if
   // 'train'ing is being done or not.
   virtual cifre::AlphaZeroSettings DefaultAlphaZeroSettings(const bool train) const = 0;
 
   // Return the cifre::State representing the initial game state.
-  virtual State* InitialState(
+  virtual State* CreateInitialState(
     const std::vector<Player*>& players, size_t starting_player_idx) const = 0;
+
+  // Create Player for the game. 'alphazero' must be nullptr for
+  // non-alphazero players. Returns nullptr if the game does not
+  // support players of 'kind'.
+  virtual Player* CreatePlayer(
+    const std::shared_ptr<common::Logger>& logger,
+    const Player::PlayerKind kind, const std::string& name, const char ch,
+    const std::shared_ptr<AlphaZero>& alphazero) const = 0;
 
   // Built-in command-line options. Specific games should start their
   // options with Game::FirstCustomOptionId.
@@ -222,8 +206,8 @@ private:
   void Parse(int argc, char **argv);
 
   // Return player created from settings.
-  Player* CreatePlayer(const PlayerSettings& player_settings,
-                       const std::shared_ptr<AlphaZero>& alphazero) const;
+  Player* CreatePlayerInternal(
+    const PlayerSettings& player_settings, const std::shared_ptr<AlphaZero>& alphazero) const;
 
   // Logger for the game.
   std::shared_ptr<common::Logger> logger_;

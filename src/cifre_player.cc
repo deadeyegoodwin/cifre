@@ -12,8 +12,66 @@
 namespace cifre {
 
 //
+// Player::PlayerKind
+//
+Player::PlayerKind
+Player::StringToPlayerKind(const std::string& str)
+{
+  if (str == "human") {
+    return PlayerKind::HUMAN;
+  }
+  if (str == "random") {
+    return PlayerKind::RANDOM;
+  }
+  if (str == "alphazero") {
+    return PlayerKind::ALPHAZERO;
+  }
+  if (str == "perfect") {
+    return PlayerKind::PERFECT;
+  }
+
+  return PlayerKind::UNKNOWN;
+}
+
+std::string
+Player::PlayerKindToString(const PlayerKind kind)
+{
+  switch (kind) {
+  case PlayerKind::UNKNOWN: return "<unknown>";
+  case PlayerKind::HUMAN: return "human";
+  case PlayerKind::RANDOM: return "random";
+  case PlayerKind::ALPHAZERO: return "alphazero";
+  case PlayerKind::PERFECT: return "perfect";
+  }
+
+  return "<none>"; // not reached
+}
+
+//
 // Player
 //
+Player*
+Player::Create(
+  const std::shared_ptr<common::Logger>& logger,
+  const Player::PlayerKind kind, const std::string& name, const char ch,
+  const std::shared_ptr<AlphaZero>& alphazero)
+{
+  switch (kind) {
+  case Player::PlayerKind::RANDOM:
+    assert(alphazero == nullptr);
+    return new RandomPlayer(logger, name, ch);
+
+  case Player::PlayerKind::ALPHAZERO:
+    assert(alphazero != nullptr);
+    return new AlphaZeroPlayer(logger, name, ch, alphazero);
+
+  default:
+    break;
+  }
+
+  return nullptr;
+}
+
 Player::Player(const std::shared_ptr<common::Logger>& logger,
                const std::string& name, char ch) :
   logger_(logger), name_(name), ch_(ch)

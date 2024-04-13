@@ -47,12 +47,13 @@ public:
   cifre::AlphaZeroSettings DefaultAlphaZeroSettings(const bool train) const override;
 
   // See cifre::Game
-  cifre::Player* CreateHumanPlayer(
+  Player* CreatePlayer(
     const std::shared_ptr<common::Logger>& logger,
-    const std::string& name, const char ch) const override;
+    const Player::PlayerKind kind, const std::string& name, const char ch,
+    const std::shared_ptr<AlphaZero>& alphazero) const override;
 
   // See cifre::Game
-  State* InitialState(
+  State* CreateInitialState(
     const std::vector<Player*>& players, size_t starting_player_idx) const override;
 
 private:
@@ -143,15 +144,27 @@ Othello::DefaultAlphaZeroSettings(const bool train) const
 }
 
 cifre::Player*
-Othello::CreateHumanPlayer(
+Othello::CreatePlayer(
   const std::shared_ptr<common::Logger>& logger,
-  const std::string& name, const char ch) const
+  const Player::PlayerKind kind, const std::string& name, const char ch,
+  const std::shared_ptr<AlphaZero>& alphazero) const
 {
-  return new HumanPlayer(logger, name, ch);
+  // PERFECT player is not available for othello.
+  if (kind == Player::PlayerKind::PERFECT) {
+    return nullptr;
+  }
+
+  // Use default players except for HUMAN.
+  if (kind == Player::PlayerKind::HUMAN) {
+    assert(alphazero == nullptr);
+    return new HumanPlayer(logger, name, ch);
+  }
+
+  return Player::Create(logger, kind, name, ch, alphazero);
 }
 
 cifre::State*
-Othello::InitialState(
+Othello::CreateInitialState(
   const std::vector<Player*>& players, size_t starting_player_idx) const
 {
   return new Board(game_shape_, players, starting_player_idx);
