@@ -39,8 +39,13 @@ docker run --gpus=1 --rm --net=host -v /tmp/cifre/models:/cifre/models nvcr.io/n
 cd python
 rm -fr /tmp/cifre/models/*
 rm -fr /tmp/cifre/train/*
-./cifre_train.py --repo-dir=/tmp/cifre/models --train-dir=/tmp/cifre/train --game=tictactoe --game-shape=3,3 --batch-size=2 --epoch-count=16 --iteration-count=8 --game-count=50 --alphazero-update-count=512
+./cifre_train.py --repo-dir=/tmp/cifre/models --train-dir=/tmp/cifre/train --game=tictactoe --epoch-count=16 --iteration-count=4 --game-count=100
 ```
+
+## Games
+
+* [Tic-Tac-Toe](src/tictactoe/README.md)
+* [Othello](src/othello/README.md)
 
 ## Build
 
@@ -60,8 +65,15 @@ Then disable the problematic part of the build:
 cmake -DBUILD_TRITON_CLIENT=OFF ..
 ```
 
-Then you can perform incremental builds and/or re-run cmake to change
-build options, and perform as many builds as required. For example:
+Then use the following to install a full release build. Artifacts are
+installed into `install/`.
+
+```base
+make -j install
+```
+
+You can perform incremental builds and/or re-run cmake to change build
+options, and perform as many builds as required. For example:
 
 ```base
 cmake -DASAN=ON -DCMAKE_BUILD_TYPE=Debug ..
