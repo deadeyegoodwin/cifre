@@ -85,7 +85,7 @@ Othello::CustomGameOptions() const
      "Default is '--game-shape=" + DEFAULT_GAME_SHAPE.ToString() + "'."},
     {OPTION_MAX_TURNS_PER_GAME, "max-turns-per-game", GameOption::ArgInt,
      "Maximum number of turns allowed per game. One turn consists of each "
-     "player hacing a chance to occupy a space on the " + Name() + " board."}};
+     "player having a chance to occupy a space on the " + Name() + " board."}};
 
   return custom;
 }
