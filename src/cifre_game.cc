@@ -208,6 +208,8 @@ PlayOneTask::Invoke()
 
     // Game completed with a winner.
     const size_t winner_id = terminal_status.WinnerId();
+    LOGGER_LOGMED(*logger_, "game over: winner " + players_[winner_id]->Name());
+    LOGGER_LOGMED(*logger_, state->ToString());
 
     // FIXME only supports 2 player games
     result_ = (winner_id == 0) ? GameResult::WINNER1 : GameResult::WINNER2;

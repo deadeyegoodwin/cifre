@@ -88,7 +88,7 @@ public:
   const BoardSize2D& Size() const { return size_; }
 
   // Return the Action associated with a string.
-  Action StringToAction(const std::string& str) const;
+  virtual Action StringToAction(const std::string& str) const;
 
   // Return the string representation of an 'action'. See
   // cifre::State.

@@ -218,6 +218,19 @@ def main():
             'dropout' : 0.25,
             'num_channels' : 512 }
         nnet = CifreBasicFcNNet(nnet_args)
+    elif FLAGS.game == 'connect4':
+        game_shape = (6, 7) if (FLAGS.game_shape is None) else FLAGS.game_shape
+        train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
+        infer_batch_size = 32 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
+        LOG.fail_if(len(game_shape) != 2, "connect4 requires shape rank 2")
+        nnet_args = {
+            'batch_size' : train_batch_size,
+            'num_rows' : game_shape[0],
+            'num_cols' : game_shape[1],
+            'num_actions' : game_shape[1],
+            'dropout' : 0.25,
+            'num_channels' : 512 }
+        nnet = CifreBasicConvNNet(nnet_args)
     elif FLAGS.game == 'othello':
         game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
         train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
