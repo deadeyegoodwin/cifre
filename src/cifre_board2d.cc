@@ -246,8 +246,8 @@ Board2D::ToString() const
             sstr << ' ' << player->ToString();
           }
         }
+        sstr << '\n';
       }
-      sstr << '\n';
     }
   }
 

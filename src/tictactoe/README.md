@@ -30,8 +30,11 @@ To have player2 go first add the --starting argument after --player2.
 install/bin/tictactoe --player1=human --player2=alphazero --starting --alphazero-model iter3
 ```
 
-You can also have a random player play against the alphazero
-model. Use --game-count to play multiple games.
+You can also have a random, perfect and alphazero player that plays
+against a human or each other. For example, use the following command
+to play a random player against the alphazero model (use
+--player1=perfect to play perfect strategy). Use --game-count to play
+multiple games.
 
 ```bash
 install/bin/tictactoe --game-count=10 --player1=random --player2=alphazero --alphazero-model iter3

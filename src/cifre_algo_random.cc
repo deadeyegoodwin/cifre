@@ -16,6 +16,8 @@ RandomAlgo::GameStart()
 void
 RandomAlgo::GameEnd(const State& terminal_state, const StateTerminalStatus& status)
 {
+  THROWIF(status.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
+          "game ended with NON-TERMINAL status");
 }
 
 uint64_t

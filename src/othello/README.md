@@ -33,8 +33,12 @@ To have player2 go first add the --starting argument after --player2.
 install/bin/othello --player1=human --player2=alphazero --starting --alphazero-model iter3
 ```
 
-You can also have a random player play against the alphazero
-model. Use --game-count to play multiple games.
+You can also have a random or alphazero player that plays against a
+human or each other. For example, use the following command to play a
+random player against the alphazero model. Use --game-count to play
+multiple games. `NOTE` it is not recommended to use a *perfect* player
+with Othello as the computation time for perfect play is likely not
+reasonable.
 
 ```bash
 install/bin/othello --game-count=10 --player1=random --player2=alphazero --alphazero-model iter3

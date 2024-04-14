@@ -5,6 +5,7 @@
 #include <sstream>
 #include <vector>
 
+#include "cifre_algo_minimax.h"
 #include "cifre_algo_random.h"
 #include "cifre_game.h"
 #include "cifre_version.h"
@@ -633,6 +634,8 @@ Game::Parse(int argc, char **argv)
 void
 Game::Play()
 {
+  const size_t player_count = player_settings_->size();
+
   try {
     const std::vector<cifre::PlayerSettings>& psettings = *player_settings_;
     std::unique_ptr<AlphaZeroStatistics> alphazero_statistics;
@@ -652,7 +655,7 @@ Game::Play()
     for (size_t gidx = 0; gidx < games_started; ++gidx) {
       // Each player can optionally have a Algo controlling its action
       // selection. Initially nullptr indicating no Algo.
-      std::vector<std::shared_ptr<Algo>> algos(2);
+      std::vector<std::shared_ptr<Algo>> algos(player_count);
 
       // Create AlphaZero objects. If only player1 was specified on
       // cmdline and is alphazero, then share a single alphazero
@@ -681,14 +684,25 @@ Game::Play()
         }
       }
 
-      // Create RandomAlgo objects.
-      if (psettings[0].kind_ == PlayerSettings::Kind::RANDOM) {
-        assert(algos[0] == nullptr);
-        algos[0] = std::make_shared<RandomAlgo>();
-      }
-      if (psettings[1].kind_ == PlayerSettings::Kind::RANDOM) {
-        assert(algos[1] == nullptr);
-        algos[1] = std::make_shared<RandomAlgo>();
+      // Create Algo objects for other game algorithms
+      for (size_t pid = 0; pid < player_count; ++pid) {
+        switch (psettings[pid].kind_) {
+        case PlayerSettings::Kind::UNKNOWN:
+          GameFail("player " + std::to_string(pid) + " has unsupported kind");
+          break;
+        case PlayerSettings::Kind::ALPHAZERO:
+        case PlayerSettings::Kind::HUMAN:
+          break; // handled above or elsewhere
+
+        case PlayerSettings::Kind::RANDOM:
+          assert(algos[pid] == nullptr);
+          algos[pid] = std::make_shared<RandomAlgo>();
+          break;
+        case PlayerSettings::Kind::PERFECT:
+          assert(algos[pid] == nullptr);
+          algos[pid] = std::make_shared<MiniMaxAlgo>(logger_);
+          break;
+        }
       }
 
       // Create players. The players are collected in a vector and each

@@ -89,7 +89,9 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
   THROWIF(state.TerminalStatus().Kind() != StateTerminalStatus::TerminalKind::NON_TERMINAL,
           "alpha-zero cannot find next action for terminal state");
 
-  // FIXME here we assume the game has two players...
+  // FIXME here we assume the game has two players, and that a player
+  // only gets to choose a single action each turn.
+  //
   // Use the std::max to avoid issues with overflow as
   // std::numeric_limits<size_t>::max() may be the value of
   // 'max_game_turns_remaining'.
@@ -326,8 +328,8 @@ AlphaZeroAlgo::GenerateDirichletSamples(
 //
 // AlphaZeroNode
 //
-  AlphaZeroNode::AlphaZeroNode(
-    std::unique_ptr<const State> state, std::shared_ptr<const TritonInferResult> infer_result) :
+AlphaZeroNode::AlphaZeroNode(
+  std::unique_ptr<const State> state, std::shared_ptr<const TritonInferResult> infer_result) :
   state_(std::move(state)), result_(infer_result),
   children_(state_->TotalActionIdCount(), nullptr),
   children_visit_counts_(state_->TotalActionIdCount(), 0),
@@ -350,7 +352,7 @@ AlphaZeroAlgo::GenerateDirichletSamples(
       value_ = 0.0;
     }
   } break;
-}
+  }
 }
 
 void

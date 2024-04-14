@@ -172,6 +172,7 @@ add_library(
   cifre-library STATIC
   src/cifre_action.cc
   src/cifre_algo_alphazero.cc
+  src/cifre_algo_minimax.cc
   src/cifre_algo_random.cc
   src/cifre_board2d.cc
   src/cifre_game.cc
