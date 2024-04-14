@@ -85,7 +85,7 @@ public:
   // is called and returns.
   GameResult Result() const { return result_; }
 
-  // Return AlphaZero statistics collected for all alphazero
+  // Return AlphaZeroAlgo statistics collected for all alphazero
   // activity. Currently this is not generalized for other Algo types.
   const AlphaZeroStatistics& AlphaZeroStats() const { return alphazero_statistics_; }
 
@@ -186,7 +186,7 @@ PlayOneTask::Invoke()
     }
     for (auto& a : algos_) {
       if (a != nullptr) {
-        AlphaZero* az = dynamic_cast<AlphaZero*>(a.get());
+        AlphaZeroAlgo* az = dynamic_cast<AlphaZeroAlgo*>(a.get());
         if (az != nullptr) {
           alphazero_statistics_ += az->Statistics();
           az->GameEnd(*state, terminal_status, &alphazero_train_samples_);
@@ -665,7 +665,7 @@ Game::Play()
         if (psettings[0].kind_ == PlayerSettings::Kind::ALPHAZERO) {
           std::unique_ptr<TritonModel> triton_model(
             triton_server_->CreateTritonModel(psettings[0].alphazero_settings_.model_name_));
-          algos[0] = std::make_shared<AlphaZero>(
+          algos[0] = std::make_shared<AlphaZeroAlgo>(
             logger_, std::move(triton_model), psettings[0].alphazero_settings_);
         }
         if (psettings[1].kind_ == PlayerSettings::Kind::ALPHAZERO) {
@@ -675,7 +675,7 @@ Game::Play()
           else {
             std::unique_ptr<TritonModel> triton_model(
               triton_server_->CreateTritonModel(psettings[1].alphazero_settings_.model_name_));
-            algos[1] = std::make_shared<AlphaZero>(
+            algos[1] = std::make_shared<AlphaZeroAlgo>(
               logger_, std::move(triton_model), psettings[1].alphazero_settings_);
           }
         }

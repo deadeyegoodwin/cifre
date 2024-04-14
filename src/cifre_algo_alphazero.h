@@ -97,7 +97,7 @@ public:
 //
 // AlphaZeroTrainingSamples
 //
-// Collects training samples from one or more AlphaZero objects.
+// Collects training samples from one or more AlphaZeroAlgo objects.
 //
 class AlphaZeroTrainingSamples {
 public:
@@ -285,16 +285,16 @@ private:
 };
 
 //
-// AlphaZero
+// AlphaZeroAlgo
 //
 // Implementation of the alpha-zero algorithm. Not necessarily exactly
 // the same, but generally uses the same ideas.
 //
-class AlphaZero : public Algo {
+class AlphaZeroAlgo : public Algo {
 public:
   // Create alphazero object using 'settings'.
-  AlphaZero(const std::shared_ptr<common::Logger>& logger,
-            std::unique_ptr<TritonModel> triton_model, const AlphaZeroSettings& settings);
+  AlphaZeroAlgo(const std::shared_ptr<common::Logger>& logger,
+                std::unique_ptr<TritonModel> triton_model, const AlphaZeroSettings& settings);
 
   // Return the statistics for this alphazero.
   const AlphaZeroStatistics& Statistics() const { return statistics_; }

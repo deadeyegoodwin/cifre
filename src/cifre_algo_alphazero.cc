@@ -7,7 +7,7 @@
 
 #include "gsl/gsl_rng.h"
 #include "gsl/gsl_randist.h"
-#include "cifre_alphazero.h"
+#include "cifre_algo_alphazero.h"
 #include "common_error.h"
 
 namespace cifre {
@@ -17,9 +17,9 @@ constexpr float WINNER_VALUE = 1.0;
 constexpr float LOSER_VALUE = -1.0;
 
 //
-// AlphaZero
+// AlphaZeroAlgo
 //
-AlphaZero::AlphaZero(
+AlphaZeroAlgo::AlphaZeroAlgo(
   const std::shared_ptr<common::Logger>& logger, std::unique_ptr<TritonModel> triton_model,
   const AlphaZeroSettings& settings) :
   logger_(logger), triton_model_(std::move(triton_model)), settings_(settings)
@@ -39,7 +39,7 @@ AlphaZero::AlphaZero(
 }
 
 void
-AlphaZero::Reset()
+AlphaZeroAlgo::Reset()
 {
   nodes_.clear();
   game_action_nodes_.clear();
@@ -47,13 +47,13 @@ AlphaZero::Reset()
 }
 
 void
-AlphaZero::GameStart()
+AlphaZeroAlgo::GameStart()
 {
   Reset();
 }
 
 void
-AlphaZero::GameEnd(const State& terminal_state, const StateTerminalStatus& status,
+AlphaZeroAlgo::GameEnd(const State& terminal_state, const StateTerminalStatus& status,
                    std::vector<AlphaZeroTrainingSamples::Sample>* samples)
 {
   THROWIF(status.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
@@ -84,7 +84,7 @@ AlphaZero::GameEnd(const State& terminal_state, const StateTerminalStatus& statu
 }
 
 uint64_t
-AlphaZero::NextActionId(const State& state, size_t max_game_turns_remaining)
+AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
 {
   THROWIF(state.TerminalStatus().Kind() != StateTerminalStatus::TerminalKind::NON_TERMINAL,
           "alpha-zero cannot find next action for terminal state");
@@ -165,7 +165,7 @@ AlphaZero::NextActionId(const State& state, size_t max_game_turns_remaining)
 }
 
 std::shared_ptr<AlphaZeroNode>
-AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
+AlphaZeroAlgo::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
 {
   std::shared_ptr<AlphaZeroNode> new_node;
   bool new_created;
@@ -203,7 +203,7 @@ AlphaZero::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
 }
 
 float
-AlphaZero::SearchTree(
+AlphaZeroAlgo::SearchTree(
   AlphaZeroNode* node, const size_t search_depth_remaining,
   const size_t game_depth_remaining, const std::vector<double>* dirichlet)
 {
@@ -304,7 +304,7 @@ AlphaZero::SearchTree(
 }
 
 void
-AlphaZero::GenerateDirichletSamples(
+AlphaZeroAlgo::GenerateDirichletSamples(
   const float alpha, const size_t sample_size, const size_t sample_count)
 {
   const std::vector<double> alphas(sample_size, alpha);

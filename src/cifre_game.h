@@ -8,7 +8,7 @@
 #include <string>
 
 #include "cifre_action.h"
-#include "cifre_alphazero.h"
+#include "cifre_algo_alphazero.h"
 #include "cifre_player.h"
 #include "cifre_state.h"
 #include "common_logger.h"
