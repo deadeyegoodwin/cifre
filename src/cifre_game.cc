@@ -842,7 +842,7 @@ Game::CreatePlayerInternal(
 {
   const char bc = (player_settings.id_ == 1) ? 'o' : 'x';
   Player::Kind player_kind = PlayerSettings::KindToPlayerKind(player_settings.kind_);
-  Player* p = CreatePlayer(logger_, player_kind, player_settings.name_, bc, algo);
+  Player* p = CreatePlayer(player_kind, player_settings.name_, bc, algo);
   GameCheckTrueMsg(p != nullptr,
                    "'" + PlayerSettings::KindToString(player_settings.kind_) +
                    "' player not supported by game '" + Name() + "'");

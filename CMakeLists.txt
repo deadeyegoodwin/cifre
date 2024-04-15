@@ -139,6 +139,7 @@ endif(BUILD_TRITON_CLIENT)
 #
 # Games
 #
+add_subdirectory(src/celcath)
 add_subdirectory(src/connect4)
 add_subdirectory(src/othello)
 add_subdirectory(src/tictactoe)

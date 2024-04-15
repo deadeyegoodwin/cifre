@@ -54,35 +54,12 @@ install(
 )
 
 #
-# celcath version
-#
-configure_file(celcath_version.h.in celcath_version.h)
-
-add_library(
-  celcath-version INTERFACE
-)
-
-target_include_directories(
-  celcath-version
-  INTERFACE
-    ${PROJECT_BINARY_DIR}
-)
-
-target_link_libraries(
-  celcath-version
-  INTERFACE
-    cifre-version
-    common-version
-)
-
-#
 # celcath library
 #
 add_library(
   celcath-library STATIC
   celcath_board.cc
   celcath_player.cc
-  celcath_settings.cc
   celcath_stepper.cc
 )
 
@@ -110,7 +87,6 @@ set_target_properties(
 target_link_libraries(
   celcath-library
   PUBLIC
-    celcath-version
     cifre-library
   PRIVATE
     ${CIFRE_ASAN_FLAGS}

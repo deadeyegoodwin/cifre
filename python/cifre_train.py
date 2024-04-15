@@ -253,7 +253,7 @@ def main():
             'batch_size' : train_batch_size,
             'num_rows' : game_shape[0],
             'num_cols' : game_shape[1],
-            'num_actions' : game_shape[0] * game_shape[1] + 2,
+            'num_actions' : game_shape[0] * game_shape[1] + 1,
             'dropout' : 0.25,
             'num_channels' : 512 }
         nnet = CifreBasicConvNNet(nnet_args)

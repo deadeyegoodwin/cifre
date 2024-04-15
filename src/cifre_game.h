@@ -178,7 +178,6 @@ public:
   // non-algorithmic players. Returns nullptr if the game does not
   // support players of 'kind'.
   virtual Player* CreatePlayer(
-    const std::shared_ptr<common::Logger>& logger,
     const Player::Kind kind, const std::string& name, const char ch,
     const std::shared_ptr<Algo>& algo) const = 0;
 
@@ -230,6 +229,9 @@ public:
   std::string Usage() const;
 
 protected:
+  // Logger for the game.
+  std::shared_ptr<common::Logger> logger_;
+
   // Game-dependent options. These must be set by the derived game
   // class to values appropriate for the game.
   size_t max_turns_per_game_;
@@ -241,9 +243,6 @@ private:
   // Return player created from settings.
   Player* CreatePlayerInternal(
     const PlayerSettings& player_settings, const std::shared_ptr<Algo>& algo) const;
-
-  // Logger for the game.
-  std::shared_ptr<common::Logger> logger_;
 
   // Has this game be initialized by a call to Initialize()?
   bool initialized_;

@@ -44,6 +44,7 @@ rm -fr /tmp/cifre/train/*
 
 ## Games
 
+* [Celcath](src/celcath/README.md)
 * [Connect 4](src/connect4/README.md)
 * [Othello](src/othello/README.md)
 * [Tic-Tac-Toe](src/tictactoe/README.md)

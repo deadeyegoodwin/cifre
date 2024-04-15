@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "celcath_board.h"
-#include "celcath_player.h"
 #include "celcath_stepper.h"
 #include "common_error.h"
 
@@ -27,6 +26,10 @@ B3S23Stepper::Name() const
 void
 B3S23Stepper::Step(Board* board, const std::vector<Player*>& players) const
 {
+  // For now the "neighbor value" assigned to an occupied cell is 1
+  // (and value for an empty cell is implicitly 0).
+  static constexpr int32_t NEIGHBOR_VALUE = 1;
+
   const auto board_size = board->Size();
 
   // Collect the sum of neighbor values for each cell, for each player
@@ -44,12 +47,12 @@ B3S23Stepper::Step(Board* board, const std::vector<Player*>& players) const
       // If no 'owner' for cell (i.e. empty) or 'owner' doesn't
       // contribute any neighbor value, then can skip it.
       const Player* owner = board->PlayerAt(ridx, cidx);
-      if ((owner != nullptr) && (owner->NeighborValue() != 0)) {
+      if ((owner != nullptr) && (NEIGHBOR_VALUE != 0)) {
         const size_t owner_id = board->PlayerIdAt(ridx, cidx);
         assert(players[owner_id] == owner);
 
         // Add 'owner's neighbor value to neighbor cells.
-        const int32_t nval = owner->NeighborValue();
+        const int32_t nval = NEIGHBOR_VALUE;
         const size_t start_ridx = (ridx == 0) ? 0 : ridx - 1;
         const size_t end_ridx = std::min(ridx + 2, board_size.RowCount());
         const size_t start_cidx = (cidx == 0) ? 0 : cidx - 1;
@@ -68,8 +71,8 @@ B3S23Stepper::Step(Board* board, const std::vector<Player*>& players) const
   }
 
   LOGGER_LOGHIGH(*logger_,
-                std::string("neighbor values\n") +
-                NeighborValuesToString(board_size, players, neighbor_values));
+                 std::string("neighbor values\n") +
+                 NeighborValuesToString(board_size, players, neighbor_values));
 
   // Update board based on the neighbor value of a cell.
   for (size_t nvcell = 0; nvcell < board_size.CellCount(); ++nvcell) {

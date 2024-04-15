@@ -5,7 +5,6 @@
 #include <cstdint>
 
 #include "celcath_player.h"
-#include "cifre_board2d.h"
 #include "common_logger.h"
 
 namespace cifre { namespace celcath {
@@ -15,7 +14,9 @@ class Board;
 //
 // Stepper
 //
-// Base class for a generation stepper.
+// Base class for a generation stepper. All methods are const so that
+// a stepper can be shared across multiple threads without requiring
+// synchronization.
 //
 class Stepper {
 public:
@@ -25,7 +26,7 @@ public:
   // Return the name of the stepper.
   virtual const std::string& Name() const = 0;
 
-  // Step 'board' one generation.
+  // Step / evolve 'board' one generation.
   virtual void Step(Board* board, const std::vector<Player*>& players) const = 0;
 
 protected:
@@ -43,7 +44,6 @@ protected:
 class B3S23Stepper : public Stepper {
 public:
   B3S23Stepper(const std::shared_ptr<common::Logger>& logger) : Stepper(logger) { }
-
   const std::string& Name() const override;
   void Step(Board* board, const std::vector<Player*>& players) const override;
 

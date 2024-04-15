@@ -156,13 +156,13 @@ public:
 
   // Update the board as necessary to make the opponent player the
   // active player.
-  void SwitchActivePlayer();
+  virtual void SwitchActivePlayer();
 
   // See cifre::State
-  size_t Hash() const override;
+  virtual size_t Hash() const override;
 
   // See cifre::State
-  bool Equal(const State* other) const override;
+  virtual bool Equal(const State* other) const override;
 
   // See cifre::State
   StateTerminalStatus TerminalStatus() const override { return terminal_status_; }
