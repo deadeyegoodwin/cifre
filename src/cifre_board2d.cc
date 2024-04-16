@@ -223,33 +223,21 @@ Board2D::ToString() const
   sstr << "\n    " << std::string(ch_width, '-') << '\n';
 
   // Board with each row number on the left.
-  for (size_t row_idx = 0; row_idx < (size_.RowCount() + 2); ++row_idx) {
-    if (row_idx == 0) {
-      sstr << "   |\n";
-    }
-    else {
-      if (row_idx < (size_.RowCount() + 1)) {
-        sstr << ' ' << row_idx << ' ';
+  sstr << "   |\n";
+  for (size_t row_idx = size_.RowCount(); row_idx > 0; --row_idx) {
+    sstr << ' ' << row_idx << " |  ";
+    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+      Player* player = PlayerAt(row_idx - 1, col_idx);
+      if (player == nullptr) {
+        sstr << "  ";
       }
       else {
-        sstr << "   ";
-      }
-
-      sstr << "|  ";
-      if (row_idx < (size_.RowCount() + 1)) {
-        for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
-          Player* player = PlayerAt(row_idx - 1, col_idx);
-          if (player == nullptr) {
-            sstr << "  ";
-          }
-          else {
-            sstr << ' ' << player->ToString();
-          }
-        }
-        sstr << '\n';
+        sstr << ' ' << player->ToString();
       }
     }
+    sstr << '\n';
   }
+  sstr << "   |";
 
   return sstr.str();
 }

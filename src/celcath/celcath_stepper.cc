@@ -82,8 +82,8 @@ B3S23Stepper::Step(Board* board, const std::vector<Player*>& players) const
     if (nv == 3) {
       // If cell is already alive, then we can either keep it as is,
       // or we can have it be taken over by the player that has the
-      // majority of neighbors. FIXME ruleset: for now just keep owner
-      // as is when 3 neighbors.
+      // majority of neighbors. For now just keep owner as is when 3
+      // neighbors.
       Player* player = board->PlayerAtFlattened(nvcell);
       if (player == nullptr) {
         // The player that has the majority neighbor count gets the
