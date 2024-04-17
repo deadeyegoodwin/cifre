@@ -144,4 +144,66 @@ B3S23Stepper::NeighborValuesToString(
   return sstr.str();
 }
 
+//
+// GrowStepper
+//
+const std::string&
+GrowStepper::Name() const
+{
+  static const std::string n("grow");
+  return n;
+}
+
+void
+GrowStepper::Step(Board* board, const std::vector<Player*>& players) const
+{
+  const auto board_size = board->Size();
+  const size_t active_player_id = board->ActivePlayerId();
+
+  // Keep column-wide "path" vector indicating which columns satisfy
+  // the grow requirement (see header file for
+  // description). Initialize based on row-0; any row-0 cell occupied
+  // by player provides a path to row 0.
+  std::vector<bool> path(board_size.ColumnCount(), false);
+  for (size_t cidx = 0; cidx < board_size.ColumnCount(); ++cidx) {
+    if (board->PlayerIdAt(0 /* row */, cidx) == active_player_id) {
+      path[cidx] = true;
+    }
+  }
+
+  // Scan all row-1 upwards and collect cells that should become
+  // active player cells. Don't set them here as they should not
+  // impact the outcome of higher up rows.
+  std::vector<size_t> occupy_fidx;
+  for (size_t ridx = 1; ridx < board_size.RowCount(); ++ridx) {
+    for (size_t cidx = 0; cidx < board_size.ColumnCount(); ++cidx) {
+      if (path[cidx] && (board->PlayerIdAt(ridx, cidx) == Board::PLAYER_COUNT)) {
+        occupy_fidx.push_back((ridx * board_size.ColumnCount()) + cidx);
+      }
+    }
+
+    // Update path for row 'ridx'. We do this with a left-right pass
+    // followed by right-left pass so that we identify paths that run
+    // along the row.
+    for (size_t cidx = 0; cidx < board_size.ColumnCount(); ++cidx) {
+      path[cidx] = (path[cidx] && (board->PlayerIdAt(ridx, cidx) == active_player_id));
+    }
+    for (size_t cidx = 1; cidx < board_size.ColumnCount(); ++cidx) {
+      if (!path[cidx] && path[cidx - 1] && (board->PlayerIdAt(ridx, cidx) == active_player_id)) {
+        path[cidx] = true;
+      }
+    }
+    for (size_t cidx = (board_size.ColumnCount() - 1); cidx > 0; --cidx) {
+      if (!path[cidx - 1] && path[cidx] && (board->PlayerIdAt(ridx, cidx - 1) == active_player_id)) {
+        path[cidx - 1] = true;
+      }
+    }
+  }
+
+  // Update board...
+  for (size_t fidx : occupy_fidx) {
+    board->SetPlayerIdAtFlattened(active_player_id, fidx);
+  }
+}
+
 }} // namespace cifre::celcath

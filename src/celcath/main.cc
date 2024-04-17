@@ -158,7 +158,7 @@ cifre::State*
 Celcath::CreateInitialState(
   const std::vector<Player*>& players, size_t starting_player_idx) const
 {
-  static std::shared_ptr<Stepper> stepper = std::make_shared<B3S23Stepper>(logger_);
+  static std::shared_ptr<Stepper> stepper = std::make_shared<GrowStepper>(logger_);
   return new Board(game_shape_, players, starting_player_idx, stepper);
 }
 

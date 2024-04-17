@@ -71,6 +71,8 @@ private:
 //
 class Board2D : public State {
 public:
+  static constexpr size_t PLAYER_COUNT = 2;
+
   // Create a board based of a given 'size' and 'players', where
   // player ID is the index of a given player in
   // 'players'. 'starting_player_id' indicates the player that will go
@@ -185,7 +187,6 @@ public:
   std::string ToString() const override;
 
 protected:
-  static constexpr size_t PLAYER_COUNT = 2;
   static constexpr float CELL_EMPTY = 0.0;
   static constexpr float CELL_ACTIVE_PLAYER = 1.0;
   static constexpr float CELL_OPPONENT_PLAYER = -1.0;
