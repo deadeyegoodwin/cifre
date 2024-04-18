@@ -57,12 +57,6 @@ public:
   // See cifre::Board2D.
   void SwitchActivePlayer() override;
 
-  // See cifre::Board2D. Must include active_player_id_ in the hash
-  // and equality of board state because the same cell layout can
-  // occur with either player active, and we want to distinquish.
-  size_t Hash() const override;
-  bool Equal(const State* other) const override;
-
 private:
   float SwitchCellValue(const float v) const;
 

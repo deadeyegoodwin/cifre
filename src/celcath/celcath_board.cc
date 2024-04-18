@@ -196,24 +196,4 @@ Board::SwitchActivePlayer()
   UpdateValidActions();
 }
 
-size_t
-Board::Hash() const
-{
-  size_t hash = cifre::Board2D::Hash();
-  hash = hash ^ (active_player_id_ << 33);
-  return hash;
-}
-
-bool
-Board::Equal(const State* other) const
-{
-  const Board* bother = dynamic_cast<const Board*>(other);
-  if (active_player_id_ != bother->active_player_id_) {
-    return false;
-  }
-
-  return cifre::Board2D::Equal(other);
-}
-
-
 }} // namespace cifre::celcath
