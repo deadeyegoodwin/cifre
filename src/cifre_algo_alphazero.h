@@ -32,6 +32,12 @@ struct AlphaZeroSettings {
   // Name of the nnet model to use for predictions.
   std::string model_name_;
 
+  // If true, the node tree is shared across an entire game, so that
+  // each call to NextActionId sees the results of all previous
+  // searches. If false, the node tree is created from scratch for
+  // each call to NextActionId.
+  bool per_game_node_tree_ {false};
+
   // Options for how NextActionId can choose an action ID.
   //   MAX_VISITED - choose action ID corresponding to max visited child
   //   RANDOM_VISIT_WEIGHTED - choose randomly taking into account

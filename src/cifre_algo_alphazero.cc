@@ -39,17 +39,11 @@ AlphaZeroAlgo::AlphaZeroAlgo(
 }
 
 void
-AlphaZeroAlgo::Reset()
+AlphaZeroAlgo::GameStart()
 {
   nodes_.clear();
   game_action_nodes_.clear();
   statistics_.Reset();
-}
-
-void
-AlphaZeroAlgo::GameStart()
-{
-  Reset();
 }
 
 void
@@ -80,7 +74,8 @@ AlphaZeroAlgo::GameEnd(const State& terminal_state, const StateTerminalStatus& s
     }
   }
 
-  Reset();
+  nodes_.clear();
+  game_action_nodes_.clear();
 }
 
 uint64_t
@@ -88,6 +83,14 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
 {
   THROWIF(state.TerminalStatus().Kind() != StateTerminalStatus::TerminalKind::NON_TERMINAL,
           "alpha-zero cannot find next action for terminal state");
+
+  // Depending on setting, we can reset the nodes each time so that a
+  // new node tree is built just to choose this action, or we cannot
+  // reset the nodes so that the nodes accumulate across the entire
+  // game.
+  if (!settings_.per_game_node_tree_) {
+    nodes_.clear();
+  }
 
   // FIXME here we assume the game has two players, and that a player
   // only gets to choose a single action each turn.

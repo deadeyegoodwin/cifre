@@ -117,6 +117,7 @@ TicTacToe::DefaultAlphaZeroSettings(const bool train) const
   settings.training_ = train;
 
   if (train) { // train = true
+    settings.per_game_node_tree_ = false;
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
     settings.dirichlet_alpha_ = 1.0;
@@ -127,6 +128,7 @@ TicTacToe::DefaultAlphaZeroSettings(const bool train) const
     settings.cpuct_ = 10.0;
   }
   else { // train = false
+    settings.per_game_node_tree_ = false;
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
     settings.dirichlet_alpha_ = 0.0; // disable dirichlet
