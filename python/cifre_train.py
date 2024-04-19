@@ -329,6 +329,7 @@ def main():
                     f'../build/install/bin/{FLAGS.game}',
                     '--verbose' if FLAGS.verbose else '',
                     '--report-file', report_file,
+                    '--parallel', str(game_parallel),
                     '--game-shape', argify_shape(game_shape, ','),
                     f'--game-count={FLAGS.cmp_game_count}',
                     filter_specified('--max-turns-per-game', FLAGS.max_turns_per_game),
