@@ -44,8 +44,9 @@ Board::StringToAction(const std::string& str) const
   std::string posstr(str);
   common::Trim(posstr);
 
-  // Only 1-character commands recognized. We parse 'a', 'b' as column
-  // commands, and pass all other commands to cifre::Board2DBasic.
+  // Only 1-character commands recognized. We parse 'a', 'b', etc. as
+  // column commands, and pass all other commands to
+  // cifre::Board2DBasic.
   if (posstr.size() != 1) {
     return Action(Action::ActionKind::INVALID);
   }
@@ -61,12 +62,12 @@ Board::StringToAction(const std::string& str) const
 void
 Board::Update(uint64_t action_id)
 {
-  // Occupy the cell corresponding to 'action_id' and flip all the
-  // outflanked opponent cells.
+  // Occupy the lowest-row empty cell corresponding to 'action_id'
+  // column.
   bool found = false;
-  for (size_t ridx = size_.RowCount(); ridx > 0; --ridx) {
-    if (CellValueAt(ridx - 1, action_id) == CELL_EMPTY) {
-      SetPlayerIdAt(active_player_id_, ridx - 1, action_id);
+  for (size_t ridx = 0; ridx < size_.RowCount(); ++ridx) {
+    if (CellValueAt(ridx, action_id) == CELL_EMPTY) {
+      SetPlayerIdAt(active_player_id_, ridx, action_id);
       found = true;
       break;
     }
@@ -88,7 +89,7 @@ Board::UpdateValidActions()
 
   // Any non-full column can be played in.
   for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
-    if (CellValueAt(0 /* row */, cidx) == CELL_EMPTY) {
+    if (CellValueAt(size_.RowCount() - 1, cidx) == CELL_EMPTY) {
       valid_action_ids_.insert(cidx);
     }
   }

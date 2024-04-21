@@ -14,9 +14,9 @@ namespace cifre { namespace connect4 {
 //
 // Board
 //
-// The connect4 playing board. The top of the board is row 0. Pieces
-// played in a column "fall" to the highest numbered, unoccupied row
-// in that column.
+// The connect4 playing board. The top of the board as it is displayed
+// is row 'n'. Pieces played in a column "fall" to the lowest
+// numbered, unoccupied row in that column.
 //
 class Board : public cifre::Board2DBasic {
 public:
