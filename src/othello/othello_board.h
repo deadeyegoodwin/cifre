@@ -41,16 +41,14 @@ public:
   // cifre::Board2DBasic.
   std::string ActionToString(const Action& action) const override;
 
-  // Update the terminal status for board.
-  void UpdateTerminalStatus() override;
-
-  // Update the valid actions for board. See cifre::Board2DBasic.
-  void UpdateValidActions() override;
-
   // See cifre::State
   void Update(uint64_t action_id) override;
 
 private:
+  void UpdateTerminalStatus();
+  void UpdateValidActions();
+  void SwitchActivePlayer();
+
   const size_t do_nothing_action_id_;
   bool active_do_nothing_;
   bool opponent_do_nothing_;

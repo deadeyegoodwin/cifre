@@ -28,14 +28,13 @@ public:
   // See cifre::State
   State* Clone() const override { return new Board(*this); }
 
-  // Update the terminal status for board. See cifre::Board2DBasic.
-  void UpdateTerminalStatus() override;
-
-  // Update the valid actions for board. See cifre::Board2DBasic.
-  void UpdateValidActions() override;
-
   // See cifre::State
   void Update(uint64_t action_id) override;
+
+private:
+  void UpdateTerminalStatus();
+  void UpdateValidActions();
+  void SwitchActivePlayer();
 };
 
 }} // namespace cifre::tictactoe

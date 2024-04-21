@@ -179,6 +179,24 @@ Board::UpdateValidActions()
 }
 
 void
+Board::SwitchActivePlayer()
+{
+  // Swap cell values for players.
+  for (size_t fidx = 0; fidx < size_.CellCount(); ++fidx) {
+    const float cv = CellValueAtFlattened(fidx);
+    if (cv != CELL_EMPTY) {
+      const float ncv =
+        ((cv == CELL_ACTIVE_PLAYER) ? CELL_OPPONENT_PLAYER : CELL_ACTIVE_PLAYER);
+      SetCellValueAtFlattened(ncv, fidx);
+    }
+  }
+
+  // Update the valid actions for the now-active player.
+  active_player_id_ = (active_player_id_ + 1) % players_.size();
+  UpdateValidActions();
+}
+
+void
 Board::UpdateTerminalStatus()
 {
   // Check winning conditions and set 'terminal_status_'.

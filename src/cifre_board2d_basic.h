@@ -29,7 +29,7 @@ namespace cifre {
 // a cifre::State with the triton representation being a flattened
 // row-major ordering of the board cell values. Derived classes must
 // implement appropriate action and board update logic via
-// State::Update(), UpdateValidActions() and UpdateTerminalStatus().
+// State::Update().
 //
 class Board2DBasic : public Board2D {
 public:
@@ -106,24 +106,12 @@ public:
   }
 
   // See cifre::State.
-  std::string ToString() const override;
+  virtual std::string ToString() const override;
 
 protected:
   static constexpr float CELL_EMPTY = 0.0;
   static constexpr float CELL_ACTIVE_PLAYER = 1.0;
   static constexpr float CELL_OPPONENT_PLAYER = -1.0;
-
-  // Update the terminal status for the board by setting
-  // 'terminal_status_'.
-  virtual void UpdateTerminalStatus() = 0;
-
-  // Update the valid actions for the board by setting
-  // 'valid_action_ids_'.
-  virtual void UpdateValidActions() = 0;
-
-  // Update the board as necessary to make the opponent player the
-  // active player.
-  void SwitchActivePlayer();
 
   // Return the value of the cell at the given row and column index.
   float CellValueAt(size_t row_idx, size_t col_idx) const {
