@@ -139,7 +139,7 @@ endif(BUILD_TRITON_CLIENT)
 #
 # Games
 #
-add_subdirectory(src/celcath)
+#add_subdirectory(src/celcath)
 add_subdirectory(src/connect4)
 add_subdirectory(src/othello)
 add_subdirectory(src/tictactoe)
@@ -177,6 +177,7 @@ add_library(
   src/cifre_algo_minimax.cc
   src/cifre_algo_random.cc
   src/cifre_board2d.cc
+  src/cifre_board2d_basic.cc
   src/cifre_game.cc
   src/cifre_player.cc
   src/cifre_triton.cc

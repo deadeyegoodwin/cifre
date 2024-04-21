@@ -72,6 +72,9 @@ public:
   // Return true if 'action' is a valid action for this state.
   virtual bool IsValidAction(const Action& action) const = 0;
 
+  // Return the Action associated with a 'str'ing.
+  virtual Action StringToAction(const std::string& str) const = 0;
+
   // Return the string representation for an 'action' that is
   // meaningful for this state.
   virtual std::string ActionToString(const Action& action) const = 0;

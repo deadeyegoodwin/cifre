@@ -17,7 +17,7 @@ namespace cifre { namespace tictactoe {
 //
 Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
              size_t starting_player_id) :
-  cifre::Board2D(size, players, starting_player_id)
+  cifre::Board2DBasic(size, players, starting_player_id)
 {
   // Initialize 'valid_action_ids_' and 'terminal_status_'.
   UpdateValidActions();

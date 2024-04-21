@@ -47,15 +47,15 @@ Board2D::Board2D(const cifre::BoardSize2D& size, const std::vector<Player*>& pla
   size_(size), players_(players), active_player_id_(starting_player_id),
   terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL)
 {
-  THROWIF(players_.size() != PLAYER_COUNT, "exactly 2 players are required");
-  THROWIF(active_player_id_ >= PLAYER_COUNT,
+  THROWIF(active_player_id_ >= EmptyPlayerId(),
           "invalid starting player index " + std::to_string(active_player_id_));
 
-  // Initialize storage for flattened cell values to all zeros
-  // (CELL_EMPTY). Derived class must override initialization if
-  // required.
-  cells_flattened_.resize(size_.CellCount() * sizeof(float));
-  cells_ = reinterpret_cast<float*>(cells_flattened_.data());
+  // Derived class must size 'cells_flattened_' and set 'cells' as in
+  // the below example where there is one float in the triton
+  // representation representing each cell on the board.
+  //
+  // cells_flattened_.resize(size_.CellCount() * sizeof(float));
+  // cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 }
 
 Board2D::Board2D(const Board2D& other) :
@@ -103,143 +103,6 @@ Board2D::IsValidAction(const Action& action) const
   }
 
   return false;
-}
-
-Action
-Board2D::StringToAction(const std::string& str) const
-{
-  std::string posstr(str);
-  common::Trim(posstr);
-
-  // Parse 1 character strings
-  if (posstr.size() == 1) {
-    switch (posstr[0]) {
-    case 'h':
-    case '?': return Action(Action::ActionKind::HELP);
-    case 'q': return Action(Action::ActionKind::QUIT);
-    case 's': return Action(Action::ActionKind::SHOW_STATE);
-    default:
-      break;
-    }
-  }
-  // Parse 2 character strings. Cell specifier must be a column letter
-  // ('a' based) followed by a row number (1 based).
-  else if (posstr.size() == 2) {
-    int32_t row_idx = posstr[0] - '1';
-    int32_t col_idx = posstr[1] - 'a';
-    if ((col_idx >= 0) && ((size_t)col_idx < size_.ColumnCount()) &&
-        (row_idx >= 0) && ((size_t)row_idx < size_.RowCount())) {
-      return Action(Action::ActionKind::ACTIONID,
-                    (row_idx * size_.ColumnCount()) + col_idx);
-    }
-  }
-
-  return Action(Action::ActionKind::INVALID);
-}
-
-std::string
-Board2D::ActionToString(const Action& action) const
-{
-  if (action.Kind() != Action::ActionKind::ACTIONID) {
-    return action.ToString();
-  }
-
-  const uint64_t action_id = action.ActionId();
-
-  // Get cell specifier for action. Cell specifier must be a column
-  // letter ('a' based) and a row number (1 based).
-  const size_t row_idx = action_id / size_.ColumnCount();
-  const size_t col_idx = action_id % size_.ColumnCount();
-  const char row_ch = '1' + row_idx;
-  const char col_ch = 'a' + col_idx;
-
-  const float current = CellValueAtFlattened(action_id);
-  const float active_player_cell_value = PlayerIdToCellValue(active_player_id_);
-  if (current == active_player_cell_value) {
-    return std::string("REMOVE [") + row_ch + "," + col_ch + "]";
-  }
-  else if (current == CELL_EMPTY) {
-    return std::string("ADD [") + row_ch + "," + col_ch + "]";
-  }
-
-  THROW("cannot convert action ID to string, " + action.ToString());
-}
-
-Player*
-Board2D::PlayerAt(size_t row_idx, size_t col_idx) const
-{
-  const size_t id = PlayerIdAt(row_idx, col_idx);
-  if (id == PLAYER_COUNT) {
-    return nullptr;
-  }
-
-  return players_[id];
-}
-
-Player*
-Board2D::PlayerAtFlattened(size_t flat_idx) const
-{
-  const size_t id = PlayerIdAtFlattened(flat_idx);
-  if (id == PLAYER_COUNT) {
-    return nullptr;
-  }
-
-  return players_[id];
-}
-
-void
-Board2D::SwitchActivePlayer()
-{
-  // Swap cell values for players.
-  for (size_t fidx = 0; fidx < size_.CellCount(); ++fidx) {
-    size_t pid = PlayerIdAtFlattened(fidx);
-    if (pid != PLAYER_COUNT) {
-      SetPlayerIdAtFlattened((pid == 0) ? 1 : 0, fidx);
-    }
-  }
-
-  // Update the valid actions for the now-active player.
-  active_player_id_ = (active_player_id_ + 1) % players_.size();
-  UpdateValidActions();
-}
-
-
-std::string
-Board2D::ToString() const
-{
-  std::stringstream sstr;
-  const size_t ch_width = (size_.ColumnCount() + 2) * 2;
-
-
-  // Column letters across the top.
-  for (size_t col_idx = 0; col_idx < (size_.ColumnCount() + 1); ++col_idx) {
-    if (col_idx == 0) {
-      sstr << "       ";
-    }
-    else {
-      sstr << char('a' + col_idx - 1) << ' ';
-    }
-  }
-  sstr << "\n    " << std::string(ch_width, '-') << '\n';
-
-  // Board with each row number on the left.
-  sstr << "   |\n";
-  for (size_t row_idx = size_.RowCount(); row_idx > 0; --row_idx) {
-    sstr << ' ' << row_idx << " |  ";
-    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
-      Player* player = PlayerAt(row_idx - 1, col_idx);
-      if (player == nullptr) {
-        sstr << "  ";
-      }
-      else {
-        sstr << ' ' << player->ToString();
-      }
-    }
-    sstr << '\n';
-  }
-  sstr << "   |";
-
-  return sstr.str();
 }
 
 } // namespace cifre

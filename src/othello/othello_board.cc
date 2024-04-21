@@ -17,7 +17,8 @@ namespace cifre { namespace othello {
 //
 Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
              size_t starting_player_id) :
-  cifre::Board2D(size, players, starting_player_id), do_nothing_action_id_(size_.CellCount()),
+  cifre::Board2DBasic(size, players, starting_player_id),
+  do_nothing_action_id_(size_.CellCount()),
   active_do_nothing_(false), opponent_do_nothing_(false)
 {
   // Each player has two pieces diagonal from each other in the middle
@@ -42,7 +43,7 @@ Board::ActionToString(const Action& action) const
     return "NO MOVE";
   }
 
-  return cifre::Board2D::ActionToString(action);
+  return cifre::Board2DBasic::ActionToString(action);
 }
 
 void
