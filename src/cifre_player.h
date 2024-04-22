@@ -22,8 +22,12 @@ public:
   enum class Kind { UNKNOWN, HUMAN, ALGO };
 
 public:
-  Player(const std::shared_ptr<common::Logger>& logger, const std::string& name, char ch);
+  Player(
+    const std::shared_ptr<common::Logger>& logger, size_t id, const std::string& name, char ch);
   virtual ~Player() = default;
+
+  // Return the player's ID.
+  size_t Id() const { return id_; }
 
   // Return the player's name.
   const std::string& Name() const { return name_; }
@@ -55,6 +59,7 @@ public:
 
 protected:
   std::shared_ptr<common::Logger> logger_;
+  const size_t id_;
   const std::string name_;
   const char ch_;
 };
@@ -68,7 +73,7 @@ class AlgoPlayer : public Player {
 public:
   AlgoPlayer(
     const std::shared_ptr<common::Logger>& logger,
-    const std::string& name, char ch,
+    size_t id, const std::string& name, char ch,
     const std::shared_ptr<cifre::Algo>& algo);
 
   // See Player::NextAction().

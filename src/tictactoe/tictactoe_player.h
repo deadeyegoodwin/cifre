@@ -20,8 +20,8 @@ class HumanPlayer : public cifre::Player {
 public:
   // Create 'name'd human player that uses 'ch' as the one character
   // representation.
-  HumanPlayer(
-    const std::shared_ptr<common::Logger>& logger, const std::string& name, char ch);
+  HumanPlayer(const std::shared_ptr<common::Logger>& logger,
+              size_t id, const std::string& name, char ch);
 
   // See cifre::Player::NextAction().
   Action NextAction(const cifre::State& board, size_t max_game_turns_remaining) const override;

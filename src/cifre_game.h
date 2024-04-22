@@ -132,7 +132,7 @@ struct PlayerSettings {
   }
 
   std::string DefaultName() const {
-    return PlayerSettings::KindToString(kind_) + std::to_string(id_);
+    return PlayerSettings::KindToString(kind_) + std::to_string(id_ + 1);
   }
 
   Kind kind_ {Kind::UNKNOWN};
@@ -178,7 +178,7 @@ public:
   // non-algorithmic players. Returns nullptr if the game does not
   // support players of 'kind'.
   virtual Player* CreatePlayer(
-    const Player::Kind kind, const std::string& name, const char ch,
+    const Player::Kind kind, const size_t id, const std::string& name, const char ch,
     const std::shared_ptr<Algo>& algo) const = 0;
 
   // Built-in command-line options. Specific games should start their

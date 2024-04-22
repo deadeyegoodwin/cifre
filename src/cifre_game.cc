@@ -392,8 +392,8 @@ Game::Parse(int argc, char **argv)
   std::string log_filename = "stdout";
   bool train = false;
 
-  PlayerSettings splayer1("human", 1);
-  PlayerSettings splayer2("human", 2);
+  PlayerSettings splayer1("human", 0);
+  PlayerSettings splayer2("human", 1);
   PlayerSettings* active_splayer = nullptr;
 
   std::vector<struct option> long_options;
@@ -613,7 +613,7 @@ Game::Parse(int argc, char **argv)
     if (train && !splayer2.cmdline_specified_) {
       splayer2 = splayer1;
       splayer2.cmdline_specified_ = false;
-      splayer2.id_ = 2;
+      splayer2.id_ = 1;
       splayer1.name_ = "self1";
       splayer2.name_ = "self2";
     }
@@ -840,9 +840,9 @@ Player*
 Game::CreatePlayerInternal(
   const PlayerSettings& player_settings, const std::shared_ptr<Algo>& algo) const
 {
-  const char bc = (player_settings.id_ == 1) ? 'o' : 'x';
+  const char bc = (player_settings.id_ == 0) ? 'o' : 'x';
   Player::Kind player_kind = PlayerSettings::KindToPlayerKind(player_settings.kind_);
-  Player* p = CreatePlayer(player_kind, player_settings.name_, bc, algo);
+  Player* p = CreatePlayer(player_kind, player_settings.id_, player_settings.name_, bc, algo);
   GameCheckTrueMsg(p != nullptr,
                    "'" + PlayerSettings::KindToString(player_settings.kind_) +
                    "' player not supported by game '" + Name() + "'");
