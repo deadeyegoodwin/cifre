@@ -29,8 +29,8 @@ HumanPlayer::Usage() const
   sstr << "'h' : help\n";
   sstr << "'q' : quit\n";
   sstr << "'s' : show board\n";
-  sstr << "'n' : evolve cell state\n";
-  sstr << "'<row><column>' : toggle cell [row, column]";
+  sstr << "'n' : step cell state\n";
+  sstr << "'<row><column>' : build cell [row, column]";
   return sstr.str();
 }
 

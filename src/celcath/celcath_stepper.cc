@@ -14,22 +14,18 @@
 namespace cifre { namespace celcath {
 
 //
-// B3S23Stepper
+// AttackStepper
 //
 const std::string&
-B3S23Stepper::Name() const
+AttackStepper::Name() const
 {
-  static const std::string n("b3s23");
+  static const std::string n("attack");
   return n;
 }
 
 void
-B3S23Stepper::Step(Board* board, const std::vector<Player*>& players) const
+AttackStepper::Step(Board* board, const std::vector<Player*>& players) const
 {
-  // For now the "neighbor value" assigned to an occupied cell is 1
-  // (and value for an empty cell is implicitly 0).
-  static constexpr int32_t NEIGHBOR_VALUE = 1;
-
   const auto board_size = board->Size();
 
   // Collect the sum of neighbor values for each cell, for each player
@@ -44,15 +40,14 @@ B3S23Stepper::Step(Board* board, const std::vector<Player*>& players) const
   // Accumulate neighbor values...
   for (size_t ridx = 0; ridx < board_size.RowCount(); ++ridx) {
     for (size_t cidx = 0; cidx < board_size.ColumnCount(); ++cidx) {
-      // If no 'owner' for cell (i.e. empty) or 'owner' doesn't
-      // contribute any neighbor value, then can skip it.
+      // If no 'owner' for cell (i.e. empty), then can skip it.
       const Player* owner = board->PlayerAt(ridx, cidx);
-      if ((owner != nullptr) && (NEIGHBOR_VALUE != 0)) {
-        const size_t owner_id = board->PlayerIdAt(ridx, cidx);
+      if (owner != nullptr) {
+        const size_t owner_id = owner->Id();
         assert(players[owner_id] == owner);
 
-        // Add 'owner's neighbor value to neighbor cells.
-        const int32_t nval = NEIGHBOR_VALUE;
+        // Add cell value to neighbor cells.
+        const float nval = std::abs(board->CellValueAt(ridx, cidx));
         const size_t start_ridx = (ridx == 0) ? 0 : ridx - 1;
         const size_t end_ridx = std::min(ridx + 2, board_size.RowCount());
         const size_t start_cidx = (cidx == 0) ? 0 : cidx - 1;
@@ -74,44 +69,22 @@ B3S23Stepper::Step(Board* board, const std::vector<Player*>& players) const
                  std::string("neighbor values\n") +
                  NeighborValuesToString(board_size, players, neighbor_values));
 
-  // Update board based on the neighbor value of a cell.
-  for (size_t nvcell = 0; nvcell < board_size.CellCount(); ++nvcell) {
-    const int32_t nv = neighbor_values[sum_owner_id][nvcell];
-
-    // If 3 neighbors, cell lives...
-    if (nv == 3) {
-      // If cell is already alive, then we can either keep it as is,
-      // or we can have it be taken over by the player that has the
-      // majority of neighbors. For now just keep owner as is when 3
-      // neighbors.
-      Player* player = board->PlayerAtFlattened(nvcell);
-      if (player == nullptr) {
-        // The player that has the majority neighbor count gets the
-        // cell, if no majority then cells stays dead.
-        int32_t max_neighbor_cnt = 0;
-        for (size_t idx = 0; idx < players.size(); ++idx) {
-          const int32_t pnv = neighbor_values[idx][nvcell];
-          if (pnv > max_neighbor_cnt) {
-            max_neighbor_cnt = pnv;
-            player = players[idx];
-          }
-          else if (pnv == max_neighbor_cnt) {
-            player = nullptr;
-          }
-        }
-
-        board->SetPlayerAtFlattened(player, nvcell);
+  // Update board. For each non-active-player cell, compare cell value
+  // against the active player neighbor count and reduce the cell if
+  // necessary.
+  for (size_t fidx = 0; fidx < board_size.CellCount(); ++fidx) {
+    const float cv = board->CellValueAtFlattened(fidx);
+    if (cv < 0.0) {
+      const int32_t nv = neighbor_values[board->ActivePlayerId()][fidx];
+      if (std::abs(cv) < nv) {
+        board->SetCellValueAtFlattened(cv + 1.0, fidx);
       }
-    }
-    // If 2 neighbors, cell stays as it is; otherwise cell is dead.
-    else if (nv != 2) {
-      board->SetPlayerAtFlattened(nullptr, nvcell);
     }
   }
 }
 
 std::string
-B3S23Stepper::NeighborValuesToString(
+AttackStepper::NeighborValuesToString(
   const cifre::BoardSize2D& board_size,
   const std::vector<Player*>& players,
   const std::vector<std::vector<int32_t>>& nv) const
@@ -142,68 +115,6 @@ B3S23Stepper::NeighborValuesToString(
   }
 
   return sstr.str();
-}
-
-//
-// GrowStepper
-//
-const std::string&
-GrowStepper::Name() const
-{
-  static const std::string n("grow");
-  return n;
-}
-
-void
-GrowStepper::Step(Board* board, const std::vector<Player*>& players) const
-{
-  const auto board_size = board->Size();
-  const size_t active_player_id = board->ActivePlayerId();
-
-  // Keep column-wide "path" vector indicating which columns satisfy
-  // the grow requirement (see header file for
-  // description). Initialize based on row-0; any row-0 cell occupied
-  // by player provides a path to row 0.
-  std::vector<bool> path(board_size.ColumnCount(), false);
-  for (size_t cidx = 0; cidx < board_size.ColumnCount(); ++cidx) {
-    if (board->PlayerIdAt(0 /* row */, cidx) == active_player_id) {
-      path[cidx] = true;
-    }
-  }
-
-  // Scan all row-1 upwards and collect cells that should become
-  // active player cells. Don't set them here as they should not
-  // impact the outcome of higher up rows.
-  std::vector<size_t> occupy_fidx;
-  for (size_t ridx = 1; ridx < board_size.RowCount(); ++ridx) {
-    for (size_t cidx = 0; cidx < board_size.ColumnCount(); ++cidx) {
-      if (path[cidx] && (board->PlayerIdAt(ridx, cidx) == Board::PLAYER_COUNT)) {
-        occupy_fidx.push_back((ridx * board_size.ColumnCount()) + cidx);
-      }
-    }
-
-    // Update path for row 'ridx'. We do this with a left-right pass
-    // followed by right-left pass so that we identify paths that run
-    // along the row.
-    for (size_t cidx = 0; cidx < board_size.ColumnCount(); ++cidx) {
-      path[cidx] = (path[cidx] && (board->PlayerIdAt(ridx, cidx) == active_player_id));
-    }
-    for (size_t cidx = 1; cidx < board_size.ColumnCount(); ++cidx) {
-      if (!path[cidx] && path[cidx - 1] && (board->PlayerIdAt(ridx, cidx) == active_player_id)) {
-        path[cidx] = true;
-      }
-    }
-    for (size_t cidx = (board_size.ColumnCount() - 1); cidx > 0; --cidx) {
-      if (!path[cidx - 1] && path[cidx] && (board->PlayerIdAt(ridx, cidx - 1) == active_player_id)) {
-        path[cidx - 1] = true;
-      }
-    }
-  }
-
-  // Update board...
-  for (size_t fidx : occupy_fidx) {
-    board->SetPlayerIdAtFlattened(active_player_id, fidx);
-  }
 }
 
 }} // namespace cifre::celcath

@@ -18,7 +18,7 @@
 
 namespace cifre { namespace celcath {
 
-static const cifre::BoardSize2D DEFAULT_GAME_SHAPE {8, 8};
+static const cifre::BoardSize2D DEFAULT_GAME_SHAPE {5, 5};
 static const size_t DEFAULT_MAX_TURNS_PER_GAME = 50;
 
 //
@@ -93,8 +93,8 @@ Celcath::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
 {
   if (opt.Id() == OPTION_GAME_SHAPE) {
     game_shape_ = cifre::BoardSize2D(arg_str);
-    GameCheckTrueMsg((game_shape_.RowCount() >= 4) && (game_shape_.ColumnCount() >= 4),
-                     Name() + " board must be " + cifre::BoardSize2D(4, 4).ToString() +
+    GameCheckTrueMsg((game_shape_.RowCount() >= 5) && (game_shape_.ColumnCount() >= 5),
+                     Name() + " board must be " + cifre::BoardSize2D(5, 5).ToString() +
                      " or larger");
   }
   else if (opt.Id() == OPTION_MAX_TURNS_PER_GAME) {
@@ -160,7 +160,7 @@ cifre::State*
 Celcath::CreateInitialState(
   const std::vector<Player*>& players, size_t starting_player_idx) const
 {
-  static std::shared_ptr<Stepper> stepper = std::make_shared<GrowStepper>(logger_);
+  static std::shared_ptr<Stepper> stepper = std::make_shared<AttackStepper>(logger_);
   return new Board(game_shape_, players, starting_player_idx, stepper);
 }
 

@@ -45,8 +45,8 @@ Board2DBasic::StringToAction(const std::string& str) const
       break;
     }
   }
-  // Parse 2 character strings. Cell specifier must be a column letter
-  // ('a' based) followed by a row number (1 based).
+  // Parse 2 character strings. Cell specifier must be a row number (1
+  // based) followed by a column letter ('a' based).
   else if (posstr.size() == 2) {
     int32_t row_idx = posstr[0] - '1';
     int32_t col_idx = posstr[1] - 'a';
@@ -69,8 +69,8 @@ Board2DBasic::ActionToString(const Action& action) const
 
   const uint64_t action_id = action.ActionId();
 
-  // Get cell specifier for action. Cell specifier must be a column
-  // letter ('a' based) and a row number (1 based).
+  // Get cell specifier for action. Cell specifier must be a row
+  // number (1 based) followed by a column letter ('a' based).
   const size_t row_idx = action_id / size_.ColumnCount();
   const size_t col_idx = action_id % size_.ColumnCount();
   const char row_ch = '1' + row_idx;
@@ -92,7 +92,6 @@ Board2DBasic::ToString() const
 {
   std::stringstream sstr;
   const size_t ch_width = (size_.ColumnCount() + 2) * 2;
-
 
   // Column letters across the top.
   for (size_t col_idx = 0; col_idx < (size_.ColumnCount() + 1); ++col_idx) {

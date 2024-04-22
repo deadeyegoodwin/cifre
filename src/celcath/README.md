@@ -1,6 +1,6 @@
 # Celcath
 
-A two player cellular automata game played on 8x8 board. Other board
+A two player cellular automata game played on 4x4 board. Other board
 sizes can also be trained for and played on using the --game-shape
 flag to cifre_train.py and celcath executables. For example, use
 --game-shape=6,8 to use a 6x8 board.

@@ -245,7 +245,7 @@ def main():
             'num_channels' : 512 }
         nnet = CifreBasicConvNNet(nnet_args)
     elif FLAGS.game == 'celcath':
-        game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
+        game_shape = (5, 5) if (FLAGS.game_shape is None) else FLAGS.game_shape
         train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
         infer_batch_size = 32 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "celcath requires shape rank 2")
