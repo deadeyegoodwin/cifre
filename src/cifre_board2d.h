@@ -80,32 +80,15 @@ public:
   // Return the board size.
   const BoardSize2D& Size() const { return size_; }
 
-  // Return the player ID that represents "no player" (i.e. an unowned
-  // / empty cell).
-  size_t EmptyPlayerId() const { return players_.size(); }
+  // Return the player ID that represents "no player". By convention
+  // this ID is equal to the number of players in the game.
+  size_t NoPlayerId() const { return players_.size(); }
 
   // Return the ID of the active player. See cifre::State.
   size_t ActivePlayerId() const override { return active_player_id_; }
 
   // Return the active player.
   Player* ActivePlayer() const { return players_[active_player_id_]; }
-
-  // Return the player that owns the specified cell, or nullptr if
-  // cell is empty.
-  virtual Player* PlayerAt(size_t row_idx, size_t col_idx) const = 0;
-
-  // Set 'player' to be owner of the specified cell. 'player' may be
-  // nullptr to set the cell to no-owner / empty.
-  virtual void SetPlayerAt(Player* player, size_t row_idx, size_t col_idx) = 0;
-
-  // Return the player that owns the specified cell at the flattened
-  // index, or nullptr if cell is empty.
-  virtual Player* PlayerAtFlattened(size_t flat_idx) const = 0;
-
-  // Set 'player' to be owner of the specified cell at the flattend
-  // index. 'player' may be nullptr to set the cell to no-owner /
-  // empty.
-  virtual void SetPlayerAtFlattened(Player* player, size_t flat_idx) = 0;
 
   // See cifre::State
   StateTerminalStatus TerminalStatus() const override { return terminal_status_; }

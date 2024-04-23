@@ -22,7 +22,7 @@ Board2DBasic::Board2DBasic(
   Board2D(size, players, starting_player_id)
 {
   THROWIF(players_.size() != PLAYER_COUNT, "exactly 2 players are required");
-  THROWIF(EmptyPlayerId() != PLAYER_COUNT, "exactly 2 players are required");
+  THROWIF(NoPlayerId() != PLAYER_COUNT, "exactly 2 players are required");
 
   cells_flattened_.resize(size_.CellCount() * sizeof(float));
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());

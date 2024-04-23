@@ -47,7 +47,7 @@ Board2D::Board2D(const cifre::BoardSize2D& size, const std::vector<Player*>& pla
   size_(size), players_(players), active_player_id_(starting_player_id),
   terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL)
 {
-  THROWIF(active_player_id_ >= EmptyPlayerId(),
+  THROWIF(active_player_id_ >= NoPlayerId(),
           "invalid starting player index " + std::to_string(active_player_id_));
 #ifndef NDEBUG
   for (size_t pidx = 0; pidx < players_.size(); ++pidx) {

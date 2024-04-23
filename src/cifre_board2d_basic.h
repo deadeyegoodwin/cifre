@@ -65,20 +65,25 @@ public:
   // Return the opponent player.
   Player* OpponentPlayer() const { return players_[OpponentPlayerId()]; }
 
-  // See Board2D.
-  Player* PlayerAt(size_t row_idx, size_t col_idx) const override {
+  // Return the player that owns the specified cell, or nullptr if
+  // cell is empty.
+  virtual Player* PlayerAt(size_t row_idx, size_t col_idx) const {
     return CellValueToPlayer(CellValueAt(row_idx, col_idx)); }
 
-  // See Board2D.
-  void SetPlayerAt(Player* player, size_t row_idx, size_t col_idx) override {
+  // Set 'player' to be owner of the specified cell. 'player' may be
+  // nullptr to set the cell to no-owner / empty.
+  virtual void SetPlayerAt(Player* player, size_t row_idx, size_t col_idx) {
     SetCellValueAt(PlayerToCellValue(player), row_idx, col_idx); }
 
-  // See Board2D.
-  Player* PlayerAtFlattened(size_t flat_idx) const override {
+  // Return the player that owns the specified cell at the flattened
+  // index, or nullptr if cell is empty.
+  virtual Player* PlayerAtFlattened(size_t flat_idx) const {
     return CellValueToPlayer(CellValueAtFlattened(flat_idx)); }
 
-  // See Board2D.
-  void SetPlayerAtFlattened(Player* player, size_t flat_idx) override {
+  // Set 'player' to be owner of the specified cell at the flattend
+  // index. 'player' may be nullptr to set the cell to no-owner /
+  // empty.
+  virtual void SetPlayerAtFlattened(Player* player, size_t flat_idx) {
     SetCellValueAtFlattened(PlayerToCellValue(player), flat_idx); }
 
   // See cifre::State.
