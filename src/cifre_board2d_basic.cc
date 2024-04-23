@@ -87,28 +87,6 @@ Board2DBasic::ActionToString(const Action& action) const
   THROW("cannot convert action ID to string, " + action.ToString());
 }
 
-Player*
-Board2DBasic::PlayerAt(size_t row_idx, size_t col_idx) const
-{
-  const size_t id = PlayerIdAt(row_idx, col_idx);
-  if (id == PLAYER_COUNT) {
-    return nullptr;
-  }
-
-  return players_[id];
-}
-
-Player*
-Board2DBasic::PlayerAtFlattened(size_t flat_idx) const
-{
-  const size_t id = PlayerIdAtFlattened(flat_idx);
-  if (id == PLAYER_COUNT) {
-    return nullptr;
-  }
-
-  return players_[id];
-}
-
 std::string
 Board2DBasic::ToString() const
 {

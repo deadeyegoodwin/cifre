@@ -66,44 +66,20 @@ public:
   Player* OpponentPlayer() const { return players_[OpponentPlayerId()]; }
 
   // See Board2D.
-  Player* PlayerAt(size_t row_idx, size_t col_idx) const override;
+  Player* PlayerAt(size_t row_idx, size_t col_idx) const override {
+    return CellValueToPlayer(CellValueAt(row_idx, col_idx)); }
 
   // See Board2D.
   void SetPlayerAt(Player* player, size_t row_idx, size_t col_idx) override {
     SetCellValueAt(PlayerToCellValue(player), row_idx, col_idx); }
 
   // See Board2D.
-  Player* PlayerAtFlattened(size_t flat_idx) const override;
+  Player* PlayerAtFlattened(size_t flat_idx) const override {
+    return CellValueToPlayer(CellValueAtFlattened(flat_idx)); }
 
   // See Board2D.
   void SetPlayerAtFlattened(Player* player, size_t flat_idx) override {
     SetCellValueAtFlattened(PlayerToCellValue(player), flat_idx); }
-
-  // Return the ID of the player that owns the specified cell. Returns
-  // the total number of players (PLAYER_COUNT) to indicate that the
-  // cell is not owned by any player (i.e. empty).
-  size_t PlayerIdAt(size_t row_idx, size_t col_idx) const {
-    return CellValueToPlayerId(CellValueAt(row_idx, col_idx)); }
-
-  // Set 'id' to be owner of the specified cell. 'id' may be the total
-  // number of players (PLAYER_COUNT) to set the cell to empty.
-  void SetPlayerIdAt(size_t id, size_t row_idx, size_t col_idx) {
-    SetCellValueAt(PlayerIdToCellValue(id), row_idx, col_idx); }
-
-  // Return the ID of the player that owns the specified cell at the
-  // flattened index. Returns the total number of players
-  // (PLAYER_COUNT) to indicate that the cell is not owned by any
-  // player (i.e. empty).
-  size_t PlayerIdAtFlattened(size_t flat_idx) const {
-    return CellValueToPlayerId(CellValueAtFlattened(flat_idx));
-  }
-
-  // Set 'id' to be owner of the specified cell at the flattened
-  // index. 'id' may be the total number of players (PLAYER_COUNT) to
-  // set the cell to empty.
-  void SetPlayerIdAtFlattened(size_t id, size_t flat_idx) {
-    SetCellValueAtFlattened(PlayerIdToCellValue(id), flat_idx);
-  }
 
   // See cifre::State.
   virtual std::string ToString() const override;
@@ -130,22 +106,6 @@ protected:
   // Set the value of the cell at the flattened index 'flat_idx'.
   void SetCellValueAtFlattened(const float value, size_t flat_idx) {
     assert(flat_idx < size_.CellCount()); cells_[flat_idx] = value; }
-
-  // Convert player ID to/from the corresponding cell value. A player
-  // ID of value PLAYER_COUNT represents an empty cell (i.e. no
-  // player).
-  float PlayerIdToCellValue(size_t pid) const {
-    if (pid == ActivePlayerId()) { return CELL_ACTIVE_PLAYER; }
-    if (pid == OpponentPlayerId()) { return CELL_OPPONENT_PLAYER; }
-    assert(pid == PLAYER_COUNT);
-    return CELL_EMPTY;
-  }
-  size_t CellValueToPlayerId(float v) const {
-    if (v == CELL_ACTIVE_PLAYER) { return ActivePlayerId(); }
-    if (v == CELL_OPPONENT_PLAYER) { return OpponentPlayerId(); }
-    assert(v == CELL_EMPTY);
-    return PLAYER_COUNT;
-  }
 
   // Convert player to/from the corresponding cell value. A nullptr
   // player represents an empty cell (i.e. no player).

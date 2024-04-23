@@ -49,6 +49,11 @@ Board2D::Board2D(const cifre::BoardSize2D& size, const std::vector<Player*>& pla
 {
   THROWIF(active_player_id_ >= EmptyPlayerId(),
           "invalid starting player index " + std::to_string(active_player_id_));
+#ifndef NDEBUG
+  for (size_t pidx = 0; pidx < players_.size(); ++pidx) {
+    assert(players_[pidx]->Id() == pidx);
+  }
+#endif
 
   // Derived class must size 'cells_flattened_' and set 'cells' as in
   // the below example where there is one float in the triton

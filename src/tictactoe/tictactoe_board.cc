@@ -28,13 +28,13 @@ void
 Board::Update(uint64_t action_id)
 {
   // Occupy the cell corresponding to 'action_id'.
-  const cifre::Player* current = PlayerAtFlattened(action_id);
-  if (current == nullptr) {
-    SetPlayerIdAtFlattened(active_player_id_, action_id);
+  const float cv = CellValueAtFlattened(action_id);
+  if (cv == CELL_EMPTY) {
+    SetCellValueAtFlattened(CELL_ACTIVE_PLAYER, action_id);
   }
   else {
     THROW("player " + ActivePlayer()->Name() + " cannot occupy cell owned by " +
-          current->Name());
+          PlayerAtFlattened(action_id)->Name());
   }
 
   // Board was changed, so check to see if there is a change in the
@@ -68,11 +68,11 @@ Board::UpdateTerminalStatus()
     size_t active_count = 0;
     size_t opponent_count = 0;
     for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
-      size_t pid = PlayerIdAt(ridx, cidx);
-      if (pid == ActivePlayerId()) {
+      const float cv = CellValueAt(ridx, cidx);
+      if (cv == CELL_ACTIVE_PLAYER) {
         active_count++;
       }
-      else if (pid == OpponentPlayerId()) {
+      else if (cv == CELL_OPPONENT_PLAYER) {
         opponent_count++;
       }
     }
@@ -96,11 +96,11 @@ Board::UpdateTerminalStatus()
     size_t active_count = 0;
     size_t opponent_count = 0;
     for (size_t ridx = 0; ridx < size_.RowCount(); ++ridx) {
-      size_t pid = PlayerIdAt(ridx, cidx);
-      if (pid == ActivePlayerId()) {
+      const float cv = CellValueAt(ridx, cidx);
+      if (cv == CELL_ACTIVE_PLAYER) {
         active_count++;
       }
-      else if (pid == OpponentPlayerId()) {
+      else if (cv == CELL_OPPONENT_PLAYER) {
         opponent_count++;
       }
     }
@@ -123,11 +123,11 @@ Board::UpdateTerminalStatus()
   size_t active_count = 0;
   size_t opponent_count = 0;
   for (size_t didx = 0; didx < size_.RowCount(); ++didx) {
-    size_t pid = PlayerIdAt(didx, didx);
-    if (pid == ActivePlayerId()) {
+    const float cv = CellValueAt(didx, didx);
+    if (cv == CELL_ACTIVE_PLAYER) {
       active_count++;
     }
-    else if (pid == OpponentPlayerId()) {
+    else if (cv == CELL_OPPONENT_PLAYER) {
       opponent_count++;
     }
   }
@@ -149,11 +149,11 @@ Board::UpdateTerminalStatus()
   active_count = 0;
   opponent_count = 0;
   for (size_t didx = 0; didx < size_.RowCount(); ++didx) {
-    size_t pid = PlayerIdAt(size_.RowCount() - 1 - didx, didx);
-    if (pid == ActivePlayerId()) {
+    const float cv = CellValueAt(size_.RowCount() - 1 - didx, didx);
+    if (cv == CELL_ACTIVE_PLAYER) {
       active_count++;
     }
-    else if (pid == OpponentPlayerId()) {
+    else if (cv == CELL_OPPONENT_PLAYER) {
       opponent_count++;
     }
   }

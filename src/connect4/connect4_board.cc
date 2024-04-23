@@ -67,7 +67,7 @@ Board::Update(uint64_t action_id)
   bool found = false;
   for (size_t ridx = 0; ridx < size_.RowCount(); ++ridx) {
     if (CellValueAt(ridx, action_id) == CELL_EMPTY) {
-      SetPlayerIdAt(active_player_id_, ridx, action_id);
+      SetCellValueAt(CELL_ACTIVE_PLAYER, ridx, action_id);
       found = true;
       break;
     }
@@ -123,19 +123,19 @@ Board::UpdateTerminalStatus()
   size_t empty_count = 0;
   for (size_t ridx = 0; ridx < size_.RowCount(); ++ridx) {
     size_t adj_count = 0;
-    size_t last_pid = PLAYER_COUNT;
+    float last_cv = CELL_EMPTY;
     for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
-      size_t pid = PlayerIdAt(ridx, cidx);
-      if (pid == PLAYER_COUNT) {
+      const float cv = CellValueAt(ridx, cidx);
+      if (cv == CELL_EMPTY) {
         empty_count++;
         adj_count = 0; // empty cell
       }
-      else if (pid == last_pid) {
+      else if (cv == last_cv) {
         adj_count++;
         if (adj_count >= IN_A_ROW) {
           terminal_status_ =
             cifre::StateTerminalStatus(
-              cifre::StateTerminalStatus::TerminalKind::WINNER, pid);
+              cifre::StateTerminalStatus::TerminalKind::WINNER, CellValueToPlayer(cv)->Id());
           return;
         }
       }
@@ -143,7 +143,7 @@ Board::UpdateTerminalStatus()
         adj_count = 1;
       }
 
-      last_pid = pid;
+      last_cv = cv;
     }
   }
 
@@ -156,18 +156,18 @@ Board::UpdateTerminalStatus()
   // Check each column for 4 in-a-row.
   for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
     size_t adj_count = 0;
-    size_t last_pid = PLAYER_COUNT;
+    size_t last_cv = CELL_EMPTY;
     for (size_t ridx = 0; ridx < size_.RowCount(); ++ridx) {
-      size_t pid = PlayerIdAt(ridx, cidx);
-      if (pid == PLAYER_COUNT) {
+      const float cv = CellValueAt(ridx, cidx);
+      if (cv == CELL_EMPTY) {
         adj_count = 0; // empty cell
       }
-      else if (pid == last_pid) {
+      else if (cv == last_cv) {
         adj_count++;
         if (adj_count >= IN_A_ROW) {
           terminal_status_ =
             cifre::StateTerminalStatus(
-              cifre::StateTerminalStatus::TerminalKind::WINNER, pid);
+              cifre::StateTerminalStatus::TerminalKind::WINNER, CellValueToPlayer(cv)->Id());
           return;
         }
       }
@@ -175,7 +175,7 @@ Board::UpdateTerminalStatus()
         adj_count = 1;
       }
 
-      last_pid = pid;
+      last_cv = cv;
     }
   }
 
@@ -183,18 +183,18 @@ Board::UpdateTerminalStatus()
   for (size_t ridx = 0; ridx <= (size_.RowCount() - IN_A_ROW); ++ridx) {
     for (size_t cidx = 0; cidx <= (size_.ColumnCount() - IN_A_ROW); ++cidx) {
       size_t adj_count = 0;
-      size_t last_pid = PLAYER_COUNT;
+      size_t last_cv = CELL_EMPTY;
       for (size_t idx = 0; idx < IN_A_ROW; ++idx) {
-        size_t pid = PlayerIdAt(ridx + idx, cidx + idx);
-        if (pid == PLAYER_COUNT) {
+        const float cv = CellValueAt(ridx + idx, cidx + idx);
+        if (cv == CELL_EMPTY) {
           adj_count = 0; // empty cell
         }
-        else if (pid == last_pid) {
+        else if (cv == last_cv) {
           adj_count++;
           if (adj_count >= IN_A_ROW) {
             terminal_status_ =
               cifre::StateTerminalStatus(
-                cifre::StateTerminalStatus::TerminalKind::WINNER, pid);
+                cifre::StateTerminalStatus::TerminalKind::WINNER, CellValueToPlayer(cv)->Id());
             return;
           }
         }
@@ -202,7 +202,7 @@ Board::UpdateTerminalStatus()
           adj_count = 1;
         }
 
-        last_pid = pid;
+        last_cv = cv;
       }
     }
   }
@@ -211,18 +211,18 @@ Board::UpdateTerminalStatus()
   for (size_t ridxp1 = size_.RowCount(); ridxp1 > (size_.RowCount() - IN_A_ROW); --ridxp1) {
     for (size_t cidx = 0; cidx <= (size_.ColumnCount() - IN_A_ROW); ++cidx) {
       size_t adj_count = 0;
-      size_t last_pid = PLAYER_COUNT;
+      size_t last_cv = CELL_EMPTY;
       for (size_t idx = 0; idx < IN_A_ROW; ++idx) {
-        size_t pid = PlayerIdAt(ridxp1 - 1 - idx, cidx + idx);
-        if (pid == PLAYER_COUNT) {
+        const float cv = CellValueAt(ridxp1 - 1 - idx, cidx + idx);
+        if (cv == CELL_EMPTY) {
           adj_count = 0; // empty cell
         }
-        else if (pid == last_pid) {
+        else if (cv == last_cv) {
           adj_count++;
           if (adj_count >= IN_A_ROW) {
             terminal_status_ =
               cifre::StateTerminalStatus(
-                cifre::StateTerminalStatus::TerminalKind::WINNER, pid);
+                cifre::StateTerminalStatus::TerminalKind::WINNER, CellValueToPlayer(cv)->Id());
             return;
           }
         }
@@ -230,7 +230,7 @@ Board::UpdateTerminalStatus()
           adj_count = 1;
         }
 
-        last_pid = pid;
+        last_cv = cv;
       }
     }
   }

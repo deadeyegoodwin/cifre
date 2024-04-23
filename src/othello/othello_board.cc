@@ -25,10 +25,10 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   // of the board. Board must have even number of rows and columns
   // Othello when parsing board size.
   const size_t iidx = size_.RowCount() / 2;
-  SetPlayerIdAt(ActivePlayerId(), iidx, iidx);
-  SetPlayerIdAt(ActivePlayerId(), iidx - 1, iidx - 1);
-  SetPlayerIdAt(OpponentPlayerId(), iidx, iidx - 1);
-  SetPlayerIdAt(OpponentPlayerId(), iidx - 1, iidx);
+  SetCellValueAt(CELL_ACTIVE_PLAYER, iidx, iidx);
+  SetCellValueAt(CELL_ACTIVE_PLAYER, iidx - 1, iidx - 1);
+  SetCellValueAt(CELL_OPPONENT_PLAYER, iidx, iidx - 1);
+  SetCellValueAt(CELL_OPPONENT_PLAYER, iidx - 1, iidx);
 
   // Initialize 'valid_action_ids_' and 'terminal_status_'.
   UpdateValidActions();
@@ -51,13 +51,13 @@ Board::Update(uint64_t action_id)
 {
   if (action_id != do_nothing_action_id_) {
     // Cell corresponding to action must be empty.
-    THROWIF(PlayerIdAtFlattened(action_id) != PLAYER_COUNT,
+    THROWIF(CellValueAtFlattened(action_id) != CELL_EMPTY,
             "player " + ActivePlayer()->Name() + " cannot occupy cell owned by " +
             PlayerAtFlattened(action_id)->Name());
 
     // Occupy the cell corresponding to 'action_id' and flip all the
     // outflanked opponent cells.
-    SetPlayerIdAtFlattened(active_player_id_, action_id);
+    SetCellValueAtFlattened(CELL_ACTIVE_PLAYER, action_id);
 
     size_t total_outflank_count = 0;
 
@@ -95,8 +95,8 @@ Board::Update(uint64_t action_id)
               for (; outflank_count > 0; --outflank_count) {
                 sridx -= dr;
                 scidx -= dc;
-                assert(PlayerIdAt(sridx, scidx) == OpponentPlayerId());
-                SetPlayerIdAt(active_player_id_, sridx, scidx);
+                assert(PlayerAt(sridx, scidx) == OpponentPlayer());
+                SetCellValueAt(CELL_ACTIVE_PLAYER, sridx, scidx);
               }
               break;
             }
