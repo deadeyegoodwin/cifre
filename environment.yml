@@ -4,12 +4,12 @@ channels:
   - nvidia
   - defaults
 dependencies:
-  - numpy
+  - numpy=1.26.4
   - onnx
   - onnxruntime
   - python
   - pytorch
-  - pytorch-cuda=12.1
+  - pytorch-cuda=12.6
   - torchvision
   - torchaudio
   - tqdm

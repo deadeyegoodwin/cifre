@@ -56,6 +56,7 @@ requires a clean build. To perform a clean build do the following:
 
 ```base
 rm -fr build
+mkdir build
 cd build
 cmake ..
 make -j

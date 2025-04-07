@@ -9,6 +9,7 @@
 #include "gsl/gsl_randist.h"
 #include "cifre_algo_alphazero.h"
 #include "common_error.h"
+#include "common_util.h"
 
 namespace cifre {
 
@@ -541,7 +542,7 @@ AlphaZeroNode::ToString(float cpuct, common::Logger::Level filter_level) const
   sstr << "]\n";
 
   sstr << "  state:\n";
-  sstr << common::IndentMultiline(state_->ToString(), 4 /* indent */);
+  sstr << common::DuplicateAndIndent(state_->ToString(), 4 /* indent */);
 
   return sstr.str();
 }

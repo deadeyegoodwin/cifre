@@ -7,6 +7,7 @@
 #include "cifre_triton.h"
 #include "common_error.h"
 #include "common_time.h"
+#include "common_util.h"
 
 namespace cifre {
 
@@ -586,12 +587,12 @@ TritonServer::ToString() const
 
     ss
       << "model " << model_name << '\n'
-      << common::IndentMultiline(stats->ToString(), 4 /* indent */);
+      << common::DuplicateAndIndent(stats->ToString(), 4 /* indent */);
 
     auto infer_stats_itr = infer_stats.find(model_name);
     if (infer_stats_itr != infer_stats.end()) {
       const TritonInferStatistics& infer_stat = infer_stats_itr->second;
-      ss << '\n' << common::IndentMultiline(infer_stat.ToString(), 4 /* indent */);
+      ss << '\n' << common::DuplicateAndIndent(infer_stat.ToString(), 4 /* indent */);
     }
 
     first = false;
