@@ -15,54 +15,26 @@ namespace cifre { namespace celcath {
 //
 // Board
 //
-Board::Board(
-  const cifre::BoardSize2D& size, const std::vector<Player*>& players,
-  size_t starting_player_id, const std::shared_ptr<Stepper>& stepper) :
-  cifre::Board2D(size, players, starting_player_id),
-  step_action_id_(size_.CellCount()), stepper_(stepper)
+Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
+             size_t starting_player_id) :
+  cifre::Board2DBasic(size, players, starting_player_id),
+  step_action_id_(size_.CellCount())
 {
-  cells_flattened_.resize(size_.CellCount() * sizeof(float), CELL_EMPTY);
-  cells_ = reinterpret_cast<float*>(cells_flattened_.data());
+  // Each player starts with a block in corner.
+  const size_t clast = size_.ColumnCount() - 1;
+  const size_t rlast = size_.RowCount() - 1;
+  SetCellValueAt(CELL_ACTIVE_PLAYER, 0, 0);
+  SetCellValueAt(CELL_ACTIVE_PLAYER, 0, 1);
+  SetCellValueAt(CELL_ACTIVE_PLAYER, 1, 0);
+  SetCellValueAt(CELL_ACTIVE_PLAYER, 1, 1);
+  SetCellValueAt(CELL_OPPONENT_PLAYER, rlast, clast);
+  SetCellValueAt(CELL_OPPONENT_PLAYER, rlast, clast - 1);
+  SetCellValueAt(CELL_OPPONENT_PLAYER, rlast - 1, clast);
+  SetCellValueAt(CELL_OPPONENT_PLAYER, rlast - 1, clast - 1);
 
   // Initialize 'valid_action_ids_' and 'terminal_status_'.
   UpdateValidActions();
   UpdateTerminalStatus();
-}
-
-Player*
-Board::PlayerAt(size_t row_idx, size_t col_idx) const
-{
-  // For now we assume 2 player so that we can determine the player
-  // from the cell value.
-  assert(players_.size() == 2);
-
-  const float cv = CellValueAt(row_idx, col_idx);
-  if (cv > 0.0) {
-    return ActivePlayer();
-  }
-  else if (cv < 0.0) {
-    return players_[(active_player_id_ == 0) ? 1 : 0];
-  }
-
-  return nullptr;
-}
-
-Player*
-Board::PlayerAtFlattened(size_t flat_idx) const
-{
-  // For now we assume 2 player so that we can determine the player
-  // from the cell value.
-  assert(players_.size() == 2);
-
-  const float cv = CellValueAtFlattened(flat_idx);
-  if (cv > 0.0) {
-    return ActivePlayer();
-  }
-  else if (cv < 0.0) {
-    return players_[(active_player_id_ == 0) ? 1 : 0];
-  }
-
-  return nullptr;
 }
 
 std::string
@@ -126,13 +98,13 @@ void
 Board::Update(uint64_t action_id)
 {
   if (action_id == step_action_id_) {
-    stepper_->Step(this, players_);
+    Step();
   }
   else {
     // Increment selected cell value.
     const float cv = CellValueAtFlattened(action_id);
-    if ((cv >= CELL_EMPTY) && (cv < CELL_LG)) {
-      SetCellValueAtFlattened(cv + 1.0, action_id);
+    if (cv == CELL_EMPTY) {
+      SetCellValueAtFlattened(CELL_ACTIVE_PLAYER, action_id);
     }
     else {
       THROW("unexpected cell value " + std::to_string(cv));
@@ -151,44 +123,13 @@ Board::UpdateValidActions()
 {
   valid_action_ids_.clear();
 
-  // Empty cells that are manhattan adjacent to currently occupied
-  // cells can be played.
+  // Can play in any empty cell.
   for (size_t ridx = 0; ridx < size_.RowCount(); ++ridx) {
     for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
       const size_t fidx = (ridx * size_.ColumnCount()) + cidx;
       const float cv = CellValueAtFlattened(fidx);
-      if (cv > CELL_EMPTY) {
-        if (cv < CELL_LG) {
-          valid_action_ids_.insert(fidx);
-        }
-        // Left
-        if ((cidx > 0) && (CellValueAtFlattened(fidx - 1) == CELL_EMPTY)) {
-          valid_action_ids_.insert(fidx - 1);
-        }
-        // Right
-        if ((cidx < (size_.ColumnCount() - 1)) && (CellValueAtFlattened(fidx + 1) == CELL_EMPTY)) {
-          valid_action_ids_.insert(fidx + 1);
-        }
-        // Up
-        if ((ridx > 0) && (CellValueAtFlattened(fidx - size_.RowCount()) == CELL_EMPTY)) {
-          valid_action_ids_.insert(fidx - size_.RowCount());
-        }
-        // Down
-        if ((ridx < (size_.RowCount() - 1)) &&
-            (CellValueAtFlattened(fidx + size_.RowCount()) == CELL_EMPTY)) {
-          valid_action_ids_.insert(fidx + size_.RowCount());
-        }
-      }
-    }
-  }
-
-  // If there are no valid actions (nothing yet built), then can play
-  // on home row only.
-  if (valid_action_ids_.empty()) {
-    for (size_t fidx = 0; fidx < size_.ColumnCount(); ++fidx) {
-      const float cv = CellValueAtFlattened(fidx);
       if (cv == CELL_EMPTY) {
-        valid_action_ids_.insert(fidx);
+          valid_action_ids_.insert(fidx);
       }
     }
   }
@@ -200,52 +141,27 @@ Board::UpdateValidActions()
 void
 Board::UpdateTerminalStatus()
 {
-  // Check winning conditions and set 'terminal_status_'. Win if have
-  // more building on opponent's half of board then the opponent does.
-  // For now logic is 2-player specific.
+  // Check winning conditions and set 'terminal_status_'. Win if other
+  // side has no live cells. Logic is 2-player specific.
   assert(players_.size() == 2);
 
-  // Check if opponent player wins by having more on active side of
-  // board.
-  bool opponent_win = false;
-  {
-    float active_count = 0.0;
-    float opponent_count = 0.0;
-    for (size_t ridx = 0; ridx < (size_.RowCount() / 2); ++ridx) {
-      for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
-        const float cv = CellValueAt(ridx, cidx);
-        if (cv > 0.0) {
-          active_count += cv;
-        }
-        else if (cv < 0.0) {
-          opponent_count -= cv;
-        }
+  // Count number of active and opponent live cells.
+  size_t active_count = 0;
+  size_t opponent_count = 0;
+  for (size_t ridx = 0; ridx < size_.RowCount(); ++ridx) {
+    for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
+      const float cv = CellValueAt(ridx, cidx);
+      if (cv == CELL_ACTIVE_PLAYER) {
+        active_count++;
+      }
+      else if (cv == CELL_OPPONENT_PLAYER) {
+        opponent_count++;
       }
     }
-
-    opponent_win = (active_count < opponent_count);
   }
 
-  // Check if active player wins by having more on opponent side of
-  // board.
-  bool active_win = false;
-  {
-    float active_count = 0.0;
-    float opponent_count = 0.0;
-    for (size_t ridx = (size_.RowCount() - 1); ridx >= (size_.RowCount() - (size_.RowCount() / 2)); --ridx) {
-      for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
-        const float cv = CellValueAt(ridx, cidx);
-        if (cv > 0.0) {
-          active_count += cv;
-        }
-        else if (cv < 0.0) {
-          opponent_count -= cv;
-        }
-      }
-    }
-
-    active_win = (active_count > opponent_count);
-  }
+  const bool opponent_win = (active_count == 0);
+  const bool active_win = (opponent_count == 0);
 
   if (active_win && !opponent_win) {
     terminal_status_ =
@@ -255,8 +171,11 @@ Board::UpdateTerminalStatus()
   else if (opponent_win && !active_win) {
     terminal_status_ =
       cifre::StateTerminalStatus(
-        cifre::StateTerminalStatus::TerminalKind::WINNER,
-        (active_player_id_ == 0) ? 1 : 0);
+        cifre::StateTerminalStatus::TerminalKind::WINNER, OpponentPlayerId());
+  }
+  else if (opponent_win && active_win) {
+    terminal_status_ =
+      cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
   }
   else {
     // Otherwise make sure the terminal status is NON_TERMINAL.
@@ -313,39 +232,120 @@ Board::SwitchActivePlayer()
   UpdateValidActions();
 }
 
+void
+Board::Step()
+{
+  // Collect the number of neighbors for each cell, for each player in
+  // 'players'. Also add one additional entry to record the sum of all
+  // neighbors across all players.
+
+  // Logic is 2-player specific.
+  assert(players_.size() == 2);
+
+  const size_t sum_owner_id = players_.size();
+  std::vector<std::vector<int32_t>> neighbor_values;
+  for (size_t nidx = 0; nidx <= players_.size(); ++nidx) {
+    neighbor_values.emplace_back(std::vector<int32_t>(size_.CellCount(), 0));
+  }
+
+  // Accumulate neighbor values...
+  for (size_t ridx = 0; ridx < size_.RowCount(); ++ridx) {
+    for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
+      // If no 'owner' for cell (i.e. empty), then can skip it.
+      const Player* owner = PlayerAt(ridx, cidx);
+      if (owner != nullptr) {
+        const size_t owner_id = owner->Id();
+        assert(players_[owner_id] == owner);
+
+        // Increment count of all neighbor cells to show that 'owner'
+        // is a neighbor.
+        const size_t start_ridx = (ridx == 0) ? 0 : ridx - 1;
+        const size_t end_ridx = std::min(ridx + 2, size_.RowCount());
+        const size_t start_cidx = (cidx == 0) ? 0 : cidx - 1;
+        const size_t end_cidx = std::min(cidx + 2, size_.ColumnCount());
+        for (size_t nvrow = start_ridx; nvrow < end_ridx; ++nvrow) {
+          for (size_t nvcol = start_cidx; nvcol < end_cidx; ++nvcol) {
+            if ((nvrow != ridx) || (nvcol != cidx)) {
+              const size_t cell_idx = (nvrow * size_.ColumnCount()) + nvcol;
+              neighbor_values[owner_id][cell_idx] += 1;
+              neighbor_values[sum_owner_id][cell_idx] += 1;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // FIXME
+//  LOGGER_LOGHIGH(*logger_,
+//                 std::string("neighbor values\n") +
+//                 NeighborValuesToString(size_, players_, neighbor_values));
+
+  // Update board using b3s23 rule for each player neighbor counts.
+  const size_t opponent_player_id = OpponentPlayerId();
+  for (size_t fidx = 0; fidx < size_.CellCount(); ++fidx) {
+    // If both players want to be born in the cell then keep the cell
+    // as it is.
+    const int32_t total_nv = neighbor_values[sum_owner_id][fidx];
+    if (total_nv >= 3) {
+      const int32_t active_nv = neighbor_values[active_player_id_][fidx];
+      const int32_t opponent_nv = neighbor_values[opponent_player_id][fidx];
+      if ((active_nv == 3) && (opponent_nv == 3)) {
+        continue;
+      }
+      else if (active_nv == 3) {
+        SetCellValueAtFlattened(CELL_ACTIVE_PLAYER, fidx);
+        continue;
+      }
+      else if (opponent_nv == 3) {
+        SetCellValueAtFlattened(CELL_OPPONENT_PLAYER, fidx);
+        continue;
+      }
+    }
+
+    // If cell is alive and current owner has 2 or 3 neighbors, then
+    // keep it alive.
+    if (total_nv >= 2) {
+      const Player* owner = PlayerAtFlattened(fidx);
+      if (owner != nullptr) {
+        const int32_t owner_nv = neighbor_values[owner->Id()][fidx];
+        if ((owner_nv == 2) || (owner_nv == 3)) {
+          continue;
+        }
+      }
+    }
+
+    SetCellValueAtFlattened(CELL_EMPTY, fidx);
+  }
+}
+
 std::string
-Board::ToString() const
+Board::NeighborValuesToString(const std::vector<std::vector<int32_t>>& nv) const
 {
   std::stringstream sstr;
-  const size_t ch_width = (size_.ColumnCount() + 2) * 3;
 
-  // Column letters across the top.
-  for (size_t col_idx = 0; col_idx < (size_.ColumnCount() + 1); ++col_idx) {
-    if (col_idx == 0) {
-      sstr << "       ";
+  for (size_t idx = 0; idx <= players_.size(); ++idx) {
+    if (idx > 0) {
+      sstr << '\n';
+    }
+
+    if (idx == players_.size()) {
+      sstr << "Total:\n";
     }
     else {
-      sstr << char('a' + col_idx - 1) << "  ";
+      sstr << players_[idx]->Name() << ":\n";
     }
-  }
-  sstr << "\n    " << std::string(ch_width, '-') << '\n';
 
-  // Board with each row number on the left.
-  sstr << "   |\n";
-  for (size_t row_idx = size_.RowCount(); row_idx > 0; --row_idx) {
-    sstr << ' ' << row_idx << " | ";
-    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
-      const float cv = CellValueAt(row_idx - 1, col_idx);
-      if (cv == CELL_EMPTY) {
-        sstr << "   ";
+    for (size_t ridx = 0; ridx < size_.RowCount(); ++ridx) {
+      if (ridx != 0) {
+        sstr << '\n';
       }
-      else {
-        sstr << ((cv < 0) ? " " : "  ") << int(cv);
+
+      for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
+        sstr << ' ' << nv[idx][(ridx * size_.ColumnCount()) + cidx];
       }
     }
-    sstr << '\n';
   }
-  sstr << "   |";
 
   return sstr.str();
 }

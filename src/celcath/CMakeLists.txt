@@ -60,7 +60,6 @@ add_library(
   celcath-library STATIC
   celcath_board.cc
   celcath_player.cc
-  celcath_stepper.cc
 )
 
 target_compile_features(celcath-library PRIVATE cxx_std_17)

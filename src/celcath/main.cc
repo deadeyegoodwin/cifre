@@ -18,8 +18,8 @@
 
 namespace cifre { namespace celcath {
 
-static const cifre::BoardSize2D DEFAULT_GAME_SHAPE {5, 5};
-static const size_t DEFAULT_MAX_TURNS_PER_GAME = 50;
+static const cifre::BoardSize2D DEFAULT_GAME_SHAPE {16, 16};
+static const size_t DEFAULT_MAX_TURNS_PER_GAME = 20;
 
 //
 // Celcath
@@ -160,8 +160,7 @@ cifre::State*
 Celcath::CreateInitialState(
   const std::vector<Player*>& players, size_t starting_player_idx) const
 {
-  static std::shared_ptr<Stepper> stepper = std::make_shared<AttackStepper>(logger_);
-  return new Board(game_shape_, players, starting_player_idx, stepper);
+  return new Board(game_shape_, players, starting_player_idx);
 }
 
 }} // namespace cifre::celcath
