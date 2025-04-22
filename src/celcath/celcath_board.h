@@ -24,7 +24,7 @@ public:
 
   // Copy constructor.
   Board(const Board& other) :
-    cifre::Board2DBasic(other), step_action_id_(other.step_action_id_) { }
+    cifre::Board2DBasic(other), pass_action_id_(other.pass_action_id_) { }
 
   // See cifre::State
   State* Clone() const override { return new Board(*this); }
@@ -32,7 +32,7 @@ public:
   // See cifre::State
   void Update(uint64_t action_id) override;
 
-  // One action for each board cell, plus the "step" action.  See
+  // One action for each board cell, plus the "pass" action.  See
   // cifre::Board2DBasic.
   size_t TotalActionIdCount() const override { return size_.CellCount() + 1; }
 
@@ -51,7 +51,7 @@ private:
   std::string NeighborValuesToString(
     const std::vector<std::vector<int32_t>>& nv) const;
 
-  const size_t step_action_id_;
+  const size_t pass_action_id_;
 };
 
 }} // namespace cifre::celcath
