@@ -15,10 +15,10 @@ namespace cifre {
 //
 // A specialization of Board2D for two player games where each cell
 // can have only one of three states: empty, "owned" by active player,
-// owned by opponent player. By default the board has one action for
-// each board cell (i.e. "occupy the cell"), but derived classes can
-// override TotalActionIdCount(), StringToAction(), ActionToString()
-// to add/remove actions.
+// or "owned" by opponent player. By default the board has one action
+// for each board cell (i.e. "occupy the cell"), but derived classes
+// can override TotalActionIdCount(), StringToAction(),
+// ActionToString() to add/remove actions.
 //
 // Provides a console representation of the board and methods to
 // convert text commands to/from actions.

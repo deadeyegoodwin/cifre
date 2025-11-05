@@ -33,7 +33,7 @@ public:
 
   // Return the next predicted action ID, given current 'state'. If
   // 'state' represents a terminal state the behavior is undefined,
-  // but the recommended behavior is for the function to throw and
+  // but the recommended behavior is for the function to throw an
   // error. 'max_game_turns_remaining' indicates the maximum number of
   // game turns remaining.
   virtual uint64_t NextActionId(const State& state, size_t max_game_turns_remaining) = 0;

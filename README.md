@@ -34,8 +34,13 @@ using `/tmp/cifre/models` to hold the Triton repository, and
 `/tmp/cifre/train` to hold the training data.
 
 ```base
+# Launch triton in bash shell; triton log will be written to stdout/stderr
 mkdir -p /tmp/cifre/models /tmp/cifre/train
 docker run --gpus=1 --rm --net=host -v /tmp/cifre/models:/cifre/models nvcr.io/nvidia/tritonserver:24.01-py3 tritonserver --model-control-mode=explicit --model-repository=/cifre/models
+
+# In another shell activate conda as described above and then perform following
+# steps. The game-specific invocation of cifre_train.py and more information is
+# found in the game links below.
 cd python
 rm -fr /tmp/cifre/models/*
 rm -fr /tmp/cifre/train/*

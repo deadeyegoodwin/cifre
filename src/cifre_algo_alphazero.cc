@@ -96,9 +96,8 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
   // FIXME here we assume the game has two players, and that a player
   // only gets to choose a single action each turn.
   //
-  // Use the std::max to avoid issues with overflow as
-  // std::numeric_limits<size_t>::max() may be the value of
-  // 'max_game_turns_remaining'.
+  // Avoid issues with overflow as std::numeric_limits<size_t>::max()
+  // may be the value of 'max_game_turns_remaining'.
   const size_t max_game_depth =
     std::max(max_game_turns_remaining, max_game_turns_remaining * 2);
 
@@ -115,7 +114,7 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
     assert(dirichlet_samples_.size() == settings_.dirichlet_sample_count_);
   }
 
-  // Find, creating if necessary, tree node that represents 'state'.
+  // Find, creating if necessary, the tree node that represents 'state'.
   auto node = FindOrCreateNode(std::unique_ptr<const State>(state.Clone()));
   assert(node != nullptr);
 
@@ -302,7 +301,7 @@ AlphaZeroAlgo::SearchTree(
   }
 
   // Update 'node's value, we have already incremented the visit count
-  // for the node one the way down the tree, so need to take that into
+  // for the node on the way down the tree, so need to take that into
   // account when updating the value.
   node->SetValue(((node->Value() * (node->VisitCount() - 1)) + v) / node->VisitCount());
 
