@@ -46,7 +46,7 @@ class CifreBasicConvNNet(nn.Module):
         self.bn3 = nn.BatchNorm2d(self.args['num_channels'])
         self.bn4 = nn.BatchNorm2d(self.args['num_channels'])
 
-        self.fc1 = nn.Linear(self.args['num_channels']*(self.args['num_cols']-4)*(self.args['num_rows']-4), 1024)
+        self.fc1 = nn.Linear(self.args['num_channels']*(self.args['num_rows']-4)*(self.args['num_cols']-4), 1024)
         self.fc_bn1 = nn.BatchNorm1d(1024)
 
         self.fc2 = nn.Linear(1024, 512)
@@ -57,13 +57,13 @@ class CifreBasicConvNNet(nn.Module):
         self.fc4 = nn.Linear(512, 1)
 
     def forward(self, s):
-        #                                             s: batch_size x args.num_cols x args.num_rows
-        s = s.view(-1, 1, self.args['num_cols'], self.args['num_rows'])  # batch_size x 1 x args.num_cols x args.num_rows
-        s = F.relu(self.bn1(self.conv1(s)))            # batch_size x num_channels x args.num_cols x args.num_rows
-        s = F.relu(self.bn2(self.conv2(s)))            # batch_size x num_channels x args.num_cols x args.num_rows
-        s = F.relu(self.bn3(self.conv3(s)))            # batch_size x num_channels x (.args.num_cols-2) x (args.num_rows-2)
-        s = F.relu(self.bn4(self.conv4(s)))            # batch_size x num_channels x (.args.num_cols-4) x (args.num_rows-4)
-        s = s.view(-1, self.args['num_channels']*(self.args['num_cols']-4)*(self.args['num_rows']-4))
+        #                                             s: batch_size x args.num_rows x args.num_cols
+        s = s.view(-1, 1, self.args['num_rows'], self.args['num_cols'])  # batch_size x 1 x args.num_rows x args.num_cols
+        s = F.relu(self.bn1(self.conv1(s)))            # batch_size x num_channels x args.num_rows x args.num_cols
+        s = F.relu(self.bn2(self.conv2(s)))            # batch_size x num_channels x args.num_rows x args.num_cols
+        s = F.relu(self.bn3(self.conv3(s)))            # batch_size x num_channels x (.args.num_rows-2) x (args.num_cols-2)
+        s = F.relu(self.bn4(self.conv4(s)))            # batch_size x num_channels x (.args.num_rows-4) x (args.num_cols-4)
+        s = s.view(-1, self.args['num_channels']*(self.args['num_rows']-4)*(self.args['num_cols']-4))
 
         # batch_size x 1024
         s = F.dropout(F.relu(self.fc_bn1(self.fc1(s))), p=self.args['dropout'], training=self.training)

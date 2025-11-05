@@ -16,7 +16,7 @@ class CifreBasicFcNNet(nn.Module):
         self.args = args
 
         super(CifreBasicFcNNet, self).__init__()
-        self.fc1 = nn.Linear(self.args['num_cols'] * self.args['num_rows'], 1024)
+        self.fc1 = nn.Linear(self.args['num_rows'] * self.args['num_cols'], 1024)
         self.fc_bn1 = nn.BatchNorm1d(1024) if (self.args['batch_size'] > 1) else nn.Identity(1024)
 
         self.fc2 = nn.Linear(1024, 512)
@@ -26,8 +26,8 @@ class CifreBasicFcNNet(nn.Module):
         self.fc4 = nn.Linear(512, 1)
 
     def forward(self, s):
-        # s: batch_size x args.num_cols x args.num_rows
-        s = s.view(-1, self.args['num_cols'] * self.args['num_rows'])
+        # s: batch_size x args.num_rows x args.num_cols
+        s = s.view(-1, self.args['num_rows'] * self.args['num_cols'])
 
         # batch_size x 1024
         s = F.dropout(F.relu(self.fc_bn1(self.fc1(s))), p=self.args['dropout'], training=self.training)
