@@ -17,6 +17,7 @@ from dataset import CifreDataset
 from nnet import CifreNNetManager
 from basic_conv_nnet import CifreBasicConvNNet
 from basic_fc_nnet import CifreBasicFcNNet
+from residual_conv_nnet import CifreResidualConvNNet
 
 FLAGS = None
 LOG = None
