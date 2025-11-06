@@ -149,7 +149,7 @@ public:
   enum class AggregateKind { ALL, AVERAGE };
 
   // Options for how training sample target value is calculated. Z is
-  // the game-outcome value (-1, 0 1) assigned to the node. V is the
+  // the game-outcome value (-1, 0, 1) assigned to the node. V is the
   // alphazero calculated value.
   //   Z - Training sample value is set to game outcome value.
   //   V - Training sample value is set to alphazero calculated value.
