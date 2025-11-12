@@ -93,6 +93,14 @@ Board2DBasic::ToString() const
   std::stringstream sstr;
   const size_t ch_width = (size_.ColumnCount() + 2) * 2;
 
+  // Player key.
+  sstr
+    << " active(p" << ActivePlayerId() << ")=" << ActivePlayer()->Name()
+    << "(" << ActivePlayer()->Char() << "), "
+    << "opponent(p" << OpponentPlayerId() << ")=" << OpponentPlayer()->Name()
+    << "(" << OpponentPlayer()->Char() << ")"
+    << "\n";
+
   // Column letters across the top.
   for (size_t col_idx = 0; col_idx < (size_.ColumnCount() + 1); ++col_idx) {
     if (col_idx == 0) {
