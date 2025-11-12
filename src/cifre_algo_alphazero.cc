@@ -119,8 +119,7 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
   assert(node != nullptr);
 
   LOGGER_LOGHIGH(*logger_, "\nalphazero: starting node");
-  LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_),
-                    2 /* indent */, true /* endline */);
+  LOGGER_LOGHIGH_IE(*logger_, node->ToString(), 2 /* indent */, true /* endline */);
 
   // Update the tree by performing searches starting from 'node'.
   for (size_t idx = 0; idx < settings_.search_count_; ++idx) {
@@ -135,15 +134,15 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
       *logger_,
       "search " + std::to_string(idx+1) + '/' + std::to_string(settings_.search_count_) + ':',
       0 /* indent */, false /* endline */);
-    SearchTree(node.get(), settings_.max_search_depth_, max_game_depth, dirichlet);
+    auto [v, tnode] = SearchTree(node.get(), settings_.max_search_depth_, max_game_depth, dirichlet);
     LOGGER_LOGHIGH_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
+    if (tnode != nullptr) {
+      LOGGER_LOGHIGH_IE(*logger_, tnode->ToString(settings_.cpuct_),
+                        2 /* indent */, true /* endline */);
+    }
   }
 
   statistics_.search_count_ += settings_.search_count_;
-
-  LOGGER_LOGHIGH(*logger_, "\nalphazero: choosing action for node");
-  LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_),
-                    2 /* indent */, true /* endline */);
 
   // Based on 'kind', choose the next action. Because 'state' is not a
   // terminal state, there must be at least one action with a non-zero
@@ -159,6 +158,11 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
   default:
     THROW("unreachable");
   }
+
+  LOGGER_LOGHIGH(
+    *logger_, "\nalphazero: choose action " + std::to_string(action_id) +
+    " '" + node->NodeState().ActionToString(Action(Action::ActionKind::ACTIONID, action_id)) + "'");
+  LOGGER_LOGHIGH_IE(*logger_, node->ToString(), 2 /* indent */, true /* endline */);
 
   // If training, record the nodes for which alpha-zero makes an
   // action decision.
@@ -207,7 +211,7 @@ AlphaZeroAlgo::FindOrCreateNode(std::unique_ptr<const State> state, bool* create
   return new_node;
 }
 
-float
+std::pair<float, AlphaZeroNode*>
 AlphaZeroAlgo::SearchTree(
   AlphaZeroNode* node, const size_t search_depth_remaining,
   const size_t game_depth_remaining, const std::vector<double>* dirichlet)
@@ -215,12 +219,13 @@ AlphaZeroAlgo::SearchTree(
   // If 'node' is a terminal node then show that it was visited and
   // return its value.
   if (node->IsTerminal()) {
-    LOGGER_LOGHIGH(*logger_, " terminal(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
-    LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_),
-                      2 /* indent */, true /* endline */);
+    LOGGER_LOGHIGH_IE(
+      *logger_, " terminal(p" + std::to_string(node->NodeState().ActivePlayerId()) +
+      ") >>" + std::to_string(node->Value()) + ">> " + std::to_string(node->Value()),
+      0 /* indent */, false /* endline */);
     statistics_.search_endby_terminal_count_++;
     node->IncrementVisitCount();
-    return node->Value();
+    return std::make_pair(node->Value(), node);
   }
 
 #ifndef NDEBUG
@@ -236,18 +241,20 @@ AlphaZeroAlgo::SearchTree(
   // counts so if we are not going to visit a child we don't want to
   // update the node count.
   if (game_depth_remaining == 0) {
-    LOGGER_LOGHIGH(*logger_, " game-depth(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
-    LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_),
-                      2 /* indent */, true /* endline */);
+    LOGGER_LOGHIGH_IE(
+      *logger_, " game-depth(p" + std::to_string(node->NodeState().ActivePlayerId()) +
+      ") >>" + std::to_string(DRAW_VALUE) + ">> " + std::to_string(node->Value()),
+      0 /* indent */, false /* endline */);
     statistics_.search_endby_game_depth_count_++;
-    return DRAW_VALUE;
+    return std::make_pair(DRAW_VALUE, node);
   }
   if (search_depth_remaining == 0) {
-    LOGGER_LOGHIGH(*logger_, " search-depth(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')');
-    LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_),
-                      2 /* indent */, true /* endline */);
+    LOGGER_LOGHIGH_IE(
+      *logger_, " search-depth(p" + std::to_string(node->NodeState().ActivePlayerId()) +
+      ") >>" + std::to_string(node->Value()) + ">> " + std::to_string(node->Value()),
+      0 /* indent */, false /* endline */);
     statistics_.search_endby_search_depth_count_++;
-    return node->Value();
+    return std::make_pair(node->Value(), node);
   }
 
   // Move down tree following best actions until perform an action
@@ -288,24 +295,35 @@ AlphaZeroAlgo::SearchTree(
   // visiting it we simply set 'v' to its value. Dirichlet is only
   // used on the root node of a search, so set to nullptr for
   // subsequent nodes.
-  float v = ((next_created) ?
-             next->Value() :
-             SearchTree(
-               next, search_depth_remaining - 1,
-               game_depth_remaining - 1, nullptr /* dirichlet */));
+  float v = 0.0;
+  AlphaZeroNode* tnode = nullptr;
+  if (next_created) {
+    v = next->Value();
+    LOGGER_LOGHIGH_IE(
+      *logger_, " new >>" + std::to_string(v) + ">> " + std::to_string(next->Value()),
+      0 /* indent */, false /* endline */);
+  }
+  else {
+    std::tie(v, tnode) = SearchTree(next, search_depth_remaining - 1,
+                                    game_depth_remaining - 1, nullptr /* dirichlet */);
+  }
 
   // If 'next' has a different active player than 'node', then need to
   // invert 'v'.
   if (node->NodeState().ActivePlayerId() != next->NodeState().ActivePlayerId()) {
     v = -v;
+    LOGGER_LOGHIGH_IE(
+      *logger_, " >>" + std::to_string(v) + ">>", 0 /* indent */, false /* endline */);
   }
 
   // Update 'node's value, we have already incremented the visit count
   // for the node on the way down the tree, so need to take that into
   // account when updating the value.
   node->SetValue(((node->Value() * (node->VisitCount() - 1)) + v) / node->VisitCount());
+  LOGGER_LOGHIGH_IE(
+    *logger_, " " + std::to_string(node->Value()), 0 /* indent */, false /* endline */);
 
-  return v;
+  return std::make_pair(v, tnode);
 }
 
 void
@@ -492,7 +510,7 @@ AlphaZeroNode::ValidateVisitCounts() const
   }
 
   if ((visit_count_ == 0) || (visit_count_ != total_child_visit_count)) {
-    THROW("invalid node and children visit counts\n" + ToString(0.0));
+    THROW("invalid node and children visit counts\n" + ToString());
   }
 }
 
@@ -527,18 +545,20 @@ AlphaZeroNode::ToString(float cpuct, common::Logger::Level filter_level) const
   }
   sstr << "]\n";
 
-  std::vector<float> qus;
-  std::optional<uint64_t> best_action_id =
-    MaxQU(cpuct, nullptr /* dirichlet */, 0.0 /* dirichlet_ratio */, &qus);
-  sstr << "  cpuct: " << cpuct
-       << ", best action: " << ((best_action_id) ? std::to_string(*best_action_id) : "<none>")
-       << ", QUs: [";
-  first = true;
-  for (float p : qus) {
-    sstr << ((first) ? "" : ", ") << p;
-    first = false;
+  if (cpuct > 0.0) {
+    std::vector<float> qus;
+    std::optional<uint64_t> best_action_id =
+      MaxQU(cpuct, nullptr /* dirichlet */, 0.0 /* dirichlet_ratio */, &qus);
+    sstr << "  cpuct: " << cpuct
+         << ", best action: " << ((best_action_id) ? std::to_string(*best_action_id) : "<none>")
+         << ", QUs: [";
+    first = true;
+    for (float p : qus) {
+      sstr << ((first) ? "" : ", ") << p;
+      first = false;
+    }
+    sstr << "]\n";
   }
-  sstr << "]\n";
 
   sstr << "  state:\n";
   sstr << common::DuplicateAndIndent(state_->ToString(), 4 /* indent */);

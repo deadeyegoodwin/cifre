@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "cifre_algo.h"
 #include "cifre_state.h"
@@ -277,9 +278,10 @@ public:
   // probability of being chosen randomly. Error if no such child.
   uint64_t RandomWeightedValidChild(common::Random& rnd) const;
 
-  // Return string representation of node.
+  // Return string representation of node. If 'cpuct' is non-zero then
+  // show the QUs for the node.
   std::string ToString(
-    float cpuct, common::Logger::Level filter_level = common::Logger::Level::LOW) const;
+    float cpuct = 0.0, common::Logger::Level filter_level = common::Logger::Level::LOW) const;
 
 private:
   std::unique_ptr<const State> state_;
@@ -350,8 +352,10 @@ private:
     std::unique_ptr<const State> state, bool* created = nullptr);
 
   // Search from 'node' and update the tree. Return the 'V' value for
-  // the leaf node visited in the search.
-  float SearchTree(
+  // the leaf node visited in the search, and the node that terminated
+  // the search (could be an actual terminal node or just the last
+  // visited node before game or search depth was reached).
+  std::pair<float, AlphaZeroNode*> SearchTree(
     AlphaZeroNode* node, const size_t search_depth_remaining,
     const size_t game_depth_remaining, const std::vector<double>* dirichlet);
 
