@@ -1,5 +1,8 @@
 # Celcath
 
+> [!WARNING]
+> This game is incomplete and will not perform in the documented manner.
+
 A two player cellular automata game played on 4x4 board. Other board
 sizes can also be trained for and played on using the --game-shape
 flag to cifre_train.py and celcath executables. For example, use
