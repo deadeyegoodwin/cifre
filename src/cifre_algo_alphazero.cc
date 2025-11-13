@@ -614,6 +614,27 @@ AlphaZeroStatistics::ToString() const
 //
 // AlphaZeroTrainingSamples
 //
+std::string
+AlphaZeroTrainingSamples::Sample::ToString() const
+{
+  std::stringstream sstr;
+
+  sstr << "sample count: " << count_ << ", z: " << z_value_ << ", v: " << target_v_ << '\n';
+  if (!target_pi_.empty()) {
+    sstr << "  pi: [";
+    bool first = true;
+    for (float pi : target_pi_) {
+      sstr << ((first) ? "" : ", ") << pi;
+      first = false;
+    }
+    sstr << "]\n";
+  }
+
+  sstr << "  " << common::DuplicateAndIndent(node_->NodeState().ToString(), 4 /* indent */) << '\n';
+
+  return sstr.str();
+}
+
 void
 AlphaZeroTrainingSamples::AcquireAndAggregate(
   std::vector<AlphaZeroTrainingSamples::Sample>&& samples)
@@ -642,14 +663,15 @@ AlphaZeroTrainingSamples::AcquireAndAggregate(
       auto node_probs = sample.node_->ChildProbability();
       assert((node_probs.size() * sizeof(float)) == sample.node_->NodeTritonResult().PiByteSize());
 
-#ifndef NDEBUG
       auto created_sample_itr =
-#endif
         train_samples_.emplace(
           std::piecewise_construct,
           std::forward_as_tuple(sample_state),
           std::forward_as_tuple(sample.node_, sample.z_value_, std::move(node_probs), node_value));
       assert(created_sample_itr.second);
+      LOGGER_LOGHIGH(*logger_, "new training sample:");
+      LOGGER_LOGHIGH_IE(*logger_,  created_sample_itr.first->second.ToString(),
+                        2 /* indent */, true /* endline */);
     }
     else {
       // Otherwise average 'node_probs' and 'node_value' into the
@@ -665,6 +687,8 @@ AlphaZeroTrainingSamples::AcquireAndAggregate(
       }
 
       sample.count_++;
+      LOGGER_LOGHIGH(*logger_, "aggregate into existing training sample:");
+      LOGGER_LOGHIGH_IE(*logger_,  sample.ToString(), 2 /* indent */, true /* endline */);
     }
   }
 }
@@ -694,10 +718,7 @@ AlphaZeroTrainingSamples::WriteTraining(const std::string& dir) const
       repr_result = &(pr.second.node_->NodeTritonResult());
     }
 
-    LOGGER_LOGHIGH(*logger_, "writing training sample, value " +
-                   std::to_string(pr.second.target_v_) + ':');
-    LOGGER_LOGHIGH_IE(*logger_, pr.first->ToString(),
-                      2 /* indent */, true /* endline */);
+    LOGGER_LOGHIGH_IE(*logger_, pr.second.ToString(), 2 /* indent */, true /* endline */);
 
     auto& din = pr.first->TritonRepresentation();
     fin.write(reinterpret_cast<const char*>(din.data()), din.size() * sizeof(uint8_t));
@@ -708,8 +729,8 @@ AlphaZeroTrainingSamples::WriteTraining(const std::string& dir) const
       fpi.write(reinterpret_cast<const char*>(&dpi_per), sizeof(dpi_per));
     }
 
-    const float dv = pr.second.target_v_ / pr.second.count_;
-    fv.write(reinterpret_cast<const char*>(&dv), sizeof(dv));
+    const float dv_per = pr.second.target_v_ / pr.second.count_;
+    fv.write(reinterpret_cast<const char*>(&dv_per), sizeof(dv_per));
   }
 
   fin.close();

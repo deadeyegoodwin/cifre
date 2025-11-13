@@ -114,20 +114,25 @@ public:
   class Sample {
   public:
     Sample(const std::shared_ptr<AlphaZeroNode>& node, float z_value) :
-      node_(node), z_value_(z_value), count_(1) { }
+      node_(node), z_value_(z_value), target_v_(0), count_(1) { }
 
     Sample(const std::shared_ptr<AlphaZeroNode>& node, float z_value,
            std::vector<float>&& pi, float v) :
       node_(node), z_value_(z_value),
       target_pi_(std::move(pi)), target_v_(v), count_(1) { }
 
+    // Return string representation of Sample.
+    std::string ToString() const;
+
   private:
     friend class AlphaZeroTrainingSamples;
 
-    // Correspond node
+    // Corresponding node.
     const std::shared_ptr<AlphaZeroNode> node_;
 
-    // Game outcome value
+    // Game outcome value. If AggregateKind is AVERAGE, then this is
+    // the outcome value for the first instance of this state that is
+    // seen.
     const float z_value_;
 
     // Sample pi and v.
