@@ -75,11 +75,14 @@ Board::Update(uint64_t action_id)
 
   THROWIF(!found, "player " + ActivePlayer()->Name() + " cannot play in full column");
 
-  // Switch board state to represent the "other" player. This also
-  // calls UpdateValidActions() to get updated actions.
-  SwitchActivePlayer();
-
+  // Check terminal status and if not at terminal then advance to next
+  // active player.
   UpdateTerminalStatus();
+  if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
+    // Switch board state to represent the "other" player. This also
+    // calls UpdateValidActions() to get updated actions.
+    SwitchActivePlayer();
+  }
 }
 
 void

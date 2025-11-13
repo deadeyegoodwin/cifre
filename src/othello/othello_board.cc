@@ -110,14 +110,17 @@ Board::Update(uint64_t action_id)
     assert(total_outflank_count > 0);
   }
 
-  // Switch board state to represent the "other" player. This also
-  // calls UpdateValidActions() to get updated actions and also set
-  // 'active_do_nothing_'. 'opponent_do_nothing_' becomes what is
-  // currently 'active_do_nothing_'.
-  opponent_do_nothing_ = active_do_nothing_;
-  SwitchActivePlayer();
-
+  // Check terminal status and if not at terminal then advance to next
+  // active player.
   UpdateTerminalStatus();
+  if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
+    // Switch board state to represent the "other" player. This also
+    // calls UpdateValidActions() to get updated actions and also set
+    // 'active_do_nothing_'. 'opponent_do_nothing_' becomes what is
+    // currently 'active_do_nothing_'.
+    opponent_do_nothing_ = active_do_nothing_;
+    SwitchActivePlayer();
+  }
 }
 
 void

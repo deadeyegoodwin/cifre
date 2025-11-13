@@ -37,12 +37,14 @@ Board::Update(uint64_t action_id)
           PlayerAtFlattened(action_id)->Name());
   }
 
-  // Board was changed, so check to see if there is a change in the
-  // terminal status of the board.
+  // Check terminal status and if not at terminal then advance to next
+  // active player.
   UpdateTerminalStatus();
-
-  // Switch board state to represent the "other" player.
-  SwitchActivePlayer();
+  if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
+    // Switch board state to represent the "other" player. This also
+    // calls UpdateValidActions() to get updated actions.
+    SwitchActivePlayer();
+  }
 }
 
 void
