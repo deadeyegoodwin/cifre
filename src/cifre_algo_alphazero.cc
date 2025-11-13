@@ -635,6 +635,17 @@ AlphaZeroTrainingSamples::Sample::ToString() const
   return sstr.str();
 }
 
+std::string
+AlphaZeroTrainingSamples::ToString() const
+{
+  std::stringstream sstr;
+
+  sstr << "count: " << train_samples_.size() << '\n';
+  sstr << "aggregate-kind: " << AggregateKindToString(aggregate_kind_) << '\n';
+  sstr << "value-kind: " << ValueKindToString(value_kind_) << '\n';
+  return sstr.str();
+}
+
 void
 AlphaZeroTrainingSamples::AcquireAndAggregate(
   std::vector<AlphaZeroTrainingSamples::Sample>&& samples)

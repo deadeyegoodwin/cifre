@@ -162,6 +162,23 @@ public:
   //   AVERAGE - Training sample value is set to average of Z and V.
   enum class ValueKind { Z, V, AVERAGE };
 
+  static std::string AggregateKindToString(const AggregateKind kind) {
+    switch (kind) {
+    case AggregateKind::ALL: return "ALL";
+    case AggregateKind::AVERAGE: return "AVERAGE";
+    }
+    return "<none>"; // unreachable
+  }
+
+  static std::string ValueKindToString(const ValueKind kind) {
+    switch (kind) {
+    case ValueKind::Z: return "Z";
+    case ValueKind::V: return "V";
+    case ValueKind::AVERAGE: return "AVERAGE";
+    }
+    return "<none>"; // unreachable
+  }
+
 public:
   AlphaZeroTrainingSamples(const std::shared_ptr<common::Logger>& logger,
                            AggregateKind aggregate_kind, ValueKind value_kind) :
@@ -175,6 +192,9 @@ public:
   // Write collected training data to 'dir'.
   void WriteTraining(const std::string& dir) const;
 
+  // Return string representation of Samples.
+  std::string ToString() const;
+
 private:
   // Return string representation of a shape, using 'batch_count' as
   // the first/batch dimension value if it is non-zero.
@@ -183,7 +203,6 @@ private:
   std::shared_ptr<common::Logger> logger_;
   const AggregateKind aggregate_kind_;
   const ValueKind value_kind_;
-  AlphaZeroStatistics statistics_;
 
   // Samples are identified by their State, so we need to use a custom
   // hash and equal for the map containing all the nodes. The "State*"

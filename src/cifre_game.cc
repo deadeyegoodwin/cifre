@@ -811,6 +811,11 @@ Game::Play()
       logger_->LogLow("Triton");
       logger_->LogLow(triton_server_->ToString(), 4 /* indent */);
     }
+    // Training sample statistics, if any...
+    if (alphazero_train_samples_ != nullptr) {
+      logger_->LogLow("Training Samples");
+      logger_->LogLow(alphazero_train_samples_->ToString(), 4 /* indent */);
+    }
 
     // Write report, if requested.
     if (!report_filename_.empty()) {
