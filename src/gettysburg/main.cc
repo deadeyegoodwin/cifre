@@ -1,4 +1,4 @@
-// Copyright 2024, David Goodwin. All rights reserved.
+// Copyright 2025, David Goodwin. All rights reserved.
 
 #include <cstdint>
 #include <filesystem>
@@ -10,32 +10,32 @@
 #include <vector>
 
 #include "cifre_game.h"
-#include "celcath_board.h"
-#include "celcath_player.h"
+#include "gettysburg_board.h"
+#include "gettysburg_player.h"
 #include "common_error.h"
 #include "common_logger.h"
 #include "common_util.h"
 
-namespace cifre { namespace celcath {
+namespace cifre { namespace gettysburg {
 
-static const cifre::BoardSize2D DEFAULT_GAME_SHAPE {16, 16};
+static const cifre::BoardSize2D DEFAULT_GAME_SHAPE {11, 21};
 static const size_t DEFAULT_MAX_TURNS_PER_GAME = 20;
 
 //
-// Celcath
+// Gettysburg
 //
-class Celcath : public cifre::Game {
+class Gettysburg : public cifre::Game {
 public:
-  // Construct a celcath game.
-  Celcath();
+  // Construct a gettysburg game.
+  Gettysburg();
 
   // See cifre::Game
   const std::string& Name() const override {
-    static std::string n("Celcath"); return n; }
+    static std::string n("Gettysburg"); return n; }
 
   // See cifre::Game
   const std::string& ExecutableName() const override {
-    static std::string n("celcath"); return n; }
+    static std::string n("gettysburg"); return n; }
 
   // See cifre::Game
   std::vector<cifre::GameOption> CustomGameOptions() const override;
@@ -62,7 +62,7 @@ private:
   cifre::BoardSize2D game_shape_;
 };
 
-Celcath::Celcath() : cifre::Game(), game_shape_(DEFAULT_GAME_SHAPE)
+Gettysburg::Gettysburg() : cifre::Game(), game_shape_(DEFAULT_GAME_SHAPE)
 {
   cifre::GameOption::OptionId custom_id = cifre::Game::FirstCustomOptionId;
   OPTION_GAME_SHAPE = custom_id++;
@@ -73,7 +73,7 @@ Celcath::Celcath() : cifre::Game(), game_shape_(DEFAULT_GAME_SHAPE)
 }
 
 std::vector<cifre::GameOption>
-Celcath::CustomGameOptions() const
+Gettysburg::CustomGameOptions() const
 {
   std::vector<cifre::GameOption> custom;
   custom = {
@@ -89,7 +89,7 @@ Celcath::CustomGameOptions() const
 }
 
 bool
-Celcath::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
+Gettysburg::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
 {
   if (opt.Id() == OPTION_GAME_SHAPE) {
     game_shape_ = cifre::BoardSize2D(arg_str);
@@ -108,7 +108,7 @@ Celcath::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
 }
 
 cifre::AlphaZeroSettings
-Celcath::DefaultAlphaZeroSettings(const bool train) const
+Gettysburg::DefaultAlphaZeroSettings(const bool train) const
 {
   cifre::AlphaZeroSettings settings;
   settings.training_ = train;
@@ -138,7 +138,7 @@ Celcath::DefaultAlphaZeroSettings(const bool train) const
 }
 
 cifre::Player*
-Celcath::CreatePlayer(
+Gettysburg::CreatePlayer(
   const Player::Kind kind, const size_t id, const std::string& name, const char ch,
   const std::shared_ptr<cifre::Algo>& algo) const
 {
@@ -157,18 +157,18 @@ Celcath::CreatePlayer(
 }
 
 cifre::State*
-Celcath::CreateInitialState(
+Gettysburg::CreateInitialState(
   const std::vector<Player*>& players, size_t starting_player_idx) const
 {
   return new Board(game_shape_, players, starting_player_idx);
 }
 
-}} // namespace cifre::celcath
+}} // namespace cifre::gettysburg
 
 int
 main(int argc, char **argv)
 {
-  cifre::celcath::Celcath game;
+  cifre::gettysburg::Gettysburg game;
   game.Initialize(argc, argv);
   game.Play();
 

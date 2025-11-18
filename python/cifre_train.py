@@ -245,22 +245,24 @@ def main():
             'dropout' : 0.25,
             'num_channels' : 512 }
         nnet = CifreBasicConvNNet(nnet_args)
-    elif FLAGS.game == 'celcath':
-        game_shape = (16, 16) if (FLAGS.game_shape is None) else FLAGS.game_shape
+    elif FLAGS.game == 'gettysburg':
+        # FIXME, game shape is fixed so just need to check/override here
+        game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
         train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
         infer_batch_size = 32 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
-        LOG.fail_if(len(game_shape) != 2, "celcath requires shape rank 2")
+        LOG.fail_if(len(game_shape) != 2, "gettysburg requires shape rank 2")
         nnet_args = {
             'batch_size' : train_batch_size,
+            'num_planes' : 3,
             'num_rows' : game_shape[0],
             'num_cols' : game_shape[1],
+            'num_residual_blocks' : 2,
             'num_actions' : game_shape[0] * game_shape[1] + 1,
-            'dropout' : 0.25,
             'num_channels' : 512 }
-        nnet = CifreBasicConvNNet(nnet_args)
+        nnet = CifreResidualConvNNet(nnet_args)
     else:
         raise ValueError(f"unexpected --game={FLAGS.game}, "
-                         "options are 'tictactoe', 'othello', 'connect4', 'celcath'")
+                         "options are 'tictactoe', 'othello', 'connect4', 'gettysburg'")
 
     # The same nnet is used for all iterations.
     manager = CifreNNetManager(LOG, nnet, game_shape, infer_batch_size, FLAGS.repo_dir)

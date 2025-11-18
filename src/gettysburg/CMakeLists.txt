@@ -1,37 +1,37 @@
-# Copyright 2024, David Goodwin. All rights reserved.
+# Copyright 2025, David Goodwin. All rights reserved.
 
 cmake_minimum_required(VERSION 3.18)
 
 project(
-  celcath
+  gettysburg
   LANGUAGES CXX
   VERSION 0.1
 )
 
 #
-# celcath executable
+# gettysburg executable
 #
 add_executable(
-  celcath
+  gettysburg
   main.cc
 )
 
-target_compile_features(celcath PRIVATE cxx_std_17)
+target_compile_features(gettysburg PRIVATE cxx_std_17)
 target_compile_options(
-  celcath
+  gettysburg
   PRIVATE
     -Wall -Wextra -Werror -Wno-unused-parameter
     ${CIFRE_ASAN_FLAGS}
 )
 
 target_include_directories(
-  celcath
+  gettysburg
   PRIVATE
     ${PROJECT_SOURCE_DIR}
 )
 
 set_target_properties(
-  celcath
+  gettysburg
   PROPERTIES
     POSITION_INDEPENDENT_CODE ON
     SKIP_BUILD_RPATH TRUE
@@ -41,50 +41,50 @@ set_target_properties(
 )
 
 target_link_libraries(
-  celcath
+  gettysburg
   PRIVATE
     ${CIFRE_ASAN_FLAGS}
     common-library
-    celcath-library
+    gettysburg-library
 )
 
 install(
-  TARGETS celcath
+  TARGETS gettysburg
   RUNTIME DESTINATION ${CIFRE_INSTALL_PREFIX}/bin
 )
 
 #
-# celcath library
+# gettysburg library
 #
 add_library(
-  celcath-library STATIC
-  celcath_board.cc
-  celcath_player.cc
+  gettysburg-library STATIC
+  gettysburg_board.cc
+  gettysburg_player.cc
 )
 
-target_compile_features(celcath-library PRIVATE cxx_std_17)
+target_compile_features(gettysburg-library PRIVATE cxx_std_17)
 target_compile_options(
-  celcath-library
+  gettysburg-library
   PRIVATE
     -Wall -Wextra -Werror -Wno-unused-parameter
     ${CIFRE_ASAN_FLAGS}
 )
 
 target_include_directories(
-  celcath-library
+  gettysburg-library
   PUBLIC
     ${PROJECT_SOURCE_DIR}
 )
 
 set_target_properties(
-  celcath-library
+  gettysburg-library
   PROPERTIES
     POSITION_INDEPENDENT_CODE ON
-    OUTPUT_NAME celcath
+    OUTPUT_NAME gettysburg
 )
 
 target_link_libraries(
-  celcath-library
+  gettysburg-library
   PUBLIC
     cifre-library
   PRIVATE

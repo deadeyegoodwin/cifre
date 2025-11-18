@@ -61,7 +61,7 @@ Board2DHex::ToString() const
   }
   sstr << "\n";
 
-  // Upper half of row.
+  // Rows...
   for (size_t row_idx = 0; row_idx < size_.RowCount(); ++row_idx) {
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
@@ -71,11 +71,11 @@ Board2DHex::ToString() const
         sstr << "__";
       }
     }
+    if ((row_idx != 0) && ((size_.ColumnCount() % 2) == 0)) {
+      sstr << "/";
+    }
     sstr << "\n";
-  }
 
-  // Lower half of row.
-  for (size_t row_idx = 0; row_idx < size_.RowCount(); ++row_idx) {
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
         sstr << "\\__/";
@@ -84,18 +84,20 @@ Board2DHex::ToString() const
         sstr << "  ";
       }
     }
+    if ((size_.ColumnCount() % 2) == 0) {
+      sstr << "\\";
+    }
     sstr << "\n";
   }
 
   // Lower half of last row.
-  for (size_t row_idx = 0; row_idx < size_.RowCount(); ++row_idx) {
-    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
-      if ((col_idx % 2) == 1) {
-        sstr << "   \\__/";
-      }
+  sstr << " ";
+  for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+    if ((col_idx % 2) == 1) {
+      sstr << "  \\__/";
     }
-    sstr << "\n";
   }
+  sstr << "\n";
 
   return sstr.str();
 }

@@ -6,11 +6,11 @@
 #include <iostream>
 #include <sstream>
 
-#include "celcath_board.h"
-#include "celcath_player.h"
+#include "gettysburg_board.h"
+#include "gettysburg_player.h"
 #include "common_error.h"
 
-namespace cifre { namespace celcath {
+namespace cifre { namespace gettysburg {
 
 //
 // HumanPlayer
@@ -29,8 +29,6 @@ HumanPlayer::Usage() const
   sstr << "'h' : help\n";
   sstr << "'q' : quit\n";
   sstr << "'s' : show board\n";
-  sstr << "'n' : step cell state\n";
-  sstr << "'<row><column>' : build cell [row, column]";
   return sstr.str();
 }
 
@@ -77,4 +75,4 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
   return Action(Action::ActionKind::INVALID);
 }
 
-}} // namespace cifre::celcath
+}} // namespace cifre::gettysburg
