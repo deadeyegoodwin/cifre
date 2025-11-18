@@ -1,0 +1,103 @@
+// Copyright 2024, David Goodwin. All rights reserved.
+
+#include <algorithm>
+#include <cctype>
+#include <cstddef>
+#include <cstdint>
+#include <regex>
+#include <string>
+#include <sstream>
+
+#include "cifre_board2d_hex.h"
+#include "common_error.h"
+
+namespace cifre {
+
+//
+// Board2DHex
+//
+Board2DHex::Board2DHex(
+  const size_t plane_cnt, const cifre::BoardSize2D& size,
+  const std::vector<Player*>& players, size_t starting_player_id) :
+  Board2D(plane_cnt, size, players, starting_player_id)
+{
+  THROWIF(players_.size() != PLAYER_COUNT, "exactly 2 players are required");
+  THROWIF(NoPlayerId() != PLAYER_COUNT, "exactly 2 players are required");
+
+  cells_flattened_.resize(size_.CellCount() * plane_cnt_ * sizeof(float));
+  cells_ = reinterpret_cast<float*>(cells_flattened_.data());
+}
+
+std::string
+Board2DHex::ToString() const
+{
+  std::stringstream sstr;
+
+  // Player key.
+  sstr
+    << " active(p" << ActivePlayerId() << ")=" << ActivePlayer()->Name()
+    << "(" << ActivePlayer()->Char() << "), "
+    << "opponent(p" << OpponentPlayerId() << ")=" << OpponentPlayer()->Name()
+    << "(" << OpponentPlayer()->Char() << ")"
+    << "\n";
+
+  //  __    __    __    __
+  // /0 \__/0 \__/0 \__/0 \_
+  // \_0/0 \_2/0 \_4/0 \_6/
+  // /1 \_1/1 \_3/1 \_5/1 \_
+  // \_0/1 \_2/1 \_4/1 \_6/
+  // /2 \_1/2 \_3/2 \_5/2 \_
+  // \_0/2 \_2/2 \_4/2 \_6/
+  //    \_1/  \_3/  \_5/
+
+  // Top of first row of hex cells.
+  for (size_t col_idx = 0; col_idx < size_.ColumnCount(); col_idx += 2) {
+    if (col_idx == 0) {
+      sstr << " __";
+    }
+    else {
+      sstr << "    __";
+    }
+  }
+  sstr << "\n";
+
+  // Upper half of row.
+  for (size_t row_idx = 0; row_idx < size_.RowCount(); ++row_idx) {
+    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+      if ((col_idx % 2) == 0) {
+        sstr << "/  \\";
+      }
+      else {
+        sstr << "__";
+      }
+    }
+    sstr << "\n";
+  }
+
+  // Lower half of row.
+  for (size_t row_idx = 0; row_idx < size_.RowCount(); ++row_idx) {
+    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+      if ((col_idx % 2) == 0) {
+        sstr << "\\__/";
+      }
+      else {
+        sstr << "  ";
+      }
+    }
+    sstr << "\n";
+  }
+
+  // Lower half of last row.
+  for (size_t row_idx = 0; row_idx < size_.RowCount(); ++row_idx) {
+    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+      if ((col_idx % 2) == 1) {
+        sstr << "   \\__/";
+      }
+    }
+    sstr << "\n";
+  }
+
+  return sstr.str();
+}
+
+} // namespace cifre

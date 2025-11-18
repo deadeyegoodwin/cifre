@@ -35,7 +35,7 @@ class Board2DBasic : public Board2D {
 public:
   static constexpr size_t PLAYER_COUNT = 2;
 
-  // Create a board based of a given 'size' and 'players', where
+  // Create a board based on a given 'size' and 'players', where
   // player ID is the index of a given player in 'players'.
   // 'starting_player_id' indicates the player that will go first.
   Board2DBasic(
