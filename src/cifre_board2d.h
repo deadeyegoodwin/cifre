@@ -59,11 +59,12 @@ private:
 class Board2D : public State {
 public:
   // Create a board based of a given 'size' and 'players', where
-  // player ID is the index of a given player in
-  // 'players'. 'starting_player_id' indicates the player that will go
-  // first.
-  Board2D(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
-          size_t starting_player_id);
+  // player ID is the index of a given player in 'players'.
+  // 'starting_player_id' indicates the player that will go
+  // first. 'plane_cnt' indicates the number of planes, each of
+  // 'size' required to hold the state for the board.
+  Board2D(const size_t plane_cnt, const cifre::BoardSize2D& size,
+          const std::vector<Player*>& players, size_t starting_player_id);
 
   // Copy constructor.
   Board2D(const Board2D& other);
@@ -76,6 +77,10 @@ public:
 
   // See cifre::State. Equally is determined by 'cells_'.
   virtual bool Equal(const State* other) const override;
+
+  // Return the number of planes required for the board state. Each 2D
+  // plane's size is Size().
+  size_t PlaneCount() const { return plane_cnt_; }
 
   // Return the board size.
   const BoardSize2D& Size() const { return size_; }
@@ -108,6 +113,9 @@ public:
   }
 
 protected:
+  // Number of planes.
+  const size_t plane_cnt_;
+
   // Size of the board.
   const BoardSize2D size_;
 
@@ -124,10 +132,7 @@ protected:
   std::unordered_set<uint64_t> valid_action_ids_;
 
   // Triton-friendly cell contents. 'cells_' is simply a type-casted
-  // pointer into 'cells_flattened_'. A board cell has a value of
-  // CELL_ACTIVE_PLAYER if it is occupied by the active player, a
-  // value of CELL_OPPONENT_PLAYER if it is occupied by the other
-  // player, or CELL_EMPTY if it is empty. Acts as
+  // pointer into 'cells_flattened_'.
   std::vector<uint8_t> cells_flattened_;
   float* cells_;
 };

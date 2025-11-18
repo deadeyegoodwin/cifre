@@ -42,9 +42,9 @@ BoardSize2D::ToString() const
 //
 // Board2D
 //
-Board2D::Board2D(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
-                 size_t starting_player_id) :
-  size_(size), players_(players), active_player_id_(starting_player_id),
+Board2D::Board2D(const size_t plane_cnt, const cifre::BoardSize2D& size,
+                 const std::vector<Player*>& players, size_t starting_player_id) :
+  plane_cnt_(plane_cnt), size_(size), players_(players), active_player_id_(starting_player_id),
   terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL)
 {
   THROWIF(active_player_id_ >= NoPlayerId(),
@@ -57,14 +57,17 @@ Board2D::Board2D(const cifre::BoardSize2D& size, const std::vector<Player*>& pla
 
   // Derived class must size 'cells_flattened_' and set 'cells' as in
   // the below example where there is one float in the triton
-  // representation representing each cell on the board.
+  // representation representing each cell on the board. This must be
+  // done in the derived class as that is where it is known what
+  // datatype to use for each cell (cannot assume it will always be
+  // 'float').
   //
   // cells_flattened_.resize(size_.CellCount() * sizeof(float));
   // cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 }
 
 Board2D::Board2D(const Board2D& other) :
-  size_(other.size_), players_(other.players_),
+  plane_cnt_(other.plane_cnt_), size_(other.size_), players_(other.players_),
   active_player_id_(other.active_player_id_), terminal_status_(other.terminal_status_),
   valid_action_ids_(other.valid_action_ids_), cells_flattened_(other.cells_flattened_)
 {

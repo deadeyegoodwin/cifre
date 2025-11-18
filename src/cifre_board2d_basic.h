@@ -36,9 +36,8 @@ public:
   static constexpr size_t PLAYER_COUNT = 2;
 
   // Create a board based of a given 'size' and 'players', where
-  // player ID is the index of a given player in
-  // 'players'. 'starting_player_id' indicates the player that will go
-  // first.
+  // player ID is the index of a given player in 'players'.
+  // 'starting_player_id' indicates the player that will go first.
   Board2DBasic(
     const cifre::BoardSize2D& size, const std::vector<Player*>& players,
     size_t starting_player_id);

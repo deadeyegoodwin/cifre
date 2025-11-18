@@ -19,7 +19,7 @@ namespace cifre {
 Board2DBasic::Board2DBasic(
   const cifre::BoardSize2D& size, const std::vector<Player*>& players,
   size_t starting_player_id) :
-  Board2D(size, players, starting_player_id)
+  Board2D(1 /* plane_cnt */, size, players, starting_player_id)
 {
   THROWIF(players_.size() != PLAYER_COUNT, "exactly 2 players are required");
   THROWIF(NoPlayerId() != PLAYER_COUNT, "exactly 2 players are required");
