@@ -60,6 +60,7 @@ add_library(
   gettysburg-library STATIC
   gettysburg_board.cc
   gettysburg_player.cc
+  gettysburg_unit.cc
 )
 
 target_compile_features(gettysburg-library PRIVATE cxx_std_17)

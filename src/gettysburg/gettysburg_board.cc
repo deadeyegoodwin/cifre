@@ -12,10 +12,6 @@
 
 namespace cifre { namespace gettysburg {
 
-enum class PieceActionKind {
-  MOVE_UP = 0, MOVE_UPRIGHT, MOVE_DOWNRIGHT, MOVE_DOWN, MOVE_DOWNLEFT, MOVE_UPLEFT,
-  MOVE_END };
-
 //
 // Board
 //
@@ -24,7 +20,7 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   cifre::Board2DHex(PLANE_COUNT, size, players, starting_player_id)
 {
   // The input planes are based on the size of the board. Because the
-  // model is trained/used by always having the piece currently being
+  // model is trained/used by always having the unit currently being
   // controlled at the center of the plane, there must be a border
   // around the map to allow any actual map hex to be at the center of
   // the plane. These border hexes are marked as being inaccessible.
@@ -36,11 +32,11 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   cells_flattened_.resize(plane_row_cnt_ * plane_column_cnt_ * plane_cnt_ * sizeof(float));
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
-  // Initially set union player at board position [0, 0] and
+  // Initially set union unit at board position [0, 0] and
   // confederate at board position [row-1, col-1].
   SetUnionAt(CELL_ACTIVE, 0, 0);
   SetConfederateAt(CELL_ACTIVE, size_.RowCount() - 1, size_.ColumnCount() - 1);
-  SetGoalAt(CELL_ACTIVE, size_.RowCount() / 2, size_.ColumnCount() / 2);
+  SetGoalAt(CELL_ACTIVE, (size_.RowCount() / 2) - 1, (size_.ColumnCount() / 2) - 1);
 
   // Initialize 'valid_action_ids_' and 'terminal_status_'.
   UpdateValidActions();
@@ -58,7 +54,7 @@ size_t
 Board::TotalActionIdCount() const
 {
   // Six move actions (one for each direction), plus one to end this
-  // pieces movement.
+  // units movement.
   return 7;
 }
 
@@ -69,18 +65,7 @@ Board::ActionToString(const Action& action) const
     return action.ToString();
   }
 
-  const PieceActionKind action_id = (PieceActionKind)action.ActionId();
-  switch (action_id) {
-  case PieceActionKind::MOVE_UP: return "MOVE_UP";
-  case PieceActionKind::MOVE_UPRIGHT: return "MOVE_UPRIGHT";
-  case PieceActionKind::MOVE_DOWNRIGHT: return "MOVE_DOWNRIGHT";
-  case PieceActionKind::MOVE_DOWN: return "MOVE_DOWN";
-  case PieceActionKind::MOVE_DOWNLEFT: return "MOVE_DOWNLEFT";
-  case PieceActionKind::MOVE_UPLEFT: return "MOVE_UPLEFT";
-  case PieceActionKind::MOVE_END: return "MOVE_END";
-  }
-
-  return "<unknown action>";
+  return Unit::ActionKindToString((Unit::ActionKind)action.ActionId());
 }
 
 Action
@@ -106,25 +91,25 @@ Board::StringToAction(const std::string& str) const
 
   // Moves
   if ((posstr == "up") || (posstr == "u")) {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)PieceActionKind::MOVE_UP);
+    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_UP);
   }
   if ((posstr == "up-right") || (posstr == "upright") || (posstr == "ur")) {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)PieceActionKind::MOVE_UPRIGHT);
+    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_UPRIGHT);
   }
   if ((posstr == "down-right") || (posstr == "downright") || (posstr == "dr")) {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)PieceActionKind::MOVE_DOWNRIGHT);
+    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_DOWNRIGHT);
   }
   if ((posstr == "down") || (posstr == "d")) {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)PieceActionKind::MOVE_DOWN);
+    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_DOWN);
   }
   if ((posstr == "down-left") || (posstr == "downleft") || (posstr == "dl")) {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)PieceActionKind::MOVE_DOWNLEFT);
+    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_DOWNLEFT);
   }
   if ((posstr == "up-left") || (posstr == "upleft") || (posstr == "ul")) {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)PieceActionKind::MOVE_UPLEFT);
+    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_UPLEFT);
   }
   if (posstr == "end") {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)PieceActionKind::MOVE_END);
+    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_END);
   }
 
   return Action(Action::ActionKind::INVALID);

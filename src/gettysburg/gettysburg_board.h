@@ -8,6 +8,7 @@
 #include "cifre_action.h"
 #include "cifre_board2d_hex.h"
 #include "gettysburg_player.h"
+#include "gettysburg_unit.h"
 
 namespace cifre { namespace gettysburg {
 
