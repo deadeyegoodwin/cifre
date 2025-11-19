@@ -102,4 +102,24 @@ Board2DHex::ToString() const
   return sstr.str();
 }
 
+std::string
+Board2DHex::BoardCellUpperString(size_t row_idx, size_t col_idx) const
+{
+  std::string str = std::to_string(row_idx);
+  if (str.size() == 1) {
+    str += " ";
+  }
+  return str;
+}
+
+std::string
+Board2DHex::BoardCellLowerString(size_t row_idx, size_t col_idx) const
+{
+  std::string str = std::to_string(col_idx);
+  if (str.size() == 1) {
+    str = "_" + str;
+  }
+  return str;
+}
+
 } // namespace cifre

@@ -25,10 +25,11 @@ std::string
 HumanPlayer::Usage() const
 {
   std::stringstream sstr;
-  sstr << Name();
+  sstr << Name() << "\n";
   sstr << "'h' : help\n";
   sstr << "'q' : quit\n";
   sstr << "'s' : show board\n";
+  sstr << "'!' : show debug board\n";
   return sstr.str();
 }
 
@@ -64,6 +65,10 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
 
     case Action::ActionKind::SHOW_STATE:
       logger_->LogMed(board.ToString());
+      break;
+
+    case Action::ActionKind::SHOW_DEBUG_STATE:
+      logger_->LogMed(board.ToDebugString());
       break;
 
     case Action::ActionKind::QUIT:

@@ -23,7 +23,7 @@ public:
         size_t starting_player_id);
 
   // Copy constructor.
-  Board(const Board& other) : cifre::Board2DHex(other) { }
+  Board(const Board& other);
 
   // See cifre::State
   State* Clone() const override { return new Board(*this); }
@@ -44,9 +44,14 @@ public:
   std::string BoardCellUpperString(size_t row_idx, size_t col_idx) const;
   std::string BoardCellLowerString(size_t row_idx, size_t col_idx) const;
 
+  // Return a debug representation of the board.
+  std::string ToDebugString() const;
+
 private:
   void UpdateTerminalStatus();
   void UpdateValidActions();
+  std::string DebugCellUpperString(size_t row_idx, size_t col_idx) const;
+  std::string DebugCellLowerString(size_t row_idx, size_t col_idx) const;
 
   static constexpr size_t PLANE_COUNT = 3;
   static constexpr size_t PLANE_IDX_UNION = 0;
@@ -94,10 +99,18 @@ private:
 
   void SetUnionAt(float value, size_t row_idx, size_t col_idx) {
     SetBoardCellValueAt(value, row_idx, col_idx, PLANE_IDX_UNION); }
+  float UnionAt(size_t row_idx, size_t col_idx) const {
+    return BoardCellValueAt(row_idx, col_idx, PLANE_IDX_UNION); }
+
   void SetConfederateAt(float value, size_t row_idx, size_t col_idx) {
     SetBoardCellValueAt(value, row_idx, col_idx, PLANE_IDX_CONFEDERATE); }
+  float ConfederateAt(size_t row_idx, size_t col_idx) const {
+    return BoardCellValueAt(row_idx, col_idx, PLANE_IDX_CONFEDERATE); }
+
   void SetGoalAt(float value, size_t row_idx, size_t col_idx) {
     SetBoardCellValueAt(value, row_idx, col_idx, PLANE_IDX_GOAL); }
+  float GoalAt(size_t row_idx, size_t col_idx) const {
+    return BoardCellValueAt(row_idx, col_idx, PLANE_IDX_GOAL); }
 
   size_t plane_row_cnt_;
   size_t plane_column_cnt_;

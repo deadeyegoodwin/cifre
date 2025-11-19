@@ -41,6 +41,7 @@ Board2DBasic::StringToAction(const std::string& str) const
     case '?': return Action(Action::ActionKind::HELP);
     case 'q': return Action(Action::ActionKind::QUIT);
     case 's': return Action(Action::ActionKind::SHOW_STATE);
+    case '!': return Action(Action::ActionKind::SHOW_DEBUG_STATE);
     default:
       break;
     }

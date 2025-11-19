@@ -74,11 +74,11 @@ public:
   // See cifre::State.
   virtual std::string ToString() const override;
 
-  // Derived class must implement each method to return a
-  // two-character string that gives the content string for the upper
-  // and lower part of a given cell.
-  virtual std::string BoardCellUpperString(size_t row_idx, size_t col_idx) const = 0;
-  virtual std::string BoardCellLowerString(size_t row_idx, size_t col_idx) const = 0;
+  // Return a two-character string that gives the content string for
+  // the upper and lower part of a given cell. Default behavior is to show the
+  // row and column index in the cell.
+  virtual std::string BoardCellUpperString(size_t row_idx, size_t col_idx) const;
+  virtual std::string BoardCellLowerString(size_t row_idx, size_t col_idx) const;
 };
 
 } // namespace cifre

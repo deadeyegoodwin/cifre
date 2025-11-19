@@ -47,6 +47,13 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   UpdateTerminalStatus();
 }
 
+Board::Board(const Board& other) :
+  cifre::Board2DHex(other),
+  plane_row_cnt_(other.plane_row_cnt_), plane_column_cnt_(other.plane_column_cnt_),
+  board_first_row_(other.board_first_row_), board_first_column_(other.board_first_column_)
+{
+}
+
 size_t
 Board::TotalActionIdCount() const
 {
@@ -89,6 +96,7 @@ Board::StringToAction(const std::string& str) const
     case '?': return Action(Action::ActionKind::HELP);
     case 'q': return Action(Action::ActionKind::QUIT);
     case 's': return Action(Action::ActionKind::SHOW_STATE);
+    case '!': return Action(Action::ActionKind::SHOW_DEBUG_STATE);
     default:
       break;
     }
@@ -159,21 +167,109 @@ Board::UpdateTerminalStatus()
 std::string
 Board::BoardCellUpperString(size_t row_idx, size_t col_idx) const
 {
-  std::string str = std::to_string(row_idx);
-  if (str.size() == 1) {
-    str += " ";
+  if (UnionAt(row_idx, col_idx) == CELL_ACTIVE) {
+    return "u ";
   }
-  return str;
+  if (ConfederateAt(row_idx, col_idx) == CELL_ACTIVE) {
+    return "c ";
+  }
+
+  return "  ";
 }
 
 std::string
 Board::BoardCellLowerString(size_t row_idx, size_t col_idx) const
 {
-  std::string str = std::to_string(col_idx);
-  if (str.size() == 1) {
-    str = "_" + str;
+  if (GoalAt(row_idx, col_idx) == CELL_ACTIVE) {
+    return "_*";
   }
-  return str;
+
+  return "__";
+}
+
+std::string
+Board::ToDebugString() const
+{
+  std::stringstream sstr;
+
+  // Show all planes...
+
+  // Top of first row of hex cells.
+  for (size_t col_idx = 0; col_idx < plane_column_cnt_; col_idx += 2) {
+    if (col_idx == 0) {
+      sstr << " __";
+    }
+    else {
+      sstr << "    __";
+    }
+  }
+  sstr << "\n";
+
+  // Rows...
+  for (size_t row_idx = 0; row_idx < plane_row_cnt_; ++row_idx) {
+    for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
+      if ((col_idx % 2) == 0) {
+        sstr << "/" << DebugCellUpperString(row_idx, col_idx) << "\\";
+      }
+      else if (row_idx > 0) {
+        sstr << DebugCellLowerString(row_idx - 1, col_idx);
+      }
+      else {
+        sstr << "__";
+      }
+    }
+    if ((row_idx != 0) && ((plane_column_cnt_ % 2) == 0)) {
+      sstr << "/";
+    }
+    sstr << "\n";
+
+    for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
+      if ((col_idx % 2) == 0) {
+        sstr << "\\" << DebugCellLowerString(row_idx, col_idx) << "/";
+      }
+      else {
+        sstr << DebugCellUpperString(row_idx, col_idx);
+      }
+    }
+    if ((plane_column_cnt_ % 2) == 0) {
+      sstr << "\\";
+    }
+    sstr << "\n";
+  }
+
+  // Lower half of last row.
+  sstr << " ";
+  for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
+    if ((col_idx % 2) == 1) {
+      sstr << "  \\" << DebugCellLowerString(plane_row_cnt_ - 1, col_idx) << "/";
+    }
+  }
+  sstr << "\n";
+
+  return sstr.str();
+}
+
+std::string
+Board::DebugCellUpperString(size_t row_idx, size_t col_idx) const
+{
+  if (PlaneCellValueAt(row_idx, col_idx, PLANE_IDX_UNION) == CELL_ACTIVE) {
+    return "u ";
+  }
+  if (PlaneCellValueAt(row_idx, col_idx, PLANE_IDX_CONFEDERATE) == CELL_ACTIVE) {
+    return "c ";
+  }
+
+  return "  ";
+}
+
+std::string
+Board::DebugCellLowerString(size_t row_idx, size_t col_idx) const
+{
+  if (PlaneCellValueAt(row_idx, col_idx, PLANE_IDX_GOAL) == CELL_ACTIVE) {
+    return "_*";
+  }
+
+  return "__";
 }
 
 }} // namespace cifre::gettysburg

@@ -104,6 +104,7 @@ Board2D::IsValidAction(const Action& action) const
   case Action::ActionKind::HELP:
   case Action::ActionKind::QUIT:
   case Action::ActionKind::SHOW_STATE:
+  case Action::ActionKind::SHOW_DEBUG_STATE:
     return true;
 
   case Action::ActionKind::ACTIONID:

@@ -22,6 +22,8 @@ Action::ToString(common::Logger::Level filter_level) const
     return "QUIT";
   case ActionKind::SHOW_STATE:
     return "SHOW-STATE";
+  case ActionKind::SHOW_DEBUG_STATE:
+    return "SHOW-DEBUG-STATE";
   case ActionKind::ACTIONID:
     return "ACTIONID(" + std::to_string(action_id_) + ")";
   }
