@@ -208,6 +208,7 @@ def main():
     # executable using --report-file.
     if FLAGS.game == 'tictactoe':
         game_shape = (3, 3) if (FLAGS.game_shape is None) else FLAGS.game_shape
+        nnet_shape = game_shape
         train_batch_size = 2 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
         infer_batch_size = 64 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "tictactoe requires shape rank 2")
@@ -221,6 +222,7 @@ def main():
         nnet = CifreBasicFcNNet(nnet_args)
     elif FLAGS.game == 'connect4':
         game_shape = (6, 7) if (FLAGS.game_shape is None) else FLAGS.game_shape
+        nnet_shape = game_shape
         train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
         infer_batch_size = 32 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "connect4 requires shape rank 2")
@@ -234,6 +236,7 @@ def main():
         nnet = CifreBasicConvNNet(nnet_args)
     elif FLAGS.game == 'othello':
         game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
+        nnet_shape = game_shape
         train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
         infer_batch_size = 32 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "othello requires shape rank 2")
@@ -247,25 +250,28 @@ def main():
         nnet = CifreBasicConvNNet(nnet_args)
     elif FLAGS.game == 'gettysburg':
         # FIXME, game shape is fixed so just need to check/override here
+        num_planes = 3
         game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
+        nnet_shape = ( # see gettysburg::Board constructor
+            ((game_shape[0] - 1) * 3) + 1, ((game_shape[1] - 1) * 3) + 1, num_planes)
         train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
         infer_batch_size = 32 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "gettysburg requires shape rank 2")
         nnet_args = {
             'batch_size' : train_batch_size,
-            'num_planes' : 3,
-            'num_rows' : game_shape[0],
-            'num_cols' : game_shape[1],
+            'num_planes' : num_planes,
+            'num_rows' : nnet_shape[0],
+            'num_cols' : nnet_shape[1],
             'num_residual_blocks' : 2,
-            'num_actions' : game_shape[0] * game_shape[1] + 1,
-            'num_channels' : 512 }
+            'num_actions' : 7, # FIXME
+            'num_channels' : 128 }
         nnet = CifreResidualConvNNet(nnet_args)
     else:
         raise ValueError(f"unexpected --game={FLAGS.game}, "
                          "options are 'tictactoe', 'othello', 'connect4', 'gettysburg'")
 
     # The same nnet is used for all iterations.
-    manager = CifreNNetManager(LOG, nnet, game_shape, infer_batch_size, FLAGS.repo_dir)
+    manager = CifreNNetManager(LOG, nnet, nnet_shape, infer_batch_size, FLAGS.repo_dir)
 
     # Set parallelism for cifre game execution based on the number of cpu cores.
     game_parallel = (multiprocessing.cpu_count() * 2) if (FLAGS.game_parallel is None) else FLAGS.game_parallel

@@ -31,18 +31,78 @@ public:
   // See cifre::State
   void Update(uint64_t action_id) override;
 
-  // FIXME
+  // See cifre::State
   size_t TotalActionIdCount() const override;
 
-  // FIXME
+  // See cifre::State
   std::string ActionToString(const Action& action) const override;
 
-  // FIXME
+  // See cifre::State
   Action StringToAction(const std::string& str) const override;
+
+  // See cifre::Board2DHex
+  std::string BoardCellUpperString(size_t row_idx, size_t col_idx) const;
+  std::string BoardCellLowerString(size_t row_idx, size_t col_idx) const;
 
 private:
   void UpdateTerminalStatus();
   void UpdateValidActions();
+
+  static constexpr size_t PLANE_COUNT = 3;
+  static constexpr size_t PLANE_IDX_UNION = 0;
+  static constexpr size_t PLANE_IDX_CONFEDERATE = 1;
+  static constexpr size_t PLANE_IDX_GOAL = 2;
+
+  static constexpr float CELL_EMPTY = 0.0;
+  static constexpr float CELL_ACTIVE = 1.0;
+
+  // Return the value of the plane cell at the given row, column, and
+  // plane. Row and column index are relative to the plane.
+  float PlaneCellValueAt(size_t row_idx, size_t col_idx, size_t plane_idx) const {
+    assert((row_idx < plane_row_cnt_) &&
+           (col_idx < plane_column_cnt_) &&
+           (plane_idx < PLANE_COUNT));
+    return cells_[(row_idx * plane_column_cnt_ * PLANE_COUNT) +
+                  (col_idx * PLANE_COUNT) + plane_idx]; }
+
+  // Set the value of the plane cell at the given row, column, and
+  // plane. Row and column index are relative to the plane.
+  void SetPlaneCellValueAt(float value, size_t row_idx, size_t col_idx, size_t plane_idx) {
+    assert((row_idx < plane_row_cnt_) &&
+           (col_idx < plane_column_cnt_) &&
+           (plane_idx < PLANE_COUNT));
+    cells_[(row_idx * plane_column_cnt_ * PLANE_COUNT) +
+           (col_idx * PLANE_COUNT) + plane_idx] = value; }
+
+  // Return the value of the board cell at the given row, column, and
+  // plane. Row and column index are relative to the visible board.
+  float BoardCellValueAt(size_t row_idx, size_t col_idx, size_t plane_idx) const {
+    assert((row_idx < size_.RowCount()) &&
+           (col_idx < size_.ColumnCount()) &&
+           (plane_idx < PLANE_COUNT));
+    return cells_[((row_idx + board_first_row_) * plane_column_cnt_ * PLANE_COUNT) +
+                  ((col_idx + board_first_column_) * PLANE_COUNT) + plane_idx]; }
+
+  // Set the value of the board cell at the given row, column, and
+  // plane. Row and column index are relative to the visible board.
+  void SetBoardCellValueAt(float value, size_t row_idx, size_t col_idx, size_t plane_idx) {
+    assert((row_idx < size_.RowCount()) &&
+           (col_idx < size_.ColumnCount()) &&
+           (plane_idx < PLANE_COUNT));
+    cells_[((row_idx + board_first_row_) * plane_column_cnt_ * PLANE_COUNT) +
+           ((col_idx + board_first_column_) * PLANE_COUNT) + plane_idx] = value; }
+
+  void SetUnionAt(float value, size_t row_idx, size_t col_idx) {
+    SetBoardCellValueAt(value, row_idx, col_idx, PLANE_IDX_UNION); }
+  void SetConfederateAt(float value, size_t row_idx, size_t col_idx) {
+    SetBoardCellValueAt(value, row_idx, col_idx, PLANE_IDX_CONFEDERATE); }
+  void SetGoalAt(float value, size_t row_idx, size_t col_idx) {
+    SetBoardCellValueAt(value, row_idx, col_idx, PLANE_IDX_GOAL); }
+
+  size_t plane_row_cnt_;
+  size_t plane_column_cnt_;
+  size_t board_first_row_;
+  size_t board_first_column_;
 };
 
 }} // namespace cifre::gettysburg

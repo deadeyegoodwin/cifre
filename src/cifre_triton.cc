@@ -270,7 +270,7 @@ TritonModel::UpdateInputMetadata(const rapidjson::Document& model_metadata)
     return triton::client::Error("expecting 1 model input, got " + std::to_string(input_count));
   }
 
-  // Must be one input of datatype FP32 with rank 3 shape where the
+  // Must be one input of datatype FP32 with rank >= 2 shape where the
   // first dimension is the batch.
   const auto& input_metadata = *input_itr->value.Begin();
   input_name_ = std::string(
@@ -292,8 +292,8 @@ TritonModel::UpdateInputMetadata(const rapidjson::Document& model_metadata)
   }
 
   const rapidjson::Value& input_shape_json = input_shape_itr->value;
-  if (input_shape_json.Size() != 3) {
-    return triton::client::Error("expecting rank 3 shape for model input '" + input_name_ + "'");
+  if (input_shape_json.Size() < 2) {
+    return triton::client::Error("expecting rank >= 2 shape for model input '" + input_name_ + "'");
   }
 
   if (input_shape_json[0].GetInt() != -1) {
@@ -303,10 +303,13 @@ TritonModel::UpdateInputMetadata(const rapidjson::Document& model_metadata)
   // Shape includes the batch dimension (set to 1 as currently only
   // batch-size-1 requests are made).
   input_shape_.push_back(1);
-  input_shape_.push_back(input_shape_json[1].GetInt());
-  input_shape_.push_back(input_shape_json[2].GetInt());
-  required_input_byte_size_ =
-    input_shape_[0] * input_shape_[1] * input_shape_[2] * sizeof(float);
+  required_input_byte_size_ = 1;
+  for (size_t idx = 1; idx < input_shape_json.Size(); ++idx) {
+    const int d = input_shape_json[idx].GetInt();
+    input_shape_.push_back(d);
+    required_input_byte_size_ *= d;
+  }
+  required_input_byte_size_ *= sizeof(float);
 
   return triton::client::Error::Success;
 }

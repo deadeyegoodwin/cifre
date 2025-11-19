@@ -23,9 +23,6 @@ Board2DHex::Board2DHex(
 {
   THROWIF(players_.size() != PLAYER_COUNT, "exactly 2 players are required");
   THROWIF(NoPlayerId() != PLAYER_COUNT, "exactly 2 players are required");
-
-  cells_flattened_.resize(size_.CellCount() * plane_cnt_ * sizeof(float));
-  cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 }
 
 std::string
@@ -48,7 +45,7 @@ Board2DHex::ToString() const
   // \_0/1 \_2/1 \_4/1 \_6/
   // /2 \_1/2 \_3/2 \_5/2 \_
   // \_0/2 \_2/2 \_4/2 \_6/
-  //    \_1/  \_3/  \_5/
+  // /  \_1/  \_3/  \_5/  \_
 
   // Top of first row of hex cells.
   for (size_t col_idx = 0; col_idx < size_.ColumnCount(); col_idx += 2) {
@@ -65,7 +62,10 @@ Board2DHex::ToString() const
   for (size_t row_idx = 0; row_idx < size_.RowCount(); ++row_idx) {
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
-        sstr << "/  \\";
+        sstr << "/" << BoardCellUpperString(row_idx, col_idx) << "\\";
+      }
+      else if (row_idx > 0) {
+        sstr << BoardCellLowerString(row_idx - 1, col_idx);
       }
       else {
         sstr << "__";
@@ -78,10 +78,10 @@ Board2DHex::ToString() const
 
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
-        sstr << "\\__/";
+        sstr << "\\" << BoardCellLowerString(row_idx, col_idx) << "/";
       }
       else {
-        sstr << "  ";
+        sstr << BoardCellUpperString(row_idx, col_idx);
       }
     }
     if ((size_.ColumnCount() % 2) == 0) {
@@ -94,7 +94,7 @@ Board2DHex::ToString() const
   sstr << " ";
   for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
     if ((col_idx % 2) == 1) {
-      sstr << "  \\__/";
+      sstr << "  \\" << BoardCellLowerString(size_.RowCount() - 1, col_idx) << "/";
     }
   }
   sstr << "\n";
