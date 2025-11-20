@@ -28,10 +28,8 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   // controlled at the center of the plane, there must be a border
   // around the map to allow any actual map hex to be at the center of
   // the plane.
-  plane_column_cnt_ = ((size_.ColumnCount() - 1) * 2) + 1;
   plane_row_cnt_ = ((size_.RowCount() - 1) * 2) + 1;
-  board_first_column_ = size_.ColumnCount() - 1;
-  board_first_row_ = size_.RowCount() - 1;
+  plane_column_cnt_ = ((size_.ColumnCount() - 1) * 2) + 1;
 
   cells_flattened_.resize(plane_row_cnt_ * plane_column_cnt_ * plane_cnt_ * sizeof(float));
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
@@ -39,19 +37,24 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   // Initially set union unit at board position [0, 0] and
   // confederate at board position [row-1, col-1].
   auto union_unit = std::make_unique<Unit>(Unit::ArmyKind::UNION, 0, 0);
-  union_unit->AddToBoard(this);
   union_units_.push_back(std::move(union_unit));
 
   auto confederate_unit = std::make_unique<Unit>(
     Unit::ArmyKind::CONFEDERATE, size_.RowCount() - 1, size_.ColumnCount() - 1);
-  confederate_unit->AddToBoard(this);
   confederate_units_.push_back(std::move(confederate_unit));
 
-  // Set a goal at the center of the board.
-  SetGoalAt(CELL_ACTIVE, (size_.RowCount() / 2) - 1, (size_.ColumnCount() / 2) - 1);
+  // Set starting army and unit. The active unit's position determines
+  // where on the planes the board is located to place that unit in
+  // the center of the planes.
+  active_army_ =
+    (active_player_id_ == 0) ? Unit::ArmyKind::UNION : Unit::ArmyKind::CONFEDERATE;
+  active_unit_idx_ = 0;
+  active_first_row_ = size_.RowCount() - 1 - ActiveUnit()->Row();
+  active_first_column_ = size_.ColumnCount() - 1 - ActiveUnit()->Column();
 
   // Initialize board inputs, valid actions, and terminal status for
   // the initial active player.
+  UpdateInputPlanes(ActiveUnit());
   UpdateValidActions();
   UpdateTerminalStatus();
 }
@@ -59,8 +62,15 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
 Board::Board(const Board& other) :
   cifre::Board2DHex(other),
   plane_row_cnt_(other.plane_row_cnt_), plane_column_cnt_(other.plane_column_cnt_),
-  board_first_row_(other.board_first_row_), board_first_column_(other.board_first_column_)
+  active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
+  active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_)
 {
+  for (const auto& u : other.union_units_) {
+    union_units_.push_back(std::make_unique<Unit>(*u));
+  }
+  for (const auto& u : other.confederate_units_) {
+    confederate_units_.push_back(std::make_unique<Unit>(*u));
+  }
 }
 
 size_t
@@ -129,12 +139,85 @@ Board::StringToAction(const std::string& str) const
 void
 Board::Update(uint64_t action_id)
 {
-  // Check terminal status and if not at terminal then advance to next
-  // active player.
-  UpdateTerminalStatus();
-  if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
+  if (action_id == (uint64_t)Unit::ActionKind::MOVE_END) {
+    NextActiveUnit();
+  }
+  else {
+    // Check terminal status and if not at terminal then advance to
+    // next active player.
+    UpdateTerminalStatus();
+    if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
 
-    UpdateValidActions();
+      UpdateValidActions();
+    }
+  }
+}
+
+Unit*
+Board::ActiveUnit() const
+{
+  Unit* unit = nullptr;
+  switch (active_army_) {
+  case Unit::ArmyKind::UNION:
+    unit = union_units_[active_unit_idx_].get();
+    break;
+  case Unit::ArmyKind::CONFEDERATE:
+    unit = confederate_units_[active_unit_idx_].get();
+    break;
+  }
+
+  return unit;
+}
+
+void
+Board::NextActiveUnit()
+{
+  // If currently active unit is the last for the current player, then
+  // change to the next player.
+  bool switch_active_army = false;
+  switch (active_army_) {
+  case Unit::ArmyKind::UNION:
+    switch_active_army = (active_unit_idx_ == (union_units_.size() - 1));
+    break;
+  case Unit::ArmyKind::CONFEDERATE:
+    switch_active_army = (active_unit_idx_ == (confederate_units_.size() - 1));
+    break;
+  }
+
+  if (switch_active_army) {
+    active_player_id_ = (active_player_id_ + 1) % players_.size();
+    active_army_ =
+      (active_player_id_ == 0) ? Unit::ArmyKind::UNION : Unit::ArmyKind::CONFEDERATE;
+    active_unit_idx_ = 0;
+  }
+  else {
+    // Otherwise just move to the next unit in the same army.
+    active_unit_idx_ += 1;
+  }
+
+  Unit* active_unit = ActiveUnit();
+  active_first_row_ = size_.RowCount() - 1 - active_unit->Row();
+  active_first_column_ = size_.ColumnCount() - 1 - active_unit->Column();
+
+  // Update input planes and valid actions for the now-active unit.
+  UpdateInputPlanes(active_unit);
+  UpdateValidActions();
+}
+
+void
+Board::UpdateInputPlanes(Unit* unit)
+{
+  std::fill(cells_flattened_.begin(), cells_flattened_.end(), CELL_EMPTY);
+
+  // Set a goal at the center of the board.
+  SetGoalAt(CELL_ACTIVE, (size_.RowCount() / 2) - 1, (size_.ColumnCount() / 2) - 1);
+
+  // Update planes as required for all units.
+  for (const auto& u : union_units_) {
+    u->AddToBoard(this);
+  }
+  for (const auto& u : confederate_units_) {
+    u->AddToBoard(this);
   }
 }
 

@@ -82,8 +82,8 @@ public:
     assert((row_idx < size_.RowCount()) &&
            (col_idx < size_.ColumnCount()) &&
            (plane_idx < PLANE_COUNT));
-    return cells_[((row_idx + board_first_row_) * plane_column_cnt_ * PLANE_COUNT) +
-                  ((col_idx + board_first_column_) * PLANE_COUNT) + plane_idx]; }
+    return cells_[((row_idx + active_first_row_) * plane_column_cnt_ * PLANE_COUNT) +
+                  ((col_idx + active_first_column_) * PLANE_COUNT) + plane_idx]; }
 
   // Set the value of the board cell at the given row, column, and
   // plane. Row and column index are relative to the visible board.
@@ -91,8 +91,8 @@ public:
     assert((row_idx < size_.RowCount()) &&
            (col_idx < size_.ColumnCount()) &&
            (plane_idx < PLANE_COUNT));
-    cells_[((row_idx + board_first_row_) * plane_column_cnt_ * PLANE_COUNT) +
-           ((col_idx + board_first_column_) * PLANE_COUNT) + plane_idx] = value; }
+    cells_[((row_idx + active_first_row_) * plane_column_cnt_ * PLANE_COUNT) +
+           ((col_idx + active_first_column_) * PLANE_COUNT) + plane_idx] = value; }
 
   void SetUnionAt(float value, size_t row_idx, size_t col_idx) {
     SetBoardCellValueAt(value, row_idx, col_idx, PLANE_IDX_UNION); }
@@ -118,15 +118,23 @@ private:
   static constexpr char UNION_CHAR = 'u';
   static constexpr char CONFEDERATE_CHAR = 'c';
 
+  Unit* ActiveUnit() const;
+
+  void UpdateInputPlanes(Unit* unit);
   void UpdateTerminalStatus();
   void UpdateValidActions();
+  void NextActiveUnit();
+
   std::string DebugCellUpperString(size_t row_idx, size_t col_idx) const;
   std::string DebugCellLowerString(size_t row_idx, size_t col_idx) const;
 
   size_t plane_row_cnt_;
   size_t plane_column_cnt_;
-  size_t board_first_row_;
-  size_t board_first_column_;
+
+  Unit::ArmyKind active_army_;
+  size_t active_unit_idx_;
+  size_t active_first_row_;
+  size_t active_first_column_;
 
   std::vector<std::unique_ptr<Unit>> union_units_;
   std::vector<std::unique_ptr<Unit>> confederate_units_;
