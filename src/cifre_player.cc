@@ -15,8 +15,8 @@ namespace cifre {
 // Player
 //
 Player::Player(const std::shared_ptr<common::Logger>& logger,
-               size_t id, const std::string& name, char ch) :
-  logger_(logger), id_(id), name_(name), ch_(ch)
+               size_t id, const std::string& name) :
+  logger_(logger), id_(id), name_(name), ch_('-')
 {
 }
 
@@ -40,9 +40,8 @@ Player::ToString(common::Logger::Level filter_level) const
 //
 AlgoPlayer::AlgoPlayer(
   const std::shared_ptr<common::Logger>& logger,
-  size_t id, const std::string& name, char ch,
-  const std::shared_ptr<cifre::Algo>& algo) :
-  Player(logger, id, name, ch), algo_(algo)
+  size_t id, const std::string& name, const std::shared_ptr<cifre::Algo>& algo) :
+  Player(logger, id, name), algo_(algo)
 {
 }
 

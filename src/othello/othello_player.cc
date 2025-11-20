@@ -16,8 +16,8 @@ namespace cifre { namespace othello {
 // HumanPlayer
 //
 HumanPlayer::HumanPlayer(const std::shared_ptr<common::Logger>& logger,
-                         size_t id, const std::string& name, char ch) :
-  cifre::Player(logger, id, name, ch)
+                         size_t id, const std::string& name) :
+  cifre::Player(logger, id, name)
 {
 }
 

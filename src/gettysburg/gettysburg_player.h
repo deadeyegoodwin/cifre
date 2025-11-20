@@ -18,10 +18,9 @@ namespace cifre { namespace gettysburg {
 //
 class HumanPlayer : public cifre::Player {
 public:
-  // Create 'name'd human player that uses 'ch' as the one character
-  // representation.
+  // Create 'name'd human player.
   HumanPlayer(const std::shared_ptr<common::Logger>& logger,
-              size_t id, const std::string& name, char ch);
+              size_t id, const std::string& name);
 
   // See cifre::Player::NextAction().
   Action NextAction(const cifre::State& board, size_t max_game_turns_remaining) const override;

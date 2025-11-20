@@ -19,6 +19,10 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
              size_t starting_player_id) :
   cifre::Board2DHex(PLANE_COUNT, size, players, starting_player_id)
 {
+  // Player 0 is 'u' (union) and player 1 is 'c' (confederate).
+  players[0]->SetChar('u');
+  players[1]->SetChar('c');
+
   // The input planes are based on the size of the board. Because the
   // model is trained/used by always having the unit currently being
   // controlled at the center of the plane, there must be a border
@@ -159,10 +163,10 @@ std::string
 Board::BoardCellUpperString(size_t row_idx, size_t col_idx) const
 {
   if (UnionAt(row_idx, col_idx) == CELL_ACTIVE) {
-    return "u ";
+    return std::string(1, UNION_CHAR) + " ";
   }
   if (ConfederateAt(row_idx, col_idx) == CELL_ACTIVE) {
-    return "c ";
+    return std::string(1, CONFEDERATE_CHAR) + " ";
   }
 
   return "  ";
@@ -244,10 +248,10 @@ std::string
 Board::DebugCellUpperString(size_t row_idx, size_t col_idx) const
 {
   if (PlaneCellValueAt(row_idx, col_idx, PLANE_IDX_UNION) == CELL_ACTIVE) {
-    return "u ";
+    return std::string(1, UNION_CHAR) + " ";
   }
   if (PlaneCellValueAt(row_idx, col_idx, PLANE_IDX_CONFEDERATE) == CELL_ACTIVE) {
-    return "c ";
+    return std::string(1, CONFEDERATE_CHAR) + " ";
   }
 
   return "  ";

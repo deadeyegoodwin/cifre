@@ -109,6 +109,9 @@ public:
     return BoardCellValueAt(row_idx, col_idx, PLANE_IDX_GOAL); }
 
 private:
+  static constexpr char UNION_CHAR = 'u';
+  static constexpr char CONFEDERATE_CHAR = 'c';
+
   void UpdateTerminalStatus();
   void UpdateValidActions();
   std::string DebugCellUpperString(size_t row_idx, size_t col_idx) const;

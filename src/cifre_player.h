@@ -23,7 +23,7 @@ public:
 
 public:
   Player(
-    const std::shared_ptr<common::Logger>& logger, size_t id, const std::string& name, char ch);
+    const std::shared_ptr<common::Logger>& logger, size_t id, const std::string& name);
   virtual ~Player() = default;
 
   // Return the player's ID.
@@ -32,7 +32,8 @@ public:
   // Return the player's name.
   const std::string& Name() const { return name_; }
 
-  // Return the one character representation of the player.
+  // Set or return the one character representation of the player.
+  void SetChar(char ch) { ch_ = ch; }
   char Char() const { return ch_; }
 
   // Called to notify that a new game is starting. Default behavior is
@@ -61,7 +62,7 @@ protected:
   std::shared_ptr<common::Logger> logger_;
   const size_t id_;
   const std::string name_;
-  const char ch_;
+  char ch_;
 };
 
 //
@@ -73,8 +74,7 @@ class AlgoPlayer : public Player {
 public:
   AlgoPlayer(
     const std::shared_ptr<common::Logger>& logger,
-    size_t id, const std::string& name, char ch,
-    const std::shared_ptr<cifre::Algo>& algo);
+    size_t id, const std::string& name, const std::shared_ptr<cifre::Algo>& algo);
 
   // See Player::NextAction().
   Action NextAction(const State& state, size_t max_game_turns_remaining) const override;

@@ -846,9 +846,8 @@ Player*
 Game::CreatePlayerInternal(
   const PlayerSettings& player_settings, const std::shared_ptr<Algo>& algo) const
 {
-  const char bc = (player_settings.id_ == 0) ? 'o' : 'x';
   Player::Kind player_kind = PlayerSettings::KindToPlayerKind(player_settings.kind_);
-  Player* p = CreatePlayer(player_kind, player_settings.id_, player_settings.name_, bc, algo);
+  Player* p = CreatePlayer(player_kind, player_settings.id_, player_settings.name_, algo);
   GameCheckTrueMsg(p != nullptr,
                    "'" + PlayerSettings::KindToString(player_settings.kind_) +
                    "' player not supported by game '" + Name() + "'");

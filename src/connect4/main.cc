@@ -48,7 +48,7 @@ public:
 
   // See cifre::Game
   Player* CreatePlayer(
-    const Player::Kind kind, const size_t id, const std::string& name, const char ch,
+    const Player::Kind kind, const size_t id, const std::string& name,
     const std::shared_ptr<cifre::Algo>& algo) const override;
 
   // See cifre::Game
@@ -140,7 +140,7 @@ Connect4::DefaultAlphaZeroSettings(const bool train) const
 
 cifre::Player*
 Connect4::CreatePlayer(
-  const Player::Kind kind, const size_t id, const std::string& name, const char ch,
+  const Player::Kind kind, const size_t id, const std::string& name,
   const std::shared_ptr<cifre::Algo>& algo) const
 {
   switch (kind) {
@@ -148,10 +148,10 @@ Connect4::CreatePlayer(
     break;
   case Player::Kind::HUMAN:
     assert(algo == nullptr);
-    return new HumanPlayer(logger_, id, name, ch);
+    return new HumanPlayer(logger_, id, name);
   case Player::Kind::ALGO:
     assert(algo != nullptr);
-    return new cifre::AlgoPlayer(logger_, id, name, ch, algo);
+    return new cifre::AlgoPlayer(logger_, id, name, algo);
   }
 
   return nullptr;
