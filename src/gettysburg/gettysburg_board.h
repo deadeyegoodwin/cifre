@@ -48,12 +48,7 @@ public:
   // Return a debug representation of the board.
   std::string ToDebugString() const;
 
-private:
-  void UpdateTerminalStatus();
-  void UpdateValidActions();
-  std::string DebugCellUpperString(size_t row_idx, size_t col_idx) const;
-  std::string DebugCellLowerString(size_t row_idx, size_t col_idx) const;
-
+public:
   static constexpr size_t PLANE_COUNT = 3;
   static constexpr size_t PLANE_IDX_UNION = 0;
   static constexpr size_t PLANE_IDX_CONFEDERATE = 1;
@@ -113,10 +108,19 @@ private:
   float GoalAt(size_t row_idx, size_t col_idx) const {
     return BoardCellValueAt(row_idx, col_idx, PLANE_IDX_GOAL); }
 
+private:
+  void UpdateTerminalStatus();
+  void UpdateValidActions();
+  std::string DebugCellUpperString(size_t row_idx, size_t col_idx) const;
+  std::string DebugCellLowerString(size_t row_idx, size_t col_idx) const;
+
   size_t plane_row_cnt_;
   size_t plane_column_cnt_;
   size_t board_first_row_;
   size_t board_first_column_;
+
+  std::vector<std::unique_ptr<Unit>> union_units_;
+  std::vector<std::unique_ptr<Unit>> confederate_units_;
 };
 
 }} // namespace cifre::gettysburg

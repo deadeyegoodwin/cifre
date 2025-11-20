@@ -34,8 +34,16 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
 
   // Initially set union unit at board position [0, 0] and
   // confederate at board position [row-1, col-1].
-  SetUnionAt(CELL_ACTIVE, 0, 0);
-  SetConfederateAt(CELL_ACTIVE, size_.RowCount() - 1, size_.ColumnCount() - 1);
+  auto union_unit = std::make_unique<Unit>(Unit::ArmyKind::UNION, 0, 0);
+  union_unit->AddToBoard(this);
+  union_units_.push_back(std::move(union_unit));
+
+  auto confederate_unit = std::make_unique<Unit>(
+    Unit::ArmyKind::CONFEDERATE, size_.RowCount() - 1, size_.ColumnCount() - 1);
+  confederate_unit->AddToBoard(this);
+  confederate_units_.push_back(std::move(confederate_unit));
+
+  // Set a goal at the center of the board.
   SetGoalAt(CELL_ACTIVE, (size_.RowCount() / 2) - 1, (size_.ColumnCount() / 2) - 1);
 
   // Initialize 'valid_action_ids_' and 'terminal_status_'.
@@ -53,9 +61,7 @@ Board::Board(const Board& other) :
 size_t
 Board::TotalActionIdCount() const
 {
-  // Six move actions (one for each direction), plus one to end this
-  // units movement.
-  return 7;
+  return size_t(Unit::ActionKind::ACTION_COUNT);
 }
 
 std::string

@@ -9,6 +9,8 @@
 
 namespace cifre { namespace gettysburg {
 
+class Board;
+
 //
 // Unit
 //
@@ -21,7 +23,7 @@ public:
 
   enum class ActionKind {
     MOVE_UP = 0, MOVE_UPRIGHT, MOVE_DOWNRIGHT, MOVE_DOWN, MOVE_DOWNLEFT, MOVE_UPLEFT,
-    MOVE_END };
+    MOVE_END, ACTION_COUNT };
 
   static std::string ArmyKindToString(const ArmyKind kind) {
     switch (kind) {
@@ -40,6 +42,8 @@ public:
     case ActionKind::MOVE_DOWNLEFT: return "MOVE_DOWNLEFT";
     case ActionKind::MOVE_UPLEFT: return "MOVE_UPLEFT";
     case ActionKind::MOVE_END: return "MOVE_END";
+    case ActionKind::ACTION_COUNT:
+      break;
     }
     return "<none>"; // unreachable
   }
@@ -51,6 +55,12 @@ public:
   ArmyKind Army() const { return army_kind_; }
   size_t Row() const { return row_idx_; }
   size_t Column() const { return column_idx_; }
+
+  // Update 'board' to remove this unit.
+  void ClearFromBoard(Board* board) const;
+
+  // Update 'board' to reflect current status of this unit.
+  void AddToBoard(Board* board) const;
 
 private:
   const ArmyKind army_kind_;
