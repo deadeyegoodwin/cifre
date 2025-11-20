@@ -211,7 +211,7 @@ Board::UpdateTerminalStatus()
   }
 
   // Up-to-right diagonals.
-  for (size_t ridxp1 = size_.RowCount(); ridxp1 > (size_.RowCount() - IN_A_ROW); --ridxp1) {
+  for (size_t ridxp1 = size_.RowCount(); ridxp1 > IN_A_ROW; --ridxp1) {
     for (size_t cidx = 0; cidx <= (size_.ColumnCount() - IN_A_ROW); ++cidx) {
       size_t adj_count = 0;
       size_t last_cv = CELL_EMPTY;
