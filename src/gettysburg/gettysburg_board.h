@@ -49,10 +49,11 @@ public:
   std::string ToDebugString() const;
 
 public:
-  static constexpr size_t PLANE_COUNT = 3;
+  static constexpr size_t PLANE_COUNT = 4;
   static constexpr size_t PLANE_IDX_UNION = 0;
   static constexpr size_t PLANE_IDX_CONFEDERATE = 1;
   static constexpr size_t PLANE_IDX_GOAL = 2;
+  static constexpr size_t PLANE_IDX_MOVE = 3;
 
   static constexpr float CELL_EMPTY = 0.0;
   static constexpr float CELL_ACTIVE = 1.0;
@@ -107,6 +108,11 @@ public:
     SetBoardCellValueAt(value, row_idx, col_idx, PLANE_IDX_GOAL); }
   float GoalAt(size_t row_idx, size_t col_idx) const {
     return BoardCellValueAt(row_idx, col_idx, PLANE_IDX_GOAL); }
+
+  void SetMoveAt(float value, size_t row_idx, size_t col_idx) {
+    SetBoardCellValueAt(value, row_idx, col_idx, PLANE_IDX_MOVE); }
+  float MoveAt(size_t row_idx, size_t col_idx) const {
+    return BoardCellValueAt(row_idx, col_idx, PLANE_IDX_MOVE); }
 
 private:
   static constexpr char UNION_CHAR = 'u';

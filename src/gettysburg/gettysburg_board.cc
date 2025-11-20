@@ -50,7 +50,8 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   // Set a goal at the center of the board.
   SetGoalAt(CELL_ACTIVE, (size_.RowCount() / 2) - 1, (size_.ColumnCount() / 2) - 1);
 
-  // Initialize 'valid_action_ids_' and 'terminal_status_'.
+  // Initialize board inputs, valid actions, and terminal status for
+  // the initial active player.
   UpdateValidActions();
   UpdateTerminalStatus();
 }
@@ -175,11 +176,16 @@ Board::BoardCellUpperString(size_t row_idx, size_t col_idx) const
 std::string
 Board::BoardCellLowerString(size_t row_idx, size_t col_idx) const
 {
-  if (GoalAt(row_idx, col_idx) == CELL_ACTIVE) {
-    return "_*";
+  std::string str("__");
+
+  if (MoveAt(row_idx, col_idx)) {
+    str[0] = 'm';
+  }
+  if (GoalAt(row_idx, col_idx)) {
+    str[1] = '*';
   }
 
-  return "__";
+  return str;
 }
 
 std::string
@@ -260,11 +266,16 @@ Board::DebugCellUpperString(size_t row_idx, size_t col_idx) const
 std::string
 Board::DebugCellLowerString(size_t row_idx, size_t col_idx) const
 {
+  std::string str("__");
+
+  if (PlaneCellValueAt(row_idx, col_idx, PLANE_IDX_MOVE) == CELL_ACTIVE) {
+    str[0] = 'm';
+  }
   if (PlaneCellValueAt(row_idx, col_idx, PLANE_IDX_GOAL) == CELL_ACTIVE) {
-    return "_*";
+    str[1] = '*';
   }
 
-  return "__";
+  return str;
 }
 
 }} // namespace cifre::gettysburg

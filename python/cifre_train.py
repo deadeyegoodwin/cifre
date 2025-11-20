@@ -250,7 +250,7 @@ def main():
         nnet = CifreBasicConvNNet(nnet_args)
     elif FLAGS.game == 'gettysburg':
         # FIXME, game shape is fixed so just need to check/override here
-        num_planes = 3
+        num_planes = 4  # see gettysburg::Board::PLANE_COUNT
         game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
         nnet_shape = ( # see gettysburg::Board constructor
             ((game_shape[0] - 1) * 3) + 1, ((game_shape[1] - 1) * 3) + 1, num_planes)
