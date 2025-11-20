@@ -253,7 +253,7 @@ def main():
         num_planes = 4  # see gettysburg::Board::PLANE_COUNT
         game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
         nnet_shape = ( # see gettysburg::Board constructor
-            ((game_shape[0] - 1) * 3) + 1, ((game_shape[1] - 1) * 3) + 1, num_planes)
+            ((game_shape[0] - 1) * 2) + 1, ((game_shape[1] - 1) * 2) + 1, num_planes)
         train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
         infer_batch_size = 32 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         LOG.fail_if(len(game_shape) != 2, "gettysburg requires shape rank 2")

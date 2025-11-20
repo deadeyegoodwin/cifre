@@ -27,9 +27,9 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   // model is trained/used by always having the unit currently being
   // controlled at the center of the plane, there must be a border
   // around the map to allow any actual map hex to be at the center of
-  // the plane. These border hexes are marked as being inaccessible.
-  plane_column_cnt_ = ((size_.ColumnCount() - 1) * 3) + 1;
-  plane_row_cnt_ = ((size_.RowCount() - 1) * 3) + 1;
+  // the plane.
+  plane_column_cnt_ = ((size_.ColumnCount() - 1) * 2) + 1;
+  plane_row_cnt_ = ((size_.RowCount() - 1) * 2) + 1;
   board_first_column_ = size_.ColumnCount() - 1;
   board_first_row_ = size_.RowCount() - 1;
 
