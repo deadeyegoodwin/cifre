@@ -135,6 +135,7 @@ private:
   size_t active_unit_idx_;
   size_t active_first_row_;
   size_t active_first_column_;
+  float active_move_factor_expended_;
 
   std::vector<std::unique_ptr<Unit>> union_units_;
   std::vector<std::unique_ptr<Unit>> confederate_units_;

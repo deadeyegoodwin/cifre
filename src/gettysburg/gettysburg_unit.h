@@ -50,12 +50,13 @@ public:
 
 public:
   // Create unit at a given board position.
-  Unit(ArmyKind army_kind, size_t row_idx, size_t col_idx);
+  Unit(ArmyKind army_kind, float move_factor, size_t row_idx, size_t col_idx);
 
   // Copy constructor.
   Unit(const Unit& other) = default;
 
   ArmyKind Army() const { return army_kind_; }
+  float MoveFactor() const { return move_factor_; }
   size_t Row() const { return row_idx_; }
   size_t Column() const { return column_idx_; }
 
@@ -70,6 +71,7 @@ public:
 
 private:
   const ArmyKind army_kind_;
+  const float move_factor_;
   size_t row_idx_;
   size_t column_idx_;
 };

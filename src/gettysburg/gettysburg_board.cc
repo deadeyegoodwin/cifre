@@ -36,11 +36,11 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
 
   // Initially set union unit at board position [0, 0] and
   // confederate at board position [row-1, col-1].
-  auto union_unit = std::make_unique<Unit>(Unit::ArmyKind::UNION, 0, 0);
+  auto union_unit = std::make_unique<Unit>(Unit::ArmyKind::UNION, 1.0, 0, 0);
   union_units_.push_back(std::move(union_unit));
 
   auto confederate_unit = std::make_unique<Unit>(
-    Unit::ArmyKind::CONFEDERATE, size_.RowCount() - 1, size_.ColumnCount() - 1);
+    Unit::ArmyKind::CONFEDERATE, 1.0, size_.RowCount() - 1, size_.ColumnCount() - 1);
   confederate_units_.push_back(std::move(confederate_unit));
 
   // Set starting army and unit. The active unit's position determines
@@ -51,6 +51,7 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   active_unit_idx_ = 0;
   active_first_row_ = size_.RowCount() - 1 - ActiveUnit()->Row();
   active_first_column_ = size_.ColumnCount() - 1 - ActiveUnit()->Column();
+  active_move_factor_expended_ = 0.0;
 
   // Initialize board inputs, valid actions, and terminal status for
   // the initial active player.
@@ -63,7 +64,8 @@ Board::Board(const Board& other) :
   cifre::Board2DHex(other),
   plane_row_cnt_(other.plane_row_cnt_), plane_column_cnt_(other.plane_column_cnt_),
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
-  active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_)
+  active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
+  active_move_factor_expended_(other.active_move_factor_expended_)
 {
   for (const auto& u : other.union_units_) {
     union_units_.push_back(std::make_unique<Unit>(*u));
@@ -160,7 +162,11 @@ Board::Update(uint64_t action_id)
     NextActiveUnit();
   }
   else {
-    ActiveUnit()->ApplyAction(action, this);
+    const float move_cost = 1.0; // FIXME
+    Unit* active_unit = ActiveUnit();
+    active_unit->ApplyAction(action, this);
+    assert((active_move_factor_expended_ + move_cost) <= active_unit->MoveFactor());
+    active_move_factor_expended_ += move_cost;
 
     // Check terminal status and if not at terminal then update valid
     // actions.
@@ -200,6 +206,7 @@ Board::NextActiveUnit()
   Unit* active_unit = ActiveUnit();
   active_first_row_ = size_.RowCount() - 1 - active_unit->Row();
   active_first_column_ = size_.ColumnCount() - 1 - active_unit->Column();
+  active_move_factor_expended_ = 0.0;
 
   // Update input planes and valid actions for the now-active unit.
   UpdateInputPlanes(active_unit);
@@ -230,42 +237,47 @@ Board::UpdateValidActions()
   valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_END));
 
   const Unit* active_unit = ActiveUnit();
-  const size_t row = active_unit->Row();
-  const size_t col = active_unit->Column();
+  const float move_cost = 1.0; // FIXME
 
-  if ((row == 0) && ((col % 2) == 1)) {
-    if (col > 0) {
-      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPLEFT));
-    }
-    if (col < (size_.ColumnCount() - 1)) {
-      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPRIGHT));
-    }
-  }
-  else if (row > 0) {
-    valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UP));
-    if (col > 0) {
-      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPLEFT));
-    }
-    if (col < (size_.ColumnCount() - 1)) {
-      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPRIGHT));
-    }
-  }
+  // There must be movement factor available to perform a move.
+  if ((active_move_factor_expended_ + move_cost) <= active_unit->MoveFactor()) {
+    const size_t row = active_unit->Row();
+    const size_t col = active_unit->Column();
 
-  if ((row == (size_.RowCount() - 1)) && ((col % 2) == 0)) {
-    if (col > 0) {
-      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNLEFT));
+    if ((row == 0) && ((col % 2) == 1)) {
+      if (col > 0) {
+        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPLEFT));
+      }
+      if (col < (size_.ColumnCount() - 1)) {
+        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPRIGHT));
+      }
     }
-    if (col < (size_.ColumnCount() - 1)) {
-      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNRIGHT));
+    else if (row > 0) {
+      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UP));
+      if (col > 0) {
+        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPLEFT));
+      }
+      if (col < (size_.ColumnCount() - 1)) {
+        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPRIGHT));
+      }
     }
-  }
-  else if (row < (size_.RowCount() - 1)) {
-    valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWN));
-    if (col > 0) {
-      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNLEFT));
+
+    if ((row == (size_.RowCount() - 1)) && ((col % 2) == 0)) {
+      if (col > 0) {
+        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNLEFT));
+      }
+      if (col < (size_.ColumnCount() - 1)) {
+        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNRIGHT));
+      }
     }
-    if (col < (size_.ColumnCount() - 1)) {
-      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNRIGHT));
+    else if (row < (size_.RowCount() - 1)) {
+      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWN));
+      if (col > 0) {
+        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNLEFT));
+      }
+      if (col < (size_.ColumnCount() - 1)) {
+        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNRIGHT));
+      }
     }
   }
 }

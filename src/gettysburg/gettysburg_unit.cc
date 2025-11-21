@@ -15,8 +15,9 @@ namespace cifre { namespace gettysburg {
 //
 // Unit
 //
-Unit::Unit(ArmyKind army_kind, size_t row_idx, size_t col_idx) :
-  army_kind_(army_kind), row_idx_(row_idx), column_idx_(col_idx)
+Unit::Unit(ArmyKind army_kind, float move_factor, size_t row_idx, size_t col_idx) :
+  army_kind_(army_kind), move_factor_(move_factor),
+  row_idx_(row_idx), column_idx_(col_idx)
 {
 }
 
