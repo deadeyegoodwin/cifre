@@ -46,4 +46,50 @@ Unit::AddToBoard(Board* board) const
   }
 }
 
+void
+Unit::ApplyAction(ActionKind kind, Board* board)
+{
+  if (kind != ActionKind::MOVE_END) {
+    ClearFromBoard(board);
+
+    switch (kind) {
+    case ActionKind::MOVE_UP:
+      row_idx_ -= 1;
+      break;
+    case ActionKind::MOVE_DOWN:
+      row_idx_ += 1;
+      break;
+    case ActionKind::MOVE_UPRIGHT:
+      if ((column_idx_ % 2) == 0) {
+        row_idx_ -= 1;
+      }
+      column_idx_ += 1;
+      break;
+    case ActionKind::MOVE_DOWNRIGHT:
+      if ((column_idx_ % 2) == 1) {
+        row_idx_ += 1;
+      }
+      column_idx_ += 1;
+      break;
+    case ActionKind::MOVE_DOWNLEFT:
+      if ((column_idx_ % 2) == 1) {
+        row_idx_ += 1;
+      }
+      column_idx_ -= 1;
+      break;
+    case ActionKind::MOVE_UPLEFT:
+      if ((column_idx_ % 2) == 0) {
+        row_idx_ -= 1;
+      }
+      column_idx_ -= 1;
+      break;
+    case ActionKind::MOVE_END:
+    case ActionKind::ACTION_COUNT:
+      THROW("unexpected unit action");
+    }
+
+    AddToBoard(board);
+  }
+}
+
 }} // namespace cifre::gettysburg

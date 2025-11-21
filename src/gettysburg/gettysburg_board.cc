@@ -136,23 +136,6 @@ Board::StringToAction(const std::string& str) const
   return Action(Action::ActionKind::INVALID);
 }
 
-void
-Board::Update(uint64_t action_id)
-{
-  if (action_id == (uint64_t)Unit::ActionKind::MOVE_END) {
-    NextActiveUnit();
-  }
-  else {
-    // Check terminal status and if not at terminal then advance to
-    // next active player.
-    UpdateTerminalStatus();
-    if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
-
-      UpdateValidActions();
-    }
-  }
-}
-
 Unit*
 Board::ActiveUnit() const
 {
@@ -167,6 +150,25 @@ Board::ActiveUnit() const
   }
 
   return unit;
+}
+
+void
+Board::Update(uint64_t action_id)
+{
+  Unit::ActionKind action = Unit::ActionKind(action_id);
+  if (action_id == (uint64_t)Unit::ActionKind::MOVE_END) {
+    NextActiveUnit();
+  }
+  else {
+    ActiveUnit()->ApplyAction(action, this);
+
+    // Check terminal status and if not at terminal then update valid
+    // actions.
+    UpdateTerminalStatus();
+    if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
+      UpdateValidActions();
+    }
+  }
 }
 
 void
@@ -225,17 +227,60 @@ void
 Board::UpdateValidActions()
 {
   valid_action_ids_.clear();
-  valid_action_ids_ = { 0, 1, 2, 3, 4, 5, 6 }; // FIXME
+  valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_END));
+
+  const Unit* active_unit = ActiveUnit();
+  const size_t row = active_unit->Row();
+  const size_t col = active_unit->Column();
+
+  if ((row == 0) && ((col % 2) == 1)) {
+    if (col > 0) {
+      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPLEFT));
+    }
+    if (col < (size_.ColumnCount() - 1)) {
+      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPRIGHT));
+    }
+  }
+  else if (row > 0) {
+    valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UP));
+    if (col > 0) {
+      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPLEFT));
+    }
+    if (col < (size_.ColumnCount() - 1)) {
+      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPRIGHT));
+    }
+  }
+
+  if ((row == (size_.RowCount() - 1)) && ((col % 2) == 0)) {
+    if (col > 0) {
+      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNLEFT));
+    }
+    if (col < (size_.ColumnCount() - 1)) {
+      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNRIGHT));
+    }
+  }
+  else if (row < (size_.RowCount() - 1)) {
+    valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWN));
+    if (col > 0) {
+      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNLEFT));
+    }
+    if (col < (size_.ColumnCount() - 1)) {
+      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNRIGHT));
+    }
+  }
 }
 
 void
 Board::UpdateTerminalStatus()
 {
-  // FIXME
-//  terminal_status_ =
-//    cifre::StateTerminalStatus(
-//      cifre::StateTerminalStatus::TerminalKind::WINNER, CellValueToPlayer(cv)->Id());
-//  return;
+  // If active unit is on a goal then it is winner.
+  Unit* active_unit = ActiveUnit();
+  if (GoalAt(active_unit->Row(), active_unit->Column()) == CELL_ACTIVE) {
+    terminal_status_ =
+      cifre::StateTerminalStatus(
+        cifre::StateTerminalStatus::TerminalKind::WINNER, active_player_id_);
+    return;
+  }
 
   // Otherwise make sure the terminal status is NON_TERMINAL.
   THROWIF(

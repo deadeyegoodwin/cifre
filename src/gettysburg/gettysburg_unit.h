@@ -65,6 +65,9 @@ public:
   // Update 'board' to reflect current status of this unit.
   void AddToBoard(Board* board) const;
 
+  // Update unit and 'board' based on action 'kind'.
+  void ApplyAction(ActionKind kind, Board* board);
+
 private:
   const ArmyKind army_kind_;
   size_t row_idx_;
