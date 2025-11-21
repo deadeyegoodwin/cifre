@@ -343,10 +343,10 @@ def main():
                     '--game-shape', argify_shape(game_shape, ','),
                     f'--game-count={FLAGS.cmp_game_count}',
                     filter_specified('--max-turns-per-game', FLAGS.max_turns_per_game),
-                    '--player1=alphazero', f'--name={model_name}', '--alphazero-model', model_name,
-                    '--starting' if starting_idx == 0 else '',
-                    '--player2=alphazero', f'--name={best_model_name}', '--alphazero-model', best_model_name,
-                    '--starting' if starting_idx == 1 else '' ]
+                    '--player1=alphazero', f'--name={model_name if starting_idx == 0 else best_model_name}',
+                    '--alphazero-model', model_name if starting_idx == 0 else best_model_name,
+                    '--player2=alphazero', f'--name={best_model_name if starting_idx == 0 else model_name}',
+                    '--alphazero-model', best_model_name if starting_idx == 0 else model_name ]
 
                 process = subprocess.Popen(cmp_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 while process.poll() is None:
