@@ -139,13 +139,13 @@ def main():
         '--alphazero-search-count',
         type=parse_positive_int,
         required=False,
-        help=('Number of searches made to the AlphaZero tree before determining ' +
+        help=('Number of searches made to the AlphaZero tree when determining ' +
               'each game action during training.'))
     parser.add_argument(
         '--alphazero-search-depth',
         type=parse_positive_int,
         required=False,
-        help=('Number of searches made to the AlphaZero tree before determining ' +
+        help=('Maximum depth of a search made to the AlphaZero tree when determining ' +
               'each game action during training.'))
     parser.add_argument(
         '--alphazero-cpuct',
