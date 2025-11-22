@@ -1,4 +1,4 @@
-// Copyright 2024, David Goodwin. All rights reserved.
+// Copyright 2025, David Goodwin. All rights reserved.
 
 #include <algorithm>
 #include <cctype>
@@ -17,7 +17,7 @@ namespace cifre { namespace gettysburg {
 //
 Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
              size_t starting_player_id) :
-  cifre::Board2DHex(PLANE_COUNT, size, players, starting_player_id)
+  cifre::Board2DHex(BoardCellFactory::PLANE_COUNT, size, players, starting_player_id)
 {
   // Player 0 is 'u' (union) and player 1 is 'c' (confederate).
   players[0]->SetChar('u');
@@ -31,6 +31,7 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   plane_row_cnt_ = ((size_.RowCount() - 1) * 2) + 1;
   plane_column_cnt_ = ((size_.ColumnCount() - 1) * 2) + 1;
 
+  cell_factory_ = BoardCellFactory::Instance(plane_row_cnt_, plane_column_cnt_);
   cells_flattened_.resize(plane_row_cnt_ * plane_column_cnt_ * plane_cnt_ * sizeof(float));
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
@@ -61,7 +62,7 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
 }
 
 Board::Board(const Board& other) :
-  cifre::Board2DHex(other),
+  cifre::Board2DHex(other), cell_factory_(other.cell_factory_),
   plane_row_cnt_(other.plane_row_cnt_), plane_column_cnt_(other.plane_column_cnt_),
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
@@ -216,10 +217,11 @@ Board::NextActiveUnit()
 void
 Board::UpdateInputPlanes(Unit* unit)
 {
-  std::fill(cells_flattened_.begin(), cells_flattened_.end(), CELL_EMPTY);
+  std::fill(cells_flattened_.begin(), cells_flattened_.end(), BoardCellFactory::CELL_EMPTY);
 
   // Set a goal at the center of the board.
-  SetGoalAt(CELL_ACTIVE, (size_.RowCount() / 2) - 1, (size_.ColumnCount() / 2) - 1);
+  SetGoalAt(BoardCellFactory::CELL_ACTIVE,
+            (size_.RowCount() / 2) - 1, (size_.ColumnCount() / 2) - 1);
 
   // Update planes as required for all units.
   for (const auto& u : union_units_) {
@@ -287,7 +289,7 @@ Board::UpdateTerminalStatus()
 {
   // If active unit is on a goal then it is winner.
   Unit* active_unit = ActiveUnit();
-  if (GoalAt(active_unit->Row(), active_unit->Column()) == CELL_ACTIVE) {
+  if (GoalAt(active_unit->Row(), active_unit->Column()) == BoardCellFactory::CELL_ACTIVE) {
     terminal_status_ =
       cifre::StateTerminalStatus(
         cifre::StateTerminalStatus::TerminalKind::WINNER, active_player_id_);
@@ -303,10 +305,10 @@ Board::UpdateTerminalStatus()
 std::string
 Board::BoardCellUpperString(size_t row_idx, size_t col_idx) const
 {
-  if (UnionAt(row_idx, col_idx) == CELL_ACTIVE) {
+  if (UnionAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE) {
     return std::string(1, UNION_CHAR) + " ";
   }
-  if (ConfederateAt(row_idx, col_idx) == CELL_ACTIVE) {
+  if (ConfederateAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE) {
     return std::string(1, CONFEDERATE_CHAR) + " ";
   }
 
@@ -393,10 +395,12 @@ Board::ToDebugString() const
 std::string
 Board::DebugCellUpperString(size_t row_idx, size_t col_idx) const
 {
-  if (PlaneCellValueAt(row_idx, col_idx, PLANE_IDX_UNION) == CELL_ACTIVE) {
+  if (PlaneCellValueAt(
+        row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION) == BoardCellFactory::CELL_ACTIVE) {
     return std::string(1, UNION_CHAR) + " ";
   }
-  if (PlaneCellValueAt(row_idx, col_idx, PLANE_IDX_CONFEDERATE) == CELL_ACTIVE) {
+  if (PlaneCellValueAt(
+        row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE) == BoardCellFactory::CELL_ACTIVE) {
     return std::string(1, CONFEDERATE_CHAR) + " ";
   }
 
@@ -408,10 +412,12 @@ Board::DebugCellLowerString(size_t row_idx, size_t col_idx) const
 {
   std::string str("__");
 
-  if (PlaneCellValueAt(row_idx, col_idx, PLANE_IDX_MOVE) == CELL_ACTIVE) {
+  if (PlaneCellValueAt(
+        row_idx, col_idx, BoardCellFactory::PLANE_IDX_MOVE) == BoardCellFactory::CELL_ACTIVE) {
     str[0] = 'm';
   }
-  if (PlaneCellValueAt(row_idx, col_idx, PLANE_IDX_GOAL) == CELL_ACTIVE) {
+  if (PlaneCellValueAt(
+        row_idx, col_idx, BoardCellFactory::PLANE_IDX_GOAL) == BoardCellFactory::CELL_ACTIVE) {
     str[1] = '*';
   }
 

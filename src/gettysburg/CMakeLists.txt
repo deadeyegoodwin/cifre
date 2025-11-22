@@ -59,6 +59,7 @@ install(
 add_library(
   gettysburg-library STATIC
   gettysburg_board.cc
+  gettysburg_board_cell_factory.cc
   gettysburg_player.cc
   gettysburg_unit.cc
 )

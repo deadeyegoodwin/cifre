@@ -7,6 +7,7 @@
 
 #include "cifre_action.h"
 #include "cifre_board2d_hex.h"
+#include "gettysburg_board_cell_factory.h"
 #include "gettysburg_player.h"
 #include "gettysburg_unit.h"
 
@@ -49,70 +50,61 @@ public:
   std::string ToDebugString() const;
 
 public:
-  static constexpr size_t PLANE_COUNT = 4;
-  static constexpr size_t PLANE_IDX_UNION = 0;
-  static constexpr size_t PLANE_IDX_CONFEDERATE = 1;
-  static constexpr size_t PLANE_IDX_GOAL = 2;
-  static constexpr size_t PLANE_IDX_MOVE = 3;
-
-  static constexpr float CELL_EMPTY = 0.0;
-  static constexpr float CELL_ACTIVE = 1.0;
-
   // Return the value of the plane cell at the given row, column, and
   // plane. Row and column index are relative to the plane.
   float PlaneCellValueAt(size_t row_idx, size_t col_idx, size_t plane_idx) const {
     assert((row_idx < plane_row_cnt_) &&
            (col_idx < plane_column_cnt_) &&
-           (plane_idx < PLANE_COUNT));
-    return cells_[(row_idx * plane_column_cnt_ * PLANE_COUNT) +
-                  (col_idx * PLANE_COUNT) + plane_idx]; }
+           (plane_idx < BoardCellFactory::PLANE_COUNT));
+    return cells_[(row_idx * plane_column_cnt_ * BoardCellFactory::PLANE_COUNT) +
+                  (col_idx * BoardCellFactory::PLANE_COUNT) + plane_idx]; }
 
   // Set the value of the plane cell at the given row, column, and
   // plane. Row and column index are relative to the plane.
   void SetPlaneCellValueAt(float value, size_t row_idx, size_t col_idx, size_t plane_idx) {
     assert((row_idx < plane_row_cnt_) &&
            (col_idx < plane_column_cnt_) &&
-           (plane_idx < PLANE_COUNT));
-    cells_[(row_idx * plane_column_cnt_ * PLANE_COUNT) +
-           (col_idx * PLANE_COUNT) + plane_idx] = value; }
+           (plane_idx < BoardCellFactory::PLANE_COUNT));
+    cells_[(row_idx * plane_column_cnt_ * BoardCellFactory::PLANE_COUNT) +
+           (col_idx * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }
 
   // Return the value of the board cell at the given row, column, and
   // plane. Row and column index are relative to the visible board.
   float BoardCellValueAt(size_t row_idx, size_t col_idx, size_t plane_idx) const {
     assert((row_idx < size_.RowCount()) &&
            (col_idx < size_.ColumnCount()) &&
-           (plane_idx < PLANE_COUNT));
-    return cells_[((row_idx + active_first_row_) * plane_column_cnt_ * PLANE_COUNT) +
-                  ((col_idx + active_first_column_) * PLANE_COUNT) + plane_idx]; }
+           (plane_idx < BoardCellFactory::PLANE_COUNT));
+    return cells_[((row_idx + active_first_row_) * plane_column_cnt_ * BoardCellFactory::PLANE_COUNT) +
+                  ((col_idx + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx]; }
 
   // Set the value of the board cell at the given row, column, and
   // plane. Row and column index are relative to the visible board.
   void SetBoardCellValueAt(float value, size_t row_idx, size_t col_idx, size_t plane_idx) {
     assert((row_idx < size_.RowCount()) &&
            (col_idx < size_.ColumnCount()) &&
-           (plane_idx < PLANE_COUNT));
-    cells_[((row_idx + active_first_row_) * plane_column_cnt_ * PLANE_COUNT) +
-           ((col_idx + active_first_column_) * PLANE_COUNT) + plane_idx] = value; }
+           (plane_idx < BoardCellFactory::PLANE_COUNT));
+    cells_[((row_idx + active_first_row_) * plane_column_cnt_ * BoardCellFactory::PLANE_COUNT) +
+           ((col_idx + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }
 
   void SetUnionAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, PLANE_IDX_UNION); }
+    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION); }
   float UnionAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, PLANE_IDX_UNION); }
+    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION); }
 
   void SetConfederateAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, PLANE_IDX_CONFEDERATE); }
+    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE); }
   float ConfederateAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, PLANE_IDX_CONFEDERATE); }
+    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE); }
 
   void SetGoalAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, PLANE_IDX_GOAL); }
+    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_GOAL); }
   float GoalAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, PLANE_IDX_GOAL); }
+    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_GOAL); }
 
   void SetMoveAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, PLANE_IDX_MOVE); }
+    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_MOVE); }
   float MoveAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, PLANE_IDX_MOVE); }
+    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_MOVE); }
 
 private:
   static constexpr char UNION_CHAR = 'u';
@@ -127,6 +119,8 @@ private:
 
   std::string DebugCellUpperString(size_t row_idx, size_t col_idx) const;
   std::string DebugCellLowerString(size_t row_idx, size_t col_idx) const;
+
+  BoardCellFactory* cell_factory_;
 
   size_t plane_row_cnt_;
   size_t plane_column_cnt_;
