@@ -27,6 +27,11 @@ public:
   // Copy constructor.
   Board(const Board& other);
 
+  // See cifre::State.
+  // Hash/compare all members that uniquely define this board.
+  virtual size_t Hash() const override;
+  virtual bool Equal(const State* other) const override;
+
   // See cifre::State
   Board* Copy() const override { return new Board(*this); }
   void Update(uint64_t action_id) override;

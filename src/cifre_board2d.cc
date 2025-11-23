@@ -79,7 +79,7 @@ Board2D::Hash() const
 {
   const std::vector<uint8_t>& bytes = TritonRepresentation();
 
-  const uint64_t mulp = 2654435789;
+  constexpr uint64_t mulp = 2654435789;
   uint64_t hash = 104395301;
   for (uint8_t b : bytes) {
     hash += (b * mulp) ^ (hash >> 23);

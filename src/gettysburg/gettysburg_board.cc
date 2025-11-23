@@ -77,6 +77,71 @@ Board::Board(const Board& other) :
 }
 
 size_t
+Board::Hash() const
+{
+  constexpr uint64_t mulp = 2654435789;
+  uint64_t hash = 104395301;
+
+  // The input planes themselves are not hashed because they are
+  // derived from the other members.
+  // BoardCellFactory* cell_factory_;
+
+  hash += (plane_row_cnt_ * mulp) ^ (hash >> 23);
+  hash += (plane_column_cnt_ * mulp) ^ (hash >> 23);
+
+  hash += (uint64_t(active_army_) * mulp) ^ (hash >> 23);
+  hash += (active_unit_idx_ * mulp) ^ (hash >> 23);
+  hash += (active_first_row_ * mulp) ^ (hash >> 23);
+  hash += (active_first_column_ * mulp) ^ (hash >> 23);
+  hash += (uint64_t(active_move_factor_expended_ * 100000.0) * mulp) ^ (hash >> 23);
+
+  for (const auto& u : union_units_) {
+    hash += u->Hash();
+  }
+  for (const auto& u : confederate_units_) {
+    hash += u->Hash();
+  }
+
+  return hash ^ (hash << 37);
+}
+
+bool
+Board::Equal(const State* other) const
+{
+  const Board* ob = static_cast<const Board*>(other);
+
+  if ((plane_row_cnt_ != ob->plane_row_cnt_) ||
+      (plane_column_cnt_ != ob->plane_column_cnt_) ||
+      (active_army_ != ob->active_army_) ||
+      (active_unit_idx_ != ob->active_unit_idx_) ||
+      (active_first_row_ != ob->active_first_row_) ||
+      (active_first_column_ != ob->active_first_column_) ||
+      (active_move_factor_expended_ != ob->active_move_factor_expended_)) {
+    return false;
+  }
+
+  if (union_units_.size() != ob->union_units_.size()) {
+    return false;
+  }
+  for (size_t idx = 0; idx < union_units_.size(); ++idx) {
+    if (!union_units_[idx]->Equal(ob->union_units_[idx].get())) {
+      return false;
+    }
+  }
+
+  if (confederate_units_.size() != ob->confederate_units_.size()) {
+    return false;
+  }
+  for (size_t idx = 0; idx < confederate_units_.size(); ++idx) {
+    if (!confederate_units_[idx]->Equal(ob->confederate_units_[idx].get())) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+size_t
 Board::TotalActionIdCount() const
 {
   return size_t(Unit::ActionKind::ACTION_COUNT);

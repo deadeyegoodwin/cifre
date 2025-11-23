@@ -55,6 +55,10 @@ public:
   // Copy constructor.
   Unit(const Unit& other) = default;
 
+  // Hash and equal...
+  size_t Hash() const;
+  bool Equal(const Unit* other) const;
+
   ArmyKind Army() const { return army_kind_; }
   float MoveFactor() const { return move_factor_; }
   size_t Row() const { return row_idx_; }
