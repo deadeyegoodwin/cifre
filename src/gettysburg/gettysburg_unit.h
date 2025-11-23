@@ -64,14 +64,14 @@ public:
   size_t Row() const { return row_idx_; }
   size_t Column() const { return column_idx_; }
 
+  // Update unit based on action 'kind'.
+  void ApplyAction(ActionKind kind);
+
   // Update 'board' to remove this unit.
   void ClearFromBoard(Board* board) const;
 
   // Update 'board' to reflect current status of this unit.
   void AddToBoard(Board* board) const;
-
-  // Update unit and 'board' based on action 'kind'.
-  void ApplyAction(ActionKind kind, Board* board);
 
 private:
   const ArmyKind army_kind_;

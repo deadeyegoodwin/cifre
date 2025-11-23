@@ -24,17 +24,15 @@ public:
   Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
         size_t starting_player_id);
 
-  // Copy constructor.
-  Board(const Board& other);
-
   // See cifre::State.
   // Hash/compare all members that uniquely define this board.
   virtual size_t Hash() const override;
   virtual bool Equal(const State* other) const override;
 
   // See cifre::State
-  Board* Copy() const override { return new Board(*this); }
+  Board* Copy() const override;
   void Update(uint64_t action_id) override;
+  Board* CopyAndUpdate(uint64_t action_id) const override;
 
   // See cifre::State
   size_t TotalActionIdCount() const override;
@@ -111,6 +109,10 @@ public:
 
 private:
   Board& operator=(const Board&) = delete;  // assignment not allowed
+
+  // Copy constructor. WARNING: this does not copy 'cells_flattened_'
+  // or 'cells_'. To perform a complete copy, use Copy().
+  Board(const Board& other);
 
   static constexpr char UNION_CHAR = 'u';
   static constexpr char CONFEDERATE_CHAR = 'c';

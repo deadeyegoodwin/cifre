@@ -71,11 +71,9 @@ Unit::AddToBoard(Board* board) const
 }
 
 void
-Unit::ApplyAction(ActionKind kind, Board* board)
+Unit::ApplyAction(ActionKind kind)
 {
   if (kind != ActionKind::MOVE_END) {
-    ClearFromBoard(board);
-
     switch (kind) {
     case ActionKind::MOVE_UP:
       row_idx_ -= 1;
@@ -111,8 +109,6 @@ Unit::ApplyAction(ActionKind kind, Board* board)
     case ActionKind::ACTION_COUNT:
       THROW("unexpected unit action");
     }
-
-    AddToBoard(board);
   }
 }
 

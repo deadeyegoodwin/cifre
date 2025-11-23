@@ -43,7 +43,7 @@ public:
     size_t starting_player_id);
 
   // Copy constructor.
-  Board2DBasic(const Board2DBasic& other) : Board2D(other) { }
+  Board2DBasic(const Board2DBasic& other);
 
   // Destructor
   virtual ~Board2DBasic() = default;

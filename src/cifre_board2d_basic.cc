@@ -32,6 +32,13 @@ Board2DBasic::Board2DBasic(
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 }
 
+Board2DBasic::Board2DBasic(const Board2DBasic& other) :
+  Board2D(other)
+{
+  cells_flattened_ = other.cells_flattened_;
+  cells_ = reinterpret_cast<float*>(cells_flattened_.data());
+}
+
 Action
 Board2DBasic::StringToAction(const std::string& str) const
 {

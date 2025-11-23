@@ -58,7 +58,7 @@ private:
 //
 class Board2D : public State {
 public:
-  // Create a board based of a given 'size' and 'players', where
+  // Create a board based on a given 'size' and 'players', where
   // player ID is the index of a given player in 'players'.
   // 'starting_player_id' indicates the player that will go
   // first. 'plane_cnt' indicates the number of planes, each of

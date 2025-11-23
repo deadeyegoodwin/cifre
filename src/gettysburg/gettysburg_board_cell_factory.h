@@ -17,6 +17,17 @@ namespace cifre { namespace gettysburg {
 // that also shares and caches these pre-computed board states across
 // all Board instances.
 //
+// The following planes are pre-computed, one instance for each board
+// cell, and each movement factor, so a total of (row-cnt * column-cnt
+// * max-move-factory) precomputed sets of planes.
+//
+//   FOREST: plane indicates which hexes contain forest
+//   HILL: plane indicates which hexes contain hill
+//   MOVE: plane indicates reachable hexes from row/column for a given
+//         move factor
+//
+//   Other planes are initialized to CELL_EMPTY.
+//
 class BoardCellFactory {
 public:
   static constexpr size_t PLANE_COUNT = 6;
@@ -38,6 +49,9 @@ public:
     assert(column_cnt == instance.column_cnt_);
     return &instance;
   }
+
+  // Return the cells for a given row, column, and move-factor.
+  std::vector<uint8_t> Cells(size_t row_idx, size_t col_idx, size_t move_factor);
 
 private:
   BoardCellFactory(size_t row_cnt, size_t column_cnt) :

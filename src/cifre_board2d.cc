@@ -69,9 +69,15 @@ Board2D::Board2D(const size_t plane_cnt, const cifre::BoardSize2D& size,
 Board2D::Board2D(const Board2D& other) :
   plane_cnt_(other.plane_cnt_), size_(other.size_), players_(other.players_),
   active_player_id_(other.active_player_id_), terminal_status_(other.terminal_status_),
-  valid_action_ids_(other.valid_action_ids_), cells_flattened_(other.cells_flattened_)
+  valid_action_ids_(other.valid_action_ids_)
 {
-  cells_ = reinterpret_cast<float*>(cells_flattened_.data());
+  // Derived class must copy 'cells_flattened_' and set 'cells_' as in
+  // the below example. This must be done in the derived class as that
+  // is where it is known exactly what is required to copy
+  // 'cells_flattened_'.
+  //
+  // cells_flattened_ = other.cells_flattened_;
+  // cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 }
 
 size_t

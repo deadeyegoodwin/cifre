@@ -32,8 +32,6 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   plane_column_cnt_ = ((size_.ColumnCount() - 1) * 2) + 1;
 
   cell_factory_ = BoardCellFactory::Instance(plane_row_cnt_, plane_column_cnt_);
-  cells_flattened_.resize(plane_row_cnt_ * plane_column_cnt_ * plane_cnt_ * sizeof(float));
-  cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
   // Initially set union unit at board position [0, 0] and
   // confederate at board position [row-1, col-1].
@@ -45,18 +43,20 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   confederate_units_.push_back(std::move(confederate_unit));
 
   // Set starting army and unit. The active unit's position determines
-  // where on the planes the board is located to place that unit in
-  // the center of the planes.
+  // where on the planes the board is located; location is set to
+  // place that unit in the center of the planes.
   active_army_ =
     (active_player_id_ == 0) ? Unit::ArmyKind::UNION : Unit::ArmyKind::CONFEDERATE;
   active_unit_idx_ = 0;
-  active_first_row_ = size_.RowCount() - 1 - ActiveUnit()->Row();
-  active_first_column_ = size_.ColumnCount() - 1 - ActiveUnit()->Column();
+
+  Unit* active_unit = ActiveUnit();
+  active_first_row_ = size_.RowCount() - 1 - active_unit->Row();
+  active_first_column_ = size_.ColumnCount() - 1 - active_unit->Column();
   active_move_factor_expended_ = 0.0;
 
   // Initialize board inputs, valid actions, and terminal status for
   // the initial active player.
-  UpdateInputPlanes(ActiveUnit());
+  UpdateInputPlanes(active_unit);
   UpdateValidActions();
   UpdateTerminalStatus();
 }
@@ -68,6 +68,10 @@ Board::Board(const Board& other) :
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
   active_move_factor_expended_(other.active_move_factor_expended_)
 {
+  // WARNING: this does not copy 'cells_flattened_' or 'cells_' . To
+  // perform a complete copy, use Copy().
+  cells_ = nullptr;
+
   for (const auto& u : other.union_units_) {
     union_units_.push_back(std::make_unique<Unit>(*u));
   }
@@ -82,9 +86,8 @@ Board::Hash() const
   constexpr uint64_t mulp = 2654435789;
   uint64_t hash = 104395301;
 
-  // The input planes themselves are not hashed because they are
-  // derived from the other members.
-  // BoardCellFactory* cell_factory_;
+  // The input planes/cells ('cells_flattened_') themselves are not
+  // hashed because they are derived from the other members.
 
   hash += (plane_row_cnt_ * mulp) ^ (hash >> 23);
   hash += (plane_column_cnt_ * mulp) ^ (hash >> 23);
@@ -109,6 +112,9 @@ bool
 Board::Equal(const State* other) const
 {
   const Board* ob = static_cast<const Board*>(other);
+
+  // The input planes/cells ('cells_flattened_') themselves are not
+  // compared because they are derived from the other members.
 
   if ((plane_row_cnt_ != ob->plane_row_cnt_) ||
       (plane_column_cnt_ != ob->plane_column_cnt_) ||
@@ -220,26 +226,56 @@ Board::ActiveUnit() const
   return unit;
 }
 
+Board*
+Board::Copy() const
+{
+  // The copy constructor does not copy 'cells_flattened_' or set
+  // 'cells_', so we need to do it explicitly.
+  Board* nb = new Board(*this);
+  nb->cells_flattened_ = cells_flattened_;
+  nb->cells_ = reinterpret_cast<float*>(nb->cells_flattened_.data());
+  return nb;
+}
+
+Board*
+Board::CopyAndUpdate(uint64_t action_id) const
+{
+  // The copy constructor does not copy 'cells_flattened_' or set
+  // 'cells_', which is what we want because those values will be set
+  // by Update() and so setting them now would be wasteful as they
+  // will be overwritten.
+  Board* nb = new Board(*this);
+  nb->Update(action_id);
+  return nb;
+}
+
 void
 Board::Update(uint64_t action_id)
 {
   Unit::ActionKind action = Unit::ActionKind(action_id);
   if (action_id == (uint64_t)Unit::ActionKind::MOVE_END) {
     NextActiveUnit();
+    active_move_factor_expended_ = 0.0;
   }
   else {
     const float move_cost = 1.0; // FIXME
     Unit* active_unit = ActiveUnit();
-    active_unit->ApplyAction(action, this);
+
+    active_unit->ApplyAction(action);
+
     assert((active_move_factor_expended_ + move_cost) <= active_unit->MoveFactor());
     active_move_factor_expended_ += move_cost;
+  }
 
-    // Check terminal status and if not at terminal then update valid
-    // actions.
-    UpdateTerminalStatus();
-    if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
-      UpdateValidActions();
-    }
+  active_first_row_ = size_.RowCount() - 1 - ActiveUnit()->Row();
+  active_first_column_ = size_.ColumnCount() - 1 - ActiveUnit()->Column();
+  UpdateInputPlanes(ActiveUnit());
+
+  // Check terminal status and if not at terminal then update valid
+  // actions.
+  UpdateTerminalStatus();
+  if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
+    UpdateValidActions();
   }
 }
 
@@ -268,21 +304,20 @@ Board::NextActiveUnit()
     // Otherwise just move to the next unit in the same army.
     active_unit_idx_ += 1;
   }
-
-  Unit* active_unit = ActiveUnit();
-  active_first_row_ = size_.RowCount() - 1 - active_unit->Row();
-  active_first_column_ = size_.ColumnCount() - 1 - active_unit->Column();
-  active_move_factor_expended_ = 0.0;
-
-  // Update input planes and valid actions for the now-active unit.
-  UpdateInputPlanes(active_unit);
-  UpdateValidActions();
 }
 
 void
 Board::UpdateInputPlanes(Unit* unit)
 {
-  std::fill(cells_flattened_.begin(), cells_flattened_.end(), BoardCellFactory::CELL_EMPTY);
+  if (!cells_flattened_.empty()) {
+    // FIXME
+    // return to cell_factory....
+  }
+
+  cells_flattened_ =
+    cell_factory_->Cells(ActiveUnit()->Row(), ActiveUnit()->Column(),
+                         ActiveUnit()->MoveFactor() - active_move_factor_expended_);
+  cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
   // Set a goal at the center of the board.
   SetGoalAt(BoardCellFactory::CELL_ACTIVE,
