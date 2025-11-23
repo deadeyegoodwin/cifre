@@ -115,7 +115,7 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
   }
 
   // Find, creating if necessary, the tree node that represents 'state'.
-  auto node = FindOrCreateNode(std::unique_ptr<const State>(state.Clone()));
+  auto node = FindOrCreateNode(std::unique_ptr<const State>(state.Copy()));
   assert(node != nullptr);
 
   LOGGER_LOGHIGH(*logger_, "\nalphazero: starting node");
@@ -273,9 +273,7 @@ AlphaZeroAlgo::SearchTree(
   if (next == nullptr) {
     // Find or create the node representing the state that results
     // when 'best_action_id' is applied to 'node'.
-    std::unique_ptr<State> next_state(node->NodeState().Clone());
-    next_state->Update(*best_action_id);
-
+    std::unique_ptr<const State> next_state(node->NodeState().CopyAndUpdate(*best_action_id));
     std::shared_ptr<AlphaZeroNode> snext = FindOrCreateNode(std::move(next_state), &next_created);
     assert(snext != nullptr);
     next = snext.get();

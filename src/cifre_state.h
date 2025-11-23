@@ -47,9 +47,6 @@ private:
 //
 class State {
 public:
-  // Virtual copy constructor.
-  virtual State* Clone() const = 0;
-
   // Destructor
   virtual ~State() = default;
 
@@ -88,9 +85,18 @@ public:
   // Return the terminal status of the state.
   virtual StateTerminalStatus TerminalStatus() const = 0;
 
-  // Apply the action associated with 'action_id' to this state, so
-  // that the state is modified due to the action.
+  // Virtual copy constructor. Make an exact copy of the entire state.
+  virtual State* Copy() const = 0;
+
+  // Modify this state by applying the action associated with
+  // 'action_id'.
   virtual void Update(uint64_t action_id) = 0;
+
+  // Behaves exactly like Copy() followed by Update(). Derived classes
+  // may implement if doing so provides a performance benefit. Return
+  // the modified copy.
+  virtual State* CopyAndUpdate(uint64_t action_id) const {
+    State* nb = Copy(); nb->Update(action_id); return nb; }
 
   // Get the representation of the state suitable for feeding to the
   // nnet via triton. This representation does not need to include all

@@ -46,8 +46,8 @@ public:
   // should respect 'status'. 'status' of NON_TERMINAL is not allowed
   // and GameEnd should throw exception if that value is received.
   virtual void GameEnd(
-    const cifre::State& terminal_state, const cifre::StateTerminalStatus& status) {
-    THROWIF(status.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
+    const State& terminal_state, const StateTerminalStatus& status) {
+    THROWIF(status.Kind() == StateTerminalStatus::TerminalKind::NON_TERMINAL,
             "game ended with NON-TERMINAL status"); }
 
   // Get the next action for the player given current 'state' and with

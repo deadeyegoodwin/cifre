@@ -84,8 +84,7 @@ MiniMaxAlgo::Search(const State& state, const size_t game_depth_remaining) const
   float best_v = -std::numeric_limits<float>::max();
 
   for (uint64_t aid : state.ValidActionIds()) {
-    std::unique_ptr<State> nstate(state.Clone());
-    nstate->Update(aid);
+    std::unique_ptr<const State> nstate(state.CopyAndUpdate(aid));
 
     // If 'nstate' has a different active player than 'state', then
     // need to invert 'nstate's value so that it is respective to how

@@ -28,9 +28,7 @@ public:
   Board(const Board& other);
 
   // See cifre::State
-  State* Clone() const override { return new Board(*this); }
-
-  // See cifre::State
+  Board* Copy() const override { return new Board(*this); }
   void Update(uint64_t action_id) override;
 
   // See cifre::State
@@ -107,6 +105,8 @@ public:
     return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_MOVE); }
 
 private:
+  Board& operator=(const Board&) = delete;  // assignment not allowed
+
   static constexpr char UNION_CHAR = 'u';
   static constexpr char CONFEDERATE_CHAR = 'c';
 

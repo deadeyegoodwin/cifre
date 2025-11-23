@@ -25,13 +25,11 @@ public:
         size_t starting_player_id);
 
   // See cifre::State
-  State* Clone() const override { return new Board(*this); }
+  Board* Copy() const override { return new Board(*this); }
+  void Update(uint64_t action_id) override;
 
   // One action for each board column. See cifre::Board2DBasic.
   size_t TotalActionIdCount() const override { return size_.ColumnCount(); }
-
-  // See cifre::State
-  void Update(uint64_t action_id) override;
 
   // See cifre::Board2DBasic.
   std::string ActionToString(const Action& action) const override;
@@ -40,6 +38,8 @@ public:
   Action StringToAction(const std::string& str) const override;
 
 private:
+  Board& operator=(const Board&) = delete;  // assignment not allowed
+
   void UpdateTerminalStatus();
   void UpdateValidActions();
   void SwitchActivePlayer();
