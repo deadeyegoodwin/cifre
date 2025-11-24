@@ -272,7 +272,7 @@ void
 Board::Update(uint64_t action_id)
 {
   Unit::ActionKind action = Unit::ActionKind(action_id);
-  if (action_id == (uint64_t)Unit::ActionKind::MOVE_END) {
+  if (action == Unit::ActionKind::MOVE_END) {
     NextActiveUnit();
     active_move_factor_expended_ = 0.0;
   }
@@ -290,10 +290,16 @@ Board::Update(uint64_t action_id)
   active_first_column_ = size_.ColumnCount() - 1 - ActiveUnit()->Column();
   UpdateInputPlanes(ActiveUnit());
 
-  // Check terminal status and if not at terminal then update valid
-  // actions.
+  // Check terminal status...
   UpdateTerminalStatus();
   if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
+    // Not at terminal... if movement is completely exhausted then we
+    // want to automatically perform the MOVE_END.
+    if (active_move_factor_expended_ >= ActiveUnit()->MoveFactor()) {
+      Update(uint64_t(Unit::ActionKind::MOVE_END));
+      return;
+    }
+
     UpdateValidActions();
   }
 }
