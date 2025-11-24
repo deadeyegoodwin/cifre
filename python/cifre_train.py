@@ -330,11 +330,14 @@ def main():
             best_model_cpt_dir = train_dir
         else:
             LOG.log(f'==== Compare {model_name} to {best_model_name} ====')
-            game_count = winner1_count = winner2_count = draw_count = 0
+            game_count = model_winner_count = best_model_winner_count = draw_count = 0
 
             # Give each player a chance to go first...
             for starting_idx in [0, 1]:
                 report_file = train_dir / f'cmp{starting_idx}.json'
+                player1_name = model_name if starting_idx == 0 else best_model_name
+                player2_name = best_model_name if starting_idx == 0 else model_name
+
                 cmp_cmd = [
                     f'../build/install/bin/{FLAGS.game}',
                     '--verbose' if FLAGS.verbose else '',
@@ -343,10 +346,8 @@ def main():
                     '--game-shape', argify_shape(game_shape, ','),
                     f'--game-count={FLAGS.cmp_game_count}',
                     filter_specified('--max-turns-per-game', FLAGS.max_turns_per_game),
-                    '--player1=alphazero', f'--name={model_name if starting_idx == 0 else best_model_name}',
-                    '--alphazero-model', model_name if starting_idx == 0 else best_model_name,
-                    '--player2=alphazero', f'--name={best_model_name if starting_idx == 0 else model_name}',
-                    '--alphazero-model', best_model_name if starting_idx == 0 else model_name ]
+                    '--player1=alphazero', '--name', player1_name, '--alphazero-model', player1_name,
+                    '--player2=alphazero', '--name', player2_name, '--alphazero-model', player2_name ]
 
                 process = subprocess.Popen(cmp_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 while process.poll() is None:
@@ -359,19 +360,18 @@ def main():
                 # Read and aggregate comparison results
                 with report_file.open('r', encoding ='utf-8') as f:
                     j = json.load(f)
-                    start_model_name = model_name if starting_idx == 0 else best_model_name
-                    LOG.log(f"{start_model_name} starting {j['game-results']['count']} games: "
-                            f"{model_name} {j['game-results']['player1']}, "
-                            f"{best_model_name} {j['game-results']['player2']}, "
+                    LOG.log(f"{player1_name} starting {j['game-results']['count']} games: "
+                            f"{player1_name} {j['game-results']['player1']}, "
+                            f"{player2_name} {j['game-results']['player2']}, "
                             f"draw {j['game-results']['draw']}")
                     game_count += j['game-results']['count']
-                    winner1_count += j['game-results']['player1']
-                    winner2_count += j['game-results']['player2']
+                    model_winner_count += j['game-results']['player1' if starting_idx == 0 else 'player2']
+                    best_model_winner_count += j['game-results']['player2' if starting_idx == 0 else 'player1']
                     draw_count += j['game-results']['draw']
 
-            LOG.log(f'total {game_count} games: {model_name} {winner1_count}, '
-                    f'{best_model_name} {winner2_count}, draw {draw_count}')
-            if winner1_count >= winner2_count:
+            LOG.log(f'total {game_count} games: {model_name} {model_winner_count}, '
+                    f'{best_model_name} {best_model_winner_count}, draw {draw_count}')
+            if model_winner_count >= best_model_winner_count:
                 LOG.log(f'best model now {model_name}', flush=True)
                 best_model_name = model_name
                 best_model_cpt_dir = train_dir
