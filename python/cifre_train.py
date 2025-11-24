@@ -360,7 +360,7 @@ def main():
                 with report_file.open('r', encoding ='utf-8') as f:
                     j = json.load(f)
                     start_model_name = model_name if starting_idx == 0 else best_model_name
-                    LOG.log(f"{start_model_name} starting games: {j['game-results']['count']}, "
+                    LOG.log(f"{start_model_name} starting {j['game-results']['count']} games: "
                             f"{model_name} {j['game-results']['player1']}, "
                             f"{best_model_name} {j['game-results']['player2']}, "
                             f"draw {j['game-results']['draw']}")
@@ -369,7 +369,7 @@ def main():
                     winner2_count += j['game-results']['player2']
                     draw_count += j['game-results']['draw']
 
-            LOG.log(f'total games: {game_count}, {model_name} {winner1_count}, '
+            LOG.log(f'total {game_count} games: {model_name} {winner1_count}, '
                     f'{best_model_name} {winner2_count}, draw {draw_count}')
             if winner1_count >= winner2_count:
                 LOG.log(f'best model now {model_name}', flush=True)
