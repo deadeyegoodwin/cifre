@@ -8,6 +8,7 @@
 #include "cifre_action.h"
 #include "cifre_board2d_hex.h"
 #include "gettysburg_board_cell_factory.h"
+#include "gettysburg_goal.h"
 #include "gettysburg_player.h"
 #include "gettysburg_unit.h"
 
@@ -140,6 +141,7 @@ private:
 
   std::vector<std::unique_ptr<Unit>> union_units_;
   std::vector<std::unique_ptr<Unit>> confederate_units_;
+  std::vector<std::unique_ptr<Goal>> goals_;
 };
 
 }} // namespace cifre::gettysburg
