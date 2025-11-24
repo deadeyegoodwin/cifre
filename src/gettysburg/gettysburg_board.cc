@@ -44,7 +44,7 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
 
   // Goals...
   goals_.push_back(
-    std::make_unique<Goal>((size_.RowCount() / 2) - 1, (size_.ColumnCount() / 2) - 1));
+    std::make_unique<Goal>(size_.RowCount() / 2, size_.ColumnCount() / 2));
 
   // Set starting army and unit. The active unit's position determines
   // where on the planes the board is located; location is set to
@@ -52,15 +52,14 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   active_army_ =
     (active_player_id_ == 0) ? Unit::ArmyKind::UNION : Unit::ArmyKind::CONFEDERATE;
   active_unit_idx_ = 0;
-
-  Unit* active_unit = ActiveUnit();
-  active_first_row_ = size_.RowCount() - 1 - active_unit->Row();
-  active_first_column_ = size_.ColumnCount() - 1 - active_unit->Column();
+  active_unit_ = ActiveUnit();
+  active_first_row_ = size_.RowCount() - 1 - active_unit_->Row();
+  active_first_column_ = size_.ColumnCount() - 1 - active_unit_->Column();
   active_move_factor_expended_ = 0.0;
 
   // Initialize board inputs, valid actions, and terminal status for
   // the initial active player.
-  UpdateInputPlanes(active_unit);
+  UpdateInputPlanes();
   UpdateValidActions();
   UpdateTerminalStatus();
 }
@@ -85,6 +84,8 @@ Board::Board(const Board& other) :
   for (const auto& g : other.goals_) {
     goals_.push_back(std::make_unique<Goal>(*g));
   }
+
+  active_unit_ = ActiveUnit();
 }
 
 size_t
@@ -95,6 +96,9 @@ Board::Hash() const
 
   // The input planes/cells ('cells_flattened_') themselves are not
   // hashed because they are derived from the other members.
+  //
+  // active_unit_ is not hashed because it is redundant with
+  // active_army_ and active_unit_idx_.
 
   hash += (plane_row_cnt_ * mulp) ^ (hash >> 23);
   hash += (plane_column_cnt_ * mulp) ^ (hash >> 23);
@@ -125,6 +129,9 @@ Board::Equal(const State* other) const
 
   // The input planes/cells ('cells_flattened_') themselves are not
   // compared because they are derived from the other members.
+  //
+  // active_unit_ is not compared because it is redundant with
+  // active_army_ and active_unit_idx_.
 
   if ((plane_row_cnt_ != ob->plane_row_cnt_) ||
       (plane_column_cnt_ != ob->plane_column_cnt_) ||
@@ -278,24 +285,23 @@ Board::Update(uint64_t action_id)
   }
   else {
     const float move_cost = 1.0; // FIXME
-    Unit* active_unit = ActiveUnit();
 
-    active_unit->ApplyAction(action);
+    active_unit_->ApplyAction(action);
 
-    assert((active_move_factor_expended_ + move_cost) <= active_unit->MoveFactor());
+    assert((active_move_factor_expended_ + move_cost) <= active_unit_->MoveFactor());
     active_move_factor_expended_ += move_cost;
   }
 
-  active_first_row_ = size_.RowCount() - 1 - ActiveUnit()->Row();
-  active_first_column_ = size_.ColumnCount() - 1 - ActiveUnit()->Column();
-  UpdateInputPlanes(ActiveUnit());
+  active_first_row_ = size_.RowCount() - 1 - active_unit_->Row();
+  active_first_column_ = size_.ColumnCount() - 1 - active_unit_->Column();
+  UpdateInputPlanes();
 
   // Check terminal status...
   UpdateTerminalStatus();
   if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
     // Not at terminal... if movement is completely exhausted then we
     // want to automatically perform the MOVE_END.
-    if (active_move_factor_expended_ >= ActiveUnit()->MoveFactor()) {
+    if (active_move_factor_expended_ >= active_unit_->MoveFactor()) {
       Update(uint64_t(Unit::ActionKind::MOVE_END));
       return;
     }
@@ -329,10 +335,12 @@ Board::NextActiveUnit()
     // Otherwise just move to the next unit in the same army.
     active_unit_idx_ += 1;
   }
+
+  active_unit_ = ActiveUnit();
 }
 
 void
-Board::UpdateInputPlanes(Unit* unit)
+Board::UpdateInputPlanes()
 {
   if (!cells_flattened_.empty()) {
     // FIXME
@@ -340,8 +348,8 @@ Board::UpdateInputPlanes(Unit* unit)
   }
 
   cells_flattened_ =
-    cell_factory_->Cells(ActiveUnit()->Row(), ActiveUnit()->Column(),
-                         ActiveUnit()->MoveFactor() - active_move_factor_expended_);
+    cell_factory_->Cells(active_unit_->Row(), active_unit_->Column(),
+                         active_unit_->MoveFactor() - active_move_factor_expended_);
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
   // Update planes as required for all units and goals.
@@ -362,13 +370,12 @@ Board::UpdateValidActions()
   valid_action_ids_.clear();
   valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_END));
 
-  const Unit* active_unit = ActiveUnit();
   const float move_cost = 1.0; // FIXME
 
   // There must be movement factor available to perform a move.
-  if ((active_move_factor_expended_ + move_cost) <= active_unit->MoveFactor()) {
-    const size_t row = active_unit->Row();
-    const size_t col = active_unit->Column();
+  if ((active_move_factor_expended_ + move_cost) <= active_unit_->MoveFactor()) {
+    const size_t row = active_unit_->Row();
+    const size_t col = active_unit_->Column();
 
     if ((row == 0) && ((col % 2) == 1)) {
       if (col > 0) {
@@ -406,14 +413,22 @@ Board::UpdateValidActions()
       }
     }
   }
+
+//  std::cerr
+//    << "\np" << active_player_id_
+//    << "[" << active_unit_->Row() << "," << active_unit_->Column()
+//    << "] valid actions: ";
+//  for (auto vid : valid_action_ids_) {
+//    std::cerr << vid << ", ";
+//  }
+//  std::cerr << std::endl;
 }
 
 void
 Board::UpdateTerminalStatus()
 {
   // If active unit is on a goal then it is winner.
-  Unit* active_unit = ActiveUnit();
-  if (GoalAt(active_unit->Row(), active_unit->Column()) == BoardCellFactory::CELL_ACTIVE) {
+  if (GoalAt(active_unit_->Row(), active_unit_->Column()) == BoardCellFactory::CELL_ACTIVE) {
     terminal_status_ =
       cifre::StateTerminalStatus(
         cifre::StateTerminalStatus::TerminalKind::WINNER, active_player_id_);

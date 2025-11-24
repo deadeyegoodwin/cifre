@@ -76,6 +76,7 @@ Unit::ApplyAction(ActionKind kind)
   if (kind != ActionKind::MOVE_END) {
     switch (kind) {
     case ActionKind::MOVE_UP:
+      assert(row_idx_ > 0);
       row_idx_ -= 1;
       break;
     case ActionKind::MOVE_DOWN:
@@ -83,6 +84,7 @@ Unit::ApplyAction(ActionKind kind)
       break;
     case ActionKind::MOVE_UPRIGHT:
       if ((column_idx_ % 2) == 0) {
+        assert(row_idx_ > 0);
         row_idx_ -= 1;
       }
       column_idx_ += 1;
@@ -97,12 +99,15 @@ Unit::ApplyAction(ActionKind kind)
       if ((column_idx_ % 2) == 1) {
         row_idx_ += 1;
       }
+      assert(column_idx_ > 0);
       column_idx_ -= 1;
       break;
     case ActionKind::MOVE_UPLEFT:
       if ((column_idx_ % 2) == 0) {
+        assert(row_idx_ > 0);
         row_idx_ -= 1;
       }
+      assert(column_idx_ > 0);
       column_idx_ -= 1;
       break;
     case ActionKind::MOVE_END:

@@ -251,7 +251,7 @@ def main():
     elif FLAGS.game == 'gettysburg':
         # FIXME, game shape is fixed so just need to check/override here
         num_planes = 6  # see gettysburg::BoardCellFactory::PLANE_COUNT
-        game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
+        game_shape = (11, 21) if (FLAGS.game_shape is None) else FLAGS.game_shape
         nnet_shape = ( # see gettysburg::Board constructor
             ((game_shape[0] - 1) * 2) + 1, ((game_shape[1] - 1) * 2) + 1, num_planes)
         train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size

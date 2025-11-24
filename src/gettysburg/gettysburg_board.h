@@ -120,7 +120,7 @@ private:
 
   Unit* ActiveUnit() const;
 
-  void UpdateInputPlanes(Unit* unit);
+  void UpdateInputPlanes();
   void UpdateTerminalStatus();
   void UpdateValidActions();
   void NextActiveUnit();
@@ -134,6 +134,7 @@ private:
   size_t plane_column_cnt_;
 
   Unit::ArmyKind active_army_;
+  Unit* active_unit_;
   size_t active_unit_idx_;
   size_t active_first_row_;
   size_t active_first_column_;
