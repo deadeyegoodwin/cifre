@@ -274,8 +274,10 @@ AlphaZeroAlgo::SearchTree(
   // that doesn't yet have a child node. Don't include actions that
   // would cause a loop/cycle for this search.
   const size_t node_generation = node->Generation();
+  size_t cycle_avoided_cnt = 0;
   std::optional<uint64_t> best_action_id =
-    node->MaxQU(node_generation, settings_.cpuct_, dirichlet, settings_.dirichlet_ratio_);
+    node->MaxQU(node_generation, settings_.cpuct_, dirichlet, settings_.dirichlet_ratio_, &cycle_avoided_cnt);
+  statistics_.cycle_avoided_count_ += cycle_avoided_cnt;
   THROWIF(!best_action_id,
           "alpha-zero unable to find action ID with max QU\n" + node->ToString(settings_.cpuct_));
   LOGGER_LOGHIGH_IE(
@@ -416,7 +418,8 @@ AlphaZeroNode::ChildProbability() const
 std::optional<uint64_t>
 AlphaZeroNode::MaxQU(
   const size_t cycle_generation, const float cpuct, const std::vector<double>* dirichlet,
-  const float dirichlet_ratio, std::vector<float>* qus, std::vector<float>* nocycle_qus) const
+  const float dirichlet_ratio, size_t* cycle_avoided_count,
+  std::vector<float>* qus, std::vector<float>* nocycle_qus) const
 {
   if (qus != nullptr) {
     qus->clear();
@@ -486,6 +489,9 @@ AlphaZeroNode::MaxQU(
   }
 
   if (best_nocycle_action_id != std::numeric_limits<uint64_t>::max()) {
+    if ((cycle_avoided_count != nullptr) && (best_nocycle_action_id != best_action_id)) {
+      *cycle_avoided_count += 1;
+    }
     return std::make_optional<uint64_t>(best_nocycle_action_id);
   }
 
@@ -594,7 +600,7 @@ AlphaZeroNode::ToString(float cpuct, common::Logger::Level filter_level) const
     std::vector<float> qus, nocycle_qus;
     std::optional<uint64_t> best_action_id =
       MaxQU(0 /* generation */, cpuct, nullptr /* dirichlet */, 0.0 /* dirichlet_ratio */,
-            &qus, &nocycle_qus);
+            nullptr /* cycle_avoided_count */, &qus, &nocycle_qus);
     sstr << "  cpuct: " << cpuct
          << ", best action: ";
     if (best_action_id) {
@@ -638,6 +644,7 @@ AlphaZeroStatistics::operator+=(const AlphaZeroStatistics& rhs)
   search_endby_search_depth_count_ += rhs.search_endby_search_depth_count_;
   search_endby_game_depth_count_ += rhs.search_endby_game_depth_count_;
   search_endby_terminal_count_ += rhs.search_endby_terminal_count_;
+  cycle_avoided_count_ += rhs.cycle_avoided_count_;
   return *this;
 }
 
@@ -651,6 +658,7 @@ AlphaZeroStatistics::Reset()
   search_endby_search_depth_count_ = 0;
   search_endby_game_depth_count_ = 0;
   search_endby_terminal_count_ = 0;
+  cycle_avoided_count_ = 0;
 }
 
 std::string
@@ -665,7 +673,8 @@ AlphaZeroStatistics::ToString() const
     << "searches: " << search_count_
     << ", end by search-depth " << search_endby_search_depth_count_
     << ", end by game-depth " << search_endby_game_depth_count_
-    << ", end by terminal " << search_endby_terminal_count_;
+    << ", end by terminal " << search_endby_terminal_count_
+    << ", cycles avoided " << cycle_avoided_count_;
 
   return ss.str();
 }

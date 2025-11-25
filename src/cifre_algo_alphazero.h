@@ -99,6 +99,7 @@ public:
   std::atomic<size_t> search_endby_search_depth_count_ {0};
   std::atomic<size_t> search_endby_game_depth_count_ {0};
   std::atomic<size_t> search_endby_terminal_count_ {0};
+  std::atomic<size_t> cycle_avoided_count_ {0};
 };
 
 //
@@ -292,8 +293,8 @@ public:
   // for each action/child.
   std::optional<uint64_t> MaxQU(
     const size_t generation, const float cpuct, const std::vector<double>* dirichlet,
-    const float dirichlet_ratio, std::vector<float>* qus = nullptr,
-    std::vector<float>* nocycle_qus = nullptr) const;
+    const float dirichlet_ratio, size_t* cycle_avoided_count = nullptr,
+    std::vector<float>* qus = nullptr, std::vector<float>* nocycle_qus = nullptr) const;
 
   // Return the action ID corresponding to the child edge that has
   // the highest non-zero visited count and that represents a valid
