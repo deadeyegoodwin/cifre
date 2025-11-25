@@ -171,6 +171,16 @@ class CifreNNetManager(object):
             f.write(f'max_batch_size: {self._nnet_max_batch_size}\n')
             f.write('dynamic_batching: { }\n')
 
+            # TensorRT causes Triton to use a lot of memory and doesn't seem to give
+            # any significant speedup for how we are using these models.
+            #f.write('optimization { execution_accelerators {\n')
+            #f.write('  gpu_execution_accelerator : [ {\n')
+            #f.write('    name : "tensorrt",\n')
+            #f.write('    parameters { key: "precision_mode" value: "FP16" },\n')
+            #f.write('    parameters { key: "trt_engine_cache_enable" value: "0" }}\n')
+            #f.write('  ]\n')
+            #f.write('}}\n')
+
         # Appropriately sized input.
         input_shape_with_batch = (1,) + self._nnet_input_shape
         board_tensor = torch.randn(input_shape_with_batch, requires_grad=True)
