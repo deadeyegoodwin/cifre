@@ -269,6 +269,10 @@ public:
   // count and the children visit counts.
   std::vector<float> ChildProbability() const;
 
+  // Return and set 'node's generation.
+  size_t Generation() const { return generation_; }
+  void SetGeneration(size_t g) { generation_ = g; }
+
   // Return and set 'node's value.
   float Value() const { return value_; }
   void SetValue(float v) { value_ = v; }
@@ -287,8 +291,9 @@ public:
   // 'qu's is non-nullptr then it will be filled with the QU value
   // for each action/child.
   std::optional<uint64_t> MaxQU(
-    const float cpuct, const std::vector<double>* dirichlet,
-    const float dirichlet_ratio, std::vector<float>* qus = nullptr) const;
+    const size_t generation, const float cpuct, const std::vector<double>* dirichlet,
+    const float dirichlet_ratio, std::vector<float>* qus = nullptr,
+    std::vector<float>* nocycle_qus = nullptr) const;
 
   // Return the action ID corresponding to the child edge that has
   // the highest non-zero visited count and that represents a valid
@@ -314,6 +319,7 @@ private:
   std::vector<size_t> children_visit_counts_;
   size_t visit_count_;
   float value_;
+  size_t generation_;
 };
 
 //

@@ -85,6 +85,13 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
   THROWIF(state.TerminalStatus().Kind() != StateTerminalStatus::TerminalKind::NON_TERMINAL,
           "alpha-zero cannot find next action for terminal state");
 
+  // For each search performed, the nodes visited in that search are
+  // tagged with a generation so that loops/cycles can be
+  // detected. Start at 1 so we can use generation==0 to indicate "no
+  // generation". We are not worried about wrap-around for a 64-bit
+  // value.
+  static std::atomic<size_t> global_generation(1);
+
   // Depending on setting, we can reset the nodes each time so that a
   // new node tree is built just to choose this action, or we cannot
   // reset the nodes so that the nodes accumulate across the entire
@@ -119,10 +126,16 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
   assert(node != nullptr);
 
   LOGGER_LOGHIGH(*logger_, "\nalphazero: starting node");
-  LOGGER_LOGHIGH_IE(*logger_, node->ToString(), 2 /* indent */, true /* endline */);
+  LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_), 2 /* indent */, true /* endline */);
 
   // Update the tree by performing searches starting from 'node'.
   for (size_t idx = 0; idx < settings_.search_count_; ++idx) {
+    // Get a unique generation value for this search. Assign the value
+    // to the starting node; in SearchTree we also assign the value to
+    // visited nodes and use it to detect cycles.
+    const size_t search_generation = global_generation.fetch_add(1);
+    node->SetGeneration(search_generation);
+
     // Use dirichlet if enabled...
     const std::vector<double>* dirichlet = nullptr;
     if (settings_.dirichlet_alpha_ > 0.0) {
@@ -258,9 +271,11 @@ AlphaZeroAlgo::SearchTree(
   }
 
   // Move down tree following best actions until perform an action
-  // that doesn't yet have a child node.
+  // that doesn't yet have a child node. Don't include actions that
+  // would cause a loop/cycle for this search.
+  const size_t node_generation = node->Generation();
   std::optional<uint64_t> best_action_id =
-    node->MaxQU(settings_.cpuct_, dirichlet, settings_.dirichlet_ratio_);
+    node->MaxQU(node_generation, settings_.cpuct_, dirichlet, settings_.dirichlet_ratio_);
   THROWIF(!best_action_id,
           "alpha-zero unable to find action ID with max QU\n" + node->ToString(settings_.cpuct_));
   LOGGER_LOGHIGH_IE(
@@ -282,6 +297,9 @@ AlphaZeroAlgo::SearchTree(
     node->SetChild(*best_action_id, next, 0 /* visit_count */);
     statistics_.edge_count_++;
   }
+
+  // Set generation for the next node to be visited.
+  next->SetGeneration(node_generation);
 
   // We update the visit counts before we move down the tree, this is
   // because we want the cpuct calculation to take into account this
@@ -352,7 +370,7 @@ AlphaZeroNode::AlphaZeroNode(
   state_(std::move(state)), result_(infer_result),
   children_(state_->TotalActionIdCount(), nullptr),
   children_visit_counts_(state_->TotalActionIdCount(), 0),
-  visit_count_(0)
+  visit_count_(0), generation_(0)
 {
   // Is node is a terminal, then its value is based on the terminal
   // status, otherwise it comes from the model.
@@ -397,17 +415,27 @@ AlphaZeroNode::ChildProbability() const
 
 std::optional<uint64_t>
 AlphaZeroNode::MaxQU(
-  const float cpuct, const std::vector<double>* dirichlet,
-  const float dirichlet_ratio, std::vector<float>* qus) const
+  const size_t cycle_generation, const float cpuct, const std::vector<double>* dirichlet,
+  const float dirichlet_ratio, std::vector<float>* qus, std::vector<float>* nocycle_qus) const
 {
   if (qus != nullptr) {
     qus->clear();
     qus->resize(state_->TotalActionIdCount(), 0.0);
   }
+  if (nocycle_qus != nullptr) {
+    nocycle_qus->clear();
+    nocycle_qus->resize(state_->TotalActionIdCount(), 0.0);
+  }
 
+  // We keep track of the best action that does *not* form a
+  // loop/cycle, and the best action that may form a loop/cycle. We
+  // prefer best action that does *not* form a loop/cycle, but use the
+  // other in cases where no such action exists.
   const auto& pi = result_->Pi();
   float max_qu = -std::numeric_limits<float>::max();
   uint64_t best_action_id = std::numeric_limits<uint64_t>::max();
+  float max_nocycle_qu = -std::numeric_limits<float>::max();
+  uint64_t best_nocycle_action_id = std::numeric_limits<uint64_t>::max();
 
   for (uint64_t aid : state_->ValidActionIds()) {
     float qu;
@@ -420,12 +448,19 @@ AlphaZeroNode::MaxQU(
       dpi = (dpi * (1.0 - dirichlet_ratio)) + (dirichlet->at(aid) * dirichlet_ratio);
     }
 
+    bool cycle = false;
     AlphaZeroNode* child = children_[aid];
     if (child == nullptr) {
       assert(children_visit_counts_[aid] == 0);
       qu = std::sqrt(visit_count_) * dpi * cpuct;
     }
     else {
+      // generation == 0 indicates "no generation" so can't determine
+      // if there is a cycle.
+      if ((cycle_generation != 0) && (child->generation_ == cycle_generation)) {
+        cycle = true;
+      }
+
       float v = child->value_;
       if (child->state_->ActivePlayerId() != state_->ActivePlayerId()) {
         v = -v;
@@ -437,10 +472,21 @@ AlphaZeroNode::MaxQU(
       max_qu = qu;
       best_action_id = aid;
     }
+    if (!cycle && (qu > max_nocycle_qu)) {
+      max_nocycle_qu = qu;
+      best_nocycle_action_id = aid;
+    }
 
     if (qus != nullptr) {
       qus->at(aid) = qu;
     }
+    if (!cycle && (nocycle_qus != nullptr)) {
+      nocycle_qus->at(aid) = qu;
+    }
+  }
+
+  if (best_nocycle_action_id != std::numeric_limits<uint64_t>::max()) {
+    return std::make_optional<uint64_t>(best_nocycle_action_id);
   }
 
   return ((best_action_id == std::numeric_limits<uint64_t>::max()) ?
@@ -519,8 +565,9 @@ AlphaZeroNode::ToString(float cpuct, common::Logger::Level filter_level) const
 
   sstr << "node <hash " + std::to_string(state_->Hash()) + ">\n";
   sstr
-    << "  active player ID: " << state_->ActivePlayerId()
-    << ",  visit count: " << visit_count_ << ", value: " << value_ << '\n';
+    << "  generation: " << generation_
+    << ", active player ID: " << state_->ActivePlayerId()
+    << ", visit count: " << visit_count_ << ", value: " << value_ << '\n';
 
   sstr << "  child value/visits: [";
   bool first = true;
@@ -544,12 +591,26 @@ AlphaZeroNode::ToString(float cpuct, common::Logger::Level filter_level) const
   sstr << "]\n";
 
   if (cpuct > 0.0) {
-    std::vector<float> qus;
+    std::vector<float> qus, nocycle_qus;
     std::optional<uint64_t> best_action_id =
-      MaxQU(cpuct, nullptr /* dirichlet */, 0.0 /* dirichlet_ratio */, &qus);
+      MaxQU(0 /* generation */, cpuct, nullptr /* dirichlet */, 0.0 /* dirichlet_ratio */,
+            &qus, &nocycle_qus);
     sstr << "  cpuct: " << cpuct
-         << ", best action: " << ((best_action_id) ? std::to_string(*best_action_id) : "<none>")
-         << ", QUs: [";
+         << ", best action: ";
+    if (best_action_id) {
+      sstr << NodeState().ActionToString(Action(Action::ActionKind::ACTIONID, *best_action_id))
+          << " (" << std::to_string(*best_action_id) << ")\n";
+    }
+    else {
+      sstr << "<none>\n";
+    }
+    sstr << "    no-cycle QUs: [";
+    first = true;
+    for (float p : nocycle_qus) {
+      sstr << ((first) ? "" : ", ") << p;
+      first = false;
+    }
+    sstr << "]\n" << "    QUs: [";
     first = true;
     for (float p : qus) {
       sstr << ((first) ? "" : ", ") << p;
