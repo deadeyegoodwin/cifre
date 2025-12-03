@@ -1,4 +1,4 @@
-// Copyright 2024, David Goodwin. All rights reserved.
+// Copyright 2025, David Goodwin. All rights reserved.
 
 #include "cifre_algo_minimax.h"
 #include "common_error.h"

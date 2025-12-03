@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2024, David Goodwin. All rights reserved.
+# Copyright 2025, David Goodwin. All rights reserved.
 
 import json
 import os

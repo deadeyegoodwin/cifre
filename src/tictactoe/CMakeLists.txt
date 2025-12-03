@@ -1,4 +1,4 @@
-# Copyright 2024, David Goodwin. All rights reserved.
+# Copyright 2025, David Goodwin. All rights reserved.
 
 cmake_minimum_required(VERSION 3.18)
 
