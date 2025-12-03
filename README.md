@@ -1,7 +1,9 @@
 # Cifre
 
-A Python / C++ Alpha-Zero implementation. Cifre is Old French for
-"nought" or "zero".
+A Python / C++ Alpha-Zero
+implementation. [Cifre](https://en.wiktionary.org/wiki/cifre) is a
+Middle English word meaning the mathematical symbol representing the
+number zero.
 
 To run the training application, cifre_train.py, it is recommended
 that you use anaconda. The following command creates an appropriate
