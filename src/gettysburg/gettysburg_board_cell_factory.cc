@@ -3,6 +3,7 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 
 #include "common_error.h"
 #include "common_util.h"
@@ -11,14 +12,148 @@
 namespace cifre { namespace gettysburg {
 
 //
+// BoardData
+//
+// Static information about each cell of the board.
+//
+class BoardData {
+public:
+  BoardData(size_t r, size_t c, bool f, bool h) :
+    row_idx_(r), column_idx_(c), forest_(f), hill_(h) { }
+
+  const size_t row_idx_;
+  const size_t column_idx_;
+  const bool forest_;
+  const bool hill_;
+};
+
+std::vector<BoardData> board_data {
+  // row 0
+  // row col forest hill
+  {  0,  0,  true,  true },
+  {  0,  1,  true,  true },
+  {  0,  2,  true,  false },
+  {  0,  3,  true,  false },
+  {  0,  8,  true,  false },
+  {  0,  9,  true,  false },
+  {  0,  13, true,  false },
+  {  0,  15, true,  true },
+  {  0,  16, true,  true },
+  {  0,  17, false, true },
+  {  0,  19, false, false },
+  {  0,  20, false, false },
+  // row 1
+  // row col forest hill
+  {  1,  2,  true,  false },
+  {  1,  5,  true,  false },
+  {  1,  7,  true,  false },
+  {  1,  8,  true,  false },
+  {  1,  9,  true,  false },
+  {  1, 11,  true,  false },
+  {  1, 12,  true,  false },
+  {  1, 13,  true,  false },
+  {  1, 14,  true,  false },
+  {  1, 15,  true,  false },
+  {  1, 16,  true,  true },
+  {  1, 17,  false, true },
+  {  1, 18,  false, true },
+};
+
+//
 // BoardCellFactory
 //
-std::vector<uint8_t>
-BoardCellFactory::Cells(size_t row_idx, size_t col_idx, size_t move_factor)
+BoardCellFactory::BoardCellFactory(
+  size_t board_row_cnt, size_t board_column_cnt, size_t plane_row_cnt, size_t plane_column_cnt) :
+  board_row_cnt_(board_row_cnt), board_column_cnt_(board_column_cnt),
+  plane_row_cnt_(plane_row_cnt), plane_column_cnt_(plane_column_cnt)
 {
-  std::vector<uint8_t> flat;
-  flat.resize(row_cnt_ * column_cnt_ * PLANE_COUNT * sizeof(float));
-  return flat;
+  // Make sure the plane and board size are what we expect...
+  assert(plane_row_cnt_ == ((board_row_cnt_ - 1) * 2) + 1);
+  assert(plane_column_cnt_ == ((board_column_cnt_ - 1) * 2) + 1);
+
+  // Make a set of planes for each position and possible move-factor
+  // on the board...
+  for (size_t br = 0; br < board_row_cnt_; ++br) {
+    for (size_t bc = 0; bc < board_column_cnt_; ++bc) {
+      for (size_t mf = 0; mf < 1; ++mf) {  // FIXME
+        // The set of planes for [br, bc] is represented as a flat
+        // vector as that is what is most efficient for feeding to the
+        // model.
+        std::vector<uint8_t> flat_vector;
+        flat_vector.resize(plane_row_cnt_ * plane_column_cnt_ * PLANE_COUNT * sizeof(float));
+        float* flat = reinterpret_cast<float*>(flat_vector.data());
+
+        // The planes for a board position [br, bc] includes a border
+        // so that [br, bc] is the center hex in the [plane_row_cnt_,
+        // plane_column_cnt_] planes.
+        const size_t start_br = board_row_cnt_ - 1 - br;
+        const size_t start_bc = board_column_cnt_ - 1 - bc;
+
+        // Apply board features to the planes...
+        for (auto& bd : board_data) {
+          if ((bd.row_idx_ < board_row_cnt_) && (bd.column_idx_ < board_column_cnt_)) {
+            const size_t offset =
+              ((start_br + bd.row_idx_) * plane_column_cnt_ * PLANE_COUNT) +
+              ((start_bc + bd.column_idx_) * PLANE_COUNT);
+            if (bd.forest_) {
+              flat[offset + PLANE_IDX_FOREST] = CELL_ACTIVE;
+            }
+            if (bd.hill_) {
+              flat[offset + PLANE_IDX_HILL] = CELL_ACTIVE;
+            }
+          }
+        }
+
+        planes_map_[std::make_tuple(br, bc, mf)] = std::move(flat_vector);
+      }
+    }
+  }
+}
+
+std::vector<uint8_t>
+BoardCellFactory::AcquireCells(CellsKey key)
+{
+  key = std::make_tuple(std::get<0>(key), std::get<1>(key), 0); // move-factor FIXME
+
+  // First check if there is a plane-set already available for
+  // immediate use.
+  {
+    std::unique_lock<std::mutex> lk(alloc_planes_mu_);
+    const auto iter = alloc_planes_map_.find(key);
+    if ((iter != alloc_planes_map_.end()) && !iter->second.empty()) {
+      std::vector<uint8_t> ps = std::move(iter->second.back());
+      iter->second.pop_back();
+      return ps;
+    }
+  }
+
+  // No existing plane-set so copy from the pre-initialized original
+  // (which must exist).
+  const auto iter = planes_map_.find(key);
+  THROWIF(iter == planes_map_.end(), "expected pre-initialized plane set");
+  std::vector<uint8_t> ps = iter->second;
+  return ps;
+}
+
+void
+BoardCellFactory::ReleaseCells(CellsKey key, std::vector<uint8_t>&& cells)
+{
+  key = std::make_tuple(std::get<0>(key), std::get<1>(key), 0); // move-factor FIXME
+
+  // When debugging, check that the returned cells match what was
+  // originally acquired.
+#ifndef NDEBUG
+  const auto iter = planes_map_.find(key);
+  assert(iter != planes_map_.end());
+  assert(cells == iter->second);
+#endif
+
+  // Save 'cells' so that it is available for reuse.
+  {
+    std::unique_lock<std::mutex> lk(alloc_planes_mu_);
+    auto pr = alloc_planes_map_.try_emplace(key);
+    pr.first->second.emplace_back(std::move(cells));
+  }
 }
 
 }} // namespace cifre::gettysburg

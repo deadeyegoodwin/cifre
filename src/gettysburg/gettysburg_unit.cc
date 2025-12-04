@@ -45,7 +45,7 @@ Unit::Equal(const Unit* other) const
 }
 
 void
-Unit::ClearFromBoard(Board* board) const
+Unit::RemoveFromBoard(Board* board) const
 {
   switch (army_kind_) {
   case ArmyKind::UNION:

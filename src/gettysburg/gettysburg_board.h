@@ -25,6 +25,9 @@ public:
   Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
         size_t starting_player_id);
 
+  // Destructor
+  virtual ~Board();
+
   // See cifre::State.
   // Hash/compare all members that uniquely define this board.
   virtual size_t Hash() const override;
@@ -108,6 +111,16 @@ public:
   float MoveAt(size_t row_idx, size_t col_idx) const {
     return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_MOVE); }
 
+  void SetForestAt(float value, size_t row_idx, size_t col_idx) {
+    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_FOREST); }
+  float ForestAt(size_t row_idx, size_t col_idx) const {
+    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_FOREST); }
+
+  void SetHillAt(float value, size_t row_idx, size_t col_idx) {
+    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_HILL); }
+  float HillAt(size_t row_idx, size_t col_idx) const {
+    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_HILL); }
+
 private:
   Board& operator=(const Board&) = delete;  // assignment not allowed
 
@@ -120,6 +133,7 @@ private:
 
   Unit* ActiveUnit() const;
 
+  void ReleaseInputPlanes();
   void UpdateInputPlanes();
   void UpdateTerminalStatus();
   void UpdateValidActions();
@@ -129,6 +143,7 @@ private:
   std::string DebugCellLowerString(size_t row_idx, size_t col_idx) const;
 
   BoardCellFactory* cell_factory_;
+  BoardCellFactory::CellsKey cells_flattened_factory_key_;
 
   size_t plane_row_cnt_;
   size_t plane_column_cnt_;

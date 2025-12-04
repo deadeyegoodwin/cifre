@@ -68,7 +68,7 @@ public:
   void ApplyAction(ActionKind kind);
 
   // Update 'board' to remove this unit.
-  void ClearFromBoard(Board* board) const;
+  void RemoveFromBoard(Board* board) const;
 
   // Update 'board' to reflect current status of this unit.
   void AddToBoard(Board* board) const;

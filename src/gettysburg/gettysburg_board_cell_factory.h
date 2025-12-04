@@ -4,6 +4,9 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <map>
+#include <mutex>
+#include <tuple>
 
 namespace cifre { namespace gettysburg {
 
@@ -19,7 +22,11 @@ namespace cifre { namespace gettysburg {
 //
 // The following planes are pre-computed, one instance for each board
 // cell, and each movement factor, so a total of (row-cnt * column-cnt
-// * max-move-factory) precomputed sets of planes.
+// * max-move-factory) precomputed sets of planes. A value of
+// CELL_ACTIVE is used to indicate that the position contains the
+// corresponding item (for example, in the FOREST plane a value of
+// CELL_ACTIVE indicates that there is a forest in the corresponding
+// row/column position.
 //
 //   FOREST: plane indicates which hexes contain forest
 //   HILL: plane indicates which hexes contain hill
@@ -42,25 +49,53 @@ public:
   static constexpr float CELL_EMPTY = 0.0;
   static constexpr float CELL_ACTIVE = 1.0;
 
+  // CellsKey is <row-idx, column-idx, move-factory>
+  using CellsKey = std::tuple<size_t, size_t, size_t>;
+
 public:
-  static BoardCellFactory* Instance(size_t row_cnt, size_t column_cnt) {
-    static BoardCellFactory instance(row_cnt, column_cnt);
-    assert(row_cnt == instance.row_cnt_);
-    assert(column_cnt == instance.column_cnt_);
+  static BoardCellFactory* Instance(
+    size_t board_row_cnt, size_t board_column_cnt, size_t plane_row_cnt, size_t plane_column_cnt) {
+    static BoardCellFactory instance(
+      board_row_cnt, board_column_cnt, plane_row_cnt, plane_column_cnt);
+    assert(board_row_cnt == instance.board_row_cnt_);
+    assert(board_column_cnt == instance.board_column_cnt_);
+    assert(plane_row_cnt == instance.plane_row_cnt_);
+    assert(plane_column_cnt == instance.plane_column_cnt_);
     return &instance;
   }
 
-  // Return the cells for a given row, column, and move-factor.
-  std::vector<uint8_t> Cells(size_t row_idx, size_t col_idx, size_t move_factor);
+  // Return the cells for a given row, column, and
+  // move-factor. Thread-safe. The caller may modify the returned
+  // vector, but must restore it to its original values before calling
+  // ReleaseCells.
+  std::vector<uint8_t> AcquireCells(CellsKey key);
+
+  // "Restock" the cells for a given row, column, and
+  // move-factor. Thread-safe.
+  void ReleaseCells(CellsKey key, std::vector<uint8_t>&& cells);
 
 private:
-  BoardCellFactory(size_t row_cnt, size_t column_cnt) :
-    row_cnt_(row_cnt), column_cnt_(column_cnt) {}
+  BoardCellFactory(
+    size_t board_row_cnt, size_t board_column_cnt, size_t plane_row_cnt, size_t plane_column_cnt);
   BoardCellFactory(const BoardCellFactory&) = delete;
   BoardCellFactory& operator=(const BoardCellFactory&) = delete;
 
-  size_t row_cnt_;
-  size_t column_cnt_;
+  size_t board_row_cnt_;
+  size_t board_column_cnt_;
+  size_t plane_row_cnt_;
+  size_t plane_column_cnt_;
+
+  // Map from the row index, column index, and move factor to the
+  // pre-initialized, flattened planes representing the static valued
+  // portions of the sets of planes.
+  std::map<CellsKey, std::vector<uint8_t>> planes_map_;
+
+  // Map from the row index, column index, and move factor to already
+  // allocated planes. This map maintains the plane-sets that can be
+  // acquired and released and thus allows reuse. This map must be
+  // thread safe so a mutex is needed as well.
+  std::mutex alloc_planes_mu_;
+  std::map<CellsKey, std::vector<std::vector<uint8_t>>> alloc_planes_map_;
 };
 
 }} // namespace cifre::gettysburg

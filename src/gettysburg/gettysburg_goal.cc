@@ -40,7 +40,7 @@ Goal::Equal(const Goal* other) const
 }
 
 void
-Goal::ClearFromBoard(Board* board) const
+Goal::RemoveFromBoard(Board* board) const
 {
   board->SetGoalAt(BoardCellFactory::CELL_EMPTY, row_idx_, column_idx_);
 }

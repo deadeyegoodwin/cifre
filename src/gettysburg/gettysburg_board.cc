@@ -31,7 +31,8 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   plane_row_cnt_ = ((size_.RowCount() - 1) * 2) + 1;
   plane_column_cnt_ = ((size_.ColumnCount() - 1) * 2) + 1;
 
-  cell_factory_ = BoardCellFactory::Instance(plane_row_cnt_, plane_column_cnt_);
+  cell_factory_ = BoardCellFactory::Instance(
+    size_.RowCount(), size_.ColumnCount(), plane_row_cnt_, plane_column_cnt_);
 
   // Initially set union unit at board position [0, 0] and
   // confederate at board position [row-1, col-1].
@@ -71,8 +72,9 @@ Board::Board(const Board& other) :
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
   active_move_factor_expended_(other.active_move_factor_expended_)
 {
-  // WARNING: this does not copy 'cells_flattened_' or 'cells_' . To
-  // perform a complete copy, use Copy().
+  // WARNING: this does not copy 'cells_flattened_', 'cells_' or
+  // 'cells_flattened_factory_key_'. To perform a complete copy, use
+  // Copy().
   cells_ = nullptr;
 
   for (const auto& u : other.union_units_) {
@@ -88,14 +90,20 @@ Board::Board(const Board& other) :
   active_unit_ = ActiveUnit();
 }
 
+Board::~Board()
+{
+  ReleaseInputPlanes();
+}
+
 size_t
 Board::Hash() const
 {
   constexpr uint64_t mulp = 2654435789;
   uint64_t hash = 104395301;
 
-  // The input planes/cells ('cells_flattened_') themselves are not
-  // hashed because they are derived from the other members.
+  // The input planes/cells ('cells_flattened_', 'cells_',
+  // 'cells_flattened_factory_key_') themselves are not hashed because
+  // they are derived from the other members.
   //
   // active_unit_ is not hashed because it is redundant with
   // active_army_ and active_unit_idx_.
@@ -127,8 +135,9 @@ Board::Equal(const State* other) const
 {
   const Board* ob = static_cast<const Board*>(other);
 
-  // The input planes/cells ('cells_flattened_') themselves are not
-  // compared because they are derived from the other members.
+  // The input planes/cells ('cells_flattened_', 'cells_',
+  // 'cells_flattened_factory_key_') themselves are not compared
+  // because they are derived from the other members.
   //
   // active_unit_ is not compared because it is redundant with
   // active_army_ and active_unit_idx_.
@@ -260,16 +269,17 @@ Board::Copy() const
   Board* nb = new Board(*this);
   nb->cells_flattened_ = cells_flattened_;
   nb->cells_ = reinterpret_cast<float*>(nb->cells_flattened_.data());
+  nb->cells_flattened_factory_key_ = cells_flattened_factory_key_;
   return nb;
 }
 
 Board*
 Board::CopyAndUpdate(uint64_t action_id) const
 {
-  // The copy constructor does not copy 'cells_flattened_' or set
-  // 'cells_', which is what we want because those values will be set
-  // by Update() and so setting them now would be wasteful as they
-  // will be overwritten.
+  // The copy constructor does not copy 'cells_flattened_' or
+  // 'cells_flattened_factory_key_' or set 'cells_', which is what we
+  // want because those values will be set by Update() and so setting
+  // them now would be wasteful as they will be overwritten.
   Board* nb = new Board(*this);
   nb->Update(action_id);
   return nb;
@@ -278,6 +288,8 @@ Board::CopyAndUpdate(uint64_t action_id) const
 void
 Board::Update(uint64_t action_id)
 {
+  ReleaseInputPlanes();
+
   Unit::ActionKind action = Unit::ActionKind(action_id);
   if (action == Unit::ActionKind::MOVE_END) {
     NextActiveUnit();
@@ -342,14 +354,13 @@ Board::NextActiveUnit()
 void
 Board::UpdateInputPlanes()
 {
-  if (!cells_flattened_.empty()) {
-    // FIXME
-    // return to cell_factory....
-  }
+  // Cells should be released...
+  assert(cells_flattened_.empty());
 
-  cells_flattened_ =
-    cell_factory_->Cells(active_unit_->Row(), active_unit_->Column(),
-                         active_unit_->MoveFactor() - active_move_factor_expended_);
+  cells_flattened_factory_key_ =
+    std::make_tuple(active_unit_->Row(), active_unit_->Column(),
+                    active_unit_->MoveFactor() - active_move_factor_expended_);
+  cells_flattened_ = cell_factory_->AcquireCells(cells_flattened_factory_key_);
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
   // Update planes as required for all units and goals.
@@ -361,6 +372,25 @@ Board::UpdateInputPlanes()
   }
   for (const auto& g : goals_) {
     g->AddToBoard(this);
+  }
+}
+
+void
+Board::ReleaseInputPlanes()
+{
+  if (!cells_flattened_.empty()) {
+    // Update planes to remove all units and goals.
+    for (const auto& u : union_units_) {
+      u->RemoveFromBoard(this);
+    }
+    for (const auto& u : confederate_units_) {
+      u->RemoveFromBoard(this);
+    }
+    for (const auto& g : goals_) {
+      g->RemoveFromBoard(this);
+    }
+
+    cell_factory_->ReleaseCells(cells_flattened_factory_key_, std::move(cells_flattened_));
   }
 }
 
@@ -444,11 +474,13 @@ Board::UpdateTerminalStatus()
 std::string
 Board::BoardCellUpperString(size_t row_idx, size_t col_idx) const
 {
-  if (UnionAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE) {
-    return std::string(1, UNION_CHAR) + " ";
-  }
-  if (ConfederateAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE) {
-    return std::string(1, CONFEDERATE_CHAR) + " ";
+  if (!cells_flattened_.empty()) {
+    if (UnionAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE) {
+      return std::string(1, UNION_CHAR) + " ";
+    }
+    if (ConfederateAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE) {
+      return std::string(1, CONFEDERATE_CHAR) + " ";
+    }
   }
 
   return "  ";
@@ -459,11 +491,23 @@ Board::BoardCellLowerString(size_t row_idx, size_t col_idx) const
 {
   std::string str("__");
 
-  if (MoveAt(row_idx, col_idx)) {
-    str[0] = 'm';
-  }
-  if (GoalAt(row_idx, col_idx)) {
-    str[1] = '*';
+  if (!cells_flattened_.empty()) {
+    const bool forest = (ForestAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE);
+    const bool hill = (HillAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE);
+
+    if (forest && hill) {
+      str[0] = 'b';
+    }
+    else if (forest) {
+      str[0] = 'f';
+    }
+    else if (hill) {
+      str[0] = 'h';
+    }
+
+    if (GoalAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE) {
+      str[1] = '*';
+    }
   }
 
   return str;
@@ -534,13 +578,15 @@ Board::ToDebugString() const
 std::string
 Board::DebugCellUpperString(size_t row_idx, size_t col_idx) const
 {
-  if (PlaneCellValueAt(
-        row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION) == BoardCellFactory::CELL_ACTIVE) {
-    return std::string(1, UNION_CHAR) + " ";
-  }
-  if (PlaneCellValueAt(
-        row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE) == BoardCellFactory::CELL_ACTIVE) {
-    return std::string(1, CONFEDERATE_CHAR) + " ";
+  if (!cells_flattened_.empty()) {
+    if (PlaneCellValueAt(
+          row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION) == BoardCellFactory::CELL_ACTIVE) {
+      return std::string(1, UNION_CHAR) + " ";
+    }
+    if (PlaneCellValueAt(
+          row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE) == BoardCellFactory::CELL_ACTIVE) {
+      return std::string(1, CONFEDERATE_CHAR) + " ";
+    }
   }
 
   return "  ";
@@ -551,13 +597,28 @@ Board::DebugCellLowerString(size_t row_idx, size_t col_idx) const
 {
   std::string str("__");
 
-  if (PlaneCellValueAt(
-        row_idx, col_idx, BoardCellFactory::PLANE_IDX_MOVE) == BoardCellFactory::CELL_ACTIVE) {
-    str[0] = 'm';
-  }
-  if (PlaneCellValueAt(
-        row_idx, col_idx, BoardCellFactory::PLANE_IDX_GOAL) == BoardCellFactory::CELL_ACTIVE) {
-    str[1] = '*';
+  if (!cells_flattened_.empty()) {
+    const bool forest =
+      (PlaneCellValueAt(
+        row_idx, col_idx, BoardCellFactory::PLANE_IDX_FOREST) == BoardCellFactory::CELL_ACTIVE);
+    const bool hill =
+      (PlaneCellValueAt(
+        row_idx, col_idx, BoardCellFactory::PLANE_IDX_HILL) == BoardCellFactory::CELL_ACTIVE);
+
+    if (forest && hill) {
+      str[0] = 'b';
+    }
+    else if (forest) {
+      str[0] = 'f';
+    }
+    else if (hill) {
+      str[0] = 'h';
+    }
+
+    if (PlaneCellValueAt(
+          row_idx, col_idx, BoardCellFactory::PLANE_IDX_GOAL) == BoardCellFactory::CELL_ACTIVE) {
+      str[1] = '*';
+    }
   }
 
   return str;

@@ -27,7 +27,7 @@ public:
   bool Equal(const Goal* other) const;
 
   // Update 'board' to remove this goal.
-  void ClearFromBoard(Board* board) const;
+  void RemoveFromBoard(Board* board) const;
 
   // Update 'board' to reflect current status of this goal.
   void AddToBoard(Board* board) const;
