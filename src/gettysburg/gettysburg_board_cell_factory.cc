@@ -8,56 +8,9 @@
 #include "common_error.h"
 #include "common_util.h"
 #include "gettysburg_board_cell_factory.h"
+#include "gettysburg_board_cell_data.h"
 
 namespace cifre { namespace gettysburg {
-
-//
-// BoardData
-//
-// Static information about each cell of the board.
-//
-class BoardData {
-public:
-  BoardData(size_t r, size_t c, bool f, bool h) :
-    row_idx_(r), column_idx_(c), forest_(f), hill_(h) { }
-
-  const size_t row_idx_;
-  const size_t column_idx_;
-  const bool forest_;
-  const bool hill_;
-};
-
-std::vector<BoardData> board_data {
-  // row 0
-  // row col forest hill
-  {  0,  0,  true,  true },
-  {  0,  1,  true,  true },
-  {  0,  2,  true,  false },
-  {  0,  3,  true,  false },
-  {  0,  8,  true,  false },
-  {  0,  9,  true,  false },
-  {  0,  13, true,  false },
-  {  0,  15, true,  true },
-  {  0,  16, true,  true },
-  {  0,  17, false, true },
-  {  0,  19, false, false },
-  {  0,  20, false, false },
-  // row 1
-  // row col forest hill
-  {  1,  2,  true,  false },
-  {  1,  5,  true,  false },
-  {  1,  7,  true,  false },
-  {  1,  8,  true,  false },
-  {  1,  9,  true,  false },
-  {  1, 11,  true,  false },
-  {  1, 12,  true,  false },
-  {  1, 13,  true,  false },
-  {  1, 14,  true,  false },
-  {  1, 15,  true,  false },
-  {  1, 16,  true,  true },
-  {  1, 17,  false, true },
-  {  1, 18,  false, true },
-};
 
 //
 // BoardCellFactoryStatistics
@@ -105,7 +58,7 @@ BoardCellFactory::BoardCellFactory(
         const size_t start_bc = board_column_cnt_ - 1 - bc;
 
         // Apply board features to the planes...
-        for (auto& bd : board_data) {
+        for (auto& bd : board_cell_data) {
           if ((bd.row_idx_ < board_row_cnt_) && (bd.column_idx_ < board_column_cnt_)) {
             const size_t offset =
               ((start_br + bd.row_idx_) * plane_column_cnt_ * PLANE_COUNT) +
