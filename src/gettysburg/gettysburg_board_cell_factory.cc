@@ -69,6 +69,7 @@ BoardCellFactory::BoardCellFactory(
             if (bd.hill_) {
               flat[offset + PLANE_IDX_HILL] = CELL_ACTIVE;
             }
+            flat[offset + PLANE_IDX_GOAL] = bd.victory_points_;
           }
         }
 

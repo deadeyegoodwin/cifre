@@ -494,6 +494,7 @@ Board::BoardCellLowerString(size_t row_idx, size_t col_idx) const
   if (!cells_flattened_.empty()) {
     const bool forest = (ForestAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE);
     const bool hill = (HillAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE);
+    const float goal = GoalAt(row_idx, col_idx);
 
     if (forest && hill) {
       str[0] = 'b';
@@ -505,8 +506,14 @@ Board::BoardCellLowerString(size_t row_idx, size_t col_idx) const
       str[0] = 'h';
     }
 
-    if (GoalAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE) {
-      str[1] = '*';
+    if (goal > 0) {
+      if ((goal == std::floor(goal)) && (goal < 10.0)) {
+        std::string fs = std::to_string(uint32_t(goal));
+        str[1] = fs[0];
+      }
+      else {
+        str[1] = '*';
+      }
     }
   }
 
@@ -604,6 +611,8 @@ Board::DebugCellLowerString(size_t row_idx, size_t col_idx) const
     const bool hill =
       (PlaneCellValueAt(
         row_idx, col_idx, BoardCellFactory::PLANE_IDX_HILL) == BoardCellFactory::CELL_ACTIVE);
+    const float goal =
+      PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_GOAL);
 
     if (forest && hill) {
       str[0] = 'b';
@@ -615,9 +624,14 @@ Board::DebugCellLowerString(size_t row_idx, size_t col_idx) const
       str[0] = 'h';
     }
 
-    if (PlaneCellValueAt(
-          row_idx, col_idx, BoardCellFactory::PLANE_IDX_GOAL) == BoardCellFactory::CELL_ACTIVE) {
-      str[1] = '*';
+    if (goal > 0) {
+      if ((goal == std::floor(goal)) && (goal < 10.0)) {
+        std::string fs = std::to_string(uint32_t(goal));
+        str[1] = fs[0];
+      }
+      else {
+        str[1] = '*';
+      }
     }
   }
 
