@@ -638,6 +638,12 @@ Game::Parse(int argc, char **argv)
 void
 Game::Play()
 {
+  // If there is a start banner, show it...
+  const auto start_banner = StartBanner();
+  if (!start_banner.empty()) {
+    logger_->LogLow(start_banner);
+  }
+
   const size_t player_count = player_settings_->size();
 
   try {
@@ -800,6 +806,12 @@ Game::Play()
       logger_->LogLow("draw: " + std::to_string(draw_count) +
                       " (" + FloatToString(100.0 * draw_count / games_completed, 1 /* precision */) + "%)",
                       4 /* indent */);
+    }
+
+    // If there is an end banner, show it...
+    const auto end_banner = EndBanner();
+    if (!end_banner.empty()) {
+      logger_->LogLow(end_banner);
     }
 
     // Alphazero statistics, if any...

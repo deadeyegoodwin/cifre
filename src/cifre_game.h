@@ -166,6 +166,10 @@ public:
   // Return the name of the game's executable.
   virtual const std::string& ExecutableName() const = 0;
 
+  // Return the start and/or end banner for the game.
+  virtual const std::string StartBanner() const { return std::string(); }
+  virtual const std::string EndBanner() const { return std::string(); }
+
   // Set the default AlphaZero settings for the game, depending on if
   // 'train'ing is being done or not.
   virtual cifre::AlphaZeroSettings DefaultAlphaZeroSettings(const bool train) const = 0;

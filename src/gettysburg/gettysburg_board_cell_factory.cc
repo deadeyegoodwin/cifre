@@ -60,6 +60,21 @@ std::vector<BoardData> board_data {
 };
 
 //
+// BoardCellFactoryStatistics
+//
+std::string
+BoardCellFactoryStatistics::ToString() const
+{
+  std::stringstream ss;
+  ss
+    << "plane sets: created " << created_plane_sets_ << ", "
+    << "acquired " << acquired_plane_sets_ << ", "
+    << "released " << released_plane_sets_;
+
+  return ss.str();
+}
+
+//
 // BoardCellFactory
 //
 BoardCellFactory::BoardCellFactory(
@@ -115,6 +130,9 @@ BoardCellFactory::AcquireCells(CellsKey key)
 {
   key = std::make_tuple(std::get<0>(key), std::get<1>(key), 0); // move-factor FIXME
 
+  auto& stats = Statistics();
+  stats.acquired_plane_sets_ += 1;
+
   // First check if there is a plane-set already available for
   // immediate use.
   {
@@ -133,6 +151,8 @@ BoardCellFactory::AcquireCells(CellsKey key)
   THROWIF(iter == planes_map_.end(), "expected pre-initialized plane set");
   Board2D::FlattenedCells ps;
   ps.CopyFrom(iter->second);
+  stats.created_plane_sets_ += 1;
+
   return ps;
 }
 
@@ -140,6 +160,9 @@ void
 BoardCellFactory::ReleaseCells(CellsKey key, Board2D::FlattenedCells&& cells)
 {
   key = std::make_tuple(std::get<0>(key), std::get<1>(key), 0); // move-factor FIXME
+
+  auto& stats = Statistics();
+  stats.released_plane_sets_ += 1;
 
   // When debugging, check that the returned cells match what was
   // originally acquired.

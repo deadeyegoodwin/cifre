@@ -13,6 +13,19 @@
 namespace cifre { namespace gettysburg {
 
 //
+// BoardCellFactoryStatistics
+//
+class BoardCellFactoryStatistics {
+public:
+  // Return string representation of statistics.
+  std::string ToString() const;
+
+  std::atomic<size_t> created_plane_sets_ {0};
+  std::atomic<size_t> acquired_plane_sets_ {0};
+  std::atomic<size_t> released_plane_sets_ {0};
+};
+
+//
 // BoardCellFactory
 //
 // Gettysburg board state is contained in multiple 2D planes of
@@ -65,6 +78,10 @@ public:
     assert(plane_column_cnt == instance.plane_column_cnt_);
     return &instance;
   }
+
+  // Return the statistics for the singleton cell factory.
+  static BoardCellFactoryStatistics& Statistics() {
+    static BoardCellFactoryStatistics statistics_;  return statistics_; }
 
   // Return the cells for a given row, column, and
   // move-factor. Thread-safe. The caller may modify the returned

@@ -38,6 +38,10 @@ public:
     static std::string n("gettysburg"); return n; }
 
   // See cifre::Game
+  const std::string StartBanner() const;
+  const std::string EndBanner() const;
+
+  // See cifre::Game
   std::vector<cifre::GameOption> CustomGameOptions() const override;
 
   // See cifre::Game
@@ -70,6 +74,28 @@ Gettysburg::Gettysburg() : cifre::Game(), game_shape_(DEFAULT_GAME_SHAPE)
 
   // Set game-dependent options that are declared in cifre::Game
   max_turns_per_game_ = DEFAULT_MAX_TURNS_PER_GAME;
+}
+
+const std::string
+Gettysburg::StartBanner() const
+{
+  std::stringstream sstr;
+
+  sstr
+    << "**********************************\n"
+    << "**          Gettysburg          **\n"
+    << "**********************************";
+  return sstr.str();
+}
+
+const std::string
+Gettysburg::EndBanner() const
+{
+  std::stringstream sstr;
+  sstr
+    << "Gettysburg\n"
+    << common::DuplicateAndIndent(BoardCellFactory::Statistics().ToString(), 4 /* indent */);
+  return sstr.str();
 }
 
 std::vector<cifre::GameOption>
