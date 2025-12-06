@@ -35,7 +35,7 @@ Board2DBasic::Board2DBasic(
 Board2DBasic::Board2DBasic(const Board2DBasic& other) :
   Board2D(other)
 {
-  cells_flattened_ = other.cells_flattened_;
+  cells_flattened_.CopyFrom(other.cells_flattened_);
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 }
 

@@ -79,7 +79,7 @@ BoardCellFactory::BoardCellFactory(
         // The set of planes for [br, bc] is represented as a flat
         // vector as that is what is most efficient for feeding to the
         // model.
-        std::vector<uint8_t> flat_vector;
+        Board2D::FlattenedCells flat_vector;
         flat_vector.resize(plane_row_cnt_ * plane_column_cnt_ * PLANE_COUNT * sizeof(float));
         float* flat = reinterpret_cast<float*>(flat_vector.data());
 
@@ -110,7 +110,7 @@ BoardCellFactory::BoardCellFactory(
   }
 }
 
-std::vector<uint8_t>
+Board2D::FlattenedCells
 BoardCellFactory::AcquireCells(CellsKey key)
 {
   key = std::make_tuple(std::get<0>(key), std::get<1>(key), 0); // move-factor FIXME
@@ -121,7 +121,7 @@ BoardCellFactory::AcquireCells(CellsKey key)
     std::unique_lock<std::mutex> lk(alloc_planes_mu_);
     const auto iter = alloc_planes_map_.find(key);
     if ((iter != alloc_planes_map_.end()) && !iter->second.empty()) {
-      std::vector<uint8_t> ps = std::move(iter->second.back());
+      Board2D::FlattenedCells ps = std::move(iter->second.back());
       iter->second.pop_back();
       return ps;
     }
@@ -131,12 +131,13 @@ BoardCellFactory::AcquireCells(CellsKey key)
   // (which must exist).
   const auto iter = planes_map_.find(key);
   THROWIF(iter == planes_map_.end(), "expected pre-initialized plane set");
-  std::vector<uint8_t> ps = iter->second;
+  Board2D::FlattenedCells ps;
+  ps.CopyFrom(iter->second);
   return ps;
 }
 
 void
-BoardCellFactory::ReleaseCells(CellsKey key, std::vector<uint8_t>&& cells)
+BoardCellFactory::ReleaseCells(CellsKey key, Board2D::FlattenedCells&& cells)
 {
   key = std::make_tuple(std::get<0>(key), std::get<1>(key), 0); // move-factor FIXME
 

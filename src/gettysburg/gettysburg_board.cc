@@ -267,7 +267,7 @@ Board::Copy() const
   // The copy constructor does not copy 'cells_flattened_' or set
   // 'cells_', so we need to do it explicitly.
   Board* nb = new Board(*this);
-  nb->cells_flattened_ = cells_flattened_;
+  nb->cells_flattened_.CopyFrom(cells_flattened_);
   nb->cells_ = reinterpret_cast<float*>(nb->cells_flattened_.data());
   nb->cells_flattened_factory_key_ = cells_flattened_factory_key_;
   return nb;

@@ -8,6 +8,8 @@
 #include <mutex>
 #include <tuple>
 
+#include "cifre_board2d.h"
+
 namespace cifre { namespace gettysburg {
 
 //
@@ -68,11 +70,11 @@ public:
   // move-factor. Thread-safe. The caller may modify the returned
   // vector, but must restore it to its original values before calling
   // ReleaseCells.
-  std::vector<uint8_t> AcquireCells(CellsKey key);
+  Board2D::FlattenedCells AcquireCells(CellsKey key);
 
   // "Restock" the cells for a given row, column, and
   // move-factor. Thread-safe.
-  void ReleaseCells(CellsKey key, std::vector<uint8_t>&& cells);
+  void ReleaseCells(CellsKey key, Board2D::FlattenedCells&& cells);
 
 private:
   BoardCellFactory(
@@ -88,14 +90,14 @@ private:
   // Map from the row index, column index, and move factor to the
   // pre-initialized, flattened planes representing the static valued
   // portions of the sets of planes.
-  std::map<CellsKey, std::vector<uint8_t>> planes_map_;
+  std::map<CellsKey, Board2D::FlattenedCells> planes_map_;
 
   // Map from the row index, column index, and move factor to already
   // allocated planes. This map maintains the plane-sets that can be
   // acquired and released and thus allows reuse. This map must be
   // thread safe so a mutex is needed as well.
   std::mutex alloc_planes_mu_;
-  std::map<CellsKey, std::vector<std::vector<uint8_t>>> alloc_planes_map_;
+  std::map<CellsKey, std::vector<Board2D::FlattenedCells>> alloc_planes_map_;
 };
 
 }} // namespace cifre::gettysburg

@@ -131,9 +131,36 @@ protected:
   // The set of action ids that are valid for the current board.
   std::unordered_set<uint64_t> valid_action_ids_;
 
-  // Triton-friendly cell contents. 'cells_' is simply a type-casted
-  // pointer into 'cells_flattened_'.
-  std::vector<uint8_t> cells_flattened_;
+public:
+  //
+  // FlattenedCells
+  //
+  // Triton-friendly cell contents. FlattenedCells is just a
+  // std:vector<uint8_t> protected so that it is not unintentionally
+  // copied. Must us Copy() explicitly to copy.
+  //
+  class FlattenedCells : public std::vector<uint8_t> {
+  public:
+    // Default constructor
+    FlattenedCells() = default;
+
+    // Default move constructor and operator
+    FlattenedCells(FlattenedCells&& other) = default;
+    FlattenedCells& operator=(FlattenedCells&& other) = default;
+
+    // Copy contents of 'c' into this FlattenedCells.
+    void CopyFrom(const FlattenedCells& c) {
+      *this = c;
+    }
+
+  private:
+    FlattenedCells(const FlattenedCells&) = default;
+    FlattenedCells& operator=(const FlattenedCells&) = default;
+  };
+
+protected:
+  // 'cells_' is simply a type-casted pointer into 'cells_flattened_'.
+  FlattenedCells cells_flattened_;
   float* cells_;
 };
 
