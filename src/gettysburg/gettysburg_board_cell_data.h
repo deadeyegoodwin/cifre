@@ -14,7 +14,7 @@ namespace cifre { namespace gettysburg {
 //
 class BoardCellData {
 public:
-  BoardCellData(size_t r, size_t c, bool na, bool f, bool h, uint32_t vp = 0) :
+  BoardCellData(size_t r, size_t c, bool na, bool f, bool h, float vp = 0) :
     row_idx_(r), column_idx_(c), no_access_(na), forest_(f), hill_(h),
     victory_points_(vp) { }
 
@@ -23,7 +23,7 @@ public:
   const bool no_access_;
   const bool forest_;
   const bool hill_;
-  const uint32_t victory_points_;
+  const float victory_points_;
 };
 
 static std::vector<BoardCellData> board_cell_data {
@@ -86,7 +86,7 @@ static std::vector<BoardCellData> board_cell_data {
   {  2,  5,  false,   true,  true },
   {  3,  5,  false,   true,  false },
   {  4,  5,  false,   true,  true },
-  {  5,  5,  false,   false, true,  5 },
+  {  5,  5,  false,   false, true,  5.0 },
   { 10,  5,  true,    false, false },
   // column 6
   // row col noaccess forest hill   vp
@@ -117,7 +117,7 @@ static std::vector<BoardCellData> board_cell_data {
   {  7,  8,  false,   true,  false },
   {  8,  8,  false,   true,  false },
   {  9,  8,  false,   true,  false },
-  { 10,  8,  false,   true,  false, 3 },
+  { 10,  8,  false,   true,  false, 3.0 },
   // column 9
   // row col noaccess forest hill   vp
   {  0,  9,  false,   true,  false },
@@ -132,8 +132,8 @@ static std::vector<BoardCellData> board_cell_data {
   // row col noaccess forest hill   vp
   {  2, 10,  false,   true,  false },
   {  3, 10,  false,   true,  false },
-  {  5, 10,  false,   false, true,  1 },
-  {  6, 10,  false,   false, true,  1 },
+  {  5, 10,  false,   false, true,  1.0 },
+  {  6, 10,  false,   false, true,  1.0 },
   {  7, 10,  false,   true,  false },
   {  8, 10,  false,   true,  false },
   {  9, 10,  false,   true,  false },
@@ -142,8 +142,8 @@ static std::vector<BoardCellData> board_cell_data {
   // row col noaccess forest hill   vp
   {  1, 11,  false,   true,  false },
   {  3, 11,  false,   true,  false },
-  {  5, 11,  false,   false, true,  1 },
-  {  6, 11,  false,   false, true,  1 },
+  {  5, 11,  false,   false, true,  1.0 },
+  {  6, 11,  false,   false, true,  1.0 },
   {  7, 11,  false,   true,  false },
   {  8, 11,  false,   true,  false },
   {  9, 11,  false,   true,  false },
@@ -153,8 +153,8 @@ static std::vector<BoardCellData> board_cell_data {
   {  1, 12,  false,   true,  false },
   {  3, 12,  false,   true,  false },
   {  4, 12,  false,   true,  false },
-  {  6, 12,  false,   false, true,  1 },
-  {  8, 12,  false,   true,  true,  3},
+  {  6, 12,  false,   false, true,  1.0 },
+  {  8, 12,  false,   true,  true,  3.0 },
   {  9, 12,  false,   true,  false },
   { 10, 12,  false,   true,  false },
   // column 13

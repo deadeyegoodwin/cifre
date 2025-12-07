@@ -94,7 +94,7 @@ Gettysburg::EndBanner() const
   std::stringstream sstr;
   sstr
     << "Gettysburg\n"
-    << common::DuplicateAndIndent(BoardCellFactory::Statistics().ToString(), 4 /* indent */);
+    << common::DuplicateAndIndent(BoardCellFactory::Statistics().ToString(), 2 /* indent */);
   return sstr.str();
 }
 
@@ -108,8 +108,7 @@ Gettysburg::CustomGameOptions() const
      "as '--game-shape=N,M'. "
      "Default is '--game-shape=" + DEFAULT_GAME_SHAPE.ToString() + "'."},
     {OPTION_MAX_TURNS_PER_GAME, "max-turns-per-game", GameOption::ArgInt,
-     "Maximum number of turns allowed per game. One turn consists of each "
-     "player having a chance to occupy a space on the " + Name() + " board."}};
+     "Maximum number of turns allowed per game."}};
 
   return custom;
 }

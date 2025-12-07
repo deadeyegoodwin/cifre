@@ -49,9 +49,11 @@ Unit::RemoveFromBoard(Board* board) const
 {
   switch (army_kind_) {
   case ArmyKind::UNION:
+    assert(board->UnionAt(row_idx_, column_idx_) == BoardCellFactory::CELL_ACTIVE);
     board->SetUnionAt(BoardCellFactory::CELL_EMPTY, row_idx_, column_idx_);
     break;
   case ArmyKind::CONFEDERATE:
+    assert(board->ConfederateAt(row_idx_, column_idx_) == BoardCellFactory::CELL_ACTIVE);
     board->SetConfederateAt(BoardCellFactory::CELL_EMPTY, row_idx_, column_idx_);
     break;
   }
@@ -62,9 +64,11 @@ Unit::AddToBoard(Board* board) const
 {
   switch (army_kind_) {
   case ArmyKind::UNION:
+    assert(board->UnionAt(row_idx_, column_idx_) == BoardCellFactory::CELL_EMPTY);
     board->SetUnionAt(BoardCellFactory::CELL_ACTIVE, row_idx_, column_idx_);
     break;
   case ArmyKind::CONFEDERATE:
+    assert(board->ConfederateAt(row_idx_, column_idx_) == BoardCellFactory::CELL_EMPTY);
     board->SetConfederateAt(BoardCellFactory::CELL_ACTIVE, row_idx_, column_idx_);
     break;
   }

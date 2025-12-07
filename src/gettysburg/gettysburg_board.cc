@@ -66,7 +66,8 @@ Board::Board(const Board& other) :
   plane_row_cnt_(other.plane_row_cnt_), plane_column_cnt_(other.plane_column_cnt_),
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
-  active_move_factor_expended_(other.active_move_factor_expended_)
+  active_move_factor_expended_(other.active_move_factor_expended_),
+  captured_goals_(other.captured_goals_)
 {
   // WARNING: this does not copy 'cells_flattened_', 'cells_' or
   // 'cells_flattened_factory_key_'. To perform a complete copy, use
@@ -110,6 +111,15 @@ Board::Hash() const
   hash += (active_first_column_ * mulp) ^ (hash >> 23);
   hash += (uint64_t(active_move_factor_expended_ * 100000.0) * mulp) ^ (hash >> 23);
 
+  if (!captured_goals_.empty()) {
+    hash += (captured_goals_.size() * mulp) ^ (hash >> 23);
+    for (const auto& cg : captured_goals_) {
+      hash += (cg.first.first * mulp) ^ (hash >> 23);
+      hash += (cg.first.second * mulp) ^ (hash >> 23);
+      hash += (uint64_t(cg.second) * mulp) ^ (hash >> 23);
+    }
+  }
+
   for (const auto& u : union_units_) {
     hash += u->Hash();
   }
@@ -138,7 +148,8 @@ Board::Equal(const State* other) const
       (active_unit_idx_ != ob->active_unit_idx_) ||
       (active_first_row_ != ob->active_first_row_) ||
       (active_first_column_ != ob->active_first_column_) ||
-      (active_move_factor_expended_ != ob->active_move_factor_expended_)) {
+      (active_move_factor_expended_ != ob->active_move_factor_expended_) ||
+      (captured_goals_ != ob->captured_goals_)) {
     return false;
   }
 
@@ -351,6 +362,26 @@ Board::UpdateInputPlanes()
   for (const auto& u : confederate_units_) {
     u->AddToBoard(this);
   }
+
+  // Update planes for captured victory points.
+  for (const auto& cg : captured_goals_) {
+    const size_t r = cg.first.first;
+    const size_t c = cg.first.second;
+    const float vp = GoalAt(r, c);
+
+    assert(vp > 0.0);
+    assert(UnionVictoryPointAt(r, c) == 0.0);
+    assert(ConfederateVictoryPointAt(r, c) == 0.0);
+
+    switch (cg.second) {
+    case Unit::ArmyKind::UNION:
+      SetUnionVictoryPointAt(vp, r, c);
+      break;
+    case Unit::ArmyKind::CONFEDERATE:
+      SetConfederateVictoryPointAt(vp, r, c);
+      break;
+    }
+  }
 }
 
 void
@@ -363,6 +394,25 @@ Board::ReleaseInputPlanes()
     }
     for (const auto& u : confederate_units_) {
       u->RemoveFromBoard(this);
+    }
+
+    // Update planes to remove captured victory points.
+    for (const auto& cg : captured_goals_) {
+      const size_t r = cg.first.first;
+      const size_t c = cg.first.second;
+
+      switch (cg.second) {
+      case Unit::ArmyKind::UNION:
+        assert(UnionVictoryPointAt(r, c) > 0.0);
+        assert(ConfederateVictoryPointAt(r, c) == 0.0);
+        SetUnionVictoryPointAt(0.0, r, c);
+        break;
+      case Unit::ArmyKind::CONFEDERATE:
+        assert(ConfederateVictoryPointAt(r, c) > 0.0);
+        assert(UnionVictoryPointAt(r, c) == 0.0);
+        SetConfederateVictoryPointAt(0.0, r, c);
+        break;
+      }
     }
 
     cell_factory_->ReleaseCells(cells_flattened_factory_key_, std::move(cells_flattened_));
@@ -432,13 +482,11 @@ Board::UpdateValidActions()
 void
 Board::UpdateTerminalStatus()
 {
-  // If active unit is on a goal then it is winner.
-  if (GoalAt(active_unit_->Row(), active_unit_->Column()) == BoardCellFactory::CELL_ACTIVE) {
-    terminal_status_ =
-      cifre::StateTerminalStatus(
-        cifre::StateTerminalStatus::TerminalKind::WINNER, active_player_id_);
-    return;
-  }
+  // FIXME, must have some way to set terminal status when game ends
+  // due to turns expiring.
+  //terminal_status_ =
+  //  cifre::StateTerminalStatus(
+  //    cifre::StateTerminalStatus::TerminalKind::WINNER, active_player_id_);
 
   // Otherwise make sure the terminal status is NON_TERMINAL.
   THROWIF(
@@ -562,11 +610,11 @@ Board::DebugCellUpperString(size_t row_idx, size_t col_idx) const
 {
   if (!cells_flattened_.empty()) {
     if (PlaneCellValueAt(
-          row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION) == BoardCellFactory::CELL_ACTIVE) {
+          row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT) == BoardCellFactory::CELL_ACTIVE) {
       return std::string(1, UNION_CHAR) + " ";
     }
     if (PlaneCellValueAt(
-          row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE) == BoardCellFactory::CELL_ACTIVE) {
+          row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT) == BoardCellFactory::CELL_ACTIVE) {
       return std::string(1, CONFEDERATE_CHAR) + " ";
     }
   }

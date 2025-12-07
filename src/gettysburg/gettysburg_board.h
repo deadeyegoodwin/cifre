@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <map>
 
 #include "cifre_action.h"
 #include "cifre_board2d_hex.h"
@@ -91,14 +92,24 @@ public:
            ((col_idx + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }
 
   void SetUnionAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION); }
+    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT); }
   float UnionAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION); }
+    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT); }
+
+  void SetUnionVictoryPointAt(float value, size_t row_idx, size_t col_idx) {
+    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_VP); }
+  float UnionVictoryPointAt(size_t row_idx, size_t col_idx) const {
+    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_VP); }
 
   void SetConfederateAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE); }
+    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT); }
   float ConfederateAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE); }
+    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT); }
+
+  void SetConfederateVictoryPointAt(float value, size_t row_idx, size_t col_idx) {
+    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_VP); }
+  float ConfederateVictoryPointAt(size_t row_idx, size_t col_idx) const {
+    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_VP); }
 
   void SetGoalAt(float value, size_t row_idx, size_t col_idx) {
     SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_GOAL); }
@@ -153,6 +164,11 @@ private:
   size_t active_first_row_;
   size_t active_first_column_;
   float active_move_factor_expended_;
+
+  // Map of board positions that contain a captured goal. A goal is
+  // captured by the last unit to occupy the hex. Map indicates the
+  // capturing army.
+  std::map<std::pair<size_t, size_t>, Unit::ArmyKind> captured_goals_;
 
   std::vector<std::unique_ptr<Unit>> union_units_;
   std::vector<std::unique_ptr<Unit>> confederate_units_;

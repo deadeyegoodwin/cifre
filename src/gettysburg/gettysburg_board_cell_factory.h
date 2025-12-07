@@ -41,8 +41,10 @@ public:
 // CELL_ACTIVE is used to indicate that the position contains the
 // corresponding item (for example, in the FOREST plane a value of
 // CELL_ACTIVE indicates that there is a forest in the corresponding
-// row/column position.
+// row/column position). The exception is the GOAL plane which is
+// initialized with the victory-points associated with the position.
 //
+//   GOAL: plane indicates victory-points for each hex
 //   FOREST: plane indicates which hexes contain forest
 //   HILL: plane indicates which hexes contain hill
 //   MOVE: plane indicates reachable hexes from row/column for a given
@@ -52,14 +54,16 @@ public:
 //
 class BoardCellFactory {
 public:
-  static constexpr size_t PLANE_COUNT = 6;
+  static constexpr size_t PLANE_COUNT = 8;
 
-  static constexpr size_t PLANE_IDX_FOREST = 0;
-  static constexpr size_t PLANE_IDX_HILL = 1;
-  static constexpr size_t PLANE_IDX_MOVE = 2;
-  static constexpr size_t PLANE_IDX_UNION = 3;
-  static constexpr size_t PLANE_IDX_CONFEDERATE = 4;
-  static constexpr size_t PLANE_IDX_GOAL = 5;
+  static constexpr size_t PLANE_IDX_GOAL = 0;
+  static constexpr size_t PLANE_IDX_FOREST = 1;
+  static constexpr size_t PLANE_IDX_HILL = 2;
+  static constexpr size_t PLANE_IDX_MOVE = 3;
+  static constexpr size_t PLANE_IDX_UNION_UNIT = 4;
+  static constexpr size_t PLANE_IDX_UNION_VP = 5;
+  static constexpr size_t PLANE_IDX_CONFEDERATE_UNIT = 6;
+  static constexpr size_t PLANE_IDX_CONFEDERATE_VP = 7;
 
   static constexpr float CELL_EMPTY = 0.0;
   static constexpr float CELL_ACTIVE = 1.0;
