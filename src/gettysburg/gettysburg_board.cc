@@ -43,10 +43,6 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
     Unit::ArmyKind::CONFEDERATE, 1.0, size_.RowCount() - 1, size_.ColumnCount() - 1);
   confederate_units_.push_back(std::move(confederate_unit));
 
-  // Goals...
-  goals_.push_back(
-    std::make_unique<Goal>(size_.RowCount() / 2, size_.ColumnCount() / 2));
-
   // Set starting army and unit. The active unit's position determines
   // where on the planes the board is located; location is set to
   // place that unit in the center of the planes.
@@ -82,9 +78,6 @@ Board::Board(const Board& other) :
   }
   for (const auto& u : other.confederate_units_) {
     confederate_units_.push_back(std::make_unique<Unit>(*u));
-  }
-  for (const auto& g : other.goals_) {
-    goals_.push_back(std::make_unique<Goal>(*g));
   }
 
   active_unit_ = ActiveUnit();
@@ -122,9 +115,6 @@ Board::Hash() const
   }
   for (const auto& u : confederate_units_) {
     hash += u->Hash();
-  }
-  for (const auto& g : goals_) {
-    hash += g->Hash();
   }
 
   return hash ^ (hash << 37);
@@ -166,15 +156,6 @@ Board::Equal(const State* other) const
   }
   for (size_t idx = 0; idx < confederate_units_.size(); ++idx) {
     if (!confederate_units_[idx]->Equal(ob->confederate_units_[idx].get())) {
-      return false;
-    }
-  }
-
-  if (goals_.size() != ob->goals_.size()) {
-    return false;
-  }
-  for (size_t idx = 0; idx < goals_.size(); ++idx) {
-    if (!goals_[idx]->Equal(ob->goals_[idx].get())) {
       return false;
     }
   }
@@ -363,15 +344,12 @@ Board::UpdateInputPlanes()
   cells_flattened_ = cell_factory_->AcquireCells(cells_flattened_factory_key_);
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
-  // Update planes as required for all units and goals.
+  // Update planes as required for all units.
   for (const auto& u : union_units_) {
     u->AddToBoard(this);
   }
   for (const auto& u : confederate_units_) {
     u->AddToBoard(this);
-  }
-  for (const auto& g : goals_) {
-    g->AddToBoard(this);
   }
 }
 
@@ -379,15 +357,12 @@ void
 Board::ReleaseInputPlanes()
 {
   if (!cells_flattened_.empty()) {
-    // Update planes to remove all units and goals.
+    // Update planes to remove all units.
     for (const auto& u : union_units_) {
       u->RemoveFromBoard(this);
     }
     for (const auto& u : confederate_units_) {
       u->RemoveFromBoard(this);
-    }
-    for (const auto& g : goals_) {
-      g->RemoveFromBoard(this);
     }
 
     cell_factory_->ReleaseCells(cells_flattened_factory_key_, std::move(cells_flattened_));
