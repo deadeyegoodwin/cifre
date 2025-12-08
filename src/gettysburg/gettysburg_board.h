@@ -149,8 +149,7 @@ private:
   void UpdateValidActions();
   void NextActiveUnit();
 
-  std::string DebugCellUpperString(size_t row_idx, size_t col_idx) const;
-  std::string DebugCellLowerString(size_t row_idx, size_t col_idx) const;
+  std::string DebugCellString(size_t loc, size_t row_idx, size_t col_idx) const;
 
   BoardCellFactory* cell_factory_;
   BoardCellFactory::CellsKey cells_flattened_factory_key_;

@@ -530,12 +530,12 @@ Board::BoardCellLowerString(size_t row_idx, size_t col_idx) const
     }
 
     if (vp > 0) {
-      if ((vp == std::floor(vp)) && (vp < 10.0)) {
-        std::string fs = std::to_string(uint32_t(vp));
-        str[1] = fs[0];
+      if (vp == std::floor(vp)) {
+        std::string vps = std::to_string(uint64_t(std::floor(vp)));
+        str[1] = (vps.size() == 1) ? vps[0] : '?';
       }
       else {
-        str[1] = '*';
+        str[1] = '?';
       }
     }
   }
@@ -548,30 +548,42 @@ Board::ToDebugString() const
 {
   std::stringstream sstr;
 
-  // Show all planes...
+  // Bigger hexes so can show more information...
+  //   ____        ____
+  //  /    \      /    \     <- loc 0 row
+  // /      \____/      \    <- loc 1 row
+  // \      /    \      /    <- loc 2 row
+  //  \____/      \____/     <- loc 3 row
+  //       \      /
+  //        \____/
 
   // Top of first row of hex cells.
   for (size_t col_idx = 0; col_idx < plane_column_cnt_; col_idx += 2) {
     if (col_idx == 0) {
-      sstr << " __";
+      sstr << "  ____";
     }
     else {
-      sstr << "    __";
+      sstr << "        ____";
     }
   }
   sstr << "\n";
 
   // Rows...
   for (size_t row_idx = 0; row_idx < plane_row_cnt_; ++row_idx) {
+    // Loc 0...
     for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
       if ((col_idx % 2) == 0) {
-        sstr << "/" << DebugCellUpperString(row_idx, col_idx) << "\\";
+        if (col_idx == 0) {
+          sstr << " ";
+        }
+        sstr << "/" << DebugCellString(0 /* loc */, row_idx, col_idx) << "\\";
+
       }
       else if (row_idx > 0) {
-        sstr << DebugCellLowerString(row_idx - 1, col_idx);
+        sstr << DebugCellString(2 /* loc */, row_idx - 1, col_idx);
       }
       else {
-        sstr << "__";
+        sstr << "      ";
       }
     }
     if ((row_idx != 0) && ((plane_column_cnt_ % 2) == 0)) {
@@ -579,12 +591,47 @@ Board::ToDebugString() const
     }
     sstr << "\n";
 
+    // Loc 1...
     for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
       if ((col_idx % 2) == 0) {
-        sstr << "\\" << DebugCellLowerString(row_idx, col_idx) << "/";
+        sstr << "/" << DebugCellString(1 /* loc */, row_idx, col_idx) << "\\";
+      }
+      else if (row_idx > 0) {
+        sstr << DebugCellString(3 /* loc */, row_idx - 1, col_idx);
       }
       else {
-        sstr << DebugCellUpperString(row_idx, col_idx);
+        sstr << "____";
+      }
+    }
+    if ((row_idx != 0) && ((plane_column_cnt_ % 2) == 0)) {
+      sstr << "/";
+    }
+    sstr << "\n";
+
+    // Loc 2...
+    for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
+      if ((col_idx % 2) == 0) {
+        sstr << "\\" << DebugCellString(2 /* loc */, row_idx, col_idx) << "/";
+      }
+      else {
+        sstr << DebugCellString(0 /* loc */, row_idx, col_idx);
+      }
+    }
+    if ((plane_column_cnt_ % 2) == 0) {
+      sstr << "\\";
+    }
+    sstr << "\n";
+
+    // Loc 3...
+    for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
+      if ((col_idx % 2) == 0) {
+        if (col_idx == 0) {
+          sstr << " ";
+        }
+        sstr << "\\" << DebugCellString(3 /* loc */, row_idx, col_idx) << "/";
+      }
+      else {
+        sstr << DebugCellString(1 /* loc */, row_idx, col_idx);
       }
     }
     if ((plane_column_cnt_ % 2) == 0) {
@@ -594,10 +641,16 @@ Board::ToDebugString() const
   }
 
   // Lower half of last row.
-  sstr << " ";
+  sstr << "  ";
   for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
     if ((col_idx % 2) == 1) {
-      sstr << "  \\" << DebugCellLowerString(plane_row_cnt_ - 1, col_idx) << "/";
+      sstr << "    \\" << DebugCellString(2 /* loc */, plane_row_cnt_ - 1, col_idx) << "/";
+    }
+  }
+  sstr << "\n ";
+  for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
+    if ((col_idx % 2) == 1) {
+      sstr << "      \\" << DebugCellString(3 /* loc */, plane_row_cnt_ - 1, col_idx) << "/";
     }
   }
   sstr << "\n";
@@ -606,59 +659,81 @@ Board::ToDebugString() const
 }
 
 std::string
-Board::DebugCellUpperString(size_t row_idx, size_t col_idx) const
+Board::DebugCellString(size_t loc, size_t row_idx, size_t col_idx) const
 {
-  if (!cells_flattened_.empty()) {
-    if (PlaneCellValueAt(
-          row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT) == BoardCellFactory::CELL_ACTIVE) {
-      return std::string(1, UNION_CHAR) + " ";
-    }
-    if (PlaneCellValueAt(
-          row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT) == BoardCellFactory::CELL_ACTIVE) {
-      return std::string(1, CONFEDERATE_CHAR) + " ";
-    }
-  }
-
-  return "  ";
-}
-
-std::string
-Board::DebugCellLowerString(size_t row_idx, size_t col_idx) const
-{
-  std::string str("__");
-
-  if (!cells_flattened_.empty()) {
-    const bool forest =
-      (PlaneCellValueAt(
-        row_idx, col_idx, BoardCellFactory::PLANE_IDX_FOREST) == BoardCellFactory::CELL_ACTIVE);
-    const bool hill =
-      (PlaneCellValueAt(
-        row_idx, col_idx, BoardCellFactory::PLANE_IDX_HILL) == BoardCellFactory::CELL_ACTIVE);
-    const float vp =
-      PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_VICTORY_POINT);
-
-    if (forest && hill) {
-      str[0] = 'b';
-    }
-    else if (forest) {
-      str[0] = 'f';
-    }
-    else if (hill) {
-      str[0] = 'h';
-    }
-
-    if (vp > 0) {
-      if ((vp == std::floor(vp)) && (vp < 10.0)) {
-        std::string fs = std::to_string(uint32_t(vp));
-        str[1] = fs[0];
+  switch (loc) {
+  case 0: {
+    std::string str("    ");
+    if (!cells_flattened_.empty()) {
+      if (PlaneCellValueAt(
+            row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT) == BoardCellFactory::CELL_ACTIVE) {
+        str[0] = UNION_CHAR;
       }
-      else {
-        str[1] = '*';
+      if (PlaneCellValueAt(
+            row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT) == BoardCellFactory::CELL_ACTIVE) {
+        str[0] = CONFEDERATE_CHAR;
       }
     }
+    return str;
   }
 
-  return str;
+  case 1: {
+    std::string str = "      ";
+    return str;
+  }
+
+  case 2: {
+    std::string str = "      ";
+    if (!cells_flattened_.empty()) {
+      const float uvp = PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_VP);
+      const float cvp = PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_VP);
+      assert((uvp == 0.0) || (cvp == 0.0));
+
+      str[4] = ((uvp > 0.0) ? 'u' : (cvp > 0.0) ? 'c' : ' ');
+      const float vp = std::max(uvp, cvp);
+      if (vp > 0.0) {
+        if (vp == std::floor(vp)) {
+          std::string vps = std::to_string(uint64_t(std::floor(vp)));
+          str[5] = (vps.size() == 1) ? vps[0] : '?';
+        }
+        else {
+          str[5] = '?';
+        }
+      }
+    }
+    return str;
+  }
+
+  case 3: {
+    std::string str = "____";
+    if (!cells_flattened_.empty()) {
+      const bool forest =
+        (PlaneCellValueAt(
+          row_idx, col_idx, BoardCellFactory::PLANE_IDX_FOREST) == BoardCellFactory::CELL_ACTIVE);
+      const bool hill =
+        (PlaneCellValueAt(
+          row_idx, col_idx, BoardCellFactory::PLANE_IDX_HILL) == BoardCellFactory::CELL_ACTIVE);
+      const float vp =
+        PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_VICTORY_POINT);
+
+      str[0] = ((forest) ? 'f' : '_');
+      str[1] = ((hill) ? 'h' : '_');
+
+      if (vp > 0) {
+        if (vp == std::floor(vp)) {
+          std::string vps = std::to_string(uint64_t(std::floor(vp)));
+          str[3] = (vps.size() == 1) ? vps[0] : '?';
+        }
+        else {
+          str[3] = '?';
+        }
+      }
+    }
+    return str;
+  }}
+
+  THROW("unexpected loc value");
+  return "";
 }
 
 }} // namespace cifre::gettysburg
