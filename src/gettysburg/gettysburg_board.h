@@ -111,10 +111,10 @@ public:
   float ConfederateVictoryPointAt(size_t row_idx, size_t col_idx) const {
     return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_VP); }
 
-  void SetGoalAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_GOAL); }
-  float GoalAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_GOAL); }
+  void SetVictoryPointAt(float value, size_t row_idx, size_t col_idx) {
+    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_VICTORY_POINT); }
+  float VictoryPointAt(size_t row_idx, size_t col_idx) const {
+    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_VICTORY_POINT); }
 
   void SetMoveAt(float value, size_t row_idx, size_t col_idx) {
     SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_MOVE); }
@@ -165,10 +165,10 @@ private:
   size_t active_first_column_;
   float active_move_factor_expended_;
 
-  // Map of board positions that contain a captured goal. A goal is
-  // captured by the last unit to occupy the hex. Map indicates the
-  // capturing army.
-  std::map<std::pair<size_t, size_t>, Unit::ArmyKind> captured_goals_;
+  // Map of board positions that contain a captured victory points. A
+  // victory point is captured by the last unit to occupy the hex. Map
+  // indicates the capturing army.
+  std::map<std::pair<size_t, size_t>, Unit::ArmyKind> captured_vps_;
 
   std::vector<std::unique_ptr<Unit>> union_units_;
   std::vector<std::unique_ptr<Unit>> confederate_units_;

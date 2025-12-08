@@ -41,10 +41,11 @@ public:
 // CELL_ACTIVE is used to indicate that the position contains the
 // corresponding item (for example, in the FOREST plane a value of
 // CELL_ACTIVE indicates that there is a forest in the corresponding
-// row/column position). The exception is the GOAL plane which is
-// initialized with the victory-points associated with the position.
+// row/column position). The exception is the VICTORY_POINT plane
+// which is initialized with the victory-points associated with the
+// position.
 //
-//   GOAL: plane indicates victory-points for each hex
+//   VICTORY_POINT: plane indicates victory-points for each hex
 //   FOREST: plane indicates which hexes contain forest
 //   HILL: plane indicates which hexes contain hill
 //   MOVE: plane indicates reachable hexes from row/column for a given
@@ -56,7 +57,7 @@ class BoardCellFactory {
 public:
   static constexpr size_t PLANE_COUNT = 8;
 
-  static constexpr size_t PLANE_IDX_GOAL = 0;
+  static constexpr size_t PLANE_IDX_VICTORY_POINT = 0;
   static constexpr size_t PLANE_IDX_FOREST = 1;
   static constexpr size_t PLANE_IDX_HILL = 2;
   static constexpr size_t PLANE_IDX_MOVE = 3;

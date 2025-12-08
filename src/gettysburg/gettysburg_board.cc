@@ -67,7 +67,7 @@ Board::Board(const Board& other) :
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
   active_move_factor_expended_(other.active_move_factor_expended_),
-  captured_goals_(other.captured_goals_)
+  captured_vps_(other.captured_vps_)
 {
   // WARNING: this does not copy 'cells_flattened_', 'cells_' or
   // 'cells_flattened_factory_key_'. To perform a complete copy, use
@@ -111,9 +111,9 @@ Board::Hash() const
   hash += (active_first_column_ * mulp) ^ (hash >> 23);
   hash += (uint64_t(active_move_factor_expended_ * 100000.0) * mulp) ^ (hash >> 23);
 
-  if (!captured_goals_.empty()) {
-    hash += (captured_goals_.size() * mulp) ^ (hash >> 23);
-    for (const auto& cg : captured_goals_) {
+  if (!captured_vps_.empty()) {
+    hash += (captured_vps_.size() * mulp) ^ (hash >> 23);
+    for (const auto& cg : captured_vps_) {
       hash += (cg.first.first * mulp) ^ (hash >> 23);
       hash += (cg.first.second * mulp) ^ (hash >> 23);
       hash += (uint64_t(cg.second) * mulp) ^ (hash >> 23);
@@ -149,7 +149,7 @@ Board::Equal(const State* other) const
       (active_first_row_ != ob->active_first_row_) ||
       (active_first_column_ != ob->active_first_column_) ||
       (active_move_factor_expended_ != ob->active_move_factor_expended_) ||
-      (captured_goals_ != ob->captured_goals_)) {
+      (captured_vps_ != ob->captured_vps_)) {
     return false;
   }
 
@@ -364,10 +364,10 @@ Board::UpdateInputPlanes()
   }
 
   // Update planes for captured victory points.
-  for (const auto& cg : captured_goals_) {
+  for (const auto& cg : captured_vps_) {
     const size_t r = cg.first.first;
     const size_t c = cg.first.second;
-    const float vp = GoalAt(r, c);
+    const float vp = VictoryPointAt(r, c);
 
     assert(vp > 0.0);
     assert(UnionVictoryPointAt(r, c) == 0.0);
@@ -397,7 +397,7 @@ Board::ReleaseInputPlanes()
     }
 
     // Update planes to remove captured victory points.
-    for (const auto& cg : captured_goals_) {
+    for (const auto& cg : captured_vps_) {
       const size_t r = cg.first.first;
       const size_t c = cg.first.second;
 
@@ -517,7 +517,7 @@ Board::BoardCellLowerString(size_t row_idx, size_t col_idx) const
   if (!cells_flattened_.empty()) {
     const bool forest = (ForestAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE);
     const bool hill = (HillAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE);
-    const float goal = GoalAt(row_idx, col_idx);
+    const float vp = VictoryPointAt(row_idx, col_idx);
 
     if (forest && hill) {
       str[0] = 'b';
@@ -529,9 +529,9 @@ Board::BoardCellLowerString(size_t row_idx, size_t col_idx) const
       str[0] = 'h';
     }
 
-    if (goal > 0) {
-      if ((goal == std::floor(goal)) && (goal < 10.0)) {
-        std::string fs = std::to_string(uint32_t(goal));
+    if (vp > 0) {
+      if ((vp == std::floor(vp)) && (vp < 10.0)) {
+        std::string fs = std::to_string(uint32_t(vp));
         str[1] = fs[0];
       }
       else {
@@ -634,8 +634,8 @@ Board::DebugCellLowerString(size_t row_idx, size_t col_idx) const
     const bool hill =
       (PlaneCellValueAt(
         row_idx, col_idx, BoardCellFactory::PLANE_IDX_HILL) == BoardCellFactory::CELL_ACTIVE);
-    const float goal =
-      PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_GOAL);
+    const float vp =
+      PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_VICTORY_POINT);
 
     if (forest && hill) {
       str[0] = 'b';
@@ -647,9 +647,9 @@ Board::DebugCellLowerString(size_t row_idx, size_t col_idx) const
       str[0] = 'h';
     }
 
-    if (goal > 0) {
-      if ((goal == std::floor(goal)) && (goal < 10.0)) {
-        std::string fs = std::to_string(uint32_t(goal));
+    if (vp > 0) {
+      if ((vp == std::floor(vp)) && (vp < 10.0)) {
+        std::string fs = std::to_string(uint32_t(vp));
         str[1] = fs[0];
       }
       else {
