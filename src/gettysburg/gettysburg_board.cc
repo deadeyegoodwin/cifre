@@ -19,9 +19,9 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
              size_t starting_player_id) :
   cifre::Board2DHex(BoardCellFactory::PLANE_COUNT, size, players, starting_player_id)
 {
-  // Player 0 is 'u' (union) and player 1 is 'c' (confederate).
-  players[0]->SetChar('u');
-  players[1]->SetChar('c');
+  // Player 0 is 'c' (confederate) and player 1 is 'u' (union).
+  players[0]->SetChar(CONFEDERATE_CHAR);
+  players[1]->SetChar(UNION_CHAR);
 
   // The input planes are based on the size of the board. Because the
   // model is trained/used by always having the unit currently being
@@ -30,6 +30,10 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   // the plane.
   plane_row_cnt_ = ((size_.RowCount() - 1) * 2) + 1;
   plane_column_cnt_ = ((size_.ColumnCount() - 1) * 2) + 1;
+
+  // Turn is represented by a integer. Each day has seven turns plus 1
+  // for the night. So turn 0 is the first turn (6-8 am on July 1st).
+  turn_ = 0;
 
   cell_factory_ = BoardCellFactory::Instance(
     size_.RowCount(), size_.ColumnCount(), plane_row_cnt_, plane_column_cnt_);
@@ -47,7 +51,7 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   // where on the planes the board is located; location is set to
   // place that unit in the center of the planes.
   active_army_ =
-    (active_player_id_ == 0) ? Unit::ArmyKind::UNION : Unit::ArmyKind::CONFEDERATE;
+    (active_player_id_ == 0) ? Unit::ArmyKind::CONFEDERATE : Unit::ArmyKind::UNION;
   active_unit_idx_ = 0;
   active_unit_ = ActiveUnit();
   active_first_row_ = size_.RowCount() - 1 - active_unit_->Row();
@@ -67,7 +71,7 @@ Board::Board(const Board& other) :
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
   active_move_factor_expended_(other.active_move_factor_expended_),
-  captured_vps_(other.captured_vps_)
+  turn_(other.turn_), captured_vps_(other.captured_vps_)
 {
   // WARNING: this does not copy 'cells_flattened_', 'cells_' or
   // 'cells_flattened_factory_key_'. To perform a complete copy, use
@@ -101,6 +105,10 @@ Board::Hash() const
   //
   // active_unit_ is not hashed because it is redundant with
   // active_army_ and active_unit_idx_.
+
+  // FIXME likely need to include turn_ in the cell state (turn
+  // plane?) and then would need to add it to the hash. For now it is
+  // not in the hash so board states are not differentiated by turn.
 
   hash += (plane_row_cnt_ * mulp) ^ (hash >> 23);
   hash += (plane_column_cnt_ * mulp) ^ (hash >> 23);
@@ -141,6 +149,10 @@ Board::Equal(const State* other) const
   //
   // active_unit_ is not compared because it is redundant with
   // active_army_ and active_unit_idx_.
+
+  // FIXME likely need to include turn_ in the cell state (turn
+  // plane?) and then would need to add it to the hash. For now it is
+  // not in the hash so board states are not differentiated by turn.
 
   if ((plane_row_cnt_ != ob->plane_row_cnt_) ||
       (plane_column_cnt_ != ob->plane_column_cnt_) ||
@@ -332,8 +344,14 @@ Board::NextActiveUnit()
   if (switch_active_army) {
     active_player_id_ = (active_player_id_ + 1) % players_.size();
     active_army_ =
-      (active_player_id_ == 0) ? Unit::ArmyKind::UNION : Unit::ArmyKind::CONFEDERATE;
+      (active_player_id_ == 0) ? Unit::ArmyKind::CONFEDERATE : Unit::ArmyKind::UNION;
     active_unit_idx_ = 0;
+
+    // Confederate army goes first, so when switching to union it is a
+    // new turn.
+    if (active_army_ == Unit::ArmyKind::UNION) {
+      turn_ += 1;
+    }
   }
   else {
     // Otherwise just move to the next unit in the same army.
@@ -354,6 +372,11 @@ Board::UpdateInputPlanes()
                     active_unit_->MoveFactor() - active_move_factor_expended_);
   cells_flattened_ = cell_factory_->AcquireCells(cells_flattened_factory_key_);
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
+
+  // Is the active unit capturing a victory point?
+  if (VictoryPointAt(active_unit_->Row(), active_unit_->Column()) > 0.0) {
+    captured_vps_[std::make_pair(active_unit_->Row(), active_unit_->Column())] = active_army_;
+  }
 
   // Update planes as required for all units.
   for (const auto& u : union_units_) {
@@ -482,16 +505,43 @@ Board::UpdateValidActions()
 void
 Board::UpdateTerminalStatus()
 {
-  // FIXME, must have some way to set terminal status when game ends
-  // due to turns expiring.
-  //terminal_status_ =
-  //  cifre::StateTerminalStatus(
-  //    cifre::StateTerminalStatus::TerminalKind::WINNER, active_player_id_);
+  // FIXME for now just playing 1 day (7 turns)
 
-  // Otherwise make sure the terminal status is NON_TERMINAL.
-  THROWIF(
-    terminal_status_.Kind() != cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
-    "expected NON_TERMINAL status");
+  // If on turn 7, then have completed the entire first day and so we
+  // set terminal status based on the number of victory points accrued
+  // by each army.
+  if (turn_ >= 7) {
+    float cvp = 0.0, uvp = 0.0;
+    for (const auto& cg : captured_vps_) {
+      switch (cg.second) {
+      case Unit::ArmyKind::UNION:
+        assert(UnionVictoryPointAt(cg.first.first, cg.first.second) > 0.0);
+        uvp += UnionVictoryPointAt(cg.first.first, cg.first.second);
+        break;
+      case Unit::ArmyKind::CONFEDERATE:
+        assert(ConfederateVictoryPointAt(cg.first.first, cg.first.second) > 0.0);
+        cvp += ConfederateVictoryPointAt(cg.first.first, cg.first.second);
+        break;
+      }
+    }
+
+    if (cvp == uvp) {
+      terminal_status_ =
+        cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
+    }
+    else {
+      terminal_status_ =
+        cifre::StateTerminalStatus(
+          cifre::StateTerminalStatus::TerminalKind::WINNER,
+          (cvp > uvp) ? 0 : 1 /* player_id */);
+    }
+  }
+  else {
+    // Otherwise make sure the terminal status is NON_TERMINAL.
+    THROWIF(
+      terminal_status_.Kind() != cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
+      "expected NON_TERMINAL status");
+  }
 }
 
 std::string
@@ -689,7 +739,7 @@ Board::DebugCellString(size_t loc, size_t row_idx, size_t col_idx) const
       const float cvp = PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_VP);
       assert((uvp == 0.0) || (cvp == 0.0));
 
-      str[4] = ((uvp > 0.0) ? 'u' : (cvp > 0.0) ? 'c' : ' ');
+      str[4] = ((uvp > 0.0) ? UNION_CHAR : (cvp > 0.0) ? CONFEDERATE_CHAR : ' ');
       const float vp = std::max(uvp, cvp);
       if (vp > 0.0) {
         if (vp == std::floor(vp)) {

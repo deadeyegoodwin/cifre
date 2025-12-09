@@ -164,6 +164,9 @@ private:
   size_t active_first_column_;
   float active_move_factor_expended_;
 
+  // Integer representing the game turn.
+  size_t turn_;
+
   // Map of board positions that contain a captured victory points. A
   // victory point is captured by the last unit to occupy the hex. Map
   // indicates the capturing army.
