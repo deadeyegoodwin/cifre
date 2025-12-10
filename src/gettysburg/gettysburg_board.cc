@@ -108,6 +108,10 @@ Board::Hash() const
   constexpr uint64_t mulp = 2654435789;
   uint64_t hash = 104395301;
 
+  // Must hash 'active_player_id_' from base class (we are not calling
+  // base-class Hash because that would include the 'cells_'.
+  hash += (active_player_id_ * mulp) ^ (hash >> 23);
+
   // The input planes/cells ('cells_flattened_', 'cells_',
   // 'cells_flattened_factory_key_') themselves are not hashed because
   // they are derived from the other members.
@@ -163,7 +167,8 @@ Board::Equal(const State* other) const
   // plane?) and then would need to add it to the hash. For now it is
   // not in the hash so board states are not differentiated by turn.
 
-  if ((plane_row_cnt_ != ob->plane_row_cnt_) ||
+  if ((active_player_id_ != ob->active_player_id_) ||
+      (plane_row_cnt_ != ob->plane_row_cnt_) ||
       (plane_column_cnt_ != ob->plane_column_cnt_) ||
       (active_army_ != ob->active_army_) ||
       (active_unit_idx_ != ob->active_unit_idx_) ||

@@ -83,10 +83,12 @@ Board2D::Board2D(const Board2D& other) :
 size_t
 Board2D::Hash() const
 {
-  const std::vector<uint8_t>& bytes = TritonRepresentation();
-
   constexpr uint64_t mulp = 2654435789;
   uint64_t hash = 104395301;
+
+  hash += (active_player_id_ * mulp) ^ (hash >> 23);
+
+  const std::vector<uint8_t>& bytes = TritonRepresentation();
   for (uint8_t b : bytes) {
     hash += (b * mulp) ^ (hash >> 23);
   }
@@ -97,7 +99,8 @@ Board2D::Hash() const
 bool
 Board2D::Equal(const State* other) const
 {
-  return TritonRepresentation() == other->TritonRepresentation();
+  return ((active_player_id_ == other->ActivePlayerId()) &&
+          (TritonRepresentation() == other->TritonRepresentation()));
 }
 
 bool
