@@ -1,0 +1,48 @@
+// Copyright 2025, David Goodwin. All rights reserved.
+#pragma once
+
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "gettysburg_unit.h"
+
+namespace cifre { namespace gettysburg {
+
+//
+// OOB  (Order Of Battle)
+//
+// The order of battle for different scenarios, indicating which
+// forces become available at what time and location. The OOB is a
+// completely const/immutable object and thus has only static methods.
+//
+class OOB {
+public:
+  // Game scenarios.
+  enum class Scenario {
+    JULY_1   // Single day, July 1st
+  };
+
+  static std::string ScenarioToString(const Scenario s) {
+    switch (s) {
+    case Scenario::JULY_1: return "JULY-1";
+    }
+    return "<none>"; // unreachable
+  }
+
+public:
+  // Return the last turn for a given scenario.
+  static size_t LastTurn(Scenario scenario);
+
+  // Return the set of units that become available for the given
+  // 'scenario' and 'army' on a given 'turn'. Turn 0 indicates the
+  // start of the scenario, turn 1 indicates the start of the next
+  // turn, etc.
+  static std::vector<std::unique_ptr<Unit>> Units(
+    Scenario scenario, Unit::ArmyKind army, size_t turn);
+};
+
+}} // namespace cifre::gettysburg

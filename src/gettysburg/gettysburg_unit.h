@@ -21,6 +21,9 @@ public:
   enum class ArmyKind {
     UNION = 0, CONFEDERATE };
 
+  enum class UnitKind {
+    HEADQUARTERS = 0, INFANTRY, CAVALRY, ARTILLERY, HORSE_ARTILLERY };
+
   enum class ActionKind {
     MOVE_UP = 0, MOVE_UPRIGHT, MOVE_DOWNRIGHT, MOVE_DOWN, MOVE_DOWNLEFT, MOVE_UPLEFT,
     MOVE_END, ACTION_COUNT };
@@ -29,6 +32,17 @@ public:
     switch (kind) {
     case ArmyKind::UNION: return "UNION";
     case ArmyKind::CONFEDERATE: return "CONFEDERATE";
+    }
+    return "<none>"; // unreachable
+  }
+
+  static std::string UnitKindToString(const UnitKind kind) {
+    switch (kind) {
+    case UnitKind::HEADQUARTERS: return "HEADQUARTERS";
+    case UnitKind::INFANTRY: return "INFANTRY";
+    case UnitKind::CAVALRY: return "CAVALRY";
+    case UnitKind::ARTILLERY: return "ARTILLERY";
+    case UnitKind::HORSE_ARTILLERY: return "HORSE_ARTILLERY";
     }
     return "<none>"; // unreachable
   }
@@ -50,7 +64,8 @@ public:
 
 public:
   // Create unit at a given board position.
-  Unit(ArmyKind army_kind, float move_factor, size_t row_idx, size_t col_idx);
+  Unit(const std::string& name, ArmyKind army_kind, UnitKind unit_kind,
+       float combat_factor, float move_factor, size_t row_idx, size_t col_idx);
 
   // Copy constructor.
   Unit(const Unit& other) = default;
@@ -59,7 +74,10 @@ public:
   size_t Hash() const;
   bool Equal(const Unit* other) const;
 
+  const std::string& Name() const { return name_; }
   ArmyKind Army() const { return army_kind_; }
+  UnitKind Kind() const { return unit_kind_; }
+  float CombatFactor() const { return combat_factor_; }
   float MoveFactor() const { return move_factor_; }
   size_t Row() const { return row_idx_; }
   size_t Column() const { return column_idx_; }
@@ -74,7 +92,10 @@ public:
   void AddToBoard(Board* board) const;
 
 private:
+  const std::string name_;
   const ArmyKind army_kind_;
+  const UnitKind unit_kind_;
+  const float combat_factor_;
   const float move_factor_;
   size_t row_idx_;
   size_t column_idx_;

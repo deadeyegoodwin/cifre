@@ -6,18 +6,18 @@
 #include <cstdint>
 #include <string>
 
-#include "gettysburg_board.h"
 #include "common_error.h"
 #include "common_util.h"
+#include "gettysburg_board.h"
+#include "gettysburg_oob.h"
 
 namespace cifre { namespace gettysburg {
 
 //
 // Board
 //
-Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
-             size_t starting_player_id) :
-  cifre::Board2DHex(BoardCellFactory::PLANE_COUNT, size, players, starting_player_id)
+Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players) :
+  cifre::Board2DHex(BoardCellFactory::PLANE_COUNT, size, players, 0 /* starting_player_id */)
 {
   // Player 0 is 'c' (confederate) and player 1 is 'u' (union).
   players[0]->SetChar(CONFEDERATE_CHAR);
@@ -32,28 +32,36 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
   plane_column_cnt_ = ((size_.ColumnCount() - 1) * 2) + 1;
 
   // Turn is represented by a integer. Each day has seven turns plus 1
-  // for the night. So turn 0 is the first turn (6-8 am on July 1st).
+  // for the night. So for JULY_1 scenario turn 0 is the first turn
+  // (6-8 am on July 1st), turn 1 is the next turn (8-10 am on July
+  // 1st), ..., turn 7 is the night of July 1st, etc.
   turn_ = 0;
 
   cell_factory_ = BoardCellFactory::Instance(
     size_.RowCount(), size_.ColumnCount(), plane_row_cnt_, plane_column_cnt_);
 
-  // Initially set union unit at board position [0, 0] and
-  // confederate at board position [row-1, col-1].
-  auto union_unit = std::make_unique<Unit>(Unit::ArmyKind::UNION, 1.0, 0, 0);
-  union_units_.push_back(std::move(union_unit));
+  // Create initial units.
+  UpdateUnits();
 
-  auto confederate_unit = std::make_unique<Unit>(
-    Unit::ArmyKind::CONFEDERATE, 1.0, size_.RowCount() - 1, size_.ColumnCount() - 1);
-  confederate_units_.push_back(std::move(confederate_unit));
+  // Confederates always start, but in some scenarios they don't have
+  // units. In that case union starts.
+  assert(active_player_id_ == 0);
+  if (!confederate_units_.empty()) {
+    active_army_ = Unit::ArmyKind::CONFEDERATE;
+  }
+  else {
+    assert(!union_units_.empty());
+    active_army_ = Unit::ArmyKind::UNION;
+    active_player_id_ = 1;
+  }
 
-  // Set starting army and unit. The active unit's position determines
-  // where on the planes the board is located; location is set to
-  // place that unit in the center of the planes.
-  active_army_ =
-    (active_player_id_ == 0) ? Unit::ArmyKind::CONFEDERATE : Unit::ArmyKind::UNION;
   active_unit_idx_ = 0;
   active_unit_ = ActiveUnit();
+  assert(active_unit_ != nullptr);
+
+  // The active unit's position determines where on the planes the
+  // board is located; location is set to place that unit in the
+  // center of the planes.
   active_first_row_ = size_.RowCount() - 1 - active_unit_->Row();
   active_first_column_ = size_.ColumnCount() - 1 - active_unit_->Column();
   active_move_factor_expended_ = 0.0;
@@ -86,6 +94,7 @@ Board::Board(const Board& other) :
   }
 
   active_unit_ = ActiveUnit();
+  assert(active_unit_ != nullptr);
 }
 
 Board::~Board()
@@ -255,10 +264,14 @@ Board::ActiveUnit() const
   Unit* unit = nullptr;
   switch (active_army_) {
   case Unit::ArmyKind::UNION:
-    unit = union_units_[active_unit_idx_].get();
+    if (active_unit_idx_ < union_units_.size()) {
+      unit = union_units_[active_unit_idx_].get();
+    }
     break;
   case Unit::ArmyKind::CONFEDERATE:
-    unit = confederate_units_[active_unit_idx_].get();
+    if (active_unit_idx_ < confederate_units_.size()) {
+      unit = confederate_units_[active_unit_idx_].get();
+    }
     break;
   }
 
@@ -334,9 +347,11 @@ Board::NextActiveUnit()
   bool switch_active_army = false;
   switch (active_army_) {
   case Unit::ArmyKind::UNION:
+    assert(!union_units_.empty());
     switch_active_army = (active_unit_idx_ == (union_units_.size() - 1));
     break;
   case Unit::ArmyKind::CONFEDERATE:
+    assert(!confederate_units_.empty());
     switch_active_army = (active_unit_idx_ == (confederate_units_.size() - 1));
     break;
   }
@@ -347,10 +362,11 @@ Board::NextActiveUnit()
       (active_player_id_ == 0) ? Unit::ArmyKind::CONFEDERATE : Unit::ArmyKind::UNION;
     active_unit_idx_ = 0;
 
-    // Confederate army goes first, so when switching to union it is a
-    // new turn.
-    if (active_army_ == Unit::ArmyKind::UNION) {
+    // Confederate army goes first, so when switching (back) to
+    // confederate it is a new turn.
+    if (active_army_ == Unit::ArmyKind::CONFEDERATE) {
       turn_ += 1;
+      UpdateUnits();
     }
   }
   else {
@@ -358,7 +374,33 @@ Board::NextActiveUnit()
     active_unit_idx_ += 1;
   }
 
+  // If there are no units in the newly active army, then switch back
+  // to other army. Avoid circular loop by making sure both armies
+  // aren't empty (should never happen).
   active_unit_ = ActiveUnit();
+  if (active_unit_ == nullptr) {
+    THROWIF(union_units_.empty() && confederate_units_.empty(),
+            "at least one army should contain units");
+    NextActiveUnit();
+  }
+}
+
+void
+Board::UpdateUnits()
+{
+  // Union
+  for (auto& u : OOB::Units(OOB::Scenario::JULY_1, Unit::ArmyKind::UNION, turn_)) {
+    if ((u->Row() < size_.RowCount()) && (u->Column() < size_.ColumnCount())) {
+      union_units_.emplace_back(std::move(u));
+    }
+  }
+
+  // Confederate
+  for (auto& u : OOB::Units(OOB::Scenario::JULY_1, Unit::ArmyKind::CONFEDERATE, turn_)) {
+    if ((u->Row() < size_.RowCount()) && (u->Column() < size_.ColumnCount())) {
+      confederate_units_.emplace_back(std::move(u));
+    }
+  }
 }
 
 void
@@ -505,12 +547,9 @@ Board::UpdateValidActions()
 void
 Board::UpdateTerminalStatus()
 {
-  // FIXME for now just playing 1 day (7 turns)
-
-  // If on turn 7, then have completed the entire first day and so we
-  // set terminal status based on the number of victory points accrued
-  // by each army.
-  if (turn_ >= 7) {
+  // If scenario is complete, then set terminal status based on the
+  // number of victory points accrued by each army.
+  if (turn_ > OOB::LastTurn(OOB::Scenario::JULY_1)) {
     float cvp = 0.0, uvp = 0.0;
     for (const auto& cg : captured_vps_) {
       switch (cg.second) {
@@ -547,16 +586,22 @@ Board::UpdateTerminalStatus()
 std::string
 Board::BoardCellUpperString(size_t row_idx, size_t col_idx) const
 {
+  std::string str("  ");
   if (!cells_flattened_.empty()) {
-    if (UnionAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE) {
-      return std::string(1, UNION_CHAR) + " ";
+    uint32_t uc = uint32_t(UnionAt(row_idx, col_idx));
+    if (uc > 0) {
+      str[0] = UNION_CHAR;
+      str[1] = (uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' ');
     }
-    if (ConfederateAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE) {
-      return std::string(1, CONFEDERATE_CHAR) + " ";
+
+    uint32_t cc = uint32_t(ConfederateAt(row_idx, col_idx));
+    if (cc > 0) {
+      str[0] = CONFEDERATE_CHAR;
+      str[1] = (cc >= 10) ? '*' :  ((cc > 1) ? ('0' + cc) : ' ');
     }
   }
 
-  return "  ";
+  return str;
 }
 
 std::string
@@ -715,13 +760,18 @@ Board::DebugCellString(size_t loc, size_t row_idx, size_t col_idx) const
   case 0: {
     std::string str("    ");
     if (!cells_flattened_.empty()) {
-      if (PlaneCellValueAt(
-            row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT) == BoardCellFactory::CELL_ACTIVE) {
+      uint32_t uc =
+        uint32_t(PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT));
+      if (uc > 0) {
         str[0] = UNION_CHAR;
+        str[1] = (uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' ');
       }
-      if (PlaneCellValueAt(
-            row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT) == BoardCellFactory::CELL_ACTIVE) {
+
+      uint32_t cc =
+        uint32_t(PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT));
+      if (cc > 0) {
         str[0] = CONFEDERATE_CHAR;
+        str[1] = (cc >= 10) ? '*' : ((cc > 1) ? ('0' + cc) : ' ');
       }
     }
     return str;

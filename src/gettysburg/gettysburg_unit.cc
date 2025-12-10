@@ -15,8 +15,10 @@ namespace cifre { namespace gettysburg {
 //
 // Unit
 //
-Unit::Unit(ArmyKind army_kind, float move_factor, size_t row_idx, size_t col_idx) :
-  army_kind_(army_kind), move_factor_(move_factor),
+Unit::Unit(const std::string& name, ArmyKind army_kind, UnitKind unit_kind,
+           float combat_factor, float move_factor, size_t row_idx, size_t col_idx) :
+  name_(name), army_kind_(army_kind), unit_kind_(unit_kind),
+  combat_factor_(combat_factor), move_factor_(move_factor),
   row_idx_(row_idx), column_idx_(col_idx)
 {
 }
@@ -48,15 +50,18 @@ void
 Unit::RemoveFromBoard(Board* board) const
 {
   switch (army_kind_) {
-  case ArmyKind::UNION:
-    assert(board->UnionAt(row_idx_, column_idx_) == BoardCellFactory::CELL_ACTIVE);
-    board->SetUnionAt(BoardCellFactory::CELL_EMPTY, row_idx_, column_idx_);
-    break;
-  case ArmyKind::CONFEDERATE:
-    assert(board->ConfederateAt(row_idx_, column_idx_) == BoardCellFactory::CELL_ACTIVE);
-    board->SetConfederateAt(BoardCellFactory::CELL_EMPTY, row_idx_, column_idx_);
+  case ArmyKind::UNION: {
+    uint32_t uc = uint32_t(board->UnionAt(row_idx_, column_idx_));
+    assert(uc >= 1);
+    board->SetUnionAt(uc - 1, row_idx_, column_idx_);
     break;
   }
+  case ArmyKind::CONFEDERATE: {
+    uint32_t cc = uint32_t(board->ConfederateAt(row_idx_, column_idx_));
+    assert(cc >= 1);
+    board->SetConfederateAt(cc - 1, row_idx_, column_idx_);
+    break;
+  }}
 }
 
 void
@@ -64,12 +69,10 @@ Unit::AddToBoard(Board* board) const
 {
   switch (army_kind_) {
   case ArmyKind::UNION:
-    assert(board->UnionAt(row_idx_, column_idx_) == BoardCellFactory::CELL_EMPTY);
-    board->SetUnionAt(BoardCellFactory::CELL_ACTIVE, row_idx_, column_idx_);
+    board->SetUnionAt(board->UnionAt(row_idx_, column_idx_) + 1.0, row_idx_, column_idx_);
     break;
   case ArmyKind::CONFEDERATE:
-    assert(board->ConfederateAt(row_idx_, column_idx_) == BoardCellFactory::CELL_EMPTY);
-    board->SetConfederateAt(BoardCellFactory::CELL_ACTIVE, row_idx_, column_idx_);
+    board->SetConfederateAt(board->ConfederateAt(row_idx_, column_idx_) + 1.0, row_idx_, column_idx_);
     break;
   }
 }

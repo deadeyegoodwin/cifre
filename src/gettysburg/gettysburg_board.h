@@ -22,8 +22,7 @@ namespace cifre { namespace gettysburg {
 class Board : public cifre::Board2DHex {
 public:
   // Create board...
-  Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
-        size_t starting_player_id);
+  Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players);
 
   // Destructor
   virtual ~Board();
@@ -141,12 +140,16 @@ private:
   static constexpr char UNION_CHAR = 'u';
   static constexpr char CONFEDERATE_CHAR = 'c';
 
+  // Utility method to get the active unit from active_army_ and
+  // active_unit_idx_. Return nullptr if active army does not have any
+  // units.
   Unit* ActiveUnit() const;
 
   void ReleaseInputPlanes();
   void UpdateInputPlanes();
   void UpdateTerminalStatus();
   void UpdateValidActions();
+  void UpdateUnits();
   void NextActiveUnit();
 
   std::string DebugCellString(size_t loc, size_t row_idx, size_t col_idx) const;

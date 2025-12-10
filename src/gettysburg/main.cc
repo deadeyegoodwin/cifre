@@ -185,7 +185,9 @@ cifre::State*
 Gettysburg::CreateInitialState(
   const std::vector<Player*>& players, size_t starting_player_idx) const
 {
-  return new Board(game_shape_, players, starting_player_idx);
+  // 'starting_player_id' is ignored because gettysburg must start
+  // with confederates.
+  return new Board(game_shape_, players);
 }
 
 }} // namespace cifre::gettysburg
