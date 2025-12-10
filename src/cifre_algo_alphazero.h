@@ -338,14 +338,9 @@ public:
   // Return the statistics for this alphazero.
   const AlphaZeroStatistics& Statistics() const { return statistics_; }
 
-  // Release all Nodes and related State and reset all
-  // statistics. After returning this alphazero object will begin
-  // constructing a new tree from scratch.
-  void Reset();
-
   // See cifre::Algo. Called to notify that a new game is
-  // starting. 'this' alphazero object is Reset() in preparation of
-  // the new game.
+  // starting. 'this' alphazero object is reset in preparation of the
+  // new game.
   void GameStart() override;
 
   // See cifre::Algo. Called to notify that game has ended at
@@ -355,14 +350,14 @@ public:
   // NON_TERMINAL is not allowed and GameEnd should throw exception if
   // that value is received.  If 'samples' is non-nullptr, then the
   // collected AlphaZeroTrainingSamples::Samples are returned. Lastly,
-  // 'this' alphazero object is Reset().
+  // 'this' alphazero object is reset.
   void GameEnd(const State& terminal_state, const StateTerminalStatus& status) override {
     GameEnd(terminal_state, status, nullptr); }
 
   // Version of GameEnd that also collects training samples. If
   // 'samples' is non-nullptr, then the collected
   // AlphaZeroTrainingSamples::Samples are returned. Lastly, 'this'
-  // alphazero object is Reset().
+  // alphazero object is reset.
   void GameEnd(
     const State& terminal_state, const StateTerminalStatus& status,
     std::vector<AlphaZeroTrainingSamples::Sample>* samples);
@@ -421,7 +416,7 @@ private:
   // Nodes for which alphazero selected an action in the current game.
   std::vector<std::shared_ptr<AlphaZeroNode>> game_action_nodes_;
 
-  // Statistics, these are reset by a call to Reset().
+  // Statistics...
   AlphaZeroStatistics statistics_;
 };
 
