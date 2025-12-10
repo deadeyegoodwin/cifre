@@ -22,12 +22,8 @@ public:
   // See cifre::Algo.
   void GameEnd(const State& terminal_state, const StateTerminalStatus& status) override;
 
-  // See cifre::Algo. 'max_game_turns_remaining' indicates the maximum
-  // number of game turns remaining. For games where looping is
-  // possible, it is very important to set this to a reasonable value,
-  // otherwise finding the next action can take unreasonable amount of
-  // time.
-  uint64_t NextActionId(const State& state, size_t max_game_turns_remaining) override;
+  // See cifre::Algo.
+  uint64_t NextActionId(const State& state, size_t max_sidegame_turns_remaining) override;
 
 private:
   // Returns <action-id, value> of the best action to take from

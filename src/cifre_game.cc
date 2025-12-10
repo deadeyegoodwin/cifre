@@ -135,15 +135,15 @@ PlayOneTask::Invoke()
     result_ = GameResult::ABORT;
 
     const auto starting_player_id = state->ActivePlayerId();
-    size_t game_turns_remaining = max_turns_per_game_;
+    size_t game_sideturns_remaining = max_turns_per_game_ * players_.size();
 
     bool game_quit = false;
     StateTerminalStatus terminal_status = state->TerminalStatus();
-    while (!game_quit && (game_turns_remaining > 0) &&
+    while (!game_quit && (game_sideturns_remaining > 0) &&
            (terminal_status.Kind() == StateTerminalStatus::TerminalKind::NON_TERMINAL)) {
       const auto player_id = state->ActivePlayerId();
       const Player* player = players_[player_id].get();
-      const Action action = player->NextAction(*state, game_turns_remaining);
+      const Action action = player->NextAction(*state, game_sideturns_remaining);
       switch (action.Kind()) {
       case Action::ActionKind::INVALID:
       case Action::ActionKind::HELP:
@@ -165,7 +165,7 @@ PlayOneTask::Invoke()
       // now 'starting_player_id', then a turn has completed.
       if ((player_id != state->ActivePlayerId()) &&
           (starting_player_id == state->ActivePlayerId())) {
-        --game_turns_remaining;
+        --game_sideturns_remaining;
       }
     }
 
@@ -178,7 +178,7 @@ PlayOneTask::Invoke()
     }
 
     // If ran out of game turns, then game is a draw.
-    if (game_turns_remaining == 0) {
+    if (game_sideturns_remaining == 0) {
       terminal_status = StateTerminalStatus(StateTerminalStatus::TerminalKind::DRAW);
     }
 

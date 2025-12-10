@@ -30,26 +30,17 @@ MiniMaxAlgo::GameEnd(const State& terminal_state, const StateTerminalStatus& sta
 }
 
 uint64_t
-MiniMaxAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
+MiniMaxAlgo::NextActionId(const State& state, size_t max_game_sideturns_remaining)
 {
   THROWIF(state.TerminalStatus().Kind() != StateTerminalStatus::TerminalKind::NON_TERMINAL,
           "minimax cannot find next action for terminal state");
-
-  // FIXME here we assume the game has two players, and that a player
-  // only gets to choose a single action each turn.
-  //
-  // Use the std::max to avoid issues with overflow as
-  // std::numeric_limits<size_t>::max() may be the value of
-  // 'max_game_turns_remaining'.
-  const size_t max_game_depth =
-    std::max(max_game_turns_remaining, max_game_turns_remaining * 2);
 
   LOGGER_LOGHIGH(*logger_, "minimax: starting state");
   LOGGER_LOGHIGH_IE(*logger_, state.ToString(), 2 /* indent */, true /* endline */);
 
   // Search from 'state' to find the best action.
   LOGGER_LOGHIGH_IE(*logger_, "search: ", 0 /* indent */, false /* endline */);
-  auto pr = Search(state, max_game_depth);
+  auto pr = Search(state, max_game_sideturns_remaining);
   LOGGER_LOGHIGH_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
 
   return pr.first;
@@ -86,10 +77,16 @@ MiniMaxAlgo::Search(const State& state, const size_t game_depth_remaining) const
   for (uint64_t aid : state.ValidActionIds()) {
     std::unique_ptr<const State> nstate(state.CopyAndUpdate(aid));
 
+    // If 'nstart' is a different player than 'state', then a game
+    // side-turn has been played.
+    const size_t gdr = game_depth_remaining -
+      ((nstate->ActivePlayerId() == state.ActivePlayerId()) ? 0 : 1);
+
+    auto pr = Search(*nstate, gdr);
+
     // If 'nstate' has a different active player than 'state', then
     // need to invert 'nstate's value so that it is respective to how
     // 'state' views value.
-    auto pr = Search(*nstate, game_depth_remaining - 1);
     float v = pr.second;
     if (state.ActivePlayerId() != nstate->ActivePlayerId()) {
       v = -v;

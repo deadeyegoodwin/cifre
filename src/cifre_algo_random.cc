@@ -21,7 +21,7 @@ RandomAlgo::GameEnd(const State& terminal_state, const StateTerminalStatus& stat
 }
 
 uint64_t
-RandomAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
+RandomAlgo::NextActionId(const State& state, size_t max_game_sideturns_remaining)
 {
   // Pick a random action from the valid actions. At least one action
   // must be valid.

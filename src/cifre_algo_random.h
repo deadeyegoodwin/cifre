@@ -20,7 +20,7 @@ public:
   void GameEnd(const State& terminal_state, const StateTerminalStatus& status) override;
 
   // See cifre::Algo.
-  uint64_t NextActionId(const State& state, size_t max_game_turns_remaining) override;
+  uint64_t NextActionId(const State& state, size_t max_game_sideturns_remaining) override;
 
 private:
   common::Random rnd_;

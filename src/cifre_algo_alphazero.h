@@ -367,12 +367,10 @@ public:
     const State& terminal_state, const StateTerminalStatus& status,
     std::vector<AlphaZeroTrainingSamples::Sample>* samples);
 
-  // See cifre::Algo. 'max_game_turns_remaining' indicates the maximum
-  // number of game turns remaining and is used to control the depth
-  // that should be searched update the node tree. Any search that
-  // reaches that depth will assume the game is a DRAW at that point
-  // and will update the tree appropriately.
-  uint64_t NextActionId(const State& state, size_t max_game_turns_remaining) override;
+  // See cifre::Algo. Any search that reaches max-sideturns will be
+  // declared a DRAW at that point and will update the tree
+  // appropriately.
+  uint64_t NextActionId(const State& state, size_t max_game_sideturns_remaining) override;
 
 private:
   // Return the node representing the given 'state', creating if

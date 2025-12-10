@@ -21,7 +21,7 @@ Player::Player(const std::shared_ptr<common::Logger>& logger,
 }
 
 Action
-Player::NextAction(const State& state, size_t max_game_turns_remaining) const
+Player::NextAction(const State& state, size_t max_game_sideturns_remaining) const
 {
   // Base Player class is not capable of choosing an action.
   return Action(Action::ActionKind::INVALID);
@@ -46,14 +46,14 @@ AlgoPlayer::AlgoPlayer(
 }
 
 Action
-AlgoPlayer::NextAction(const State& state, size_t max_game_turns_remaining) const
+AlgoPlayer::NextAction(const State& state, size_t max_game_sideturns_remaining) const
 {
   logger_->LogMed(state.ToString());
 
   const auto& actionIds = state.ValidActionIds();
   THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
 
-  uint64_t action_id = algo_->NextActionId(state, max_game_turns_remaining);
+  uint64_t action_id = algo_->NextActionId(state, max_game_sideturns_remaining);
   Action action(Action::ActionKind::ACTIONID, action_id);
   THROWIF(!state.IsValidAction(action),
           "player '" + Name() + "' selected invalid action " + action.ToString());

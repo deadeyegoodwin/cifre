@@ -51,9 +51,12 @@ public:
             "game ended with NON-TERMINAL status"); }
 
   // Get the next action for the player given current 'state' and with
-  // 'max_game_turns_remaining' indicating the maximum number of turns
-  // remaining in the game.
-  virtual Action NextAction(const State& state, size_t max_game_turns_remaining) const;
+  // 'max_game_sideturns_remaining' indicating the maximum number of
+  // side-turns remaining in the game. 'max_game_sideturns_remaining'
+  // indicates the maximum number of game side-turns remaining. A
+  // "side-turn" is a player taking a turn. A game with a maximum
+  // lenth of N turns, with P players will have N*P side-turns.
+  virtual Action NextAction(const State& state, size_t max_game_sideturns_remaining) const;
 
   // Return string representation of the player.
   std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
@@ -77,7 +80,7 @@ public:
     size_t id, const std::string& name, const std::shared_ptr<cifre::Algo>& algo);
 
   // See Player::NextAction().
-  Action NextAction(const State& state, size_t max_game_turns_remaining) const override;
+  Action NextAction(const State& state, size_t max_game_sideturns_remaining) const override;
 
 private:
   std::shared_ptr<cifre::Algo> algo_;

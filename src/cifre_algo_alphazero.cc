@@ -80,7 +80,7 @@ AlphaZeroAlgo::GameEnd(const State& terminal_state, const StateTerminalStatus& s
 }
 
 uint64_t
-AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
+AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remaining)
 {
   THROWIF(state.TerminalStatus().Kind() != StateTerminalStatus::TerminalKind::NON_TERMINAL,
           "alpha-zero cannot find next action for terminal state");
@@ -99,14 +99,6 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
   if (!settings_.per_game_node_tree_) {
     nodes_.clear();
   }
-
-  // FIXME here we assume the game has two players, and that a player
-  // only gets to choose a single action each turn.
-  //
-  // Avoid issues with overflow as std::numeric_limits<size_t>::max()
-  // may be the value of 'max_game_turns_remaining'.
-  const size_t max_game_depth =
-    std::max(max_game_turns_remaining, max_game_turns_remaining * 2);
 
   // If Dirichlet distribution is being used but has not yet been
   // generated, then do so now using GSL (GNU Scientific
@@ -147,7 +139,8 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_turns_remaining)
       *logger_,
       "search " + std::to_string(idx+1) + '/' + std::to_string(settings_.search_count_) + ':',
       0 /* indent */, false /* endline */);
-    auto [v, tnode] = SearchTree(node.get(), settings_.max_search_depth_, max_game_depth, dirichlet);
+    auto [v, tnode] = SearchTree(
+      node.get(), settings_.max_search_depth_, max_game_sideturns_remaining, dirichlet);
     LOGGER_LOGHIGH_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
     if (tnode != nullptr) {
       LOGGER_LOGHIGH_IE(*logger_, tnode->ToString(settings_.cpuct_),
@@ -322,8 +315,13 @@ AlphaZeroAlgo::SearchTree(
       0 /* indent */, false /* endline */);
   }
   else {
-    std::tie(v, tnode) = SearchTree(next, search_depth_remaining - 1,
-                                    game_depth_remaining - 1, nullptr /* dirichlet */);
+    // If 'next' is a different player than 'node', then a game
+    // side-turn has been played.
+    const size_t gdr = game_depth_remaining -
+      (node->NodeState().ActivePlayerId() == next->NodeState().ActivePlayerId() ? 0 : 1);
+
+    std::tie(v, tnode) = SearchTree(
+      next, search_depth_remaining - 1, gdr, nullptr /* dirichlet */);
   }
 
   // If 'next' has a different active player than 'node', then need to

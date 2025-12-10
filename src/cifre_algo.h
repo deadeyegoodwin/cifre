@@ -34,9 +34,11 @@ public:
   // Return the next predicted action ID, given current 'state'. If
   // 'state' represents a terminal state the behavior is undefined,
   // but the recommended behavior is for the function to throw an
-  // error. 'max_game_turns_remaining' indicates the maximum number of
-  // game turns remaining.
-  virtual uint64_t NextActionId(const State& state, size_t max_game_turns_remaining) = 0;
+  // error. 'max_game_sideturns_remaining' indicates the maximum
+  // number of game side-turns remaining. A "side-turn" is a player
+  // taking a turn. A game with a maximum lenth of N turns, with P
+  // players will have N*P side-turns.
+  virtual uint64_t NextActionId(const State& state, size_t max_game_sideturns_remaining) = 0;
 };
 
 } // namespace cifre
