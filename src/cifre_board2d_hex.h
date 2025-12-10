@@ -74,6 +74,10 @@ public:
   // See cifre::State.
   virtual std::string ToString() const override;
 
+  // Return before and after board content.
+  virtual std::string PreBoardString() const;
+  virtual std::string PostBoardString() const;
+
   // Return a two-character string that gives the content string for
   // the upper and lower part of a given cell. Default behavior is to show the
   // row and column index in the cell.

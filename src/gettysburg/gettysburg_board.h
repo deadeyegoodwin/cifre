@@ -47,8 +47,10 @@ public:
   Action StringToAction(const std::string& str) const override;
 
   // See cifre::Board2DHex
-  std::string BoardCellUpperString(size_t row_idx, size_t col_idx) const;
-  std::string BoardCellLowerString(size_t row_idx, size_t col_idx) const;
+  std::string PreBoardString() const override;
+  std::string PostBoardString() const override;
+  std::string BoardCellUpperString(size_t row_idx, size_t col_idx) const override;
+  std::string BoardCellLowerString(size_t row_idx, size_t col_idx) const override;
 
   // Return a debug representation of the board.
   std::string ToDebugString() const;

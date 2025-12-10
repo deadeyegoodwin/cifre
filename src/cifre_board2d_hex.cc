@@ -30,13 +30,7 @@ Board2DHex::ToString() const
 {
   std::stringstream sstr;
 
-  // Player key.
-  sstr
-    << " active(p" << ActivePlayerId() << ")=" << ActivePlayer()->Name()
-    << "(" << ActivePlayer()->Char() << "), "
-    << "opponent(p" << OpponentPlayerId() << ")=" << OpponentPlayer()->Name()
-    << "(" << OpponentPlayer()->Char() << ")"
-    << "\n";
+  sstr << PreBoardString() << "\n";
 
   //  __    __    __    __
   // /0 \__/0 \__/0 \__/0 \_
@@ -99,7 +93,21 @@ Board2DHex::ToString() const
   }
   sstr << "\n";
 
+  sstr << PostBoardString();
+
   return sstr.str();
+}
+
+std::string
+Board2DHex::PreBoardString() const
+{
+  return "";
+}
+
+std::string
+Board2DHex::PostBoardString() const
+{
+  return "";
 }
 
 std::string

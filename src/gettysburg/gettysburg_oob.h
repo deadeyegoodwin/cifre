@@ -34,6 +34,9 @@ public:
   }
 
 public:
+  // Return a turn's descriptive name for a given scenario.
+  static std::string TurnToString(const Scenario s, size_t turn);
+
   // Return the last turn for a given scenario.
   static size_t LastTurn(Scenario scenario);
 

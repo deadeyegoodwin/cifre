@@ -38,6 +38,7 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
 {
   const Board& board = dynamic_cast<const Board&>(state);
 
+  logger_->LogMed("");
   logger_->LogMed(board.ToString());
 
   const auto& actionIds = board.ValidActionIds();

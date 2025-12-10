@@ -91,6 +91,9 @@ public:
   // Update 'board' to reflect current status of this unit.
   void AddToBoard(Board* board) const;
 
+  // Return string representation of the unit.
+  std::string ToString() const;
+
 private:
   const std::string name_;
   const ArmyKind army_kind_;

@@ -124,4 +124,16 @@ Unit::ApplyAction(ActionKind kind)
   }
 }
 
+std::string
+Unit::ToString() const
+{
+  std::stringstream sstr;
+
+  sstr
+    << UnitKindToString(unit_kind_) << " (" << name_ << ") "
+    << combat_factor_ << "-" << move_factor_;
+
+  return sstr.str();
+}
+
 }} // namespace cifre::gettysburg

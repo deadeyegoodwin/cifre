@@ -584,6 +584,26 @@ Board::UpdateTerminalStatus()
 }
 
 std::string
+Board::PreBoardString() const
+{
+  std::stringstream sstr;
+
+  sstr
+    << "Turn " << turn_ << ": "
+    << OOB::TurnToString(OOB::Scenario::JULY_1, turn_) << "\n"
+    << "Player " << ActivePlayer()->Name() << " (p" << ActivePlayerId() << ")"
+    << ", " << active_unit_->ToString();
+
+  return sstr.str();
+}
+
+std::string
+Board::PostBoardString() const
+{
+  return "";
+}
+
+std::string
 Board::BoardCellUpperString(size_t row_idx, size_t col_idx) const
 {
   std::string str("  ");

@@ -69,6 +69,32 @@ ConfederateUnitsJuly1(size_t turn)
 //
 // OOB  (Order Of Battle)
 //
+std::string
+OOB::TurnToString(const Scenario s, size_t turn)
+{
+  // For JULY_1 can use 'turn' directly...
+  switch (turn) {
+  case 0:
+    return "July 1, 6-8am";
+  case 1:
+    return "July 1, 8-10am";
+  case 2:
+    return "July 1, 10am-12pm";
+  case 3:
+    return "July 1, 12-2pm";
+  case 4:
+    return "July 1, 2-4pm";
+  case 5:
+    return "July 1, 4-6pm";
+  case 6:
+    return "July 1, 6-8pm";
+  case 7:
+    return "July 1, night";
+  }
+
+  return "<unknown>";
+}
+
 size_t
 OOB::LastTurn(Scenario scenario)
 {
