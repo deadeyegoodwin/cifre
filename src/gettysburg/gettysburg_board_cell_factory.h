@@ -13,27 +13,12 @@
 namespace cifre { namespace gettysburg {
 
 //
-// BoardCellFactoryStatistics
-//
-class BoardCellFactoryStatistics {
-public:
-  // Return string representation of statistics.
-  std::string ToString() const;
-
-  std::atomic<size_t> created_plane_sets_ {0};
-  std::atomic<size_t> acquired_plane_sets_ {0};
-  std::atomic<size_t> released_plane_sets_ {0};
-};
-
-//
 // BoardCellFactory
 //
 // Gettysburg board state is contained in multiple 2D planes of
 // "cells" representing board hexes. Many of these planes contain
 // constant data and so this factory pre-computes board state so that
-// it can be quickly provided to Boards. This class is a singleton
-// that also shares and caches these pre-computed board states across
-// all Board instances.
+// it can be quickly provided to Boards.
 //
 // The following planes are pre-computed, one instance for each board
 // cell, and each movement factor, so a total of (row-cnt * column-cnt
@@ -73,20 +58,9 @@ public:
   using CellsKey = std::tuple<size_t, size_t, size_t>;
 
 public:
-  static BoardCellFactory* Instance(
-    size_t board_row_cnt, size_t board_column_cnt, size_t plane_row_cnt, size_t plane_column_cnt) {
-    static BoardCellFactory instance(
-      board_row_cnt, board_column_cnt, plane_row_cnt, plane_column_cnt);
-    assert(board_row_cnt == instance.board_row_cnt_);
-    assert(board_column_cnt == instance.board_column_cnt_);
-    assert(plane_row_cnt == instance.plane_row_cnt_);
-    assert(plane_column_cnt == instance.plane_column_cnt_);
-    return &instance;
-  }
-
-  // Return the statistics for the singleton cell factory.
-  static BoardCellFactoryStatistics& Statistics() {
-    static BoardCellFactoryStatistics statistics_;  return statistics_; }
+  BoardCellFactory(
+    size_t board_row_cnt, size_t board_column_cnt,
+    size_t plane_row_cnt, size_t plane_column_cnt);
 
   // Return the cells for a given row, column, and
   // move-factor. Thread-safe. The caller may modify the returned
@@ -98,9 +72,10 @@ public:
   // move-factor. Thread-safe.
   void ReleaseCells(CellsKey key, Board2D::FlattenedCells&& cells);
 
+  // String representation.
+  std::string ToString() const;
+
 private:
-  BoardCellFactory(
-    size_t board_row_cnt, size_t board_column_cnt, size_t plane_row_cnt, size_t plane_column_cnt);
   BoardCellFactory(const BoardCellFactory&) = delete;
   BoardCellFactory& operator=(const BoardCellFactory&) = delete;
 
@@ -108,6 +83,14 @@ private:
   size_t board_column_cnt_;
   size_t plane_row_cnt_;
   size_t plane_column_cnt_;
+
+  // Statistics
+  std::atomic<size_t> created_plane_sets_ {0};
+  std::atomic<size_t> acquired_plane_sets_ {0};
+  std::atomic<size_t> released_plane_sets_ {0};
+
+  // Total size, in bytes of a set of input planes.
+  size_t flat_vector_byte_count_;
 
   // Map from the row index, column index, and move factor to the
   // pre-initialized, flattened planes representing the static valued

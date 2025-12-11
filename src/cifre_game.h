@@ -176,7 +176,7 @@ public:
 
   // Return the cifre::State representing the initial game state.
   virtual State* CreateInitialState(
-    const std::vector<Player*>& players, size_t starting_player_idx) const = 0;
+    const std::vector<Player*>& players, size_t starting_player_idx) = 0;
 
   // Create Player for the game. 'algo' must be nullptr for
   // non-algorithmic players. Returns nullptr if the game does not

@@ -13,21 +13,6 @@
 namespace cifre { namespace gettysburg {
 
 //
-// BoardCellFactoryStatistics
-//
-std::string
-BoardCellFactoryStatistics::ToString() const
-{
-  std::stringstream ss;
-  ss
-    << "plane sets: created " << created_plane_sets_ << ", "
-    << "acquired " << acquired_plane_sets_ << ", "
-    << "released " << released_plane_sets_;
-
-  return ss.str();
-}
-
-//
 // BoardCellFactory
 //
 BoardCellFactory::BoardCellFactory(
@@ -39,6 +24,9 @@ BoardCellFactory::BoardCellFactory(
   assert(plane_row_cnt_ == ((board_row_cnt_ - 1) * 2) + 1);
   assert(plane_column_cnt_ == ((board_column_cnt_ - 1) * 2) + 1);
 
+  flat_vector_byte_count_ =
+    plane_row_cnt_ * plane_column_cnt_ * PLANE_COUNT * sizeof(float);
+
   // Make a set of planes for each position and possible move-factor
   // on the board...
   for (size_t br = 0; br < board_row_cnt_; ++br) {
@@ -48,7 +36,7 @@ BoardCellFactory::BoardCellFactory(
         // vector as that is what is most efficient for feeding to the
         // model.
         Board2D::FlattenedCells flat_vector;
-        flat_vector.resize(plane_row_cnt_ * plane_column_cnt_ * PLANE_COUNT * sizeof(float));
+        flat_vector.resize(flat_vector_byte_count_);
         float* flat = reinterpret_cast<float*>(flat_vector.data());
 
         // The planes for a board position [br, bc] includes a border
@@ -84,8 +72,7 @@ BoardCellFactory::AcquireCells(CellsKey key)
 {
   key = std::make_tuple(std::get<0>(key), std::get<1>(key), 0); // move-factor FIXME
 
-  auto& stats = Statistics();
-  stats.acquired_plane_sets_ += 1;
+  acquired_plane_sets_ += 1;
 
   // First check if there is a plane-set already available for
   // immediate use.
@@ -105,7 +92,7 @@ BoardCellFactory::AcquireCells(CellsKey key)
   THROWIF(iter == planes_map_.end(), "expected pre-initialized plane set");
   Board2D::FlattenedCells ps;
   ps.CopyFrom(iter->second);
-  stats.created_plane_sets_ += 1;
+  created_plane_sets_ += 1;
 
   return ps;
 }
@@ -115,8 +102,7 @@ BoardCellFactory::ReleaseCells(CellsKey key, Board2D::FlattenedCells&& cells)
 {
   key = std::make_tuple(std::get<0>(key), std::get<1>(key), 0); // move-factor FIXME
 
-  auto& stats = Statistics();
-  stats.released_plane_sets_ += 1;
+  released_plane_sets_ += 1;
 
   // When debugging, check that the returned cells match what was
   // originally acquired.
@@ -132,6 +118,42 @@ BoardCellFactory::ReleaseCells(CellsKey key, Board2D::FlattenedCells&& cells)
     auto pr = alloc_planes_map_.try_emplace(key);
     pr.first->second.emplace_back(std::move(cells));
   }
+}
+
+std::string
+BoardCellFactory::ToString() const
+{
+  std::stringstream ss;
+
+  const size_t cplane_bytes = flat_vector_byte_count_ * planes_map_.size();
+  ss
+    << "constant plane sets:\n"
+    << "    created " << planes_map_.size() << ", " << "memory usage " << cplane_bytes << "\n";
+
+  const size_t aplane_bytes = flat_vector_byte_count_ * alloc_planes_map_.size();
+  ss
+    << "allocated plane sets:\n"
+    << "    created " << created_plane_sets_ << ", " << "memory usage " << aplane_bytes << "\n"
+    << "    acquired " << acquired_plane_sets_ << ", " << "released " << released_plane_sets_;
+
+  size_t max_per = 0;
+  CellsKey max_key;
+  for (const auto& pr : alloc_planes_map_) {
+    if (pr.second.size() > max_per) {
+      max_per = pr.second.size();
+      max_key = pr.first;
+    }
+  }
+
+  if (max_per > 0) {
+    ss
+      << "\n    per-state maximum " << max_per << " for ["
+      << std::get<0>(max_key) << ","
+      << std::get<1>(max_key) << ","
+      << std::get<2>(max_key) << "]";
+  }
+
+  return ss.str();
 }
 
 }} // namespace cifre::gettysburg

@@ -16,29 +16,17 @@ namespace cifre { namespace gettysburg {
 //
 // Board
 //
-Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players) :
-  cifre::Board2DHex(BoardCellFactory::PLANE_COUNT, size, players, 0 /* starting_player_id */)
+Board::Board(
+  const std::shared_ptr<BoardCellFactory>& factory, const cifre::BoardSize2D& board_shape,
+  const cifre::BoardSize2D& plane_shape, const std::vector<Player*>& players) :
+  cifre::Board2DHex(BoardCellFactory::PLANE_COUNT, board_shape, players, 0 /* starting_player_id */),
+  cell_factory_(factory), plane_shape_(plane_shape)
 {
-  // Player 0 is 'c' (confederate) and player 1 is 'u' (union).
-  players[0]->SetChar(CONFEDERATE_CHAR);
-  players[1]->SetChar(UNION_CHAR);
-
-  // The input planes are based on the size of the board. Because the
-  // model is trained/used by always having the unit currently being
-  // controlled at the center of the plane, there must be a border
-  // around the map to allow any actual map hex to be at the center of
-  // the plane.
-  plane_row_cnt_ = ((size_.RowCount() - 1) * 2) + 1;
-  plane_column_cnt_ = ((size_.ColumnCount() - 1) * 2) + 1;
-
   // Turn is represented by a integer. Each day has seven turns plus 1
   // for the night. So for JULY_1 scenario turn 0 is the first turn
   // (6-8 am on July 1st), turn 1 is the next turn (8-10 am on July
   // 1st), ..., turn 7 is the night of July 1st, etc.
   turn_ = 0;
-
-  cell_factory_ = BoardCellFactory::Instance(
-    size_.RowCount(), size_.ColumnCount(), plane_row_cnt_, plane_column_cnt_);
 
   // Create initial units.
   UpdateUnits();
@@ -74,8 +62,8 @@ Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players
 }
 
 Board::Board(const Board& other) :
-  cifre::Board2DHex(other), cell_factory_(other.cell_factory_),
-  plane_row_cnt_(other.plane_row_cnt_), plane_column_cnt_(other.plane_column_cnt_),
+  cifre::Board2DHex(other),
+  cell_factory_(other.cell_factory_), plane_shape_(other.plane_shape_),
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
   active_move_factor_expended_(other.active_move_factor_expended_),
@@ -116,15 +104,14 @@ Board::Hash() const
   // 'cells_flattened_factory_key_') themselves are not hashed because
   // they are derived from the other members.
   //
+  // 'plane_shape_' is not hashed because it is equal for all boards.
+  //
   // active_unit_ is not hashed because it is redundant with
   // active_army_ and active_unit_idx_.
 
   // FIXME likely need to include turn_ in the cell state (turn
   // plane?) and then would need to add it to the hash. For now it is
   // not in the hash so board states are not differentiated by turn.
-
-  hash += (plane_row_cnt_ * mulp) ^ (hash >> 23);
-  hash += (plane_column_cnt_ * mulp) ^ (hash >> 23);
 
   hash += (uint64_t(active_army_) * mulp) ^ (hash >> 23);
   hash += (active_unit_idx_ * mulp) ^ (hash >> 23);
@@ -160,6 +147,8 @@ Board::Equal(const State* other) const
   // 'cells_flattened_factory_key_') themselves are not compared
   // because they are derived from the other members.
   //
+  // 'plane_shape_' is not compared because it is same for all boards.
+  //
   // active_unit_ is not compared because it is redundant with
   // active_army_ and active_unit_idx_.
 
@@ -168,8 +157,6 @@ Board::Equal(const State* other) const
   // not in the hash so board states are not differentiated by turn.
 
   if ((active_player_id_ != ob->active_player_id_) ||
-      (plane_row_cnt_ != ob->plane_row_cnt_) ||
-      (plane_column_cnt_ != ob->plane_column_cnt_) ||
       (active_army_ != ob->active_army_) ||
       (active_unit_idx_ != ob->active_unit_idx_) ||
       (active_first_row_ != ob->active_first_row_) ||
@@ -678,7 +665,7 @@ Board::ToDebugString() const
   //        \____/
 
   // Top of first row of hex cells.
-  for (size_t col_idx = 0; col_idx < plane_column_cnt_; col_idx += 2) {
+  for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); col_idx += 2) {
     if (col_idx == 0) {
       sstr << "  ____";
     }
@@ -689,9 +676,9 @@ Board::ToDebugString() const
   sstr << "\n";
 
   // Rows...
-  for (size_t row_idx = 0; row_idx < plane_row_cnt_; ++row_idx) {
+  for (size_t row_idx = 0; row_idx < plane_shape_.RowCount(); ++row_idx) {
     // Loc 0...
-    for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
+    for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
         if (col_idx == 0) {
           sstr << " ";
@@ -706,13 +693,13 @@ Board::ToDebugString() const
         sstr << "      ";
       }
     }
-    if ((row_idx != 0) && ((plane_column_cnt_ % 2) == 0)) {
+    if ((row_idx != 0) && ((plane_shape_.ColumnCount() % 2) == 0)) {
       sstr << "/";
     }
     sstr << "\n";
 
     // Loc 1...
-    for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
+    for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
         sstr << "/" << DebugCellString(1 /* loc */, row_idx, col_idx) << "\\";
       }
@@ -723,13 +710,13 @@ Board::ToDebugString() const
         sstr << "____";
       }
     }
-    if ((row_idx != 0) && ((plane_column_cnt_ % 2) == 0)) {
+    if ((row_idx != 0) && ((plane_shape_.ColumnCount() % 2) == 0)) {
       sstr << "/";
     }
     sstr << "\n";
 
     // Loc 2...
-    for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
+    for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
         sstr << "\\" << DebugCellString(2 /* loc */, row_idx, col_idx) << "/";
       }
@@ -737,13 +724,13 @@ Board::ToDebugString() const
         sstr << DebugCellString(0 /* loc */, row_idx, col_idx);
       }
     }
-    if ((plane_column_cnt_ % 2) == 0) {
+    if ((plane_shape_.ColumnCount() % 2) == 0) {
       sstr << "\\";
     }
     sstr << "\n";
 
     // Loc 3...
-    for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
+    for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
         if (col_idx == 0) {
           sstr << " ";
@@ -754,7 +741,7 @@ Board::ToDebugString() const
         sstr << DebugCellString(1 /* loc */, row_idx, col_idx);
       }
     }
-    if ((plane_column_cnt_ % 2) == 0) {
+    if ((plane_shape_.ColumnCount() % 2) == 0) {
       sstr << "\\";
     }
     sstr << "\n";
@@ -762,15 +749,15 @@ Board::ToDebugString() const
 
   // Lower half of last row.
   sstr << "  ";
-  for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
+  for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); ++col_idx) {
     if ((col_idx % 2) == 1) {
-      sstr << "    \\" << DebugCellString(2 /* loc */, plane_row_cnt_ - 1, col_idx) << "/";
+      sstr << "    \\" << DebugCellString(2 /* loc */, plane_shape_.RowCount() - 1, col_idx) << "/";
     }
   }
   sstr << "\n ";
-  for (size_t col_idx = 0; col_idx < plane_column_cnt_; ++col_idx) {
+  for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); ++col_idx) {
     if ((col_idx % 2) == 1) {
-      sstr << "      \\" << DebugCellString(3 /* loc */, plane_row_cnt_ - 1, col_idx) << "/";
+      sstr << "      \\" << DebugCellString(3 /* loc */, plane_shape_.RowCount() - 1, col_idx) << "/";
     }
   }
   sstr << "\n";

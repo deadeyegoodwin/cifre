@@ -21,8 +21,14 @@ namespace cifre { namespace gettysburg {
 //
 class Board : public cifre::Board2DHex {
 public:
+  static constexpr char UNION_CHAR = 'u';
+  static constexpr char CONFEDERATE_CHAR = 'c';
+
+public:
   // Create board...
-  Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players);
+  Board(
+    const std::shared_ptr<BoardCellFactory>& factory, const cifre::BoardSize2D& board_shape,
+    const cifre::BoardSize2D& plane_shape, const std::vector<Player*>& players);
 
   // Destructor
   virtual ~Board();
@@ -59,19 +65,19 @@ public:
   // Return the value of the plane cell at the given row, column, and
   // plane. Row and column index are relative to the plane.
   float PlaneCellValueAt(size_t row_idx, size_t col_idx, size_t plane_idx) const {
-    assert((row_idx < plane_row_cnt_) &&
-           (col_idx < plane_column_cnt_) &&
+    assert((row_idx < plane_shape_.RowCount()) &&
+           (col_idx < plane_shape_.ColumnCount()) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
-    return cells_[(row_idx * plane_column_cnt_ * BoardCellFactory::PLANE_COUNT) +
+    return cells_[(row_idx * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
                   (col_idx * BoardCellFactory::PLANE_COUNT) + plane_idx]; }
 
   // Set the value of the plane cell at the given row, column, and
   // plane. Row and column index are relative to the plane.
   void SetPlaneCellValueAt(float value, size_t row_idx, size_t col_idx, size_t plane_idx) {
-    assert((row_idx < plane_row_cnt_) &&
-           (col_idx < plane_column_cnt_) &&
+    assert((row_idx < plane_shape_.RowCount()) &&
+           (col_idx < plane_shape_.ColumnCount()) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
-    cells_[(row_idx * plane_column_cnt_ * BoardCellFactory::PLANE_COUNT) +
+    cells_[(row_idx * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
            (col_idx * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }
 
   // Return the value of the board cell at the given row, column, and
@@ -80,7 +86,7 @@ public:
     assert((row_idx < size_.RowCount()) &&
            (col_idx < size_.ColumnCount()) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
-    return cells_[((row_idx + active_first_row_) * plane_column_cnt_ * BoardCellFactory::PLANE_COUNT) +
+    return cells_[((row_idx + active_first_row_) * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
                   ((col_idx + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx]; }
 
   // Set the value of the board cell at the given row, column, and
@@ -89,7 +95,7 @@ public:
     assert((row_idx < size_.RowCount()) &&
            (col_idx < size_.ColumnCount()) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
-    cells_[((row_idx + active_first_row_) * plane_column_cnt_ * BoardCellFactory::PLANE_COUNT) +
+    cells_[((row_idx + active_first_row_) * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
            ((col_idx + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }
 
   void SetUnionAt(float value, size_t row_idx, size_t col_idx) {
@@ -139,9 +145,6 @@ private:
   // or 'cells_'. To perform a complete copy, use Copy().
   Board(const Board& other);
 
-  static constexpr char UNION_CHAR = 'u';
-  static constexpr char CONFEDERATE_CHAR = 'c';
-
   // Utility method to get the active unit from active_army_ and
   // active_unit_idx_. Return nullptr if active army does not have any
   // units.
@@ -156,11 +159,10 @@ private:
 
   std::string DebugCellString(size_t loc, size_t row_idx, size_t col_idx) const;
 
-  BoardCellFactory* cell_factory_;
+  std::shared_ptr<BoardCellFactory> cell_factory_;
   BoardCellFactory::CellsKey cells_flattened_factory_key_;
 
-  size_t plane_row_cnt_;
-  size_t plane_column_cnt_;
+  const cifre::BoardSize2D plane_shape_;
 
   Unit::ArmyKind active_army_;
   Unit* active_unit_;

@@ -11,6 +11,7 @@
 
 #include "cifre_game.h"
 #include "gettysburg_board.h"
+#include "gettysburg_board_cell_factory.h"
 #include "gettysburg_player.h"
 #include "common_error.h"
 #include "common_logger.h"
@@ -57,13 +58,14 @@ public:
 
   // See cifre::Game
   State* CreateInitialState(
-    const std::vector<Player*>& players, size_t starting_player_idx) const override;
+    const std::vector<Player*>& players, size_t starting_player_idx) override;
 
 private:
   GameOption::OptionId OPTION_GAME_SHAPE;
   GameOption::OptionId OPTION_MAX_TURNS_PER_GAME;
 
   cifre::BoardSize2D game_shape_;
+  std::shared_ptr<BoardCellFactory> cell_factory_;
 };
 
 Gettysburg::Gettysburg() : cifre::Game(), game_shape_(DEFAULT_GAME_SHAPE)
@@ -94,7 +96,7 @@ Gettysburg::EndBanner() const
   std::stringstream sstr;
   sstr
     << "Gettysburg\n"
-    << common::DuplicateAndIndent(BoardCellFactory::Statistics().ToString(), 2 /* indent */);
+    << common::DuplicateAndIndent(cell_factory_->ToString(), 2 /* indent */);
   return sstr.str();
 }
 
@@ -145,8 +147,8 @@ Gettysburg::DefaultAlphaZeroSettings(const bool train) const
     settings.dirichlet_alpha_ = 10.0 / 64.0;
     settings.dirichlet_sample_count_ = 2117;
     settings.dirichlet_ratio_ = 0.25;
-    settings.search_count_ = 500;
-    settings.max_search_depth_ = 64;
+    settings.search_count_ = 100;
+    settings.max_search_depth_ = 128;
     settings.cpuct_ = 10.0;
   }
   else { // train = false
@@ -154,8 +156,8 @@ Gettysburg::DefaultAlphaZeroSettings(const bool train) const
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
     settings.dirichlet_alpha_ = 0.0; // disable dirichlet
-    settings.search_count_ = 500;
-    settings.max_search_depth_ = 64;
+    settings.search_count_ = 100;
+    settings.max_search_depth_ = 128;
     settings.cpuct_ = 1.0;
   }
 
@@ -183,11 +185,28 @@ Gettysburg::CreatePlayer(
 
 cifre::State*
 Gettysburg::CreateInitialState(
-  const std::vector<Player*>& players, size_t starting_player_idx) const
+  const std::vector<Player*>& players, size_t starting_player_idx)
 {
+  // Player 0 is 'c' (confederate) and player 1 is 'u' (union).
+  players[0]->SetChar(Board::CONFEDERATE_CHAR);
+  players[1]->SetChar(Board::UNION_CHAR);
+
+  // The input planes are based on the size of the board. Because the
+  // model is trained/used by always having the unit currently being
+  // controlled at the center of the plane, there must be a border
+  // around the map to allow any actual map hex to be at the center of
+  // the plane.
+  cifre::BoardSize2D plane_shape(
+    ((game_shape_.RowCount() - 1) * 2) + 1,
+    ((game_shape_.ColumnCount() - 1) * 2) + 1);
+
+  cell_factory_.reset(new BoardCellFactory(
+                        game_shape_.RowCount(), game_shape_.ColumnCount(),
+                        plane_shape.RowCount(), plane_shape.ColumnCount()));
+
   // 'starting_player_id' is ignored because gettysburg must start
   // with confederates.
-  return new Board(game_shape_, players);
+  return new Board(cell_factory_, game_shape_, plane_shape, players);
 }
 
 }} // namespace cifre::gettysburg
