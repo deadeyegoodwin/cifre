@@ -39,7 +39,9 @@ struct AlphaZeroSettings {
   // each call to NextActionId.
   bool per_game_node_tree_ {false};
 
-  // Options for how NextActionId can choose an action ID.
+  // Options for how NextActionId can choose an action ID. This
+  // setting takes the place of temperature in the original AlphaZero
+  // but is less flexible.
   //   MAX_VISITED - choose action ID corresponding to max visited child
   //   RANDOM_VISIT_WEIGHTED - choose randomly taking into account
   //   child visits so that the more visited children are
