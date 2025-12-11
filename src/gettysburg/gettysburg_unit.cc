@@ -29,7 +29,11 @@ Unit::Hash() const
   constexpr uint64_t mulp = 2654435789;
   uint64_t hash = 104395301;
 
+  // Don't hash 'name_', it is just descriptive...
+
   hash += (uint64_t(army_kind_) * mulp) ^ (hash >> 23);
+  hash += (uint64_t(unit_kind_) * mulp) ^ (hash >> 23);
+  hash += (uint64_t(combat_factor_ * 100000.0) * mulp) ^ (hash >> 23);
   hash += (uint64_t(move_factor_ * 100000.0) * mulp) ^ (hash >> 23);
   hash += (row_idx_ * mulp) ^ (hash >> 23);
   hash += (column_idx_ * mulp) ^ (hash >> 23);
@@ -40,7 +44,11 @@ Unit::Hash() const
 bool
 Unit::Equal(const Unit* other) const
 {
+  // Don't compare 'name_', it is just descriptive...
+
   return ((army_kind_ == other->army_kind_) &&
+          (unit_kind_ == other->unit_kind_) &&
+          (combat_factor_ == other->combat_factor_) &&
           (move_factor_ == other->move_factor_) &&
           (row_idx_ == other->row_idx_) &&
           (column_idx_ == other->column_idx_));
