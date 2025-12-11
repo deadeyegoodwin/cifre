@@ -542,6 +542,8 @@ Board::UpdateTerminalStatus()
   // If scenario is complete, then set terminal status based on the
   // number of victory points accrued by each army.
   if (turn_ > OOB::LastTurn(OOB::Scenario::JULY_1)) {
+    turn_ = OOB::LastTurn(OOB::Scenario::JULY_1);
+
     float cvp = 0.0, uvp = 0.0;
     for (const auto& cg : captured_vps_) {
       switch (cg.second) {
@@ -585,6 +587,16 @@ Board::PreBoardString() const
     << OOB::TurnToString(OOB::Scenario::JULY_1, turn_) << "\n"
     << "Player " << ActivePlayer()->Name() << " (p" << ActivePlayerId() << ")"
     << ", " << active_unit_->ToString();
+
+  if (!captured_vps_.empty()) {
+    sstr << "\nVictory Points:";
+    for (const auto& cg : captured_vps_) {
+      sstr
+        << "\n  " << VictoryPointAt(cg.first.first, cg.first.second)
+        << " at [" << cg.first.first << "," << cg.first.second << "] "
+        << Unit::ArmyKindToString(cg.second);
+    }
+  }
 
   return sstr.str();
 }
