@@ -130,7 +130,11 @@ BoardCellFactory::ToString() const
     << "constant plane sets:\n"
     << "    created " << planes_map_.size() << ", " << "memory usage " << cplane_bytes << "\n";
 
-  const size_t aplane_bytes = flat_vector_byte_count_ * alloc_planes_map_.size();
+  size_t aplane_bytes = 0;
+  for (const auto& pr : alloc_planes_map_) {
+    aplane_bytes += pr.second.size();
+  }
+  aplane_bytes *= flat_vector_byte_count_;
   ss
     << "allocated plane sets:\n"
     << "    created " << created_plane_sets_ << ", " << "memory usage " << aplane_bytes << "\n"
