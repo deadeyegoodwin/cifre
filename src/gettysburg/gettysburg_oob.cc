@@ -6,6 +6,66 @@ namespace cifre { namespace gettysburg {
 
 namespace {
 
+// Union units for SMALL scenario.
+std::vector<std::unique_ptr<cifre::gettysburg::Unit>>
+UnionUnitsSmall(size_t turn)
+{
+  // Small scenario is based on JULY_1 but has fewer units and they
+  // are constrained to appear in a 5x7 area as that is the smallest
+  // supported board.
+  std::vector<std::unique_ptr<cifre::gettysburg::Unit>> units;
+
+  switch (turn) {
+  case 0: // 6-8am, start of scenario
+    units.emplace_back(
+      std::make_unique<Unit>(
+        "Reynolds", Unit::ArmyKind::UNION, Unit::UnitKind::HEADQUARTERS, 0 /*CF*/, 2 /*MF*/, 0, 0));
+    units.emplace_back(
+      std::make_unique<Unit>(
+        "Wadsworth", Unit::ArmyKind::UNION, Unit::UnitKind::INFANTRY, 3 /*CF*/, 1 /*MF*/, 0, 0));
+    break;
+
+  case 1: // 8-10am
+    units.emplace_back(
+      std::make_unique<Unit>(
+        "Devin", Unit::ArmyKind::UNION, Unit::UnitKind::CAVALRY, 1 /*CF*/, 2 /*MF*/, 4, 1));
+    break;
+  }
+
+  return units;
+}
+
+// Confederate units for SMALL scenario.
+std::vector<std::unique_ptr<cifre::gettysburg::Unit>>
+ConfederateUnitsSmall(size_t turn)
+{
+  // Small scenario is based on JULY_1 but has fewer units and they
+  // are constrained to appear in a 5x7 area as that is the smallest
+  // supported board.
+  std::vector<std::unique_ptr<cifre::gettysburg::Unit>> units;
+
+  switch (turn) {
+  case 0: // 6-8am, start of scenario
+    break;
+
+  case 1: // 8-10am
+    units.emplace_back(
+      std::make_unique<Unit>(
+        "Heth", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::INFANTRY, 5 /*CF*/, 1 /*MF*/, 0, 6));
+    units.emplace_back(
+      std::make_unique<Unit>(
+        "Pegram", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::ARTILLERY, 2 /*CF*/, 1 /*MF*/, 0, 6));
+    break;
+
+  case 2: // 10am-12pm
+    units.emplace_back(
+      std::make_unique<Unit>(
+        "Hill", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::HEADQUARTERS, 0 /*CF*/, 2 /*MF*/, 4, 6));
+  }
+
+  return units;
+}
+
 // Union units for JULY_1 scenario.
 std::vector<std::unique_ptr<cifre::gettysburg::Unit>>
 UnionUnitsJuly1(size_t turn)
@@ -72,7 +132,7 @@ ConfederateUnitsJuly1(size_t turn)
 std::string
 OOB::TurnToString(const Scenario s, size_t turn)
 {
-  // For JULY_1 can use 'turn' directly...
+  // For SMALL and JULY_1 can use 'turn' directly...
   switch (turn) {
   case 0:
     return "July 1, 6-8am";
@@ -99,6 +159,7 @@ size_t
 OOB::LastTurn(Scenario scenario)
 {
   switch (scenario) {
+  case Scenario::SMALL:
   case Scenario::JULY_1:  // last turn is the night of July 1st
     return 7;
   }
@@ -110,6 +171,15 @@ std::vector<std::unique_ptr<Unit>>
 OOB::Units(Scenario scenario, Unit::ArmyKind army, size_t turn)
 {
   switch (scenario) {
+  case Scenario::SMALL:
+    switch (army) {
+    case Unit::ArmyKind::UNION:
+      return UnionUnitsSmall(turn);
+    case Unit::ArmyKind::CONFEDERATE:
+      return ConfederateUnitsSmall(turn);
+    }
+    break;
+
   case Scenario::JULY_1:
     switch (army) {
     case Unit::ArmyKind::UNION:
@@ -117,6 +187,7 @@ OOB::Units(Scenario scenario, Unit::ArmyKind army, size_t turn)
     case Unit::ArmyKind::CONFEDERATE:
       return ConfederateUnitsJuly1(turn);
     }
+    break;
   }
 
   return { };

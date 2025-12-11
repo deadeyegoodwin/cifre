@@ -23,11 +23,13 @@ class OOB {
 public:
   // Game scenarios.
   enum class Scenario {
+    SMALL,   // Single day, July 1st, small board and reduced units
     JULY_1   // Single day, July 1st
   };
 
   static std::string ScenarioToString(const Scenario s) {
     switch (s) {
+    case Scenario::SMALL: return "SMALL";
     case Scenario::JULY_1: return "JULY-1";
     }
     return "<none>"; // unreachable

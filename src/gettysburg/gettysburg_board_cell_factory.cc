@@ -16,8 +16,9 @@ namespace cifre { namespace gettysburg {
 // BoardCellFactory
 //
 BoardCellFactory::BoardCellFactory(
-  size_t board_row_cnt, size_t board_column_cnt, size_t plane_row_cnt, size_t plane_column_cnt) :
-  board_row_cnt_(board_row_cnt), board_column_cnt_(board_column_cnt),
+  const OOB::Scenario scenario, size_t board_row_cnt, size_t board_column_cnt,
+  size_t plane_row_cnt, size_t plane_column_cnt) :
+  scenario_(scenario), board_row_cnt_(board_row_cnt), board_column_cnt_(board_column_cnt),
   plane_row_cnt_(plane_row_cnt), plane_column_cnt_(plane_column_cnt)
 {
   // Make sure the plane and board size are what we expect...
@@ -57,8 +58,22 @@ BoardCellFactory::BoardCellFactory(
             if (bd.hill_) {
               flat[offset + PLANE_IDX_HILL] = CELL_ACTIVE;
             }
-            flat[offset + PLANE_IDX_VICTORY_POINT] = bd.victory_points_;
+
+            // For small scenario we just have a single victory point
+            // in the center of the board, which is added below.
+            if (scenario_ != OOB::Scenario::SMALL) {
+              flat[offset + PLANE_IDX_VICTORY_POINT] = bd.victory_points_;
+            }
           }
+        }
+
+        // For small scenario add a single victory point in the center
+        // of the board.
+        if (scenario_ == OOB::Scenario::SMALL) {
+          const size_t offset =
+            ((start_br + (board_row_cnt_ / 2)) * plane_column_cnt_ * PLANE_COUNT) +
+            ((start_bc + (board_column_cnt_ / 2)) * PLANE_COUNT);
+          flat[offset + PLANE_IDX_VICTORY_POINT] = 1.0;
         }
 
         planes_map_[std::make_tuple(br, bc, mf)] = std::move(flat_vector);

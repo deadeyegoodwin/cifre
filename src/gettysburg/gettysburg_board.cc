@@ -9,7 +9,6 @@
 #include "common_error.h"
 #include "common_util.h"
 #include "gettysburg_board.h"
-#include "gettysburg_oob.h"
 
 namespace cifre { namespace gettysburg {
 
@@ -17,10 +16,11 @@ namespace cifre { namespace gettysburg {
 // Board
 //
 Board::Board(
-  const std::shared_ptr<BoardCellFactory>& factory, const cifre::BoardSize2D& board_shape,
-  const cifre::BoardSize2D& plane_shape, const std::vector<Player*>& players) :
+  const std::shared_ptr<BoardCellFactory>& factory, const OOB::Scenario scenario,
+  const cifre::BoardSize2D& board_shape, const cifre::BoardSize2D& plane_shape,
+  const std::vector<Player*>& players) :
   cifre::Board2DHex(BoardCellFactory::PLANE_COUNT, board_shape, players, 0 /* starting_player_id */),
-  cell_factory_(factory), plane_shape_(plane_shape)
+  cell_factory_(factory), scenario_(scenario), plane_shape_(plane_shape)
 {
   // Turn is represented by a integer. Each day has seven turns plus 1
   // for the night. So for JULY_1 scenario turn 0 is the first turn
@@ -62,8 +62,8 @@ Board::Board(
 }
 
 Board::Board(const Board& other) :
-  cifre::Board2DHex(other),
-  cell_factory_(other.cell_factory_), plane_shape_(other.plane_shape_),
+  cifre::Board2DHex(other), cell_factory_(other.cell_factory_),
+  scenario_(other.scenario_), plane_shape_(other.plane_shape_),
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
   active_move_factor_expended_(other.active_move_factor_expended_),
@@ -104,6 +104,7 @@ Board::Hash() const
   // 'cells_flattened_factory_key_') themselves are not hashed because
   // they are derived from the other members.
   //
+  // 'scenario_' is not hashed because it is equal for all boards.
   // 'plane_shape_' is not hashed because it is equal for all boards.
   //
   // active_unit_ is not hashed because it is redundant with
@@ -147,6 +148,7 @@ Board::Equal(const State* other) const
   // 'cells_flattened_factory_key_') themselves are not compared
   // because they are derived from the other members.
   //
+  // 'scenario_' is not compared because it is equal for all boards.
   // 'plane_shape_' is not compared because it is same for all boards.
   //
   // active_unit_ is not compared because it is redundant with
@@ -381,14 +383,14 @@ void
 Board::UpdateUnits()
 {
   // Union
-  for (auto& u : OOB::Units(OOB::Scenario::JULY_1, Unit::ArmyKind::UNION, turn_)) {
+  for (auto& u : OOB::Units(scenario_, Unit::ArmyKind::UNION, turn_)) {
     if ((u->Row() < size_.RowCount()) && (u->Column() < size_.ColumnCount())) {
       union_units_.emplace_back(std::move(u));
     }
   }
 
   // Confederate
-  for (auto& u : OOB::Units(OOB::Scenario::JULY_1, Unit::ArmyKind::CONFEDERATE, turn_)) {
+  for (auto& u : OOB::Units(scenario_, Unit::ArmyKind::CONFEDERATE, turn_)) {
     if ((u->Row() < size_.RowCount()) && (u->Column() < size_.ColumnCount())) {
       confederate_units_.emplace_back(std::move(u));
     }
@@ -541,8 +543,8 @@ Board::UpdateTerminalStatus()
 {
   // If scenario is complete, then set terminal status based on the
   // number of victory points accrued by each army.
-  if (turn_ > OOB::LastTurn(OOB::Scenario::JULY_1)) {
-    turn_ = OOB::LastTurn(OOB::Scenario::JULY_1);
+  if (turn_ > OOB::LastTurn(scenario_)) {
+    turn_ = OOB::LastTurn(scenario_);
 
     float cvp = 0.0, uvp = 0.0;
     for (const auto& cg : captured_vps_) {
@@ -584,7 +586,7 @@ Board::PreBoardString() const
 
   sstr
     << "Turn " << turn_ << ": "
-    << OOB::TurnToString(OOB::Scenario::JULY_1, turn_) << "\n"
+    << OOB::TurnToString(scenario_, turn_) << "\n"
     << "Player " << ActivePlayer()->Name() << " (p" << ActivePlayerId() << ")"
     << ", " << active_unit_->ToString();
 

@@ -9,6 +9,7 @@
 #include <tuple>
 
 #include "cifre_board2d.h"
+#include "gettysburg_oob.h"
 
 namespace cifre { namespace gettysburg {
 
@@ -59,6 +60,7 @@ public:
 
 public:
   BoardCellFactory(
+    const OOB::Scenario scenario,
     size_t board_row_cnt, size_t board_column_cnt,
     size_t plane_row_cnt, size_t plane_column_cnt);
 
@@ -79,6 +81,7 @@ private:
   BoardCellFactory(const BoardCellFactory&) = delete;
   BoardCellFactory& operator=(const BoardCellFactory&) = delete;
 
+  const OOB::Scenario scenario_;
   size_t board_row_cnt_;
   size_t board_column_cnt_;
   size_t plane_row_cnt_;

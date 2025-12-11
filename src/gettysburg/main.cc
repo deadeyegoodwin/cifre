@@ -19,6 +19,8 @@
 
 namespace cifre { namespace gettysburg {
 
+static const cifre::BoardSize2D MIN_GAME_SHAPE {5, 7};
+static const cifre::BoardSize2D MAX_GAME_SHAPE {11, 21};
 static const cifre::BoardSize2D DEFAULT_GAME_SHAPE {11, 21};
 static const size_t DEFAULT_MAX_TURNS_PER_GAME = 20;
 
@@ -120,9 +122,13 @@ Gettysburg::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
 {
   if (opt.Id() == OPTION_GAME_SHAPE) {
     game_shape_ = cifre::BoardSize2D(arg_str);
-    GameCheckTrueMsg((game_shape_.RowCount() >= 5) && (game_shape_.ColumnCount() >= 5),
-                     Name() + " board must be " + cifre::BoardSize2D(5, 5).ToString() +
-                     " or larger");
+    GameCheckTrueMsg(
+      (game_shape_.RowCount() >= MIN_GAME_SHAPE.RowCount()) &&
+      (game_shape_.ColumnCount() >= MIN_GAME_SHAPE.ColumnCount()) &&
+      (game_shape_.RowCount() <= MAX_GAME_SHAPE.RowCount()) &&
+      (game_shape_.ColumnCount() <= MAX_GAME_SHAPE.ColumnCount()),
+      Name() + " board must be between " + MIN_GAME_SHAPE.ToString() +
+      " and " + MAX_GAME_SHAPE.ToString());
   }
   else if (opt.Id() == OPTION_MAX_TURNS_PER_GAME) {
     max_turns_per_game_ = cifre::GameOption::ParseUnsigned(opt, arg_str, 1 /* min */);
@@ -191,6 +197,14 @@ Gettysburg::CreateInitialState(
   players[0]->SetChar(Board::CONFEDERATE_CHAR);
   players[1]->SetChar(Board::UNION_CHAR);
 
+  // A full-size game is DEFAULT_GAME_SHAPE. Anything smaller than
+  // that is considered a "small game" and forces the use of the SMALL
+  // scenario.
+  OOB::Scenario scenario = OOB::Scenario::JULY_1;
+  if (game_shape_ != DEFAULT_GAME_SHAPE) {
+    scenario = OOB::Scenario::SMALL;
+  }
+
   // The input planes are based on the size of the board. Because the
   // model is trained/used by always having the unit currently being
   // controlled at the center of the plane, there must be a border
@@ -201,12 +215,13 @@ Gettysburg::CreateInitialState(
     ((game_shape_.ColumnCount() - 1) * 2) + 1);
 
   cell_factory_.reset(new BoardCellFactory(
+                        scenario,
                         game_shape_.RowCount(), game_shape_.ColumnCount(),
                         plane_shape.RowCount(), plane_shape.ColumnCount()));
 
   // 'starting_player_id' is ignored because gettysburg must start
   // with confederates.
-  return new Board(cell_factory_, game_shape_, plane_shape, players);
+  return new Board(cell_factory_, scenario, game_shape_, plane_shape, players);
 }
 
 }} // namespace cifre::gettysburg

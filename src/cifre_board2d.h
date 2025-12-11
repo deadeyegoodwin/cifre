@@ -31,6 +31,12 @@ public:
   // "<rows>,<columns>", for example "4,3".
   BoardSize2D(const std::string& str);
 
+  // Operators
+  bool operator==(const BoardSize2D& other) const {
+    return (row_cnt_ == other.row_cnt_) && (column_cnt_ == other.column_cnt_); }
+  bool operator!=(const BoardSize2D& other) const {
+    return !(*this == other); }
+
   // Return the number of rows in the board size.
   size_t RowCount() const { return row_cnt_; }
 
