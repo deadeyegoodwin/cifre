@@ -152,6 +152,10 @@ private:
   // units.
   Unit* ActiveUnit() const;
 
+  // Utility method to get the unit at a given row/column. Return
+  // nullptr if no unit at those coordinates.
+  Unit* UnitAt(size_t row_idx, size_t col_idx) const;
+
   void ReleaseInputPlanes();
   void UpdateInputPlanes();
   void UpdateTerminalStatus();

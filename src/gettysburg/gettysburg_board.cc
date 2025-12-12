@@ -272,6 +272,24 @@ Board::ActiveUnit() const
   return unit;
 }
 
+Unit*
+Board::UnitAt(size_t row_idx, size_t col_idx) const
+{
+  for (const auto& u : union_units_) {
+    if ((u->Row() == row_idx) && (u->Column() == col_idx)) {
+      return u.get();;
+    }
+  }
+
+  for (const auto& c : confederate_units_) {
+    if ((c->Row() == row_idx) && (c->Column() == col_idx)) {
+      return c.get();;
+    }
+  }
+
+  return nullptr;
+}
+
 Board*
 Board::Copy() const
 {
@@ -579,6 +597,58 @@ Board::UpdateTerminalStatus()
   }
 }
 
+namespace {
+
+enum class ANSIFGColor {
+  DEFAULT        = 0,
+  BLACK          = 30,
+  RED            = 31,
+  GREEN          = 32,
+  YELLOW         = 33,
+  BLUE           = 34,
+  MAGENTA        = 35,
+  CYAN           = 36,
+  WHITE          = 37,
+  BRIGHT_BLACK   = 90,
+  BRIGHT_RED     = 91,
+  BRIGHT_GREEN   = 92,
+  BRIGHT_YELLOW  = 93,
+  BRIGHT_BLUE    = 94,
+  BRIGHT_MAGENTA = 95,
+  BRIGHT_CYAN    = 96,
+  BRIGHT_WHITE   = 97
+};
+
+enum class ANSIBGColor {
+  DEFAULT        = 0,
+  BLACK          = 40,
+  RED            = 41,
+  GREEN          = 42,
+  YELLOW         = 43,
+  BLUE           = 44,
+  MAGENTA        = 45,
+  CYAN           = 46,
+  WHITE          = 47,
+  BRIGHT_BLACK   = 100,
+  BRIGHT_RED     = 101,
+  BRIGHT_GREEN   = 102,
+  BRIGHT_YELLOW  = 103,
+  BRIGHT_BLUE    = 104,
+  BRIGHT_MAGENTA = 105,
+  BRIGHT_CYAN    = 106,
+  BRIGHT_WHITE   = 107
+};
+
+const std::string
+PrintColor(ANSIFGColor fg, ANSIBGColor bg)
+{
+  return
+    std::string("\033[") + std::to_string(uint32_t(fg)) + ";" +
+    std::to_string(uint32_t(bg)) + "m";
+}
+
+} // namespace
+
 std::string
 Board::PreBoardString() const
 {
@@ -612,22 +682,42 @@ Board::PostBoardString() const
 std::string
 Board::BoardCellUpperString(size_t row_idx, size_t col_idx) const
 {
-  std::string str("  ");
   if (!cells_flattened_.empty()) {
-    uint32_t uc = uint32_t(UnionAt(row_idx, col_idx));
-    if (uc > 0) {
-      str[0] = UNION_CHAR;
-      str[1] = (uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' ');
-    }
+    const Unit* unit_at = UnitAt(row_idx, col_idx);
+    if (unit_at != nullptr) {
+      const bool active_at = (unit_at == active_unit_);
 
-    uint32_t cc = uint32_t(ConfederateAt(row_idx, col_idx));
-    if (cc > 0) {
-      str[0] = CONFEDERATE_CHAR;
-      str[1] = (cc >= 10) ? '*' :  ((cc > 1) ? ('0' + cc) : ' ');
+      uint32_t uc = uint32_t(UnionAt(row_idx, col_idx));
+      if (uc > 0) {
+        assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::UNION));
+        std::string str =
+          ((!active_at) ?
+           PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK) :
+           PrintColor(ANSIFGColor::WHITE, ANSIBGColor::BLUE));
+        str += UNION_CHAR;
+        str += PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK);
+        str += (uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' ');
+        str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
+        return str;
+      }
+
+      uint32_t cc = uint32_t(ConfederateAt(row_idx, col_idx));
+      if (cc > 0) {
+        assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::CONFEDERATE));
+        std::string str =
+          ((!active_at) ?
+           PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK) :
+           PrintColor(ANSIFGColor::WHITE, ANSIBGColor::YELLOW));
+        str += CONFEDERATE_CHAR;
+        str += PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK);
+        str += (cc >= 10) ? '*' :  ((cc > 1) ? ('0' + cc) : ' ');
+        str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
+        return str;
+      }
     }
   }
 
-  return str;
+  return "  ";
 }
 
 std::string
@@ -784,23 +874,45 @@ Board::DebugCellString(size_t loc, size_t row_idx, size_t col_idx) const
 {
   switch (loc) {
   case 0: {
-    std::string str("    ");
     if (!cells_flattened_.empty()) {
-      uint32_t uc =
-        uint32_t(PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT));
-      if (uc > 0) {
-        str[0] = UNION_CHAR;
-        str[1] = (uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' ');
-      }
+      const Unit* unit_at = UnitAt(row_idx - active_first_row_, col_idx - active_first_column_);
+      if (unit_at != nullptr) {
+        const bool active_at = (unit_at == active_unit_);
 
-      uint32_t cc =
-        uint32_t(PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT));
-      if (cc > 0) {
-        str[0] = CONFEDERATE_CHAR;
-        str[1] = (cc >= 10) ? '*' : ((cc > 1) ? ('0' + cc) : ' ');
+        uint32_t uc =
+          uint32_t(PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT));
+        if (uc > 0) {
+          assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::UNION));
+          std::string str =
+            ((!active_at) ?
+             PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK) :
+             PrintColor(ANSIFGColor::WHITE, ANSIBGColor::BLUE));
+          str += UNION_CHAR;
+          str += PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK);
+          str += (uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' ');
+          str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
+          str += "  ";
+          return str;
+        }
+
+        uint32_t cc =
+          uint32_t(PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT));
+        if (cc > 0) {
+          assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::CONFEDERATE));
+          std::string str =
+            ((!active_at) ?
+             PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK) :
+             PrintColor(ANSIFGColor::WHITE, ANSIBGColor::YELLOW));
+          str += CONFEDERATE_CHAR;
+          str += PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK);
+          str += (cc >= 10) ? '*' :  ((cc > 1) ? ('0' + cc) : ' ');
+          str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
+          str += "  ";
+          return str;
+        }
       }
     }
-    return str;
+    return "    ";
   }
 
   case 1: {
