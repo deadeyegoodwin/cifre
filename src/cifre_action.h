@@ -1,8 +1,8 @@
 // Copyright 2025, David Goodwin. All rights reserved.
 #pragma once
 
+#include <cstdint>
 #include "common_error.h"
-#include "common_logger.h"
 
 namespace cifre {
 
@@ -37,7 +37,7 @@ public:
   }
 
   // Return string representation of the player.
-  std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
+  std::string ToString() const;
 
 private:
   ActionKind kind_;

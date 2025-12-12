@@ -9,9 +9,9 @@
 
 #include "cifre_action.h"
 #include "cifre_algo_alphazero.h"
+#include "cifre_logger.h"
 #include "cifre_player.h"
 #include "cifre_state.h"
-#include "common_logger.h"
 
 namespace cifre {
 
@@ -192,6 +192,10 @@ public:
     OPTION_QUIET,
     OPTION_VERBOSE,
     OPTION_LOG_FILE,
+    OPTION_LOG_GAME,
+    OPTION_LOG_ALGO,
+    OPTION_LOG_TRITON,
+    OPTION_LOG_TRITON_CLIENT,
     OPTION_REPORT_FILE,
 
     OPTION_TRAIN,
@@ -234,7 +238,7 @@ public:
 
 protected:
   // Logger for the game.
-  std::shared_ptr<common::Logger> logger_;
+  std::shared_ptr<Logger> logger_;
 
   // Game-dependent options. These must be set by the derived game
   // class to values appropriate for the game.
@@ -275,7 +279,7 @@ private:
 };
 
 // Macros for error checking and error reporting in game
-// executables. These macros do not use a common::Logger and so can be
+// executables. These macros do not use a cifre::Logger and so can be
 // used before a logger is created.
 #define _stringify(A) #A
 #define GameCheckTrue(P)                                                \

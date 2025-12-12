@@ -14,7 +14,7 @@ namespace cifre {
 //
 // Player
 //
-Player::Player(const std::shared_ptr<common::Logger>& logger,
+Player::Player(const std::shared_ptr<Logger>& logger,
                size_t id, const std::string& name) :
   logger_(logger), id_(id), name_(name), ch_('-')
 {
@@ -28,7 +28,7 @@ Player::NextAction(const State& state, size_t max_game_sideturns_remaining) cons
 }
 
 std::string
-Player::ToString(common::Logger::Level filter_level) const
+Player::ToString() const
 {
   std::stringstream sstr;
   sstr << ch_;
@@ -39,7 +39,7 @@ Player::ToString(common::Logger::Level filter_level) const
 // AlgoPlayer
 //
 AlgoPlayer::AlgoPlayer(
-  const std::shared_ptr<common::Logger>& logger,
+  const std::shared_ptr<Logger>& logger,
   size_t id, const std::string& name, const std::shared_ptr<cifre::Algo>& algo) :
   Player(logger, id, name), algo_(algo)
 {
@@ -48,7 +48,7 @@ AlgoPlayer::AlgoPlayer(
 Action
 AlgoPlayer::NextAction(const State& state, size_t max_game_sideturns_remaining) const
 {
-  logger_->LogMed(state.ToString());
+  LOG_GAME(*logger_, state.ToString());
 
   const auto& actionIds = state.ValidActionIds();
   THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
@@ -58,7 +58,7 @@ AlgoPlayer::NextAction(const State& state, size_t max_game_sideturns_remaining) 
   THROWIF(!state.IsValidAction(action),
           "player '" + Name() + "' selected invalid action " + action.ToString());
 
-  LOGGER_LOGMED(*logger_, Name() + " (" + Char() + "): " + state.ActionToString(action));
+  LOG_GAME(*logger_, Name() + " (" + Char() + "): " + state.ActionToString(action));
 
   return action;
 }

@@ -15,7 +15,7 @@ namespace cifre { namespace othello {
 //
 // HumanPlayer
 //
-HumanPlayer::HumanPlayer(const std::shared_ptr<common::Logger>& logger,
+HumanPlayer::HumanPlayer(const std::shared_ptr<Logger>& logger,
                          size_t id, const std::string& name) :
   cifre::Player(logger, id, name)
 {
@@ -38,7 +38,7 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
 {
   const Board& board = dynamic_cast<const Board&>(state);
 
-  logger_->LogMed(board.ToString());
+  LOG_GAME(*logger_, board.ToString());
 
   const auto& actionIds = board.ValidActionIds();
   THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
@@ -48,12 +48,12 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
   // nothing".
   if ((actionIds.size() == 1) && (actionIds.find(board.DoNothingActionId()) != actionIds.end())) {
     Action action(Action::ActionKind::ACTIONID, board.DoNothingActionId());
-    LOGGER_LOGMED(*logger_, Name() + " (" + Char() + "): " + board.ActionToString(action));
+    LOG_GAME(*logger_, Name() + " (" + Char() + "): " + board.ActionToString(action));
     return action;
   }
 
   while (true) {
-    logger_->LogMed(Name()  + " (" + Char() + "): ", 0 /* indent */, false /* endline */);
+    LOG_GAME_IE(*logger_, Name()  + " (" + Char() + "): ", 0 /* indent */, false /* endline */);
 
     std::string line;
     std::getline(std::cin, line);
@@ -64,20 +64,20 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
 
     switch (action.Kind()) {
     case Action::ActionKind::INVALID:
-      logger_->LogMed("invalid action");
-      logger_->LogMed(Usage());
+      LOG_GAME(*logger_, "invalid action");
+      LOG_GAME(*logger_, Usage());
       break;
 
     case Action::ActionKind::HELP:
-      logger_->LogMed(Usage());
+      LOG_GAME(*logger_, Usage());
       break;
 
     case Action::ActionKind::SHOW_STATE:
-      logger_->LogMed(board.ToString());
+      LOG_GAME(*logger_, board.ToString());
       break;
 
     case Action::ActionKind::SHOW_DEBUG_STATE:
-      logger_->LogMed("debug state unavailable");
+      LOG_GAME(*logger_, "debug state unavailable");
       break;
 
     case Action::ActionKind::QUIT:

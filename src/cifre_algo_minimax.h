@@ -2,6 +2,7 @@
 #pragma once
 
 #include "cifre_algo.h"
+#include "cifre_logger.h"
 #include "cifre_state.h"
 
 namespace cifre {
@@ -14,7 +15,7 @@ namespace cifre {
 //
 class MiniMaxAlgo : public Algo {
 public:
-  MiniMaxAlgo(const std::shared_ptr<common::Logger>& logger);
+  MiniMaxAlgo(const std::shared_ptr<Logger>& logger);
 
   // See cifre::Algo.
   void GameStart() override;
@@ -31,7 +32,7 @@ private:
   std::pair<uint64_t, float> Search(
     const State& state, const size_t game_depth_remaining) const;
 
-  std::shared_ptr<common::Logger> logger_;
+  std::shared_ptr<Logger> logger_;
 };
 
 } // namespace cifre

@@ -5,9 +5,9 @@
 #include <cstdint>
 #include <memory>
 
-#include "cifre_state.h"
+#include "cifre_logger.h"
 #include "cifre_player.h"
-#include "common_logger.h"
+#include "cifre_state.h"
 
 namespace cifre { namespace othello {
 
@@ -19,7 +19,7 @@ namespace cifre { namespace othello {
 class HumanPlayer : public cifre::Player {
 public:
   // Create 'name'd human player.
-  HumanPlayer(const std::shared_ptr<common::Logger>& logger,
+  HumanPlayer(const std::shared_ptr<Logger>& logger,
               size_t id, const std::string& name);
 
   // See cifre::Player::NextAction().

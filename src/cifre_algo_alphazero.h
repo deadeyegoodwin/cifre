@@ -10,9 +10,9 @@
 #include <utility>
 
 #include "cifre_algo.h"
+#include "cifre_logger.h"
 #include "cifre_state.h"
 #include "cifre_triton.h"
-#include "common_logger.h"
 #include "common_random.h"
 
 namespace cifre {
@@ -183,8 +183,9 @@ public:
   }
 
 public:
-  AlphaZeroTrainingSamples(const std::shared_ptr<common::Logger>& logger,
-                           AggregateKind aggregate_kind, ValueKind value_kind) :
+  AlphaZeroTrainingSamples(
+    const std::shared_ptr<Logger>& logger, AggregateKind aggregate_kind,
+    ValueKind value_kind) :
     logger_(logger), aggregate_kind_(aggregate_kind),
     value_kind_(value_kind) { }
 
@@ -203,7 +204,7 @@ private:
   // the first/batch dimension value if it is non-zero.
   std::string ToJsonArray(const std::vector<int64_t> shape, size_t batch_count) const;
 
-  std::shared_ptr<common::Logger> logger_;
+  std::shared_ptr<Logger> logger_;
   const AggregateKind aggregate_kind_;
   const ValueKind value_kind_;
 
@@ -312,8 +313,7 @@ public:
 
   // Return string representation of node. If 'cpuct' is non-zero then
   // show the QUs for the node.
-  std::string ToString(
-    float cpuct = 0.0, common::Logger::Level filter_level = common::Logger::Level::LOW) const;
+  std::string ToString(float cpuct = 0.0) const;
 
 private:
   std::unique_ptr<const State> state_;
@@ -334,8 +334,9 @@ private:
 class AlphaZeroAlgo : public Algo {
 public:
   // Create alphazero object using 'settings'.
-  AlphaZeroAlgo(const std::shared_ptr<common::Logger>& logger,
-                std::unique_ptr<TritonModel> triton_model, const AlphaZeroSettings& settings);
+  AlphaZeroAlgo(
+    const std::shared_ptr<Logger>& logger, std::unique_ptr<TritonModel> triton_model,
+    const AlphaZeroSettings& settings);
 
   // Return the statistics for this alphazero.
   const AlphaZeroStatistics& Statistics() const { return statistics_; }
@@ -389,7 +390,7 @@ private:
   void GenerateDirichletSamples(
     const float alpha, const size_t sample_size, const size_t sample_count);
 
-  std::shared_ptr<common::Logger> logger_;
+  std::shared_ptr<Logger> logger_;
   std::unique_ptr<TritonModel> triton_model_;
   const AlphaZeroSettings settings_;
 

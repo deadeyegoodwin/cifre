@@ -21,7 +21,7 @@ constexpr float LOSER_VALUE = -1.0;
 // AlphaZeroAlgo
 //
 AlphaZeroAlgo::AlphaZeroAlgo(
-  const std::shared_ptr<common::Logger>& logger, std::unique_ptr<TritonModel> triton_model,
+  const std::shared_ptr<Logger>& logger, std::unique_ptr<TritonModel> triton_model,
   const AlphaZeroSettings& settings) :
   logger_(logger), triton_model_(std::move(triton_model)), settings_(settings)
 {
@@ -117,8 +117,9 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   auto node = FindOrCreateNode(std::unique_ptr<const State>(state.Copy()));
   assert(node != nullptr);
 
-  LOGGER_LOGHIGH(*logger_, "\nalphazero: starting node");
-  LOGGER_LOGHIGH_IE(*logger_, node->ToString(settings_.cpuct_), 2 /* indent */, true /* endline */);
+  LOG_ALGO(*logger_, "\nalphazero: starting node");
+  LOG_ALGO_IE(
+    *logger_, node->ToString(settings_.cpuct_), 2 /* indent */, true /* endline */);
 
   // Update the tree by performing searches starting from 'node'.
   for (size_t idx = 0; idx < settings_.search_count_; ++idx) {
@@ -135,16 +136,16 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
       dirichlet_samples_idx_ = (dirichlet_samples_idx_ + 1) % dirichlet_samples_.size();
     }
 
-    LOGGER_LOGHIGH_IE(
+    LOG_ALGO_IE(
       *logger_,
       "search " + std::to_string(idx+1) + '/' + std::to_string(settings_.search_count_) + ':',
       0 /* indent */, false /* endline */);
     auto [v, tnode] = SearchTree(
       node.get(), settings_.max_search_depth_, max_game_sideturns_remaining, dirichlet);
-    LOGGER_LOGHIGH_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
+    LOG_ALGO_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
     if (tnode != nullptr) {
-      LOGGER_LOGHIGH_IE(*logger_, tnode->ToString(settings_.cpuct_),
-                        2 /* indent */, true /* endline */);
+      LOG_ALGO_IE(*logger_, tnode->ToString(settings_.cpuct_),
+                       2 /* indent */, true /* endline */);
     }
   }
 
@@ -165,10 +166,10 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
     THROW("unreachable");
   }
 
-  LOGGER_LOGHIGH(
+  LOG_ALGO(
     *logger_, "\nalphazero: choose action " + std::to_string(action_id) +
     " '" + node->NodeState().ActionToString(Action(Action::ActionKind::ACTIONID, action_id)) + "'");
-  LOGGER_LOGHIGH_IE(*logger_, node->ToString(), 2 /* indent */, true /* endline */);
+  LOG_ALGO_IE(*logger_, node->ToString(), 2 /* indent */, true /* endline */);
 
   // If training, record the nodes for which alpha-zero makes an
   // action decision.
@@ -225,7 +226,7 @@ AlphaZeroAlgo::SearchTree(
   // If 'node' is a terminal node then show that it was visited and
   // return its value.
   if (node->IsTerminal()) {
-    LOGGER_LOGHIGH_IE(
+    LOG_ALGO_IE(
       *logger_, " terminal(p" + std::to_string(node->NodeState().ActivePlayerId()) +
       ") >>" + std::to_string(node->Value()) + ">> " + std::to_string(node->Value()),
       0 /* indent */, false /* endline */);
@@ -247,7 +248,7 @@ AlphaZeroAlgo::SearchTree(
   // counts so if we are not going to visit a child we don't want to
   // update the node count.
   if (game_depth_remaining == 0) {
-    LOGGER_LOGHIGH_IE(
+    LOG_ALGO_IE(
       *logger_, " game-depth(p" + std::to_string(node->NodeState().ActivePlayerId()) +
       ") >>" + std::to_string(DRAW_VALUE) + ">> " + std::to_string(node->Value()),
       0 /* indent */, false /* endline */);
@@ -255,7 +256,7 @@ AlphaZeroAlgo::SearchTree(
     return std::make_pair(DRAW_VALUE, node);
   }
   if (search_depth_remaining == 0) {
-    LOGGER_LOGHIGH_IE(
+    LOG_ALGO_IE(
       *logger_, " search-depth(p" + std::to_string(node->NodeState().ActivePlayerId()) +
       ") >>" + std::to_string(node->Value()) + ">> " + std::to_string(node->Value()),
       0 /* indent */, false /* endline */);
@@ -273,7 +274,7 @@ AlphaZeroAlgo::SearchTree(
   statistics_.cycle_avoided_count_ += cycle_avoided_cnt;
   THROWIF(!best_action_id,
           "alpha-zero unable to find action ID with max QU\n" + node->ToString(settings_.cpuct_));
-  LOGGER_LOGHIGH_IE(
+  LOG_ALGO_IE(
     *logger_,
     ' ' + std::to_string(*best_action_id) + "(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')',
     0 /* indent */, false /* endline */);
@@ -310,7 +311,7 @@ AlphaZeroAlgo::SearchTree(
   AlphaZeroNode* tnode = nullptr;
   if (next_created) {
     v = next->Value();
-    LOGGER_LOGHIGH_IE(
+    LOG_ALGO_IE(
       *logger_, " new >>" + std::to_string(v) + ">> " + std::to_string(next->Value()),
       0 /* indent */, false /* endline */);
   }
@@ -328,7 +329,7 @@ AlphaZeroAlgo::SearchTree(
   // invert 'v'.
   if (node->NodeState().ActivePlayerId() != next->NodeState().ActivePlayerId()) {
     v = -v;
-    LOGGER_LOGHIGH_IE(
+    LOG_ALGO_IE(
       *logger_, " >>" + std::to_string(v) + ">>", 0 /* indent */, false /* endline */);
   }
 
@@ -336,7 +337,7 @@ AlphaZeroAlgo::SearchTree(
   // for the node on the way down the tree, so need to take that into
   // account when updating the value.
   node->SetValue(((node->Value() * (node->VisitCount() - 1)) + v) / node->VisitCount());
-  LOGGER_LOGHIGH_IE(
+  LOG_ALGO_IE(
     *logger_, " " + std::to_string(node->Value()), 0 /* indent */, false /* endline */);
 
   return std::make_pair(v, tnode);
@@ -563,7 +564,7 @@ AlphaZeroNode::ValidateVisitCounts() const
 }
 
 std::string
-AlphaZeroNode::ToString(float cpuct, common::Logger::Level filter_level) const
+AlphaZeroNode::ToString(float cpuct) const
 {
   std::stringstream sstr;
 
@@ -746,9 +747,9 @@ AlphaZeroTrainingSamples::AcquireAndAggregate(
           std::forward_as_tuple(sample_state),
           std::forward_as_tuple(sample.node_, sample.z_value_, std::move(node_probs), node_value));
       assert(created_sample_itr.second);
-      LOGGER_LOGHIGH(*logger_, "new training sample:");
-      LOGGER_LOGHIGH_IE(*logger_,  created_sample_itr.first->second.ToString(),
-                        2 /* indent */, true /* endline */);
+      LOG_ALGO(*logger_, "new training sample:");
+      LOG_ALGO_IE(*logger_,  created_sample_itr.first->second.ToString(),
+                       2 /* indent */, true /* endline */);
     }
     else {
       // Otherwise average 'node_probs' and 'node_value' into the
@@ -764,8 +765,8 @@ AlphaZeroTrainingSamples::AcquireAndAggregate(
       }
 
       sample.count_++;
-      LOGGER_LOGHIGH(*logger_, "aggregate into existing training sample:");
-      LOGGER_LOGHIGH_IE(*logger_,  sample.ToString(), 2 /* indent */, true /* endline */);
+      LOG_ALGO(*logger_, "aggregate into existing training sample:");
+      LOG_ALGO_IE(*logger_,  sample.ToString(), 2 /* indent */, true /* endline */);
     }
   }
 }
@@ -779,9 +780,9 @@ AlphaZeroTrainingSamples::WriteTraining(const std::string& dir) const
   std::filesystem::path ppi(dir); ppi /= "pi.bin";
   std::filesystem::path pv(dir); pv /= "v.bin";
 
-  LOGGER_LOGHIGH(*logger_, "writing training input batch to " + pin.string());
-  LOGGER_LOGHIGH(*logger_, "writing training pi batch to " + ppi.string());
-  LOGGER_LOGHIGH(*logger_, "writing training v batch to " + pv.string());
+  LOG_ALGO(*logger_, "writing training input batch to " + pin.string());
+  LOG_ALGO(*logger_, "writing training pi batch to " + ppi.string());
+  LOG_ALGO(*logger_, "writing training v batch to " + pv.string());
 
   std::ofstream fin(pin, std::ios::out | std::ios::binary);
   std::ofstream fpi(ppi, std::ios::out | std::ios::binary);
@@ -795,7 +796,7 @@ AlphaZeroTrainingSamples::WriteTraining(const std::string& dir) const
       repr_result = &(pr.second.node_->NodeTritonResult());
     }
 
-    LOGGER_LOGHIGH_IE(*logger_, pr.second.ToString(), 2 /* indent */, true /* endline */);
+    LOG_ALGO_IE(*logger_, pr.second.ToString(), 2 /* indent */, true /* endline */);
 
     auto& din = pr.first->TritonRepresentation();
     fin.write(reinterpret_cast<const char*>(din.data()), din.size() * sizeof(uint8_t));
@@ -818,7 +819,7 @@ AlphaZeroTrainingSamples::WriteTraining(const std::string& dir) const
   // data.
   if (!train_samples_.empty()) {
     std::filesystem::path pjson(dir); pjson /= "train.json";
-    LOGGER_LOGHIGH(*logger_, "writing training metadata to " + pjson.string());
+    LOG_ALGO(*logger_, "writing training metadata to " + pjson.string());
     std::ofstream fjson(pjson, std::ios::out);
     fjson
       << "{\n"

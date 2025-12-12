@@ -12,7 +12,7 @@ constexpr float LOSER_VALUE = -1.0;
 //
 // MiniMaxAlgo
 //
-MiniMaxAlgo::MiniMaxAlgo(const std::shared_ptr<common::Logger>& logger) :
+MiniMaxAlgo::MiniMaxAlgo(const std::shared_ptr<Logger>& logger) :
   logger_(logger)
 {
 }
@@ -35,13 +35,13 @@ MiniMaxAlgo::NextActionId(const State& state, size_t max_game_sideturns_remainin
   THROWIF(state.TerminalStatus().Kind() != StateTerminalStatus::TerminalKind::NON_TERMINAL,
           "minimax cannot find next action for terminal state");
 
-  LOGGER_LOGHIGH(*logger_, "minimax: starting state");
-  LOGGER_LOGHIGH_IE(*logger_, state.ToString(), 2 /* indent */, true /* endline */);
+  LOG_ALGO(*logger_, "minimax: starting state");
+  LOG_ALGO_IE(*logger_, state.ToString(), 2 /* indent */, true /* endline */);
 
   // Search from 'state' to find the best action.
-  LOGGER_LOGHIGH_IE(*logger_, "search: ", 0 /* indent */, false /* endline */);
+  LOG_ALGO_IE(*logger_, "search: ", 0 /* indent */, false /* endline */);
   auto pr = Search(state, max_game_sideturns_remaining);
-  LOGGER_LOGHIGH_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
+  LOG_ALGO_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
 
   return pr.first;
 }
@@ -55,17 +55,17 @@ MiniMaxAlgo::Search(const State& state, const size_t game_depth_remaining) const
     const float tvalue =
       (tstatus.Kind() == StateTerminalStatus::TerminalKind::DRAW) ? DRAW_VALUE :
       ((tstatus.WinnerId() == state.ActivePlayerId()) ? WINNER_VALUE : LOSER_VALUE);
-    LOGGER_LOGHIGH(*logger_, "active p" + std::to_string(state.ActivePlayerId()) +
+    LOG_ALGO(*logger_, "active p" + std::to_string(state.ActivePlayerId()) +
                    ", terminal value " + std::to_string(tvalue));
-    LOGGER_LOGHIGH_IE(*logger_, state.ToString(), 2 /* indent */, true /* endline */);
+    LOG_ALGO_IE(*logger_, state.ToString(), 2 /* indent */, true /* endline */);
     return std::make_pair(std::numeric_limits<uint64_t>::max(), tvalue);
   }
 
   // If game depth has been reached then assume game is a draw.
   if (game_depth_remaining == 0) {
-    LOGGER_LOGHIGH(*logger_, "active p" + std::to_string(state.ActivePlayerId()) +
+    LOG_ALGO(*logger_, "active p" + std::to_string(state.ActivePlayerId()) +
                    ", max-game-depth value " + std::to_string(DRAW_VALUE));
-    LOGGER_LOGHIGH_IE(*logger_, state.ToString(), 2 /* indent */, true /* endline */);
+    LOG_ALGO_IE(*logger_, state.ToString(), 2 /* indent */, true /* endline */);
     return std::make_pair(std::numeric_limits<uint64_t>::max(), DRAW_VALUE);
   }
 
@@ -101,12 +101,12 @@ MiniMaxAlgo::Search(const State& state, const size_t game_depth_remaining) const
     }
   }
 
-  LOGGER_LOGHIGH(*logger_, "active p" + std::to_string(state.ActivePlayerId()) +
-                 ", depth remaining " + std::to_string(game_depth_remaining));
-  LOGGER_LOGHIGH(
+  LOG_ALGO(*logger_, "active p" + std::to_string(state.ActivePlayerId()) +
+           ", depth remaining " + std::to_string(game_depth_remaining));
+  LOG_ALGO(
     *logger_, "best " + state.ActionToString(Action(Action::ActionKind::ACTIONID, best_aid)) +
     ", value " + std::to_string(best_v));
-  LOGGER_LOGHIGH_IE(*logger_, state.ToString(), 2 /* indent */, true /* endline */);
+  LOG_ALGO_IE(*logger_, state.ToString(), 2 /* indent */, true /* endline */);
 
   return std::make_pair(best_aid, best_v);
 }

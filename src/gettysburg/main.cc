@@ -14,7 +14,6 @@
 #include "gettysburg_board_cell_factory.h"
 #include "gettysburg_player.h"
 #include "common_error.h"
-#include "common_logger.h"
 #include "common_util.h"
 
 namespace cifre { namespace gettysburg {

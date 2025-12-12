@@ -2,7 +2,6 @@
 
 #include "cifre_action.h"
 #include "common_error.h"
-#include "common_logger.h"
 
 namespace cifre {
 
@@ -11,7 +10,7 @@ namespace cifre {
 //
 
 std::string
-Action::ToString(common::Logger::Level filter_level) const
+Action::ToString() const
 {
   switch(kind_) {
   case ActionKind::INVALID:

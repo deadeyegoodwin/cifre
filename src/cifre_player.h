@@ -7,7 +7,7 @@
 
 #include "cifre_action.h"
 #include "cifre_algo.h"
-#include "common_logger.h"
+#include "cifre_logger.h"
 #include "common_random.h"
 
 namespace cifre {
@@ -23,7 +23,7 @@ public:
 
 public:
   Player(
-    const std::shared_ptr<common::Logger>& logger, size_t id, const std::string& name);
+    const std::shared_ptr<Logger>& logger, size_t id, const std::string& name);
   virtual ~Player() = default;
 
   // Return the player's ID.
@@ -59,10 +59,10 @@ public:
   virtual Action NextAction(const State& state, size_t max_game_sideturns_remaining) const;
 
   // Return string representation of the player.
-  std::string ToString(common::Logger::Level filter_level = common::Logger::Level::LOW) const;
+  std::string ToString() const;
 
 protected:
-  std::shared_ptr<common::Logger> logger_;
+  std::shared_ptr<Logger> logger_;
   const size_t id_;
   const std::string name_;
   char ch_;
@@ -76,7 +76,7 @@ protected:
 class AlgoPlayer : public Player {
 public:
   AlgoPlayer(
-    const std::shared_ptr<common::Logger>& logger,
+    const std::shared_ptr<Logger>& logger,
     size_t id, const std::string& name, const std::shared_ptr<cifre::Algo>& algo);
 
   // See Player::NextAction().

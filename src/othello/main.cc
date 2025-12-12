@@ -13,7 +13,6 @@
 #include "othello_board.h"
 #include "othello_player.h"
 #include "common_error.h"
-#include "common_logger.h"
 #include "common_util.h"
 
 namespace cifre { namespace othello {
