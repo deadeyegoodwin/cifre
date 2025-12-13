@@ -317,6 +317,11 @@ Game::Game() :
     {BuiltInOptionId::OPTION_LOG_FILE, "log-file", GameOption::ArgStr,
      "File for logging. 'stdout' and 'stderr' are allowed. By default "
      "logging is sent to stdout."},
+    {BuiltInOptionId::OPTION_LOG_INVOKE, "log-invoke", GameOption::ArgNone,
+     "Enable invocation logging. Shows how game was invoked and the game version. "
+     "This is enabled by default."},
+    {BuiltInOptionId::OPTION_LOG_SUMMARY, "log-summary", GameOption::ArgNone,
+     "Enable summary logging. Shows aggregate summary information."},
     {BuiltInOptionId::OPTION_LOG_GAME, "log-game", GameOption::ArgNone,
      "Enable game logging. This is enabled by default."},
     {BuiltInOptionId::OPTION_LOG_ALGO, "log-algo", GameOption::ArgNone,
@@ -431,6 +436,7 @@ Game::Parse(int argc, char **argv)
 
   // By default only GAME logging is enabled.
   logger_.reset(CreateLogger(log_filename));
+  logger_->Enable(Logger::Kind::INVOKE);
   logger_->Enable(Logger::Kind::GAME);
 
   // Second pass through the arguments to see if --train is
@@ -445,6 +451,12 @@ Game::Parse(int argc, char **argv)
       break;
     case BuiltInOptionId::OPTION_VERBOSE:
       logger_->EnableAll();
+      break;
+    case BuiltInOptionId::OPTION_LOG_INVOKE:
+      logger_->Enable(Logger::Kind::INVOKE);
+      break;
+    case BuiltInOptionId::OPTION_LOG_SUMMARY:
+      logger_->Enable(Logger::Kind::SUMMARY);
       break;
     case BuiltInOptionId::OPTION_LOG_GAME:
       logger_->Enable(Logger::Kind::GAME);
@@ -470,13 +482,13 @@ Game::Parse(int argc, char **argv)
   }
 
   // Echo command-line...
-  if (logger_->IsEnabled(Logger::Kind::GAME)) {
+  if (logger_->IsEnabled(Logger::Kind::INVOKE)) {
     std::stringstream ss;
     for (auto i = 0; i < argc; ++i) {
       ss << argv[i] << " ";
     }
-    LOG_GAME(*logger_, ss.str());
-    LOG_GAME(*logger_, cifre::VersionToString(true /* show_dependent_versions */));
+    LOG_INVOKE(*logger_, ss.str());
+    LOG_INVOKE(*logger_, cifre::VersionToString(true /* show_dependent_versions */));
   }
 
   // Set default alphazero values based on --train.
@@ -492,6 +504,8 @@ Game::Parse(int argc, char **argv)
     case BuiltInOptionId::OPTION_HELP:
     case BuiltInOptionId::OPTION_QUIET:
     case BuiltInOptionId::OPTION_VERBOSE:
+    case BuiltInOptionId::OPTION_LOG_INVOKE:
+    case BuiltInOptionId::OPTION_LOG_SUMMARY:
     case BuiltInOptionId::OPTION_LOG_GAME:
     case BuiltInOptionId::OPTION_LOG_ALGO:
     case BuiltInOptionId::OPTION_LOG_TRITON:
@@ -661,7 +675,7 @@ Game::Play()
   // If there is a start banner, show it...
   const auto start_banner = StartBanner();
   if (!start_banner.empty()) {
-    LOG_GAME(*logger_, start_banner);
+    LOG_INVOKE(*logger_, start_banner);
   }
 
   const size_t player_count = player_settings_->size();
@@ -831,27 +845,27 @@ Game::Play()
     // If there is an end banner, show it...
     const auto end_banner = EndBanner();
     if (!end_banner.empty()) {
-      LOG_GAME(*logger_, end_banner);
+      LOG_INVOKE(*logger_, end_banner);
     }
 
     // Alphazero statistics, if any...
     if (alphazero_statistics != nullptr) {
-      LOG_ALGO(*logger_, "AlphaZero");
-      LOG_ALGO_IE(
+      LOG_ALGO_SUMMARY(*logger_, "AlphaZero");
+      LOG_ALGO_SUMMARY_IE(
         *logger_, alphazero_statistics->ToString(), 4 /* indent */, true /* endline */);
     }
 
     // Training sample statistics, if any...
     if (alphazero_train_samples_ != nullptr) {
-      LOG_ALGO(*logger_, "Training Samples");
-      LOG_ALGO_IE(
+      LOG_ALGO_SUMMARY(*logger_, "Training Samples");
+      LOG_ALGO_SUMMARY_IE(
         *logger_, alphazero_train_samples_->ToString(), 4 /* indent */, true /* endline */);
     }
 
     // Triton statistics, if any...
     if (triton_server_ != nullptr) {
-      LOG_TRITON(*logger_, "Triton");
-      LOG_TRITON_IE(
+      LOG_TRITON_SUMMARY(*logger_, "Triton");
+      LOG_TRITON_SUMMARY_IE(
         *logger_, triton_server_->ToString(), 4 /* indent */, true /* endline */);
     }
 

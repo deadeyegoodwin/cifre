@@ -20,6 +20,8 @@ class Logger : protected common::StreamLogger {
 public:
   // Types of logging available.
   enum class Kind {
+    INVOKE,
+    SUMMARY,
     GAME,
     ALGO,
     TRITON,
@@ -32,6 +34,8 @@ public:
 
   static std::string KindToString(const Kind kind) {
     switch (kind) {
+    case Kind::INVOKE: return "INVOKE";
+    case Kind::SUMMARY: return "SUMMARY";
     case Kind::GAME: return "GAME";
     case Kind::ALGO: return "ALGO";
     case Kind::TRITON: return "TRITON";
@@ -89,6 +93,15 @@ protected:
 // indent (I) and endline (E) to be specified. The non _IE versions
 // use indent=0 and enline=true.
 //
+#define LOG_INVOKE(L, M) LOG_INVOKE_IE(L, M, 0, true)
+#define LOG_INVOKE_IE(L, M, I, E)                                       \
+  do {                                                                  \
+    cifre::Logger& logger__ = (L);                                      \
+    if (logger__.IsEnabled(cifre::Logger::Kind::INVOKE)) {              \
+      logger__.Write(M, I, E);                                          \
+    }                                                                   \
+  } while (false)
+
 #define LOG_GAME(L, M) LOG_GAME_IE(L, M, 0, true)
 #define LOG_GAME_IE(L, M, I, E)                                         \
   do {                                                                  \
@@ -112,6 +125,28 @@ protected:
   do {                                                                  \
     cifre::Logger& logger__ = (L);                                      \
     if (logger__.IsEnabled(cifre::Logger::Kind::TRITON)) {              \
+      logger__.Write(M, I, E);                                          \
+    }                                                                   \
+  } while (false)
+
+// Summary macros. Check for either summary logging or the specific
+// logging.
+#define LOG_ALGO_SUMMARY(L, M) LOG_ALGO_SUMMARY_IE(L, M, 0, true)
+#define LOG_ALGO_SUMMARY_IE(L, M, I, E)                                 \
+  do {                                                                  \
+    cifre::Logger& logger__ = (L);                                      \
+    if (logger__.IsEnabled(cifre::Logger::Kind::SUMMARY) ||             \
+        logger__.IsEnabled(cifre::Logger::Kind::ALGO)) {                \
+      logger__.Write(M, I, E);                                          \
+    }                                                                   \
+  } while (false)
+
+#define LOG_TRITON_SUMMARY(L, M) LOG_TRITON_SUMMARY_IE(L, M, 0, true)
+#define LOG_TRITON_SUMMARY_IE(L, M, I, E)                               \
+  do {                                                                  \
+    cifre::Logger& logger__ = (L);                                      \
+    if (logger__.IsEnabled(cifre::Logger::Kind::SUMMARY) ||             \
+        logger__.IsEnabled(cifre::Logger::Kind::TRITON)) {              \
       logger__.Write(M, I, E);                                          \
     }                                                                   \
   } while (false)

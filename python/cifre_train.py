@@ -294,7 +294,6 @@ def main():
         # Launch cifre executable to collect training data.
         game_cmd = [
             f'../build/install/bin/{FLAGS.game}',
-            '--verbose' if FLAGS.verbose else '',
             '--parallel', str(game_parallel),
             '--train', '--train-dir', train_dir,
             '--game-shape', argify_shape(game_shape, ','),
@@ -304,6 +303,10 @@ def main():
             filter_specified('--alphazero-search-count', FLAGS.alphazero_search_count),
             filter_specified('--alphazero-search-depth', FLAGS.alphazero_search_depth),
             filter_specified('--alphazero-cpuct', FLAGS.alphazero_cpuct) ]
+        if FLAGS.verbose:
+            game_cmd.append('--verbose')
+        else:
+            game_cmd.extend(['--quiet', '--log-invoke', '--log-summary']);
 
         LOG.log(f'\n==== Iteration {iter} ====')
         process = subprocess.Popen(game_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -340,7 +343,6 @@ def main():
 
                 cmp_cmd = [
                     f'../build/install/bin/{FLAGS.game}',
-                    '--verbose' if FLAGS.verbose else '',
                     '--report-file', report_file,
                     '--parallel', str(game_parallel),
                     '--game-shape', argify_shape(game_shape, ','),
@@ -348,6 +350,10 @@ def main():
                     filter_specified('--max-turns-per-game', FLAGS.max_turns_per_game),
                     '--player1=alphazero', '--name', player1_name, '--alphazero-model', player1_name,
                     '--player2=alphazero', '--name', player2_name, '--alphazero-model', player2_name ]
+                if FLAGS.verbose:
+                    cmp_cmd.append('--verbose')
+                else:
+                    cmp_cmd.extend(['--quiet', '--log-invoke', '--log-summary']);
 
                 process = subprocess.Popen(cmp_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 while process.poll() is None:

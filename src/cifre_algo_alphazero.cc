@@ -709,7 +709,7 @@ AlphaZeroTrainingSamples::ToString() const
 
   sstr << "count: " << train_samples_.size() << '\n';
   sstr << "aggregate-kind: " << AggregateKindToString(aggregate_kind_) << '\n';
-  sstr << "value-kind: " << ValueKindToString(value_kind_) << '\n';
+  sstr << "value-kind: " << ValueKindToString(value_kind_);
   return sstr.str();
 }
 
