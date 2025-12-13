@@ -50,6 +50,13 @@ class Board2DHex : public Board2D {
 public:
   static constexpr size_t PLAYER_COUNT = 2;
 
+  // Ways that the board can be display.
+  enum class DisplayKind {
+    SMALL,          // Small hexes with minimal content
+    LARGE,          // Large hexes
+    LARGE_VERBOSE   // Large hexes with additional debug-level content
+  };
+
   // Create a board based on a given number of planes, 2D 'size' and
   // 'players', where player ID is the index of a given player in
   // 'players'. 'starting_player_id' indicates the player that will go
@@ -59,10 +66,15 @@ public:
     const std::vector<Player*>& players, size_t starting_player_id);
 
   // Copy constructor.
-  Board2DHex(const Board2DHex& other) : Board2D(other) { }
+  Board2DHex(const Board2DHex& other) :
+    Board2D(other), display_kind_(other.display_kind_) { }
 
   // Destructor
   virtual ~Board2DHex() = default;
+
+  // Get or set the way the board is displayed.
+  DisplayKind Display() const { return display_kind_; }
+  void SetDisplay(DisplayKind d) const { display_kind_ = d; }
 
   // Return the ID of the opponent player. There must be exactly two
   // players, so the opponent ID is the opposite of active player ID.
@@ -74,15 +86,31 @@ public:
   // See cifre::State.
   virtual std::string ToString() const override;
 
-  // Return before and after board content.
-  virtual std::string PreBoardString() const;
-  virtual std::string PostBoardString() const;
+  // Return the header and trailer to display before / after when
+  // displaying the board.
+  virtual std::string BoardHeader() const;
+  virtual std::string BoardTrailer() const;
 
-  // Return a two-character string that gives the content string for
-  // the upper and lower part of a given cell. Default behavior is to show the
-  // row and column index in the cell.
-  virtual std::string BoardCellUpperString(size_t row_idx, size_t col_idx) const;
-  virtual std::string BoardCellLowerString(size_t row_idx, size_t col_idx) const;
+  // Return a set of strings that give the content for a given
+  // cell. Default behavior is to show the row and column index in the
+  // cell. 'kind' indicates the kind of content to return.
+  //
+  //   SMALL: Return two, two-character strings that give the upper and lower
+  //          content of a small hex
+  //   LARGE: Return four strings of lengths 4, 6, 6, and 4 that give
+  //          the top to bottom content of a large hex
+  //   LARGE_VERBOSE: Same as LARGE but return verbose content
+  virtual std::vector<std::string> BoardCell(
+    DisplayKind kind, size_t row_idx, size_t col_idx) const;
+
+private:
+  std::string SmallBoard() const;
+  std::string LargeBoard() const;
+
+  // Display kind is mutable so that we can change it even in a const
+  // State object. It is not part of the state seen by the algorithms
+  // or hashing so it is ok to have it mutable.
+  mutable DisplayKind display_kind_;
 };
 
 } // namespace cifre

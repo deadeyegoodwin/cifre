@@ -19,7 +19,8 @@ namespace cifre {
 Board2DHex::Board2DHex(
   const size_t plane_cnt, const cifre::BoardSize2D& size,
   const std::vector<Player*>& players, size_t starting_player_id) :
-  Board2D(plane_cnt, size, players, starting_player_id)
+  Board2D(plane_cnt, size, players, starting_player_id),
+  display_kind_(DisplayKind::SMALL)
 {
   THROWIF(players_.size() != PLAYER_COUNT, "exactly 2 players are required");
   THROWIF(NoPlayerId() != PLAYER_COUNT, "exactly 2 players are required");
@@ -28,9 +29,23 @@ Board2DHex::Board2DHex(
 std::string
 Board2DHex::ToString() const
 {
+  switch (display_kind_) {
+  case DisplayKind::SMALL:
+    return SmallBoard();
+  case DisplayKind::LARGE:
+  case DisplayKind::LARGE_VERBOSE:
+    return LargeBoard();
+  }
+
+  return "";  // not reached
+}
+
+std::string
+Board2DHex::SmallBoard() const
+{
   std::stringstream sstr;
 
-  sstr << PreBoardString() << "\n";
+  sstr << BoardHeader() << "\n";
 
   //  __    __    __    __
   // /0 \__/0 \__/0 \__/0 \_
@@ -56,10 +71,10 @@ Board2DHex::ToString() const
   for (size_t row_idx = 0; row_idx < size_.RowCount(); ++row_idx) {
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
-        sstr << "/" << BoardCellUpperString(row_idx, col_idx) << "\\";
+        sstr << "/" << BoardCell(display_kind_, row_idx, col_idx)[0] << "\\";
       }
       else if (row_idx > 0) {
-        sstr << BoardCellLowerString(row_idx - 1, col_idx);
+        sstr << BoardCell(display_kind_, row_idx - 1, col_idx)[1];
       }
       else {
         sstr << "__";
@@ -72,10 +87,10 @@ Board2DHex::ToString() const
 
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
-        sstr << "\\" << BoardCellLowerString(row_idx, col_idx) << "/";
+        sstr << "\\" << BoardCell(display_kind_, row_idx, col_idx)[1] << "/";
       }
       else {
-        sstr << BoardCellUpperString(row_idx, col_idx);
+        sstr << BoardCell(display_kind_, row_idx, col_idx)[0];
       }
     }
     if ((size_.ColumnCount() % 2) == 0) {
@@ -86,48 +101,160 @@ Board2DHex::ToString() const
 
   // Lower half of last row.
   sstr << " ";
-  for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
-    if ((col_idx % 2) == 1) {
-      sstr << "  \\" << BoardCellLowerString(size_.RowCount() - 1, col_idx) << "/";
-    }
+  for (size_t col_idx = 1; col_idx < size_.ColumnCount(); col_idx += 2) {
+    sstr << "  \\" << BoardCell(display_kind_, size_.RowCount() - 1, col_idx)[1] << "/";
   }
   sstr << "\n";
 
-  sstr << PostBoardString();
+  sstr << BoardTrailer();
 
   return sstr.str();
 }
 
 std::string
-Board2DHex::PreBoardString() const
+Board2DHex::LargeBoard() const
+{
+  std::stringstream sstr;
+
+  sstr << BoardHeader() << "\n";
+
+  // Like the small board but bigger hexes so can show more
+  // information...
+  //   ____        ____
+  //  /    \      /    \    -> str 0
+  // /      \____/      \   -> str 1
+  // \      /    \      /   -> str 2
+  //  \____/      \____/    -> str 3
+  //       \      /
+  //        \____/
+
+  // Top of first row of hex cells.
+  for (size_t col_idx = 0; col_idx < size_.ColumnCount(); col_idx += 2) {
+    if (col_idx == 0) {
+      sstr << "  ____";
+    }
+    else {
+      sstr << "        ____";
+    }
+  }
+  sstr << "\n";
+
+  // Rows...
+  for (size_t row_idx = 0; row_idx < size_.RowCount(); ++row_idx) {
+    // Loc 0...
+    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+      if ((col_idx % 2) == 0) {
+        if (col_idx == 0) {
+          sstr << " ";
+        }
+        sstr << "/" << BoardCell(display_kind_, row_idx, col_idx)[0] << "\\";
+
+      }
+      else if (row_idx > 0) {
+        sstr << BoardCell(display_kind_, row_idx - 1, col_idx)[2];
+      }
+      else {
+        sstr << "      ";
+      }
+    }
+    if ((row_idx != 0) && ((size_.ColumnCount() % 2) == 0)) {
+      sstr << "/";
+    }
+    sstr << "\n";
+
+    // Loc 1...
+    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+      if ((col_idx % 2) == 0) {
+        sstr << "/" << BoardCell(display_kind_, row_idx, col_idx)[1] << "\\";
+      }
+      else if (row_idx > 0) {
+        sstr << BoardCell(display_kind_, row_idx - 1, col_idx)[3];
+      }
+      else {
+        sstr << "____";
+      }
+    }
+    if ((row_idx != 0) && ((size_.ColumnCount() % 2) == 0)) {
+      sstr << "/";
+    }
+    sstr << "\n";
+
+    // Loc 2...
+    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+      auto cstr = BoardCell(display_kind_, row_idx, col_idx);
+      if ((col_idx % 2) == 0) {
+        sstr << "\\" << cstr[2] << "/";
+      }
+      else {
+        sstr << cstr[0];
+      }
+    }
+    if ((size_.ColumnCount() % 2) == 0) {
+      sstr << "\\";
+    }
+    sstr << "\n";
+
+    // Loc 3...
+    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+      auto cstr = BoardCell(display_kind_, row_idx, col_idx);
+      if ((col_idx % 2) == 0) {
+        if (col_idx == 0) {
+          sstr << " ";
+        }
+        sstr << "\\" << cstr[3] << "/";
+      }
+      else {
+        sstr << cstr[1];
+      }
+    }
+    if ((size_.ColumnCount() % 2) == 0) {
+      sstr << "\\";
+    }
+    sstr << "\n";
+  }
+
+  // Lower half of last row.
+  sstr << "  ";
+  for (size_t col_idx = 1; col_idx < size_.ColumnCount(); col_idx += 2) {
+    sstr << "    \\" << BoardCell(display_kind_, size_.RowCount() - 1, col_idx)[2] << "/";
+  }
+  sstr << "\n ";
+  for (size_t col_idx = 1; col_idx < size_.ColumnCount(); col_idx += 2) {
+    sstr << "      \\" << BoardCell(display_kind_, size_.RowCount() - 1, col_idx)[3] << "/";
+  }
+  sstr << "\n";
+
+  sstr << BoardTrailer();
+
+  return sstr.str();
+}
+
+std::string
+Board2DHex::BoardHeader() const
 {
   return "";
 }
 
 std::string
-Board2DHex::PostBoardString() const
+Board2DHex::BoardTrailer() const
 {
   return "";
 }
 
-std::string
-Board2DHex::BoardCellUpperString(size_t row_idx, size_t col_idx) const
+std::vector<std::string>
+Board2DHex::BoardCell(DisplayKind kind, size_t row_idx, size_t col_idx) const
 {
-  std::string str = std::to_string(row_idx);
-  if (str.size() == 1) {
-    str += " ";
+  std::string upper = std::to_string(row_idx);
+  if (upper.size() == 1) {
+    upper += " ";
   }
-  return str;
-}
 
-std::string
-Board2DHex::BoardCellLowerString(size_t row_idx, size_t col_idx) const
-{
-  std::string str = std::to_string(col_idx);
-  if (str.size() == 1) {
-    str = "_" + str;
+  std::string lower = std::to_string(col_idx);
+  if (lower.size() == 1) {
+    lower = "_" + lower;
   }
-  return str;
+
+  return { upper, lower };
 }
 
 } // namespace cifre

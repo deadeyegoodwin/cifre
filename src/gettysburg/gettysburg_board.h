@@ -55,13 +55,10 @@ public:
   Action StringToAction(const std::string& str) const override;
 
   // See cifre::Board2DHex
-  std::string PreBoardString() const override;
-  std::string PostBoardString() const override;
-  std::string BoardCellUpperString(size_t row_idx, size_t col_idx) const override;
-  std::string BoardCellLowerString(size_t row_idx, size_t col_idx) const override;
-
-  // Return a debug representation of the board.
-  std::string ToDebugString() const;
+  std::string BoardHeader() const override;
+  std::string BoardTrailer() const override;
+  std::vector<std::string> BoardCell(
+    DisplayKind kind, size_t row_idx, size_t col_idx) const override;
 
 public:
   // Return the value of the plane cell at the given row, column, and
@@ -146,7 +143,13 @@ private:
   void UpdateUnits();
   void NextActiveUnit();
 
-  std::string DebugCellString(size_t loc, size_t row_idx, size_t col_idx) const;
+  std::vector<std::string> SmallBoardCell(size_t row_idx, size_t col_idx) const;
+  std::vector<std::string> LargeBoardCell(
+    bool verbose, size_t row_idx, size_t col_idx) const;
+  std::string BoardUnitString(size_t row_idx, size_t col_idx) const;
+  std::string SmallBoardTerrainString(size_t row_idx, size_t col_idx) const;
+  std::string LargeBoardTerrainString(size_t row_idx, size_t col_idx) const;
+  std::string LargeBoardVictoryPointString(size_t row_idx, size_t col_idx) const;
 
   std::shared_ptr<BoardCellFactory> cell_factory_;
   BoardCellFactory::CellsKey cells_flattened_factory_key_;

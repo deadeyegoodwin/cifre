@@ -14,7 +14,10 @@ namespace cifre {
 //
 class Action {
 public:
-  enum class ActionKind { INVALID, HELP, QUIT, SHOW_STATE, SHOW_DEBUG_STATE, ACTIONID };
+  enum class ActionKind {
+    INVALID, HELP, QUIT, SHOW_STATE,
+    CUSTOM_0, CUSTOM_1, CUSTOM_2, CUSTOM_3,
+    ACTIONID };
 
 public:
   // Create action that doesn't require an action identifier.

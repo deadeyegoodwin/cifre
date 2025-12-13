@@ -67,8 +67,10 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
       LOG_GAME(*logger_, board.ToString());
       break;
 
-    case Action::ActionKind::SHOW_DEBUG_STATE:
-      LOG_GAME(*logger_, "debug state unavailable");
+    case Action::ActionKind::CUSTOM_0:
+    case Action::ActionKind::CUSTOM_1:
+    case Action::ActionKind::CUSTOM_2:
+    case Action::ActionKind::CUSTOM_3:
       break;
 
     case Action::ActionKind::QUIT:

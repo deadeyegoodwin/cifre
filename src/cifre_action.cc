@@ -21,8 +21,14 @@ Action::ToString() const
     return "QUIT";
   case ActionKind::SHOW_STATE:
     return "SHOW-STATE";
-  case ActionKind::SHOW_DEBUG_STATE:
-    return "SHOW-DEBUG-STATE";
+  case Action::ActionKind::CUSTOM_0:
+    return "CUSTOM-0";
+  case Action::ActionKind::CUSTOM_1:
+    return "CUSTOM-1";
+  case Action::ActionKind::CUSTOM_2:
+    return "CUSTOM-2";
+  case Action::ActionKind::CUSTOM_3:
+    return "CUSTOM-3";
   case ActionKind::ACTIONID:
     return "ACTIONID(" + std::to_string(action_id_) + ")";
   }

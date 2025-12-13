@@ -218,7 +218,8 @@ Board::StringToAction(const std::string& str) const
     case '?': return Action(Action::ActionKind::HELP);
     case 'q': return Action(Action::ActionKind::QUIT);
     case 's': return Action(Action::ActionKind::SHOW_STATE);
-    case '!': return Action(Action::ActionKind::SHOW_DEBUG_STATE);
+    case 't': return Action(Action::ActionKind::CUSTOM_0);
+    case 'v': return Action(Action::ActionKind::CUSTOM_1);
     default:
       break;
     }
@@ -655,7 +656,7 @@ PrintColor(ANSIFGColor fg, ANSIBGColor bg)
 } // namespace
 
 std::string
-Board::PreBoardString() const
+Board::BoardHeader() const
 {
   std::stringstream sstr;
 
@@ -679,13 +680,45 @@ Board::PreBoardString() const
 }
 
 std::string
-Board::PostBoardString() const
+Board::BoardTrailer() const
 {
   return "";
 }
 
+std::vector<std::string>
+Board::BoardCell(Board2DHex::DisplayKind kind, size_t row_idx, size_t col_idx) const
+{
+  switch (kind) {
+  case DisplayKind::SMALL:
+    return SmallBoardCell(row_idx, col_idx);
+  case DisplayKind::LARGE:
+    return LargeBoardCell(false /* verbose */, row_idx, col_idx);
+  case DisplayKind::LARGE_VERBOSE:
+    return LargeBoardCell(true /* verbose */, row_idx, col_idx);
+  }
+
+  return {}; // unreachable
+}
+
+std::vector<std::string>
+Board::SmallBoardCell(size_t row_idx, size_t col_idx) const
+{
+  return { BoardUnitString(row_idx, col_idx), SmallBoardTerrainString(row_idx, col_idx) };
+}
+
+std::vector<std::string>
+Board::LargeBoardCell(bool verbose, size_t row_idx, size_t col_idx) const
+{
+  return {
+    BoardUnitString(row_idx, col_idx) + "  ",
+    "      ",
+    LargeBoardVictoryPointString(row_idx, col_idx),
+    LargeBoardTerrainString(row_idx, col_idx) };
+}
+
+// Return 2-character string representing the unit(s) in the hex.
 std::string
-Board::BoardCellUpperString(size_t row_idx, size_t col_idx) const
+Board::BoardUnitString(size_t row_idx, size_t col_idx) const
 {
   if (!cells_flattened_.empty()) {
     const bool active_at =
@@ -724,7 +757,7 @@ Board::BoardCellUpperString(size_t row_idx, size_t col_idx) const
 }
 
 std::string
-Board::BoardCellLowerString(size_t row_idx, size_t col_idx) const
+Board::SmallBoardTerrainString(size_t row_idx, size_t col_idx) const
 {
   std::string str("__");
 
@@ -758,222 +791,54 @@ Board::BoardCellLowerString(size_t row_idx, size_t col_idx) const
 }
 
 std::string
-Board::ToDebugString() const
+Board::LargeBoardTerrainString(size_t row_idx, size_t col_idx) const
 {
-  std::stringstream sstr;
+  std::string str("____");
 
-  // Bigger hexes so can show more information...
-  //   ____        ____
-  //  /    \      /    \     <- loc 0 row
-  // /      \____/      \    <- loc 1 row
-  // \      /    \      /    <- loc 2 row
-  //  \____/      \____/     <- loc 3 row
-  //       \      /
-  //        \____/
+  if (!cells_flattened_.empty()) {
+    const bool forest = (ForestAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE);
+    const bool hill = (HillAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE);
+    const float vp = VictoryPointAt(row_idx, col_idx);
 
-  // Top of first row of hex cells.
-  for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); col_idx += 2) {
-    if (col_idx == 0) {
-      sstr << "  ____";
-    }
-    else {
-      sstr << "        ____";
-    }
-  }
-  sstr << "\n";
+    str[0] = ((forest) ? 'f' : '_');
+    str[1] = ((hill) ? 'h' : '_');
 
-  // Rows...
-  for (size_t row_idx = 0; row_idx < plane_shape_.RowCount(); ++row_idx) {
-    // Loc 0...
-    for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); ++col_idx) {
-      if ((col_idx % 2) == 0) {
-        if (col_idx == 0) {
-          sstr << " ";
-        }
-        sstr << "/" << DebugCellString(0 /* loc */, row_idx, col_idx) << "\\";
-
-      }
-      else if (row_idx > 0) {
-        sstr << DebugCellString(2 /* loc */, row_idx - 1, col_idx);
+    if (vp > 0) {
+      if (vp == std::floor(vp)) {
+        std::string vps = std::to_string(uint64_t(std::floor(vp)));
+        str[3] = (vps.size() == 1) ? vps[0] : '?';
       }
       else {
-        sstr << "      ";
+        str[3] = '?';
       }
     }
-    if ((row_idx != 0) && ((plane_shape_.ColumnCount() % 2) == 0)) {
-      sstr << "/";
-    }
-    sstr << "\n";
-
-    // Loc 1...
-    for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); ++col_idx) {
-      if ((col_idx % 2) == 0) {
-        sstr << "/" << DebugCellString(1 /* loc */, row_idx, col_idx) << "\\";
-      }
-      else if (row_idx > 0) {
-        sstr << DebugCellString(3 /* loc */, row_idx - 1, col_idx);
-      }
-      else {
-        sstr << "____";
-      }
-    }
-    if ((row_idx != 0) && ((plane_shape_.ColumnCount() % 2) == 0)) {
-      sstr << "/";
-    }
-    sstr << "\n";
-
-    // Loc 2...
-    for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); ++col_idx) {
-      if ((col_idx % 2) == 0) {
-        sstr << "\\" << DebugCellString(2 /* loc */, row_idx, col_idx) << "/";
-      }
-      else {
-        sstr << DebugCellString(0 /* loc */, row_idx, col_idx);
-      }
-    }
-    if ((plane_shape_.ColumnCount() % 2) == 0) {
-      sstr << "\\";
-    }
-    sstr << "\n";
-
-    // Loc 3...
-    for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); ++col_idx) {
-      if ((col_idx % 2) == 0) {
-        if (col_idx == 0) {
-          sstr << " ";
-        }
-        sstr << "\\" << DebugCellString(3 /* loc */, row_idx, col_idx) << "/";
-      }
-      else {
-        sstr << DebugCellString(1 /* loc */, row_idx, col_idx);
-      }
-    }
-    if ((plane_shape_.ColumnCount() % 2) == 0) {
-      sstr << "\\";
-    }
-    sstr << "\n";
   }
 
-  // Lower half of last row.
-  sstr << "  ";
-  for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); ++col_idx) {
-    if ((col_idx % 2) == 1) {
-      sstr << "    \\" << DebugCellString(2 /* loc */, plane_shape_.RowCount() - 1, col_idx) << "/";
-    }
-  }
-  sstr << "\n ";
-  for (size_t col_idx = 0; col_idx < plane_shape_.ColumnCount(); ++col_idx) {
-    if ((col_idx % 2) == 1) {
-      sstr << "      \\" << DebugCellString(3 /* loc */, plane_shape_.RowCount() - 1, col_idx) << "/";
-    }
-  }
-  sstr << "\n";
-
-  return sstr.str();
+  return str;
 }
 
 std::string
-Board::DebugCellString(size_t loc, size_t row_idx, size_t col_idx) const
+Board::LargeBoardVictoryPointString(size_t row_idx, size_t col_idx) const
 {
-  switch (loc) {
-  case 0: {
-    if (!cells_flattened_.empty()) {
-      const bool active_at =
-        ((active_unit_!= nullptr) && (active_unit_->Row() == row_idx) &&
-         (active_unit_->Column() == col_idx));
+  std::string str = "      ";
+  if (!cells_flattened_.empty()) {
+    const float uvp = UnionVictoryPointAt(row_idx, col_idx);
+    const float cvp = ConfederateVictoryPointAt(row_idx, col_idx);
+    assert((uvp == 0.0) || (cvp == 0.0));
 
-      const size_t uc =
-        UnionAt(row_idx - active_first_row_, col_idx - active_first_column_).size();
-      if (uc > 0) {
-        assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::UNION));
-        std::string str =
-          ((!active_at) ?
-           PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK) :
-           PrintColor(ANSIFGColor::WHITE, ANSIBGColor::BLUE));
-        str += UNION_CHAR;
-        str += PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK);
-        str += (uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' ');
-        str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
-        str += "  ";
-        return str;
+    str[4] = ((uvp > 0.0) ? UNION_CHAR : (cvp > 0.0) ? CONFEDERATE_CHAR : ' ');
+    const float vp = std::max(uvp, cvp);
+    if (vp > 0.0) {
+      if (vp == std::floor(vp)) {
+        std::string vps = std::to_string(uint64_t(std::floor(vp)));
+        str[5] = (vps.size() == 1) ? vps[0] : '?';
       }
-
-      const size_t cc =
-        ConfederateAt(row_idx - active_first_row_, col_idx - active_first_column_).size();
-      if (cc > 0) {
-        assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::CONFEDERATE));
-        std::string str =
-          ((!active_at) ?
-           PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK) :
-           PrintColor(ANSIFGColor::WHITE, ANSIBGColor::YELLOW));
-        str += CONFEDERATE_CHAR;
-        str += PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK);
-        str += (cc >= 10) ? '*' :  ((cc > 1) ? ('0' + cc) : ' ');
-        str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
-        str += "  ";
-        return str;
+      else {
+        str[5] = '?';
       }
     }
-    return "    ";
   }
-
-  case 1: {
-    std::string str = "      ";
-    return str;
-  }
-
-  case 2: {
-    std::string str = "      ";
-    if (!cells_flattened_.empty()) {
-      const float uvp = PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_VP);
-      const float cvp = PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_VP);
-      assert((uvp == 0.0) || (cvp == 0.0));
-
-      str[4] = ((uvp > 0.0) ? UNION_CHAR : (cvp > 0.0) ? CONFEDERATE_CHAR : ' ');
-      const float vp = std::max(uvp, cvp);
-      if (vp > 0.0) {
-        if (vp == std::floor(vp)) {
-          std::string vps = std::to_string(uint64_t(std::floor(vp)));
-          str[5] = (vps.size() == 1) ? vps[0] : '?';
-        }
-        else {
-          str[5] = '?';
-        }
-      }
-    }
-    return str;
-  }
-
-  case 3: {
-    std::string str = "____";
-    if (!cells_flattened_.empty()) {
-      const bool forest =
-        (PlaneCellValueAt(
-          row_idx, col_idx, BoardCellFactory::PLANE_IDX_FOREST) == BoardCellFactory::CELL_ACTIVE);
-      const bool hill =
-        (PlaneCellValueAt(
-          row_idx, col_idx, BoardCellFactory::PLANE_IDX_HILL) == BoardCellFactory::CELL_ACTIVE);
-      const float vp =
-        PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_VICTORY_POINT);
-
-      str[0] = ((forest) ? 'f' : '_');
-      str[1] = ((hill) ? 'h' : '_');
-
-      if (vp > 0) {
-        if (vp == std::floor(vp)) {
-          std::string vps = std::to_string(uint64_t(std::floor(vp)));
-          str[3] = (vps.size() == 1) ? vps[0] : '?';
-        }
-        else {
-          str[3] = '?';
-        }
-      }
-    }
-    return str;
-  }}
-
-  THROW("unexpected loc value");
-  return "";
+  return str;
 }
 
 }} // namespace cifre::gettysburg

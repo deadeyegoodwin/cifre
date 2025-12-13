@@ -146,7 +146,10 @@ PlayOneTask::Invoke()
       case Action::ActionKind::INVALID:
       case Action::ActionKind::HELP:
       case Action::ActionKind::SHOW_STATE:
-      case Action::ActionKind::SHOW_DEBUG_STATE:
+      case Action::ActionKind::CUSTOM_0:
+      case Action::ActionKind::CUSTOM_1:
+      case Action::ActionKind::CUSTOM_2:
+      case Action::ActionKind::CUSTOM_3:
         GameFail("unexpected player action");
         break;
       case Action::ActionKind::QUIT:
