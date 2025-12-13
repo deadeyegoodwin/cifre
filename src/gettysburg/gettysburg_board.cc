@@ -272,24 +272,6 @@ Board::ActiveUnit() const
   return unit;
 }
 
-Unit*
-Board::UnitAt(size_t row_idx, size_t col_idx) const
-{
-  for (const auto& u : union_units_) {
-    if ((u->Row() == row_idx) && (u->Column() == col_idx)) {
-      return u.get();;
-    }
-  }
-
-  for (const auto& c : confederate_units_) {
-    if ((c->Row() == row_idx) && (c->Column() == col_idx)) {
-      return c.get();;
-    }
-  }
-
-  return nullptr;
-}
-
 Board*
 Board::Copy() const
 {
@@ -683,37 +665,35 @@ std::string
 Board::BoardCellUpperString(size_t row_idx, size_t col_idx) const
 {
   if (!cells_flattened_.empty()) {
-    const Unit* unit_at = UnitAt(row_idx, col_idx);
-    if (unit_at != nullptr) {
-      const bool active_at = (unit_at == active_unit_);
+    const bool active_at =
+      ((active_unit_!= nullptr) && (active_unit_->Row() == row_idx) &&
+       (active_unit_->Column() == col_idx));
+    uint32_t uc = uint32_t(UnionAt(row_idx, col_idx));
+    if (uc > 0) {
+      assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::UNION));
+      std::string str =
+        ((!active_at) ?
+         PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK) :
+         PrintColor(ANSIFGColor::WHITE, ANSIBGColor::BLUE));
+      str += UNION_CHAR;
+      str += PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK);
+      str += (uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' ');
+      str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
+      return str;
+    }
 
-      uint32_t uc = uint32_t(UnionAt(row_idx, col_idx));
-      if (uc > 0) {
-        assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::UNION));
-        std::string str =
-          ((!active_at) ?
-           PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK) :
-           PrintColor(ANSIFGColor::WHITE, ANSIBGColor::BLUE));
-        str += UNION_CHAR;
-        str += PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK);
-        str += (uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' ');
-        str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
-        return str;
-      }
-
-      uint32_t cc = uint32_t(ConfederateAt(row_idx, col_idx));
-      if (cc > 0) {
-        assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::CONFEDERATE));
-        std::string str =
-          ((!active_at) ?
-           PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK) :
-           PrintColor(ANSIFGColor::WHITE, ANSIBGColor::YELLOW));
-        str += CONFEDERATE_CHAR;
-        str += PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK);
-        str += (cc >= 10) ? '*' :  ((cc > 1) ? ('0' + cc) : ' ');
-        str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
-        return str;
-      }
+    uint32_t cc = uint32_t(ConfederateAt(row_idx, col_idx));
+    if (cc > 0) {
+      assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::CONFEDERATE));
+      std::string str =
+        ((!active_at) ?
+         PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK) :
+         PrintColor(ANSIFGColor::WHITE, ANSIBGColor::YELLOW));
+      str += CONFEDERATE_CHAR;
+      str += PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK);
+      str += (cc >= 10) ? '*' :  ((cc > 1) ? ('0' + cc) : ' ');
+      str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
+      return str;
     }
   }
 
@@ -875,41 +855,40 @@ Board::DebugCellString(size_t loc, size_t row_idx, size_t col_idx) const
   switch (loc) {
   case 0: {
     if (!cells_flattened_.empty()) {
-      const Unit* unit_at = UnitAt(row_idx - active_first_row_, col_idx - active_first_column_);
-      if (unit_at != nullptr) {
-        const bool active_at = (unit_at == active_unit_);
+      const bool active_at =
+        ((active_unit_!= nullptr) && (active_unit_->Row() == row_idx) &&
+         (active_unit_->Column() == col_idx));
 
-        uint32_t uc =
-          uint32_t(PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT));
-        if (uc > 0) {
-          assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::UNION));
-          std::string str =
-            ((!active_at) ?
-             PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK) :
-             PrintColor(ANSIFGColor::WHITE, ANSIBGColor::BLUE));
-          str += UNION_CHAR;
-          str += PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK);
-          str += (uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' ');
-          str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
-          str += "  ";
-          return str;
-        }
+      uint32_t uc =
+        uint32_t(PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT));
+      if (uc > 0) {
+        assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::UNION));
+        std::string str =
+          ((!active_at) ?
+           PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK) :
+           PrintColor(ANSIFGColor::WHITE, ANSIBGColor::BLUE));
+        str += UNION_CHAR;
+        str += PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK);
+        str += (uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' ');
+        str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
+        str += "  ";
+        return str;
+      }
 
-        uint32_t cc =
-          uint32_t(PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT));
-        if (cc > 0) {
-          assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::CONFEDERATE));
-          std::string str =
-            ((!active_at) ?
-             PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK) :
-             PrintColor(ANSIFGColor::WHITE, ANSIBGColor::YELLOW));
-          str += CONFEDERATE_CHAR;
-          str += PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK);
-          str += (cc >= 10) ? '*' :  ((cc > 1) ? ('0' + cc) : ' ');
-          str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
-          str += "  ";
-          return str;
-        }
+      uint32_t cc =
+        uint32_t(PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT));
+      if (cc > 0) {
+        assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::CONFEDERATE));
+        std::string str =
+          ((!active_at) ?
+           PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK) :
+           PrintColor(ANSIFGColor::WHITE, ANSIBGColor::YELLOW));
+        str += CONFEDERATE_CHAR;
+        str += PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK);
+        str += (cc >= 10) ? '*' :  ((cc > 1) ? ('0' + cc) : ' ');
+        str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
+        str += "  ";
+        return str;
       }
     }
     return "    ";
