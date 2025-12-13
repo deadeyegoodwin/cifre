@@ -95,11 +95,16 @@ public:
   std::string ToString() const;
 
 private:
+  size_t UnitPlane(
+    ArmyKind army_kind, UnitKind unit_kind,
+    float combat_factor, float move_factor) const;
+
   const std::string name_;
   const ArmyKind army_kind_;
   const UnitKind unit_kind_;
   const float combat_factor_;
   const float move_factor_;
+  const size_t plane_idx_;
   size_t row_idx_;
   size_t column_idx_;
 };

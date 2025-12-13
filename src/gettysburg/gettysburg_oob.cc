@@ -19,16 +19,16 @@ UnionUnitsSmall(size_t turn)
   case 0: // 6-8am, start of scenario
     units.emplace_back(
       std::make_unique<Unit>(
-        "Reynolds", Unit::ArmyKind::UNION, Unit::UnitKind::HEADQUARTERS, 0 /*CF*/, 2 /*MF*/, 0, 0));
+        "Reynolds", Unit::ArmyKind::UNION, Unit::UnitKind::HEADQUARTERS, 0 /*CF*/, 10 /*MF*/, 0, 0));
     units.emplace_back(
       std::make_unique<Unit>(
-        "Wadsworth", Unit::ArmyKind::UNION, Unit::UnitKind::INFANTRY, 3 /*CF*/, 1 /*MF*/, 0, 0));
+        "Wadsworth", Unit::ArmyKind::UNION, Unit::UnitKind::INFANTRY, 3 /*CF*/, 5 /*MF*/, 0, 0));
     break;
 
   case 1: // 8-10am
     units.emplace_back(
       std::make_unique<Unit>(
-        "Devin", Unit::ArmyKind::UNION, Unit::UnitKind::CAVALRY, 1 /*CF*/, 2 /*MF*/, 4, 1));
+        "Devin", Unit::ArmyKind::UNION, Unit::UnitKind::CAVALRY, 1 /*CF*/, 7 /*MF*/, 4, 1));
     break;
   }
 
@@ -51,16 +51,16 @@ ConfederateUnitsSmall(size_t turn)
   case 1: // 8-10am
     units.emplace_back(
       std::make_unique<Unit>(
-        "Heth", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::INFANTRY, 5 /*CF*/, 1 /*MF*/, 0, 6));
+        "Heth", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::INFANTRY, 5 /*CF*/, 5 /*MF*/, 0, 6));
     units.emplace_back(
       std::make_unique<Unit>(
-        "Pegram", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::ARTILLERY, 2 /*CF*/, 1 /*MF*/, 0, 6));
+        "Pegram", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::ARTILLERY, 2 /*CF*/, 5 /*MF*/, 0, 6));
     break;
 
   case 2: // 10am-12pm
     units.emplace_back(
       std::make_unique<Unit>(
-        "Hill", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::HEADQUARTERS, 0 /*CF*/, 2 /*MF*/, 4, 6));
+        "Hill", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::HEADQUARTERS, 0 /*CF*/, 10 /*MF*/, 4, 6));
   }
 
   return units;

@@ -28,65 +28,60 @@ BoardCellFactory::BoardCellFactory(
   flat_vector_byte_count_ =
     plane_row_cnt_ * plane_column_cnt_ * PLANE_COUNT * sizeof(float);
 
-  // Make a set of planes for each position and possible move-factor
-  // on the board...
+  // Make a set of planes for each position on the board...
   for (size_t br = 0; br < board_row_cnt_; ++br) {
     for (size_t bc = 0; bc < board_column_cnt_; ++bc) {
-      for (size_t mf = 0; mf < 1; ++mf) {  // FIXME
-        // The set of planes for [br, bc] is represented as a flat
-        // vector as that is what is most efficient for feeding to the
-        // model.
-        Board2D::FlattenedCells flat_vector;
-        flat_vector.resize(flat_vector_byte_count_);
-        float* flat = reinterpret_cast<float*>(flat_vector.data());
+      // The set of planes for [br, bc] is represented as a flat
+      // vector as that is what is most efficient for feeding to the
+      // model.
+      Board2D::FlattenedCells flat_vector;
+      flat_vector.resize(flat_vector_byte_count_);
+      float* flat = reinterpret_cast<float*>(flat_vector.data());
 
-        // The planes for a board position [br, bc] includes a border
-        // so that [br, bc] is the center hex in the [plane_row_cnt_,
-        // plane_column_cnt_] planes.
-        const size_t start_br = board_row_cnt_ - 1 - br;
-        const size_t start_bc = board_column_cnt_ - 1 - bc;
+      // The planes for a board position [br, bc] includes a border
+      // so that [br, bc] is the center hex in the [plane_row_cnt_,
+      // plane_column_cnt_] planes.
+      const size_t start_br = board_row_cnt_ - 1 - br;
+      const size_t start_bc = board_column_cnt_ - 1 - bc;
 
-        // Apply board features to the planes...
-        for (auto& bd : board_cell_data) {
-          if ((bd.row_idx_ < board_row_cnt_) && (bd.column_idx_ < board_column_cnt_)) {
-            const size_t offset =
-              ((start_br + bd.row_idx_) * plane_column_cnt_ * PLANE_COUNT) +
-              ((start_bc + bd.column_idx_) * PLANE_COUNT);
-            if (bd.forest_) {
-              flat[offset + PLANE_IDX_FOREST] = CELL_ACTIVE;
-            }
-            if (bd.hill_) {
-              flat[offset + PLANE_IDX_HILL] = CELL_ACTIVE;
-            }
+      // Apply board features to the planes...
+      for (auto& bd : board_cell_data) {
+        if ((bd.row_idx_ < board_row_cnt_) && (bd.column_idx_ < board_column_cnt_)) {
+          const size_t offset =
+            ((start_br + bd.row_idx_) * plane_column_cnt_ * PLANE_COUNT) +
+            ((start_bc + bd.column_idx_) * PLANE_COUNT);
+          if (bd.forest_) {
+            flat[offset + PLANE_IDX_FOREST] = CELL_ACTIVE;
+          }
+          if (bd.hill_ || bd.rocky_hill_) {
+            flat[offset + PLANE_IDX_HILL] = CELL_ACTIVE;
+          }
 
-            // For small scenario we just have a single victory point
-            // in the center of the board, which is added below.
-            if (scenario_ != OOB::Scenario::SMALL) {
-              flat[offset + PLANE_IDX_VICTORY_POINT] = bd.victory_points_;
-            }
+          // For small scenario we just have a single victory point
+          // in the center of the board, which is added below.
+          if (scenario_ != OOB::Scenario::SMALL) {
+            flat[offset + PLANE_IDX_VICTORY_POINT] = bd.victory_points_;
           }
         }
-
-        // For small scenario add a single victory point in the center
-        // of the board.
-        if (scenario_ == OOB::Scenario::SMALL) {
-          const size_t offset =
-            ((start_br + (board_row_cnt_ / 2)) * plane_column_cnt_ * PLANE_COUNT) +
-            ((start_bc + (board_column_cnt_ / 2)) * PLANE_COUNT);
-          flat[offset + PLANE_IDX_VICTORY_POINT] = 1.0;
-        }
-
-        planes_map_[std::make_tuple(br, bc, mf)] = std::move(flat_vector);
       }
+
+      // For small scenario add a single victory point in the center
+      // of the board.
+      if (scenario_ == OOB::Scenario::SMALL) {
+        const size_t offset =
+          ((start_br + (board_row_cnt_ / 2)) * plane_column_cnt_ * PLANE_COUNT) +
+          ((start_bc + (board_column_cnt_ / 2)) * PLANE_COUNT);
+        flat[offset + PLANE_IDX_VICTORY_POINT] = 1.0;
+      }
+
+      planes_map_[std::make_tuple(br, bc)] = std::move(flat_vector);
     }
   }
 }
 
 Board2D::FlattenedCells
-BoardCellFactory::AcquireCells(CellsKey key)
+BoardCellFactory::AcquireCells(const CellsKey key)
 {
-  key = std::make_tuple(std::get<0>(key), std::get<1>(key), 0); // move-factor FIXME
-
   acquired_plane_sets_ += 1;
 
   // First check if there is a plane-set already available for
@@ -113,10 +108,8 @@ BoardCellFactory::AcquireCells(CellsKey key)
 }
 
 void
-BoardCellFactory::ReleaseCells(CellsKey key, Board2D::FlattenedCells&& cells)
+BoardCellFactory::ReleaseCells(const CellsKey key, Board2D::FlattenedCells&& cells)
 {
-  key = std::make_tuple(std::get<0>(key), std::get<1>(key), 0); // move-factor FIXME
-
   released_plane_sets_ += 1;
 
   // When debugging, check that the returned cells match what was
@@ -168,8 +161,7 @@ BoardCellFactory::ToString() const
     ss
       << "\n    per-state maximum " << max_per << " for ["
       << std::get<0>(max_key) << ","
-      << std::get<1>(max_key) << ","
-      << std::get<2>(max_key) << "]";
+      << std::get<1>(max_key) << "]";
   }
 
   return ss.str();

@@ -22,41 +22,75 @@ namespace cifre { namespace gettysburg {
 // it can be quickly provided to Boards.
 //
 // The following planes are pre-computed, one instance for each board
-// cell, and each movement factor, so a total of (row-cnt * column-cnt
-// * max-move-factory) precomputed sets of planes. A value of
-// CELL_ACTIVE is used to indicate that the position contains the
-// corresponding item (for example, in the FOREST plane a value of
-// CELL_ACTIVE indicates that there is a forest in the corresponding
-// row/column position). The exception is the VICTORY_POINT plane
-// which is initialized with the victory-points associated with the
-// position.
+// cell, so a total of (row-cnt * column-cnt) precomputed sets of
+// planes. For FOREST and HILL planes, a value of CELL_ACTIVE is used
+// to indicate that the position contains a forest or hill, and a
+// value of CELL_EMPTY indicates it does not.  For the VICTORY_POINT
+// plane each cell is initialized with the victory-points associated
+// with the position.
 //
-//   VICTORY_POINT: plane indicates victory-points for each hex
-//   FOREST: plane indicates which hexes contain forest
-//   HILL: plane indicates which hexes contain hill
-//   MOVE: plane indicates reachable hexes from row/column for a given
-//         move factor
+//   VICTORY_POINT: victory-points for each hex
+//   FOREST: forest hexes
+//   HILL: hill or rocky hill hexes
 //
-//   Other planes are initialized to CELL_EMPTY.
+// The non-constant planes are initialized to CELL_EMPTY. Their values
+// are managed by the Board. These planes' values are positive numbers
+// indicating the number of associated victory-points or units in the
+// corresponding hex. The non-constant planes are:
+//
+//   UNION_VP: victory-points captured by union
+//   CONFEDERATE_VP: victory-points captured by confederate
+//   CONFEDERATE_HEADQUARTERS: hexes containing confederate headquarters unit
+//   CONFEDERATE_INFANTRY_c_m: hexes containing confederate infantry unit with
+//                             combat-factor 'c' and move-factor 'm'
+//   CONFEDERATE_CAVALRY_c_m: hexes containing confederate cavalry unit with
+//                            combat-factor 'c' and move-factor 'm'
+//   CONFEDERATE_ARTILLERY_c_m: hexes containing confederate artillery unit with
+//                              combat-factor 'c' and move-factor 'm'
+//   UNION_HEADQUARTERS: hexes containing union headquarters unit
+//   UNION_INFANTRY_c_m: hexes containing union infantry unit with
+//                       combat-factor 'c' and move-factor 'm'
+//   UNION_CAVALRY_c_m: hexes containing union cavalry unit with
+//                            combat-factor 'c' and move-factor 'm'
+//   UNION_ARTILLERY_c_m: hexes containing union artillery unit with
+//                        combat-factor 'c' and move-factor 'm'
 //
 class BoardCellFactory {
 public:
-  static constexpr size_t PLANE_COUNT = 8;
+  static constexpr size_t PLANE_COUNT = 26;
 
   static constexpr size_t PLANE_IDX_VICTORY_POINT = 0;
   static constexpr size_t PLANE_IDX_FOREST = 1;
   static constexpr size_t PLANE_IDX_HILL = 2;
-  static constexpr size_t PLANE_IDX_MOVE = 3;
-  static constexpr size_t PLANE_IDX_UNION_UNIT = 4;
-  static constexpr size_t PLANE_IDX_UNION_VP = 5;
-  static constexpr size_t PLANE_IDX_CONFEDERATE_UNIT = 6;
-  static constexpr size_t PLANE_IDX_CONFEDERATE_VP = 7;
+  static constexpr size_t PLANE_IDX_UNION_VP = 3;
+  static constexpr size_t PLANE_IDX_CONFEDERATE_VP = 4;
+  static constexpr size_t PLANE_IDX_CONFEDERATE_HEADQUARTERS = 5;
+  static constexpr size_t PLANE_IDX_CONFEDERATE_INFANTRY_2_5 = 6;
+  static constexpr size_t PLANE_IDX_CONFEDERATE_INFANTRY_3_5 = 7;
+  static constexpr size_t PLANE_IDX_CONFEDERATE_INFANTRY_4_5 = 8;
+  static constexpr size_t PLANE_IDX_CONFEDERATE_INFANTRY_5_5 = 9;
+  static constexpr size_t PLANE_IDX_CONFEDERATE_INFANTRY_6_5 = 10;
+  static constexpr size_t PLANE_IDX_CONFEDERATE_CAVALRY_1_7 = 11;
+  static constexpr size_t PLANE_IDX_CONFEDERATE_ARTILLERY_1_5 = 12;
+  static constexpr size_t PLANE_IDX_CONFEDERATE_ARTILLERY_2_5 = 13;
+  static constexpr size_t PLANE_IDX_CONFEDERATE_ARTILLERY_1_7 = 14;
+  static constexpr size_t PLANE_IDX_UNION_HEADQUARTERS = 15;
+  static constexpr size_t PLANE_IDX_UNION_INFANTRY_1_5 = 16;
+  static constexpr size_t PLANE_IDX_UNION_INFANTRY_2_5 = 17;
+  static constexpr size_t PLANE_IDX_UNION_INFANTRY_3_5 = 18;
+  static constexpr size_t PLANE_IDX_UNION_INFANTRY_4_5 = 19;
+  static constexpr size_t PLANE_IDX_UNION_CAVALRY_1_7 = 20;
+  static constexpr size_t PLANE_IDX_UNION_CAVALRY_2_7 = 21;
+  static constexpr size_t PLANE_IDX_UNION_ARTILLERY_1_5 = 22;
+  static constexpr size_t PLANE_IDX_UNION_ARTILLERY_2_5 = 23;
+  static constexpr size_t PLANE_IDX_UNION_ARTILLERY_1_7 = 24;
+  static constexpr size_t PLANE_IDX_UNION_ARTILLERY_2_7 = 25;
 
   static constexpr float CELL_EMPTY = 0.0;
   static constexpr float CELL_ACTIVE = 1.0;
 
-  // CellsKey is <row-idx, column-idx, move-factory>
-  using CellsKey = std::tuple<size_t, size_t, size_t>;
+  // CellsKey is <row-idx, column-idx>
+  using CellsKey = std::tuple<size_t, size_t>;
 
 public:
   BoardCellFactory(
@@ -68,11 +102,11 @@ public:
   // move-factor. Thread-safe. The caller may modify the returned
   // vector, but must restore it to its original values before calling
   // ReleaseCells.
-  Board2D::FlattenedCells AcquireCells(CellsKey key);
+  Board2D::FlattenedCells AcquireCells(const CellsKey key);
 
   // "Restock" the cells for a given row, column, and
   // move-factor. Thread-safe.
-  void ReleaseCells(CellsKey key, Board2D::FlattenedCells&& cells);
+  void ReleaseCells(const CellsKey key, Board2D::FlattenedCells&& cells);
 
   // String representation.
   std::string ToString() const;

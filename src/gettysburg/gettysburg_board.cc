@@ -272,6 +272,30 @@ Board::ActiveUnit() const
   return unit;
 }
 
+std::vector<Unit*>
+Board::UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx) const
+{
+  std::vector<Unit*> units;
+  switch (kind) {
+  case Unit::ArmyKind::UNION:
+    for (const auto& u : union_units_) {
+      if ((u->Row() == row_idx) && (u->Column() == col_idx)) {
+        units.push_back(u.get());
+      }
+    }
+    break;
+  case Unit::ArmyKind::CONFEDERATE:
+    for (const auto& u : confederate_units_) {
+      if ((u->Row() == row_idx) && (u->Column() == col_idx)) {
+        units.push_back(u.get());
+      }
+    }
+    break;
+  }
+
+  return units;
+}
+
 Board*
 Board::Copy() const
 {
@@ -307,7 +331,7 @@ Board::Update(uint64_t action_id)
     active_move_factor_expended_ = 0.0;
   }
   else {
-    const float move_cost = 1.0; // FIXME
+    const float move_cost = (scenario_ == OOB::Scenario::SMALL) ? 3.0 : 1.0; // FIXME
 
     active_unit_->ApplyAction(action);
 
@@ -404,8 +428,7 @@ Board::UpdateInputPlanes()
   assert(cells_flattened_.empty());
 
   cells_flattened_factory_key_ =
-    std::make_tuple(active_unit_->Row(), active_unit_->Column(),
-                    active_unit_->MoveFactor() - active_move_factor_expended_);
+    std::make_tuple(active_unit_->Row(), active_unit_->Column());
   cells_flattened_ = cell_factory_->AcquireCells(cells_flattened_factory_key_);
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
@@ -484,7 +507,7 @@ Board::UpdateValidActions()
   valid_action_ids_.clear();
   valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_END));
 
-  const float move_cost = 1.0; // FIXME
+  const float move_cost = (scenario_ == OOB::Scenario::SMALL) ? 3.0 : 1.0; // FIXME
 
   // There must be movement factor available to perform a move.
   if ((active_move_factor_expended_ + move_cost) <= active_unit_->MoveFactor()) {
@@ -668,7 +691,7 @@ Board::BoardCellUpperString(size_t row_idx, size_t col_idx) const
     const bool active_at =
       ((active_unit_!= nullptr) && (active_unit_->Row() == row_idx) &&
        (active_unit_->Column() == col_idx));
-    uint32_t uc = uint32_t(UnionAt(row_idx, col_idx));
+    const size_t uc = UnionAt(row_idx, col_idx).size();
     if (uc > 0) {
       assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::UNION));
       std::string str =
@@ -682,7 +705,7 @@ Board::BoardCellUpperString(size_t row_idx, size_t col_idx) const
       return str;
     }
 
-    uint32_t cc = uint32_t(ConfederateAt(row_idx, col_idx));
+    const size_t cc = ConfederateAt(row_idx, col_idx).size();
     if (cc > 0) {
       assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::CONFEDERATE));
       std::string str =
@@ -859,8 +882,8 @@ Board::DebugCellString(size_t loc, size_t row_idx, size_t col_idx) const
         ((active_unit_!= nullptr) && (active_unit_->Row() == row_idx) &&
          (active_unit_->Column() == col_idx));
 
-      uint32_t uc =
-        uint32_t(PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT));
+      const size_t uc =
+        UnionAt(row_idx - active_first_row_, col_idx - active_first_column_).size();
       if (uc > 0) {
         assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::UNION));
         std::string str =
@@ -875,8 +898,8 @@ Board::DebugCellString(size_t loc, size_t row_idx, size_t col_idx) const
         return str;
       }
 
-      uint32_t cc =
-        uint32_t(PlaneCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT));
+      const size_t cc =
+        ConfederateAt(row_idx - active_first_row_, col_idx - active_first_column_).size();
       if (cc > 0) {
         assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::CONFEDERATE));
         std::string str =

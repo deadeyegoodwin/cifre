@@ -100,20 +100,10 @@ public:
     cells_[((row_idx + active_first_row_) * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
            ((col_idx + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }
 
-  void SetUnionAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT); }
-  float UnionAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_UNIT); }
-
   void SetUnionVictoryPointAt(float value, size_t row_idx, size_t col_idx) {
     SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_VP); }
   float UnionVictoryPointAt(size_t row_idx, size_t col_idx) const {
     return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_VP); }
-
-  void SetConfederateAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT); }
-  float ConfederateAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_UNIT); }
 
   void SetConfederateVictoryPointAt(float value, size_t row_idx, size_t col_idx) {
     SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_VP); }
@@ -125,18 +115,8 @@ public:
   float VictoryPointAt(size_t row_idx, size_t col_idx) const {
     return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_VICTORY_POINT); }
 
-  void SetMoveAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_MOVE); }
-  float MoveAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_MOVE); }
-
-  void SetForestAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_FOREST); }
   float ForestAt(size_t row_idx, size_t col_idx) const {
     return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_FOREST); }
-
-  void SetHillAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_HILL); }
   float HillAt(size_t row_idx, size_t col_idx) const {
     return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_HILL); }
 
@@ -151,6 +131,13 @@ private:
   // active_unit_idx_. Return nullptr if active army does not have any
   // units.
   Unit* ActiveUnit() const;
+
+  // Return union or confederate UNITs at a given board position.
+  std::vector<Unit*> UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx) const;
+  std::vector<Unit*> UnionAt(size_t row_idx, size_t col_idx) const {
+    return UnitsAt(Unit::ArmyKind::UNION, row_idx, col_idx); }
+  std::vector<Unit*> ConfederateAt(size_t row_idx, size_t col_idx) const {
+    return UnitsAt(Unit::ArmyKind::CONFEDERATE, row_idx, col_idx); }
 
   void ReleaseInputPlanes();
   void UpdateInputPlanes();
