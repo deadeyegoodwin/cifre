@@ -32,7 +32,7 @@ Board::Board(
   turn_ = 0;
 
   // Create initial units.
-  UpdateUnits();
+  ReinforceUnits();
 
   // Confederates always start, but in some scenarios they don't have
   // units. In that case union starts.
@@ -389,7 +389,7 @@ Board::NextActiveUnit()
     // confederate it is a new turn.
     if (active_army_ == Unit::ArmyKind::CONFEDERATE) {
       turn_ += 1;
-      UpdateUnits();
+      ReinforceUnits();
     }
   }
   else {
@@ -409,7 +409,7 @@ Board::NextActiveUnit()
 }
 
 void
-Board::UpdateUnits()
+Board::ReinforceUnits()
 {
   // Union
   for (auto& u : OOB::Units(scenario_, Unit::ArmyKind::UNION, turn_)) {
@@ -433,7 +433,7 @@ Board::UpdateInputPlanes()
   assert(cells_flattened_.empty());
 
   cells_flattened_factory_key_ =
-    std::make_tuple(active_unit_->Row(), active_unit_->Column());
+    std::make_pair(active_unit_->Row(), active_unit_->Column());
   cells_flattened_ = cell_factory_->AcquireCells(cells_flattened_factory_key_);
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
@@ -730,7 +730,6 @@ Board::BoardUnitString(size_t row_idx, size_t col_idx) const
        (active_unit_->Column() == col_idx));
     const size_t uc = UnionAt(row_idx, col_idx).size();
     if (uc > 0) {
-      assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::UNION));
       std::string str =
         ((!active_at) ?
          PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK) :
@@ -744,7 +743,6 @@ Board::BoardUnitString(size_t row_idx, size_t col_idx) const
 
     const size_t cc = ConfederateAt(row_idx, col_idx).size();
     if (cc > 0) {
-      assert((unit_at != nullptr) && (unit_at->Army() == Unit::ArmyKind::CONFEDERATE));
       std::string str =
         ((!active_at) ?
          PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK) :

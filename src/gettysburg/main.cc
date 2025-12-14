@@ -220,7 +220,8 @@ Gettysburg::CreateInitialState(
                         game_shape_.RowCount(), game_shape_.ColumnCount(),
                         plane_shape.RowCount(), plane_shape.ColumnCount()));
   move_factory_.reset(new BoardMoveFactory(
-                        scenario, game_shape_.RowCount(), game_shape_.ColumnCount()));
+                        cell_factory_, scenario,
+                        game_shape_.RowCount(), game_shape_.ColumnCount()));
 
   // 'starting_player_id' is ignored because gettysburg must start
   // with confederates.

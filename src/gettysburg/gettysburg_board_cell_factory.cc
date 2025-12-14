@@ -74,9 +74,76 @@ BoardCellFactory::BoardCellFactory(
         flat[offset + PLANE_IDX_VICTORY_POINT] = 1.0;
       }
 
-      planes_map_[std::make_tuple(br, bc)] = std::move(flat_vector);
+      planes_map_[std::make_pair(br, bc)] = std::move(flat_vector);
     }
   }
+
+  // Go through all board cell data again and organize into
+  // 'cell_features_'.
+  cell_features_.resize(board_row_cnt_ * board_column_cnt_);
+
+  for (auto& bd : board_cell_data) {
+    if ((bd.row_idx_ < board_row_cnt_) && (bd.column_idx_ < board_column_cnt_)) {
+      const size_t offset = (bd.row_idx_ * board_column_cnt_) + bd.column_idx_;
+      auto& features = cell_features_[offset];
+      if (bd.no_access_) {
+        features.not_accessible_ = true;
+      }
+      if (bd.forest_) {
+        features.forest_ = true;
+      }
+      if (bd.hill_) {
+        features.hill_ = true;
+      }
+      if (bd.rocky_hill_) {
+        features.rocky_hill_ = true;
+      }
+    }
+  }
+}
+
+bool
+BoardCellFactory::IsAccessible(size_t row, size_t column) const
+{
+  if ((row < board_row_cnt_) && (column < board_column_cnt_)) {
+    const size_t offset = (row * board_column_cnt_) + column;
+    return !cell_features_[offset].not_accessible_;
+  }
+
+  return false;
+}
+
+bool
+BoardCellFactory::IsForest(size_t row, size_t column) const
+{
+  if ((row < board_row_cnt_) && (column < board_column_cnt_)) {
+    const size_t offset = (row * board_column_cnt_) + column;
+    return cell_features_[offset].forest_;
+  }
+
+  return false;
+}
+
+bool
+BoardCellFactory::IsHill(size_t row, size_t column) const
+{
+  if ((row < board_row_cnt_) && (column < board_column_cnt_)) {
+    const size_t offset = (row * board_column_cnt_) + column;
+    return cell_features_[offset].hill_;
+  }
+
+  return false;
+}
+
+bool
+BoardCellFactory::IsRockyHill(size_t row, size_t column) const
+{
+  if ((row < board_row_cnt_) && (column < board_column_cnt_)) {
+    const size_t offset = (row * board_column_cnt_) + column;
+    return cell_features_[offset].rocky_hill_;
+  }
+
+  return false;
 }
 
 Board2D::FlattenedCells

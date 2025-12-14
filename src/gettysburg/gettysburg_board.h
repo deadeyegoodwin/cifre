@@ -143,7 +143,7 @@ private:
   void UpdateInputPlanes();
   void UpdateTerminalStatus();
   void UpdateValidActions();
-  void UpdateUnits();
+  void ReinforceUnits();
   void NextActiveUnit();
 
   std::vector<std::string> SmallBoardCell(size_t row_idx, size_t col_idx) const;

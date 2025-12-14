@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <map>
 #include <mutex>
-#include <tuple>
 
 #include "cifre_board2d.h"
 #include "gettysburg_oob.h"
@@ -90,7 +89,7 @@ public:
   static constexpr float CELL_ACTIVE = 1.0;
 
   // CellsKey is <row-idx, column-idx>
-  using CellsKey = std::tuple<size_t, size_t>;
+  using CellsKey = std::pair<size_t, size_t>;
 
 public:
   BoardCellFactory(
@@ -98,14 +97,20 @@ public:
     size_t board_row_cnt, size_t board_column_cnt,
     size_t plane_row_cnt, size_t plane_column_cnt);
 
-  // Return the cells for a given row, column, and
-  // move-factor. Thread-safe. The caller may modify the returned
+  // Return true if the feature is present in the cell specified by
+  // 'row' / 'column'.
+  bool IsAccessible(size_t row, size_t column) const;
+  bool IsForest(size_t row, size_t column) const;
+  bool IsHill(size_t row, size_t column) const;
+  bool IsRockyHill(size_t row, size_t column) const;
+
+  // Return the cells for a given row and column (using plane
+  // indexing). Thread-safe. The caller may modify the returned
   // vector, but must restore it to its original values before calling
   // ReleaseCells.
   Board2D::FlattenedCells AcquireCells(const CellsKey key);
 
-  // "Restock" the cells for a given row, column, and
-  // move-factor. Thread-safe.
+  // "Restock" the cells for a given row and column. Thread-safe.
   void ReleaseCells(const CellsKey key, Board2D::FlattenedCells&& cells);
 
   // String representation.
@@ -129,17 +134,30 @@ private:
   // Total size, in bytes of a set of input planes.
   size_t flat_vector_byte_count_;
 
-  // Map from the row index, column index, and move factor to the
-  // pre-initialized, flattened planes representing the static valued
-  // portions of the sets of planes.
+  // Map from the row index and column index to the pre-initialized,
+  // flattened planes representing the static valued portions of the
+  // sets of planes.
   std::map<CellsKey, Board2D::FlattenedCells> planes_map_;
 
-  // Map from the row index, column index, and move factor to already
-  // allocated planes. This map maintains the plane-sets that can be
-  // acquired and released and thus allows reuse. This map must be
-  // thread safe so a mutex is needed as well.
+  // Map from the row index and column index to already allocated
+  // planes. This map maintains the plane-sets that can be acquired
+  // and released and thus allows reuse. This map must be thread safe
+  // so a mutex is needed as well.
   std::mutex alloc_planes_mu_;
   std::map<CellsKey, std::vector<Board2D::FlattenedCells>> alloc_planes_map_;
+
+private:
+  // Features of a hex cell.
+  struct CellFeatures {
+    bool not_accessible_ {false};
+    bool forest_ {false};
+    bool hill_ {false};
+    bool rocky_hill_ {false};
+  };
+
+  // Vector indexed by flattened board index that gives features of a
+  // cell.
+  std::vector<CellFeatures> cell_features_;
 };
 
 }} // namespace cifre::gettysburg
