@@ -16,11 +16,14 @@ namespace cifre { namespace gettysburg {
 // Board
 //
 Board::Board(
-  const std::shared_ptr<BoardCellFactory>& factory, const OOB::Scenario scenario,
+  const std::shared_ptr<BoardCellFactory>& cell_factory,
+  const std::shared_ptr<BoardMoveFactory>& move_factory,
+  const OOB::Scenario scenario,
   const cifre::BoardSize2D& board_shape, const cifre::BoardSize2D& plane_shape,
   const std::vector<Player*>& players) :
   cifre::Board2DHex(BoardCellFactory::PLANE_COUNT, board_shape, players, 0 /* starting_player_id */),
-  cell_factory_(factory), scenario_(scenario), plane_shape_(plane_shape)
+  cell_factory_(cell_factory), move_factory_(move_factory),
+  scenario_(scenario), plane_shape_(plane_shape)
 {
   // Turn is represented by a integer. Each day has seven turns plus 1
   // for the night. So for JULY_1 scenario turn 0 is the first turn
@@ -62,7 +65,8 @@ Board::Board(
 }
 
 Board::Board(const Board& other) :
-  cifre::Board2DHex(other), cell_factory_(other.cell_factory_),
+  cifre::Board2DHex(other),
+  cell_factory_(other.cell_factory_), move_factory_(other.move_factory_),
   scenario_(other.scenario_), plane_shape_(other.plane_shape_),
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),

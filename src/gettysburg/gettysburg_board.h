@@ -9,6 +9,7 @@
 #include "cifre_action.h"
 #include "cifre_board2d_hex.h"
 #include "gettysburg_board_cell_factory.h"
+#include "gettysburg_board_move_factory.h"
 #include "gettysburg_oob.h"
 #include "gettysburg_player.h"
 #include "gettysburg_unit.h"
@@ -28,7 +29,9 @@ public:
 public:
   // Create board...
   Board(
-    const std::shared_ptr<BoardCellFactory>& factory, const OOB::Scenario scenario,
+    const std::shared_ptr<BoardCellFactory>& cell_factory,
+    const std::shared_ptr<BoardMoveFactory>& move_factory,
+    const OOB::Scenario scenario,
     const cifre::BoardSize2D& board_shape, const cifre::BoardSize2D& plane_shape,
     const std::vector<Player*>& players);
 
@@ -153,6 +156,8 @@ private:
 
   std::shared_ptr<BoardCellFactory> cell_factory_;
   BoardCellFactory::CellsKey cells_flattened_factory_key_;
+
+  std::shared_ptr<BoardMoveFactory> move_factory_;
 
   const OOB::Scenario scenario_;
   const cifre::BoardSize2D plane_shape_;

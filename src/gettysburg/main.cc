@@ -12,6 +12,7 @@
 #include "cifre_game.h"
 #include "gettysburg_board.h"
 #include "gettysburg_board_cell_factory.h"
+#include "gettysburg_board_move_factory.h"
 #include "gettysburg_player.h"
 #include "common_error.h"
 #include "common_util.h"
@@ -67,6 +68,7 @@ private:
 
   cifre::BoardSize2D game_shape_;
   std::shared_ptr<BoardCellFactory> cell_factory_;
+  std::shared_ptr<BoardMoveFactory> move_factory_;
 };
 
 Gettysburg::Gettysburg() : cifre::Game(), game_shape_(DEFAULT_GAME_SHAPE)
@@ -217,10 +219,13 @@ Gettysburg::CreateInitialState(
                         scenario,
                         game_shape_.RowCount(), game_shape_.ColumnCount(),
                         plane_shape.RowCount(), plane_shape.ColumnCount()));
+  move_factory_.reset(new BoardMoveFactory(
+                        scenario, game_shape_.RowCount(), game_shape_.ColumnCount()));
 
   // 'starting_player_id' is ignored because gettysburg must start
   // with confederates.
-  return new Board(cell_factory_, scenario, game_shape_, plane_shape, players);
+  return new Board(
+    cell_factory_, move_factory_, scenario, game_shape_, plane_shape, players);
 }
 
 }} // namespace cifre::gettysburg
