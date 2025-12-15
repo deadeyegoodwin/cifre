@@ -124,7 +124,8 @@ private:
   Board& operator=(const Board&) = delete;  // assignment not allowed
 
   // Copy constructor. WARNING: this does not copy 'cells_flattened_'
-  // or 'cells_'. To perform a complete copy, use Copy().
+  // , 'cells_' and some other members. To perform a complete copy,
+  // use Copy().
   Board(const Board& other);
 
   // Utility method to get the active unit from active_army_ and
@@ -141,10 +142,11 @@ private:
 
   void ReleaseInputPlanes();
   void UpdateInputPlanes();
+  void UpdateMoveCosts();
   void UpdateTerminalStatus();
   void UpdateValidActions();
   void ReinforceUnits();
-  void NextActiveUnit();
+  bool NextArmyUnit(const std::vector<std::unique_ptr<Unit>>& units);
 
   std::vector<std::string> SmallBoardCell(size_t row_idx, size_t col_idx) const;
   std::vector<std::string> LargeBoardCell(
@@ -167,7 +169,7 @@ private:
   size_t active_unit_idx_;
   size_t active_first_row_;
   size_t active_first_column_;
-  float active_move_factor_expended_;
+  const std::array<float, Board2DHex::DIRECTION_COUNT>* active_move_costs_;
 
   // Integer representing the game turn.
   size_t turn_;

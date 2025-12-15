@@ -5,10 +5,11 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "gettysburg_board_cell_factory.h"
 #include "gettysburg_oob.h"
 
 namespace cifre { namespace gettysburg {
+
+class BoardCellFactory;
 
 //
 // BoardMoveFactory
@@ -21,29 +22,37 @@ namespace cifre { namespace gettysburg {
 //
 class BoardMoveFactory {
 public:
+  static constexpr size_t NO_ADJACENT = std::numeric_limits<size_t>::max();
+
+public:
+  // Constructor
   BoardMoveFactory(
     const std::shared_ptr<BoardCellFactory>& cell_factory,
     const OOB::Scenario scenario, size_t row_cnt, size_t column_cnt);
 
-private:
-  enum Direction { UP=0, UP_RT=1, DN_RT=2, DN=3, DN_LT=4, UP_LT=5 };
-  static constexpr size_t DIRECTION_COUNT = 6;
+  // Return true if the is a hex adjacent to 'row' / 'column' in
+  // direction 'dir'.
+  bool IsAdjacentHex(size_t row, size_t column, Board2DHex::Direction dir) {
+    return nodes_[(row * column_cnt_) + column].adjacent_idx_[size_t(dir)] != NO_ADJACENT; }
 
+  // Return the cost to move out of 'row' / 'column' in every
+  // direction. Return 0.0 for a direction if movement is not
+  // possible.
+  const std::array<float, Board2DHex::DIRECTION_COUNT>& MoveCost(
+    size_t row, size_t column) const {
+    return nodes_[(row * column_cnt_) + column].out_move_cost_; }
+
+private:
   // Node represents a graph node. Edges are not represented
   // explicitly, but instead as arrays of adjacent nodes and move cost
-  // for incoming and outgoing along the edge.  'adjacent_idx_' is the
-  // index into 'nodes_' for the node in each of the six directions
-  // represented by Direction. An index value of NO_ADJACENT indicates
-  // that there is no adjacent node in that direction (i.e. edge of
-  // board).
+  // for outgoing along the edge.  'adjacent_idx_' is the index into
+  // 'nodes_' for the node in each of the six directions represented
+  // by Direction. An index value of NO_ADJACENT indicates that there
+  // is no adjacent node in that direction (i.e. edge of board).
   //
-  static constexpr size_t NO_ADJACENT = std::numeric_limits<size_t>::max();
   struct Node {
-    size_t row_;
-    size_t column_;
-    std::array<size_t, 6> adjacent_idx_ = {};
-    std::array<float, 6> in_move_cost_ = {};
-    std::array<float, 6> out_move_cost_ = {};
+    std::array<size_t, Board2DHex::DIRECTION_COUNT> adjacent_idx_ = {};
+    std::array<float, Board2DHex::DIRECTION_COUNT> out_move_cost_ = {};
   };
 
 private:

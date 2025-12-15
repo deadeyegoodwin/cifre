@@ -57,6 +57,23 @@ public:
     LARGE_VERBOSE   // Large hexes with additional debug-level content
   };
 
+  // Hex directions.
+  enum class Direction { UP=0, UP_RT=1, DN_RT=2, DN=3, DN_LT=4, UP_LT=5 };
+  static constexpr size_t DIRECTION_COUNT = 6;
+
+  static std::string DirectionToString(const Direction d) {
+    switch (d) {
+    case Direction::UP: return "UP";
+    case Direction::UP_RT: return "UP-RT";
+    case Direction::DN_RT: return "DN-RT";
+    case Direction::DN: return "DN";
+    case Direction::DN_LT: return "DN-LT";
+    case Direction::UP_LT: return "UP-LT";
+    }
+    return "<none>"; // unreachable
+  }
+
+public:
   // Create a board based on a given number of planes, 2D 'size' and
   // 'players', where player ID is the index of a given player in
   // 'players'. 'starting_player_id' indicates the player that will go

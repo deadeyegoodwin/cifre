@@ -20,7 +20,7 @@ Unit::Unit(const std::string& name, ArmyKind army_kind, UnitKind unit_kind,
   name_(name), army_kind_(army_kind), unit_kind_(unit_kind),
   combat_factor_(combat_factor), move_factor_(move_factor),
   plane_idx_(UnitPlane(army_kind, unit_kind, combat_factor, move_factor)),
-  row_idx_(row_idx), column_idx_(col_idx)
+  move_factor_expended_(0.0), row_idx_(row_idx), column_idx_(col_idx)
 {
 }
 
@@ -110,6 +110,7 @@ Unit::Hash() const
   // 'move_factor_' as they are redundant with 'plane_idx_'.
 
   hash += (plane_idx_ * mulp) ^ (hash >> 23);
+  hash += (uint64_t(move_factor_expended_ * 100000.0) * mulp) ^ (hash >> 23);
   hash += (row_idx_ * mulp) ^ (hash >> 23);
   hash += (column_idx_ * mulp) ^ (hash >> 23);
 
@@ -125,6 +126,7 @@ Unit::Equal(const Unit* other) const
   // 'move_factor_' as they are redundant with 'plane_idx_'.
 
   return ((plane_idx_ == other->plane_idx_) &&
+          (move_factor_expended_ == other->move_factor_expended_) &&
           (row_idx_ == other->row_idx_) &&
           (column_idx_ == other->column_idx_));
 }
@@ -145,50 +147,59 @@ Unit::AddToBoard(Board* board) const
 }
 
 void
-Unit::ApplyAction(ActionKind kind)
+Unit::ApplyAction(
+  ActionKind kind, const std::array<float, Board2DHex::DIRECTION_COUNT>& move_cost)
 {
-  if (kind != ActionKind::MOVE_END) {
-    switch (kind) {
-    case ActionKind::MOVE_UP:
+  switch (kind) {
+  case ActionKind::MOVE_UP:
+    assert(row_idx_ > 0);
+    row_idx_ -= 1;
+    move_factor_expended_ += move_cost[size_t(Board2DHex::Direction::UP)];
+    break;
+  case ActionKind::MOVE_DOWN:
+    row_idx_ += 1;
+    move_factor_expended_ += move_cost[size_t(Board2DHex::Direction::DN)];
+    break;
+  case ActionKind::MOVE_UPRIGHT:
+    if ((column_idx_ % 2) == 0) {
       assert(row_idx_ > 0);
       row_idx_ -= 1;
-      break;
-    case ActionKind::MOVE_DOWN:
-      row_idx_ += 1;
-      break;
-    case ActionKind::MOVE_UPRIGHT:
-      if ((column_idx_ % 2) == 0) {
-        assert(row_idx_ > 0);
-        row_idx_ -= 1;
-      }
-      column_idx_ += 1;
-      break;
-    case ActionKind::MOVE_DOWNRIGHT:
-      if ((column_idx_ % 2) == 1) {
-        row_idx_ += 1;
-      }
-      column_idx_ += 1;
-      break;
-    case ActionKind::MOVE_DOWNLEFT:
-      if ((column_idx_ % 2) == 1) {
-        row_idx_ += 1;
-      }
-      assert(column_idx_ > 0);
-      column_idx_ -= 1;
-      break;
-    case ActionKind::MOVE_UPLEFT:
-      if ((column_idx_ % 2) == 0) {
-        assert(row_idx_ > 0);
-        row_idx_ -= 1;
-      }
-      assert(column_idx_ > 0);
-      column_idx_ -= 1;
-      break;
-    case ActionKind::MOVE_END:
-    case ActionKind::ACTION_COUNT:
-      THROW("unexpected unit action");
     }
+    column_idx_ += 1;
+    move_factor_expended_ += move_cost[size_t(Board2DHex::Direction::UP_RT)];
+    break;
+  case ActionKind::MOVE_DOWNRIGHT:
+    if ((column_idx_ % 2) == 1) {
+      row_idx_ += 1;
+    }
+    column_idx_ += 1;
+    move_factor_expended_ += move_cost[size_t(Board2DHex::Direction::DN_RT)];
+    break;
+  case ActionKind::MOVE_DOWNLEFT:
+    if ((column_idx_ % 2) == 1) {
+      row_idx_ += 1;
+    }
+    assert(column_idx_ > 0);
+    column_idx_ -= 1;
+    move_factor_expended_ += move_cost[size_t(Board2DHex::Direction::DN_LT)];
+    break;
+  case ActionKind::MOVE_UPLEFT:
+    if ((column_idx_ % 2) == 0) {
+      assert(row_idx_ > 0);
+      row_idx_ -= 1;
+    }
+    assert(column_idx_ > 0);
+    column_idx_ -= 1;
+    move_factor_expended_ += move_cost[size_t(Board2DHex::Direction::UP_LT)];
+    break;
+  case ActionKind::MOVE_END:
+    move_factor_expended_ = move_factor_;
+    break;
+  case ActionKind::ACTION_COUNT:
+    THROW("unexpected unit action");
   }
+
+  assert(move_factor_expended_ <= move_factor_);
 }
 
 std::string
@@ -198,7 +209,8 @@ Unit::ToString() const
 
   sstr
     << ArmyKindToString(army_kind_) << " " << UnitKindToString(unit_kind_)
-    << " (" << name_ << ") " << combat_factor_ << "-" << move_factor_;
+    << " (" << name_ << ") " << combat_factor_ << "-" << move_factor_
+    << " (expended " << move_factor_expended_ << ")";
 
   return sstr.str();
 }

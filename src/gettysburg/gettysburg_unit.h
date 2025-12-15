@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "cifre_action.h"
+#include "cifre_board2d_hex.h"
 
 namespace cifre { namespace gettysburg {
 
@@ -82,8 +83,14 @@ public:
   size_t Row() const { return row_idx_; }
   size_t Column() const { return column_idx_; }
 
+  float MoveFactorExpended() const { return move_factor_expended_; }
+  float MoveFactorRemaining() const {
+    return move_factor_ - move_factor_expended_; }
+  void ResetMoveFactorRemaining() { move_factor_expended_ = 0.0; }
+
   // Update unit based on action 'kind'.
-  void ApplyAction(ActionKind kind);
+  void ApplyAction(
+    ActionKind kind, const std::array<float, Board2DHex::DIRECTION_COUNT>& move_cost);
 
   // Update 'board' to remove this unit.
   void RemoveFromBoard(Board* board) const;
@@ -105,6 +112,8 @@ private:
   const float combat_factor_;
   const float move_factor_;
   const size_t plane_idx_;
+
+  float move_factor_expended_;
   size_t row_idx_;
   size_t column_idx_;
 };

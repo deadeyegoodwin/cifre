@@ -50,17 +50,11 @@ Board::Board(
   active_unit_ = ActiveUnit();
   assert(active_unit_ != nullptr);
 
-  // The active unit's position determines where on the planes the
-  // board is located; location is set to place that unit in the
-  // center of the planes.
-  active_first_row_ = size_.RowCount() - 1 - active_unit_->Row();
-  active_first_column_ = size_.ColumnCount() - 1 - active_unit_->Column();
-  active_move_factor_expended_ = 0.0;
-
   // Initialize board inputs, valid actions, and terminal status for
   // the initial active player.
-  UpdateInputPlanes();
+  UpdateMoveCosts();
   UpdateValidActions();
+  UpdateInputPlanes();
   UpdateTerminalStatus();
 }
 
@@ -70,7 +64,7 @@ Board::Board(const Board& other) :
   scenario_(other.scenario_), plane_shape_(other.plane_shape_),
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
-  active_move_factor_expended_(other.active_move_factor_expended_),
+  active_move_costs_(other.active_move_costs_),
   turn_(other.turn_), captured_vps_(other.captured_vps_)
 {
   // WARNING: this does not copy 'cells_flattened_', 'cells_' or
@@ -111,18 +105,17 @@ Board::Hash() const
   // 'scenario_' is not hashed because it is equal for all boards.
   // 'plane_shape_' is not hashed because it is equal for all boards.
   //
-  // active_unit_ is not hashed because it is redundant with
-  // active_army_ and active_unit_idx_.
+  // 'active_army_' and 'active_unit_idx_' indicate which unit is the
+  // active unit (and thereby its position on the board) and so don't
+  // need 'active_unit_', 'active_first_row_', 'active_first_column_'
+  // and 'active_move_costs_'.
 
-  // FIXME likely need to include turn_ in the cell state (turn
+  // FIXME likely need to include 'turn_' in the cell state (turn
   // plane?) and then would need to add it to the hash. For now it is
   // not in the hash so board states are not differentiated by turn.
 
   hash += (uint64_t(active_army_) * mulp) ^ (hash >> 23);
   hash += (active_unit_idx_ * mulp) ^ (hash >> 23);
-  hash += (active_first_row_ * mulp) ^ (hash >> 23);
-  hash += (active_first_column_ * mulp) ^ (hash >> 23);
-  hash += (uint64_t(active_move_factor_expended_ * 100000.0) * mulp) ^ (hash >> 23);
 
   if (!captured_vps_.empty()) {
     hash += (captured_vps_.size() * mulp) ^ (hash >> 23);
@@ -155,8 +148,10 @@ Board::Equal(const State* other) const
   // 'scenario_' is not compared because it is equal for all boards.
   // 'plane_shape_' is not compared because it is same for all boards.
   //
-  // active_unit_ is not compared because it is redundant with
-  // active_army_ and active_unit_idx_.
+  // 'active_army_' and 'active_unit_idx_' indicate which unit is the
+  // active unit (and thereby its position on the board) and so don't
+  // need 'active_unit_', 'active_first_row_', 'active_first_column_'
+  // and 'active_move_costs_'.
 
   // FIXME likely need to include turn_ in the cell state (turn
   // plane?) and then would need to add it to the hash. For now it is
@@ -165,9 +160,6 @@ Board::Equal(const State* other) const
   if ((active_player_id_ != ob->active_player_id_) ||
       (active_army_ != ob->active_army_) ||
       (active_unit_idx_ != ob->active_unit_idx_) ||
-      (active_first_row_ != ob->active_first_row_) ||
-      (active_first_column_ != ob->active_first_column_) ||
-      (active_move_factor_expended_ != ob->active_move_factor_expended_) ||
       (captured_vps_ != ob->captured_vps_)) {
     return false;
   }
@@ -328,58 +320,20 @@ Board::CopyAndUpdate(uint64_t action_id) const
 void
 Board::Update(uint64_t action_id)
 {
+  const Unit::ActionKind action = Unit::ActionKind(action_id);
+
   ReleaseInputPlanes();
+  active_unit_->ApplyAction(action, *active_move_costs_);
 
-  Unit::ActionKind action = Unit::ActionKind(action_id);
-  if (action == Unit::ActionKind::MOVE_END) {
-    NextActiveUnit();
-    active_move_factor_expended_ = 0.0;
-  }
-  else {
-    const float move_cost = (scenario_ == OOB::Scenario::SMALL) ? 3.0 : 1.0; // FIXME
-
-    active_unit_->ApplyAction(action);
-
-    assert((active_move_factor_expended_ + move_cost) <= active_unit_->MoveFactor());
-    active_move_factor_expended_ += move_cost;
-  }
-
-  active_first_row_ = size_.RowCount() - 1 - active_unit_->Row();
-  active_first_column_ = size_.ColumnCount() - 1 - active_unit_->Column();
-  UpdateInputPlanes();
-
-  // Check terminal status...
-  UpdateTerminalStatus();
-  if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
-    // Not at terminal... if movement is completely exhausted then we
-    // want to automatically perform the MOVE_END.
-    if (active_move_factor_expended_ >= active_unit_->MoveFactor()) {
-      Update(uint64_t(Unit::ActionKind::MOVE_END));
-      return;
+  // Move to the next unit. If all units of a player have completed
+  // movement then move to next player (and potentially next turn).
+  if (!NextArmyUnit((active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_)) {
+    // Reset move-factor-remaining for all units of the current army.
+    for (auto& u : (active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_) {
+      u->ResetMoveFactorRemaining();
     }
 
-    UpdateValidActions();
-  }
-}
-
-void
-Board::NextActiveUnit()
-{
-  // If currently active unit is the last for the current player, then
-  // change to the next player.
-  bool switch_active_army = false;
-  switch (active_army_) {
-  case Unit::ArmyKind::UNION:
-    assert(!union_units_.empty());
-    switch_active_army = (active_unit_idx_ == (union_units_.size() - 1));
-    break;
-  case Unit::ArmyKind::CONFEDERATE:
-    assert(!confederate_units_.empty());
-    switch_active_army = (active_unit_idx_ == (confederate_units_.size() - 1));
-    break;
-  }
-
-  if (switch_active_army) {
+    // Change to other army.
     active_player_id_ = (active_player_id_ + 1) % players_.size();
     active_army_ =
       (active_player_id_ == 0) ? Unit::ArmyKind::CONFEDERATE : Unit::ArmyKind::UNION;
@@ -391,39 +345,49 @@ Board::NextActiveUnit()
       turn_ += 1;
       ReinforceUnits();
     }
-  }
-  else {
-    // Otherwise just move to the next unit in the same army.
-    active_unit_idx_ += 1;
+
+    if (!NextArmyUnit((active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_)) {
+      THROW("at least one army should contain moveable units");
+    }
   }
 
-  // If there are no units in the newly active army, then switch back
-  // to other army. Avoid circular loop by making sure both armies
-  // aren't empty (should never happen).
-  active_unit_ = ActiveUnit();
-  if (active_unit_ == nullptr) {
-    THROWIF(union_units_.empty() && confederate_units_.empty(),
-            "at least one army should contain units");
-    NextActiveUnit();
+  // Update input planes and terminal status for the new active unit.
+  UpdateInputPlanes();
+  UpdateTerminalStatus();
+}
+
+bool
+Board::NextArmyUnit(const std::vector<std::unique_ptr<Unit>>& units)
+{
+  assert(!units.empty());
+
+  // Check every unit in 'units' to see if they can become the active
+  // unit. A unit can become active if it has enough move-factor
+  // remaining to perform a movement.
+  const size_t curr_idx = active_unit_idx_;
+  for (size_t idx = 0; idx < units.size(); ++idx) {
+    active_unit_idx_ = (curr_idx + idx + 1) % units.size();
+    active_unit_ = units[active_unit_idx_].get();
+
+    if (active_unit_->MoveFactorRemaining() > 0.0) {
+      UpdateMoveCosts();
+      UpdateValidActions();
+      if ((valid_action_ids_.size() > 1) ||
+          ((valid_action_ids_.size() == 1) &&
+           (*valid_action_ids_.begin() != uint64_t(Unit::ActionKind::MOVE_END)))) {
+        return true;
+      }
+    }
   }
+
+  return false;
 }
 
 void
-Board::ReinforceUnits()
+Board::UpdateMoveCosts()
 {
-  // Union
-  for (auto& u : OOB::Units(scenario_, Unit::ArmyKind::UNION, turn_)) {
-    if ((u->Row() < size_.RowCount()) && (u->Column() < size_.ColumnCount())) {
-      union_units_.emplace_back(std::move(u));
-    }
-  }
-
-  // Confederate
-  for (auto& u : OOB::Units(scenario_, Unit::ArmyKind::CONFEDERATE, turn_)) {
-    if ((u->Row() < size_.RowCount()) && (u->Column() < size_.ColumnCount())) {
-      confederate_units_.emplace_back(std::move(u));
-    }
-  }
+  active_move_costs_ =
+    &move_factory_->MoveCost(active_unit_->Row(), active_unit_->Column());
 }
 
 void
@@ -431,6 +395,12 @@ Board::UpdateInputPlanes()
 {
   // Cells should be released...
   assert(cells_flattened_.empty());
+
+  // The active unit's position determines where on the planes the
+  // board is located; location is set to place that unit in the
+  // center of the planes.
+  active_first_row_ = size_.RowCount() - 1 - active_unit_->Row();
+  active_first_column_ = size_.ColumnCount() - 1 - active_unit_->Column();
 
   cells_flattened_factory_key_ =
     std::make_pair(active_unit_->Row(), active_unit_->Column());
@@ -506,52 +476,30 @@ Board::ReleaseInputPlanes()
   }
 }
 
+static const std::array<std::pair<Board2DHex::Direction, Unit::ActionKind>,
+                        Board2DHex::DIRECTION_COUNT> direction_actions {{
+  { Board2DHex::Direction::UP, Unit::ActionKind::MOVE_UP },
+  { Board2DHex::Direction::UP_RT, Unit::ActionKind::MOVE_UPRIGHT },
+  { Board2DHex::Direction::DN_RT, Unit::ActionKind::MOVE_DOWNRIGHT },
+  { Board2DHex::Direction::DN, Unit::ActionKind::MOVE_DOWN },
+  { Board2DHex::Direction::DN_LT, Unit::ActionKind::MOVE_DOWNLEFT },
+  { Board2DHex::Direction::UP_LT, Unit::ActionKind::MOVE_UPLEFT } }};
+
 void
 Board::UpdateValidActions()
 {
   valid_action_ids_.clear();
   valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_END));
 
-  const float move_cost = (scenario_ == OOB::Scenario::SMALL) ? 3.0 : 1.0; // FIXME
+  const size_t row = active_unit_->Row();
+  const size_t col = active_unit_->Column();
 
-  // There must be movement factor available to perform a move.
-  if ((active_move_factor_expended_ + move_cost) <= active_unit_->MoveFactor()) {
-    const size_t row = active_unit_->Row();
-    const size_t col = active_unit_->Column();
-
-    if ((row == 0) && ((col % 2) == 1)) {
-      if (col > 0) {
-        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPLEFT));
-      }
-      if (col < (size_.ColumnCount() - 1)) {
-        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPRIGHT));
-      }
-    }
-    else if (row > 0) {
-      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UP));
-      if (col > 0) {
-        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPLEFT));
-      }
-      if (col < (size_.ColumnCount() - 1)) {
-        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_UPRIGHT));
-      }
-    }
-
-    if ((row == (size_.RowCount() - 1)) && ((col % 2) == 0)) {
-      if (col > 0) {
-        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNLEFT));
-      }
-      if (col < (size_.ColumnCount() - 1)) {
-        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNRIGHT));
-      }
-    }
-    else if (row < (size_.RowCount() - 1)) {
-      valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWN));
-      if (col > 0) {
-        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNLEFT));
-      }
-      if (col < (size_.ColumnCount() - 1)) {
-        valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_DOWNRIGHT));
+  for (const auto& pr : direction_actions) {
+    // For now don't allow unit to move off of the board...
+    if (move_factory_->IsAdjacentHex(row, col, pr.first)) {
+      const float cost = (*active_move_costs_)[size_t(pr.first)];
+      if ((active_unit_->MoveFactorExpended() + cost) <= active_unit_->MoveFactor()) {
+        valid_action_ids_.insert(uint64_t(pr.second));
       }
     }
   }
@@ -604,6 +552,24 @@ Board::UpdateTerminalStatus()
     THROWIF(
       terminal_status_.Kind() != cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
       "expected NON_TERMINAL status");
+  }
+}
+
+void
+Board::ReinforceUnits()
+{
+  // Union
+  for (auto& u : OOB::Units(scenario_, Unit::ArmyKind::UNION, turn_)) {
+    if ((u->Row() < size_.RowCount()) && (u->Column() < size_.ColumnCount())) {
+      union_units_.emplace_back(std::move(u));
+    }
+  }
+
+  // Confederate
+  for (auto& u : OOB::Units(scenario_, Unit::ArmyKind::CONFEDERATE, turn_)) {
+    if ((u->Row() < size_.RowCount()) && (u->Column() < size_.ColumnCount())) {
+      confederate_units_.emplace_back(std::move(u));
+    }
   }
 }
 
