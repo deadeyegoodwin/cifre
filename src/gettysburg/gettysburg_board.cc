@@ -323,17 +323,18 @@ Board::Update(uint64_t action_id)
   const Unit::ActionKind action = Unit::ActionKind(action_id);
 
   ReleaseInputPlanes();
-  active_unit_->ApplyAction(action, *active_move_costs_);
+  active_unit_->ApplyAction(action, active_move_costs_);
 
-  // Move to the next unit. If all units of a player have completed
-  // movement then move to next player (and potentially next turn).
+  // Change active to the next unit. If all units of a player have
+  // completed movement then move to next player (and potentially next
+  // turn).
   if (!NextArmyUnit((active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_)) {
     // Reset move-factor-remaining for all units of the current army.
     for (auto& u : (active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_) {
       u->ResetMoveFactorRemaining();
     }
 
-    // Change to other army.
+    // Change to other player / army.
     active_player_id_ = (active_player_id_ + 1) % players_.size();
     active_army_ =
       (active_player_id_ == 0) ? Unit::ArmyKind::CONFEDERATE : Unit::ArmyKind::UNION;
@@ -387,7 +388,17 @@ void
 Board::UpdateMoveCosts()
 {
   active_move_costs_ =
-    &move_factory_->MoveCost(active_unit_->Row(), active_unit_->Column());
+    move_factory_->MoveCost(active_unit_->Row(), active_unit_->Column());
+
+  // Cannot move onto an opponent unit.
+  const auto& opponent_units =
+    ((active_army_ == Unit::ArmyKind::UNION) ? confederate_units_ : union_units_);
+  for (const auto& u : opponent_units) {
+    Direction dir = active_unit_->AdjacentDirection(*u);
+    if (dir != Direction::NONE) {
+      active_move_costs_[size_t(dir)] = -1.0; // move not allowed
+    }
+  }
 }
 
 void
@@ -497,8 +508,9 @@ Board::UpdateValidActions()
   for (const auto& pr : direction_actions) {
     // For now don't allow unit to move off of the board...
     if (move_factory_->IsAdjacentHex(row, col, pr.first)) {
-      const float cost = (*active_move_costs_)[size_t(pr.first)];
-      if ((active_unit_->MoveFactorExpended() + cost) <= active_unit_->MoveFactor()) {
+      const float cost = active_move_costs_[size_t(pr.first)];
+      if ((cost >= 0.0) &&
+          (active_unit_->MoveFactorExpended() + cost) <= active_unit_->MoveFactor()) {
         valid_action_ids_.insert(uint64_t(pr.second));
       }
     }

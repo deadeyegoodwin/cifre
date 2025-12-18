@@ -202,6 +202,40 @@ Unit::ApplyAction(
   assert(move_factor_expended_ <= move_factor_);
 }
 
+Board2DHex::Direction
+Unit::AdjacentDirection(const Unit& unit) const
+{
+  const int64_t row_delta = unit.row_idx_ - row_idx_;
+  const int64_t col_delta = unit.column_idx_ - column_idx_;
+  if (((row_delta == 0) && (col_delta == 0)) ||
+      (abs(row_delta) > 1) || (abs(col_delta) > 1)) {
+    return Board2DHex::Direction::NONE;
+  }
+
+  if (col_delta == 0) {
+    return (row_delta == 1) ? Board2DHex::Direction::DN : Board2DHex::Direction::UP;
+  }
+
+  if ((column_idx_ % 2) == 0) {
+    if (row_delta == 0) {
+      return (col_delta == 1) ? Board2DHex::Direction::DN_RT : Board2DHex::Direction::DN_LT;
+    }
+    else if (row_delta == -1) {
+      return (col_delta == 1) ? Board2DHex::Direction::UP_RT : Board2DHex::Direction::UP_LT;
+    }
+  }
+  else { // (column_idx_ % 2) == 1
+    if (row_delta == 0) {
+      return (col_delta == 1) ? Board2DHex::Direction::UP_RT : Board2DHex::Direction::UP_LT;
+    }
+    else if (row_delta == 1) {
+      return (col_delta == 1) ? Board2DHex::Direction::DN_RT : Board2DHex::Direction::DN_LT;
+    }
+  }
+
+  return Board2DHex::Direction::NONE;
+}
+
 std::string
 Unit::ToString() const
 {

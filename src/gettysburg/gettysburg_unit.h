@@ -98,6 +98,10 @@ public:
   // Update 'board' to reflect current status of this unit.
   void AddToBoard(Board* board) const;
 
+  // If 'this' and 'unit' are in adjacent hexes, return the direction
+  // from 'this' unit to 'unit'. Otherwise return Direction::NONE.
+  Board2DHex::Direction AdjacentDirection(const Unit& unit) const;
+
   // Return string representation of the unit.
   std::string ToString() const;
 

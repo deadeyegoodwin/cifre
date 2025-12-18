@@ -36,8 +36,7 @@ public:
     return nodes_[(row * column_cnt_) + column].adjacent_idx_[size_t(dir)] != NO_ADJACENT; }
 
   // Return the cost to move out of 'row' / 'column' in every
-  // direction. Return 0.0 for a direction if movement is not
-  // possible.
+  // direction.
   const std::array<float, Board2DHex::DIRECTION_COUNT>& MoveCost(
     size_t row, size_t column) const {
     return nodes_[(row * column_cnt_) + column].out_move_cost_; }

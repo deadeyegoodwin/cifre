@@ -169,7 +169,10 @@ private:
   size_t active_unit_idx_;
   size_t active_first_row_;
   size_t active_first_column_;
-  const std::array<float, Board2DHex::DIRECTION_COUNT>* active_move_costs_;
+
+  // Cost to move in each direction for the active unit. A negative
+  // cost indicates that movement in that direction is not possible.
+  std::array<float, Board2DHex::DIRECTION_COUNT> active_move_costs_;
 
   // Integer representing the game turn.
   size_t turn_;

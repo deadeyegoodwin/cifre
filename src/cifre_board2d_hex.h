@@ -58,7 +58,7 @@ public:
   };
 
   // Hex directions.
-  enum class Direction { UP=0, UP_RT=1, DN_RT=2, DN=3, DN_LT=4, UP_LT=5 };
+  enum class Direction { UP=0, UP_RT=1, DN_RT=2, DN=3, DN_LT=4, UP_LT=5, NONE=6 };
   static constexpr size_t DIRECTION_COUNT = 6;
 
   static std::string DirectionToString(const Direction d) {
@@ -69,6 +69,7 @@ public:
     case Direction::DN: return "DN";
     case Direction::DN_LT: return "DN-LT";
     case Direction::UP_LT: return "UP-LT";
+    case Direction::NONE: return "NONE";
     }
     return "<none>"; // unreachable
   }
