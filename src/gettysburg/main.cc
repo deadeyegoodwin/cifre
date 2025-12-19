@@ -151,10 +151,10 @@ Gettysburg::DefaultAlphaZeroSettings(const bool train) const
     settings.per_game_node_tree_ = false;
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
-    settings.dirichlet_alpha_ = 10.0 / 64.0;
+    settings.dirichlet_alpha_ = 10.0 / float(Unit::ActionKind::ACTION_COUNT);
     settings.dirichlet_sample_count_ = 2117;
     settings.dirichlet_ratio_ = 0.25;
-    settings.search_count_ = 100;
+    settings.search_count_ = 200;
     settings.max_search_depth_ = 128;
     settings.cpuct_ = 10.0;
   }
@@ -163,7 +163,7 @@ Gettysburg::DefaultAlphaZeroSettings(const bool train) const
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
     settings.dirichlet_alpha_ = 0.0; // disable dirichlet
-    settings.search_count_ = 100;
+    settings.search_count_ = 200;
     settings.max_search_depth_ = 128;
     settings.cpuct_ = 1.0;
   }
