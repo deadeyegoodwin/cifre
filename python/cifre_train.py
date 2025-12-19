@@ -309,10 +309,10 @@ def main():
             game_cmd.extend(['--quiet', '--log-invoke', '--log-progress', '--log-summary']);
 
         LOG.log(f'\n==== Iteration {iter} ====')
-        process = subprocess.Popen(game_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        process = subprocess.Popen(
+            game_cmd, bufsize=0, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         while process.poll() is None:
-            print(process.stdout.readline(), end='', flush=True)
-        print(process.stdout.read(), end='', flush=True)
+            print(process.stdout.read(1), end='', flush=True)
         process.stdout.close()
         cret = process.poll()
         LOG.fail_if(cret != 0, f'cifre return code is {cret}')
@@ -355,9 +355,10 @@ def main():
                 else:
                     cmp_cmd.extend(['--quiet', '--log-invoke', '--log-summary']);
 
-                process = subprocess.Popen(cmp_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                process = subprocess.Popen(
+                    cmp_cmd, bufsize=0, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 while process.poll() is None:
-                    print(process.stdout.readline(), end='')
+                    print(process.stdout.read(1), end='')
                 print(process.stdout.read(), end='')
                 process.stdout.close()
                 cret = process.poll()
