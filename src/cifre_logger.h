@@ -21,6 +21,7 @@ public:
   // Types of logging available.
   enum class Kind {
     INVOKE,
+    PROGRESS,
     SUMMARY,
     GAME,
     ALGO,
@@ -35,6 +36,7 @@ public:
   static std::string KindToString(const Kind kind) {
     switch (kind) {
     case Kind::INVOKE: return "INVOKE";
+    case Kind::PROGRESS: return "PROGRESS";
     case Kind::SUMMARY: return "SUMMARY";
     case Kind::GAME: return "GAME";
     case Kind::ALGO: return "ALGO";
@@ -98,6 +100,15 @@ protected:
   do {                                                                  \
     cifre::Logger& logger__ = (L);                                      \
     if (logger__.IsEnabled(cifre::Logger::Kind::INVOKE)) {              \
+      logger__.Write(M, I, E);                                          \
+    }                                                                   \
+  } while (false)
+
+#define LOG_PROGRESS(L, M) LOG_PROGRESS_IE(L, M, 0, true)
+#define LOG_PROGRESS_IE(L, M, I, E)                                     \
+  do {                                                                  \
+    cifre::Logger& logger__ = (L);                                      \
+    if (logger__.IsEnabled(cifre::Logger::Kind::PROGRESS)) {            \
       logger__.Write(M, I, E);                                          \
     }                                                                   \
   } while (false)

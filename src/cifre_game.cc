@@ -323,6 +323,8 @@ Game::Game() :
     {BuiltInOptionId::OPTION_LOG_INVOKE, "log-invoke", GameOption::ArgNone,
      "Enable invocation logging. Shows how game was invoked and the game version. "
      "This is enabled by default."},
+    {BuiltInOptionId::OPTION_LOG_PROGRESS, "log-progress", GameOption::ArgNone,
+     "Enable progress logging."},
     {BuiltInOptionId::OPTION_LOG_SUMMARY, "log-summary", GameOption::ArgNone,
      "Enable summary logging. Shows aggregate summary information."},
     {BuiltInOptionId::OPTION_LOG_GAME, "log-game", GameOption::ArgNone,
@@ -458,6 +460,9 @@ Game::Parse(int argc, char **argv)
     case BuiltInOptionId::OPTION_LOG_INVOKE:
       logger_->Enable(Logger::Kind::INVOKE);
       break;
+    case BuiltInOptionId::OPTION_LOG_PROGRESS:
+      logger_->Enable(Logger::Kind::PROGRESS);
+      break;
     case BuiltInOptionId::OPTION_LOG_SUMMARY:
       logger_->Enable(Logger::Kind::SUMMARY);
       break;
@@ -508,6 +513,7 @@ Game::Parse(int argc, char **argv)
     case BuiltInOptionId::OPTION_QUIET:
     case BuiltInOptionId::OPTION_VERBOSE:
     case BuiltInOptionId::OPTION_LOG_INVOKE:
+    case BuiltInOptionId::OPTION_LOG_PROGRESS:
     case BuiltInOptionId::OPTION_LOG_SUMMARY:
     case BuiltInOptionId::OPTION_LOG_GAME:
     case BuiltInOptionId::OPTION_LOG_ALGO:
@@ -768,6 +774,9 @@ Game::Play()
                      max_turns_per_game_));
     }
 
+    LOG_PROGRESS_IE(
+      *logger_, "games completed: ", 0 /* indent */, false /* endline */);
+
     // Dequeue completed tasks, aggregate results and re-enqueue the
     // task until all the games have been completed.
     size_t games_completed = 0;
@@ -828,7 +837,20 @@ Game::Play()
       else {
         completed_tasks.push_back(std::move(ptask));
       }
+
+      // If logging progress then show that a game has been completed.
+      if (logger_->IsEnabled(Logger::Kind::PROGRESS)) {
+        if ((games_completed % 10) == 0) {
+          LOG_PROGRESS_IE(*logger_, "." + std::to_string(games_completed),
+                          0 /* indent */, false /* endline */);
+        }
+        else {
+          LOG_PROGRESS_IE(*logger_, ".", 0 /* indent */, false /* endline */);
+        }
+      }
     }
+
+    LOG_PROGRESS(*logger_, "");
 
     // End of all games output...
     LOG_GAME(*logger_, "==== " + std::to_string(games_completed) + " game" +

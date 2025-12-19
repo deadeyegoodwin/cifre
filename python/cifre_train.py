@@ -306,7 +306,7 @@ def main():
         if FLAGS.verbose:
             game_cmd.append('--verbose')
         else:
-            game_cmd.extend(['--quiet', '--log-invoke', '--log-summary']);
+            game_cmd.extend(['--quiet', '--log-invoke', '--log-progress', '--log-summary']);
 
         LOG.log(f'\n==== Iteration {iter} ====')
         process = subprocess.Popen(game_cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
