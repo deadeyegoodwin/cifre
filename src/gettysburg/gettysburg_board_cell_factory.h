@@ -8,6 +8,7 @@
 #include <mutex>
 
 #include "cifre_board2d.h"
+#include "gettysburg_board_cell_data.h"
 #include "gettysburg_oob.h"
 
 namespace cifre { namespace gettysburg {
@@ -56,6 +57,32 @@ namespace cifre { namespace gettysburg {
 //
 class BoardCellFactory {
 public:
+  // The maximum number of hexes that can be captured for victory
+  // points. The actual number will vary by scenario.
+  static constexpr size_t MAX_VICTORY_POINT_HEX_COUNT = 8;
+
+  // Kinds of cell features.
+  enum class FeatureKind { NO_ACCESS, FOREST, HILL, ROCKY_HILL, VICTORY_POINT };
+  static constexpr size_t FEATURE_COUNT = 5;
+
+  // Features of a hex cell.
+  class CellFeatures {
+  public:
+    CellFeatures& operator=(const BoardCellData& bd) {
+      row_ = bd.row_; column_ = bd.column_; not_accessible_ = bd.no_access_;
+      forest_ = bd.forest_; hill_ = bd.hill_; rocky_hill_ = bd.rocky_hill_;
+      victory_points_ = bd.victory_points_; return *this; }
+
+    size_t row_ {0};
+    size_t column_ {0};
+    bool not_accessible_ {false};
+    bool forest_ {false};
+    bool hill_ {false};
+    bool rocky_hill_ {false};
+    float victory_points_ {0.0};
+  };
+
+  // The planes.
   static constexpr size_t PLANE_COUNT = 26;
 
   static constexpr size_t PLANE_IDX_VICTORY_POINT = 0;
@@ -97,12 +124,16 @@ public:
     size_t board_row_cnt, size_t board_column_cnt,
     size_t plane_row_cnt, size_t plane_column_cnt);
 
-  // Return true if the feature is present in the cell specified by
-  // 'row' / 'column'.
-  bool IsAccessible(size_t row, size_t column) const;
-  bool IsForest(size_t row, size_t column) const;
-  bool IsHill(size_t row, size_t column) const;
-  bool IsRockyHill(size_t row, size_t column) const;
+  // The number of cells/hexes containing a given 'kind' of feature.
+  size_t FeaturesCount(FeatureKind kind) const {
+    return cell_features_offsets_[size_t(kind)].size(); }
+
+  // Return the CellFeatures for the 'n'th cell for a given feature
+  // 'kind'. 'n' must be less than FeaturesCount.
+  const CellFeatures& Features(FeatureKind kind, size_t n) const;
+
+  // Return the CellFeatures for a given 'row' / 'column'.
+  const CellFeatures& Features(size_t row, size_t column) const;
 
   // Return the cells for a given row and column (using plane
   // indexing). Thread-safe. The caller may modify the returned
@@ -126,11 +157,6 @@ private:
   size_t plane_row_cnt_;
   size_t plane_column_cnt_;
 
-  // Statistics
-  std::atomic<size_t> created_plane_sets_ {0};
-  std::atomic<size_t> acquired_plane_sets_ {0};
-  std::atomic<size_t> released_plane_sets_ {0};
-
   // Total size, in bytes of a set of input planes.
   size_t flat_vector_byte_count_;
 
@@ -146,18 +172,17 @@ private:
   std::mutex alloc_planes_mu_;
   std::map<CellsKey, std::vector<Board2D::FlattenedCells>> alloc_planes_map_;
 
-private:
-  // Features of a hex cell.
-  struct CellFeatures {
-    bool not_accessible_ {false};
-    bool forest_ {false};
-    bool hill_ {false};
-    bool rocky_hill_ {false};
-  };
-
-  // Vector indexed by flattened board index that gives features of a
-  // cell.
+  // Indexed by flattened cell index that gives features of each cell.
   std::vector<CellFeatures> cell_features_;
+
+    // For each feature kind, a vector of offsets into cell_features_.
+  std::array<std::vector<size_t>, FEATURE_COUNT> cell_features_offsets_;
+
+  // Statistics
+  std::atomic<size_t> created_plane_sets_ {0};
+  std::atomic<size_t> acquired_plane_sets_ {0};
+  std::atomic<size_t> released_plane_sets_ {0};
+
 };
 
 }} // namespace cifre::gettysburg

@@ -25,6 +25,12 @@ Board::Board(
   cell_factory_(cell_factory), move_factory_(move_factory),
   scenario_(scenario), plane_shape_(plane_shape)
 {
+  // Initially no vp hexes are captured. Fill the entire array even
+  // though will only use BoardCellFactory::FeaturesCount(VICTORY_POINT).
+  captured_vps_.fill(-1);
+  captured_vps_count_ =
+    cell_factory_->FeaturesCount(BoardCellFactory::FeatureKind::VICTORY_POINT);
+
   // Turn is represented by a integer. Each day has seven turns plus 1
   // for the night. So for JULY_1 scenario turn 0 is the first turn
   // (6-8 am on July 1st), turn 1 is the next turn (8-10 am on July
@@ -53,6 +59,7 @@ Board::Board(
   // Initialize board inputs, valid actions, and terminal status for
   // the initial active player.
   UpdateMoveCosts();
+  UpdateCapturedVictoryPoints();
   UpdateValidActions();
   UpdateInputPlanes();
   UpdateTerminalStatus();
@@ -64,8 +71,9 @@ Board::Board(const Board& other) :
   scenario_(other.scenario_), plane_shape_(other.plane_shape_),
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
-  active_move_costs_(other.active_move_costs_),
-  turn_(other.turn_), captured_vps_(other.captured_vps_)
+  active_move_costs_(other.active_move_costs_), turn_(other.turn_),
+  captured_vps_(other.captured_vps_), // copy entire array (but only first captured_vps_count_ used)
+  captured_vps_count_(other.captured_vps_count_)
 {
   // WARNING: this does not copy 'cells_flattened_', 'cells_' or
   // 'cells_flattened_factory_key_'. To perform a complete copy, use
@@ -117,13 +125,8 @@ Board::Hash() const
   hash += (uint64_t(active_army_) * mulp) ^ (hash >> 23);
   hash += (active_unit_idx_ * mulp) ^ (hash >> 23);
 
-  if (!captured_vps_.empty()) {
-    hash += (captured_vps_.size() * mulp) ^ (hash >> 23);
-    for (const auto& cg : captured_vps_) {
-      hash += (cg.first.first * mulp) ^ (hash >> 23);
-      hash += (cg.first.second * mulp) ^ (hash >> 23);
-      hash += (uint64_t(cg.second) * mulp) ^ (hash >> 23);
-    }
+  for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
+    hash += (captured_vps_[idx] * mulp) ^ (hash >> 23);
   }
 
   for (const auto& u : union_units_) {
@@ -159,9 +162,14 @@ Board::Equal(const State* other) const
 
   if ((active_player_id_ != ob->active_player_id_) ||
       (active_army_ != ob->active_army_) ||
-      (active_unit_idx_ != ob->active_unit_idx_) ||
-      (captured_vps_ != ob->captured_vps_)) {
+      (active_unit_idx_ != ob->active_unit_idx_)) {
     return false;
+  }
+
+  for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
+    if (captured_vps_[idx] != ob->captured_vps_[idx]) {
+      return false;
+    }
   }
 
   if (union_units_.size() != ob->union_units_.size()) {
@@ -325,6 +333,8 @@ Board::Update(uint64_t action_id)
   ReleaseInputPlanes();
   active_unit_->ApplyAction(action, active_move_costs_);
 
+  UpdateCapturedVictoryPoints();
+
   // Change active to the next unit. If all units of a player have
   // completed movement then move to next player (and potentially next
   // turn).
@@ -402,6 +412,26 @@ Board::UpdateMoveCosts()
 }
 
 void
+Board::UpdateCapturedVictoryPoints()
+{
+  // Is the active unit capturing a victory point?
+  const auto& features =
+    cell_factory_->Features(active_unit_->Row(), active_unit_->Column());
+  if (features.victory_points_ > 0.0) {
+    for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
+      const auto& cf =
+        cell_factory_->Features(BoardCellFactory::FeatureKind::VICTORY_POINT, idx);
+      assert(cf.victory_points_ > 0.0);
+      if ((features.row_ == cf.row_) && (features.column_ == cf.column_)) {
+        assert(cf.victory_points_ == features.victory_points_);
+        captured_vps_[idx] = int32_t(active_army_);
+        break;
+      }
+    }
+  }
+}
+
+void
 Board::UpdateInputPlanes()
 {
   // Cells should be released...
@@ -418,11 +448,6 @@ Board::UpdateInputPlanes()
   cells_flattened_ = cell_factory_->AcquireCells(cells_flattened_factory_key_);
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
-  // Is the active unit capturing a victory point?
-  if (VictoryPointAt(active_unit_->Row(), active_unit_->Column()) > 0.0) {
-    captured_vps_[std::make_pair(active_unit_->Row(), active_unit_->Column())] = active_army_;
-  }
-
   // Update planes as required for all units.
   for (const auto& u : union_units_) {
     u->AddToBoard(this);
@@ -431,23 +456,28 @@ Board::UpdateInputPlanes()
     u->AddToBoard(this);
   }
 
-  // Update planes for captured victory points.
-  for (const auto& cg : captured_vps_) {
-    const size_t r = cg.first.first;
-    const size_t c = cg.first.second;
-    const float vp = VictoryPointAt(r, c);
+  // Update planes to show captured victory points.
+  for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
+    if (captured_vps_[idx] >= 0) {
+      const auto& features =
+        cell_factory_->Features(BoardCellFactory::FeatureKind::VICTORY_POINT, idx);
+      assert(features.victory_points_ > 0.0);
 
-    assert(vp > 0.0);
-    assert(UnionVictoryPointAt(r, c) == 0.0);
-    assert(ConfederateVictoryPointAt(r, c) == 0.0);
+      assert(VictoryPointAt(features.row_, features.column_) == features.victory_points_);
+      assert(UnionVictoryPointAt(features.row_, features.column_) == 0.0);
+      assert(ConfederateVictoryPointAt(features.row_, features.column_) == 0.0);
 
-    switch (cg.second) {
-    case Unit::ArmyKind::UNION:
-      SetUnionVictoryPointAt(vp, r, c);
-      break;
-    case Unit::ArmyKind::CONFEDERATE:
-      SetConfederateVictoryPointAt(vp, r, c);
-      break;
+      const Unit::ArmyKind army = Unit::ArmyKind(captured_vps_[idx]);
+      switch (army) {
+      case Unit::ArmyKind::UNION:
+        SetUnionVictoryPointAt(
+          features.victory_points_, features.row_, features.column_);
+        break;
+      case Unit::ArmyKind::CONFEDERATE:
+        SetConfederateVictoryPointAt(
+          features.victory_points_, features.row_, features.column_);
+        break;
+      }
     }
   }
 }
@@ -465,21 +495,26 @@ Board::ReleaseInputPlanes()
     }
 
     // Update planes to remove captured victory points.
-    for (const auto& cg : captured_vps_) {
-      const size_t r = cg.first.first;
-      const size_t c = cg.first.second;
+    for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
+      if (captured_vps_[idx] >= 0) {
+        const auto& features =
+          cell_factory_->Features(BoardCellFactory::FeatureKind::VICTORY_POINT, idx);
+        assert(features.victory_points_ > 0.0);
+        assert(VictoryPointAt(features.row_, features.column_) == features.victory_points_);
 
-      switch (cg.second) {
-      case Unit::ArmyKind::UNION:
-        assert(UnionVictoryPointAt(r, c) > 0.0);
-        assert(ConfederateVictoryPointAt(r, c) == 0.0);
-        SetUnionVictoryPointAt(0.0, r, c);
-        break;
-      case Unit::ArmyKind::CONFEDERATE:
-        assert(ConfederateVictoryPointAt(r, c) > 0.0);
-        assert(UnionVictoryPointAt(r, c) == 0.0);
-        SetConfederateVictoryPointAt(0.0, r, c);
-        break;
+        const Unit::ArmyKind army = Unit::ArmyKind(captured_vps_[idx]);
+        switch (army) {
+        case Unit::ArmyKind::UNION:
+          assert(UnionVictoryPointAt(features.row_, features.column_) > 0.0);
+          assert(ConfederateVictoryPointAt(features.row_, features.column_) == 0.0);
+          SetUnionVictoryPointAt(0.0, features.row_, features.column_);
+          break;
+        case Unit::ArmyKind::CONFEDERATE:
+          assert(UnionVictoryPointAt(features.row_, features.column_) == 0.0);
+          assert(ConfederateVictoryPointAt(features.row_, features.column_) > 0.0);
+          SetConfederateVictoryPointAt(0.0, features.row_, features.column_);
+          break;
+        }
       }
     }
 
@@ -535,16 +570,24 @@ Board::UpdateTerminalStatus()
     turn_ = OOB::LastTurn(scenario_);
 
     float cvp = 0.0, uvp = 0.0;
-    for (const auto& cg : captured_vps_) {
-      switch (cg.second) {
-      case Unit::ArmyKind::UNION:
-        assert(UnionVictoryPointAt(cg.first.first, cg.first.second) > 0.0);
-        uvp += UnionVictoryPointAt(cg.first.first, cg.first.second);
-        break;
-      case Unit::ArmyKind::CONFEDERATE:
-        assert(ConfederateVictoryPointAt(cg.first.first, cg.first.second) > 0.0);
-        cvp += ConfederateVictoryPointAt(cg.first.first, cg.first.second);
-        break;
+    for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
+      if (captured_vps_[idx] >= 0) {
+        const auto& features =
+          cell_factory_->Features(BoardCellFactory::FeatureKind::VICTORY_POINT, idx);
+        assert(features.victory_points_ > 0.0);
+        assert(VictoryPointAt(features.row_, features.column_) == features.victory_points_);
+
+        const Unit::ArmyKind army = Unit::ArmyKind(captured_vps_[idx]);
+        switch (army) {
+        case Unit::ArmyKind::UNION:
+          assert(UnionVictoryPointAt(features.row_, features.column_) == features.victory_points_);
+          uvp += features.victory_points_;
+          break;
+        case Unit::ArmyKind::CONFEDERATE:
+          assert(ConfederateVictoryPointAt(features.row_, features.column_) == features.victory_points_);
+          cvp += features.victory_points_;
+          break;
+        }
       }
     }
 
@@ -648,13 +691,24 @@ Board::BoardHeader() const
     << "Player " << ActivePlayer()->Name() << " (p" << ActivePlayerId() << ")"
     << ", " << active_unit_->ToString();
 
-  if (!captured_vps_.empty()) {
-    sstr << "\nVictory Points:";
-    for (const auto& cg : captured_vps_) {
+  bool first_vp = true;
+  for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
+    if (captured_vps_[idx] >= 0) {
+      if (first_vp) {
+        sstr << "\nVictory Points:";
+        first_vp = false;
+      }
+
+      const auto& features =
+        cell_factory_->Features(BoardCellFactory::FeatureKind::VICTORY_POINT, idx);
+      assert(features.victory_points_ > 0.0);
+      assert(VictoryPointAt(features.row_, features.column_) == features.victory_points_);
+
+      const Unit::ArmyKind army = Unit::ArmyKind(captured_vps_[idx]);
       sstr
-        << "\n  " << VictoryPointAt(cg.first.first, cg.first.second)
-        << " at [" << cg.first.first << "," << cg.first.second << "] "
-        << Unit::ArmyKindToString(cg.second);
+        << "\n  " << features.victory_points_
+        << " at [" << features.row_ << "," << features.column_ << "] "
+        << Unit::ArmyKindToString(army);
     }
   }
 

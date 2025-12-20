@@ -143,6 +143,7 @@ private:
   void ReleaseInputPlanes();
   void UpdateInputPlanes();
   void UpdateMoveCosts();
+  void UpdateCapturedVictoryPoints();
   void UpdateTerminalStatus();
   void UpdateValidActions();
   void ReinforceUnits();
@@ -177,11 +178,15 @@ private:
   // Integer representing the game turn.
   size_t turn_;
 
-  // Map of board positions that contain a captured victory points. A
-  // victory point is captured by the last unit to occupy the hex. Map
-  // indicates the capturing army.
-  std::map<std::pair<size_t, size_t>, Unit::ArmyKind> captured_vps_;
+  // Array indicating which army, if any, has captured each
+  // victory-point hex. Index 'n' in the array corresponds to
+  // BoardCellFactory::Features(VICTORY_POINT, n). A negative value
+  // indicates no army owns the victory point, a positive value should
+  // be cast to Unit::ArmyKind to determine army.
+  std::array<int32_t, BoardCellFactory::MAX_VICTORY_POINT_HEX_COUNT> captured_vps_;
+  size_t captured_vps_count_;
 
+  // Union and confederate units.
   std::vector<std::unique_ptr<Unit>> union_units_;
   std::vector<std::unique_ptr<Unit>> confederate_units_;
 };

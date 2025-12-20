@@ -64,7 +64,7 @@ BoardMoveFactory::RCToIndex(const std::pair<int64_t, int64_t>& pr) const
   }
 
   // Also any cell marked as inaccessible in not adjacent.
-  if (!cell_factory_->IsAccessible(row, column)) {
+  if (cell_factory_->Features(row, column).not_accessible_) {
     return NO_ADJACENT;
   }
 
@@ -80,17 +80,20 @@ BoardMoveFactory::CalculateMoveCost(
   const int64_t to_row = to.first;
   const int64_t to_column = to.second;
 
-  // Moving off the board cost 1 MF.
-  if (!cell_factory_->IsAccessible(to_row, to_column)) {
+  // Hexes outside the bounds of the board are moving off the board.
+  if ((to_row < 0) || (to_row >= int64_t(row_cnt_)) ||
+      (to_column < 0) || (to_column >= int64_t(column_cnt_))) {
     return 1.0;
   }
 
-  // Use the cell factory to determine what is in the 'to'
-  // hexes and from that determine the move cost.
-  const bool forest = cell_factory_->IsForest(to_row, to_column);
-  const bool rocky_hill = cell_factory_->IsRockyHill(to_row, to_column);
+  const auto& features = cell_factory_->Features(to_row, to_column);
 
-  return 1.0 + (forest ? 1 : 0) + (rocky_hill ? 1 : 0);
+  // Moving off the board cost 1 MF.
+  if (features.not_accessible_) {
+    return 1.0;
+  }
+
+  return 1.0 + (features.forest_ ? 1 : 0) + (features.rocky_hill_ ? 1 : 0);
 }
 
 }} // namespace cifre::gettysburg

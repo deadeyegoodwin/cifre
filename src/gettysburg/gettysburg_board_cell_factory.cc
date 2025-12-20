@@ -8,7 +8,6 @@
 #include "common_error.h"
 #include "common_util.h"
 #include "gettysburg_board_cell_factory.h"
-#include "gettysburg_board_cell_data.h"
 
 namespace cifre { namespace gettysburg {
 
@@ -46,10 +45,10 @@ BoardCellFactory::BoardCellFactory(
 
       // Apply board features to the planes...
       for (auto& bd : board_cell_data) {
-        if ((bd.row_idx_ < board_row_cnt_) && (bd.column_idx_ < board_column_cnt_)) {
+        if ((bd.row_ < board_row_cnt_) && (bd.column_ < board_column_cnt_)) {
           const size_t offset =
-            ((start_br + bd.row_idx_) * plane_column_cnt_ * PLANE_COUNT) +
-            ((start_bc + bd.column_idx_) * PLANE_COUNT);
+            ((start_br + bd.row_) * plane_column_cnt_ * PLANE_COUNT) +
+            ((start_bc + bd.column_) * PLANE_COUNT);
           if (bd.forest_) {
             flat[offset + PLANE_IDX_FOREST] = CELL_ACTIVE;
           }
@@ -78,72 +77,67 @@ BoardCellFactory::BoardCellFactory(
     }
   }
 
-  // Go through all board cell data again and organize into
-  // 'cell_features_'.
+  // Go through all board cell data again and initialize
+  // 'cell_features_' and 'cell_features_offsets_.
   cell_features_.resize(board_row_cnt_ * board_column_cnt_);
 
   for (auto& bd : board_cell_data) {
-    if ((bd.row_idx_ < board_row_cnt_) && (bd.column_idx_ < board_column_cnt_)) {
-      const size_t offset = (bd.row_idx_ * board_column_cnt_) + bd.column_idx_;
-      auto& features = cell_features_[offset];
+    if ((bd.row_ < board_row_cnt_) && (bd.column_ < board_column_cnt_)) {
+      const size_t offset = (bd.row_ * board_column_cnt_) + bd.column_;
+      cell_features_[offset] = bd;
+
+      // Small scenario only has victory point in center of board...
+      if (scenario_ == OOB::Scenario::SMALL) {
+        cell_features_[offset].victory_points_ = 0.0;
+      }
+
+      // Add cell offset feature list corresponding to a feature that
+      // is present in the cell.
       if (bd.no_access_) {
-        features.not_accessible_ = true;
+        cell_features_offsets_[size_t(FeatureKind::NO_ACCESS)].push_back(offset);
       }
       if (bd.forest_) {
-        features.forest_ = true;
+        cell_features_offsets_[size_t(FeatureKind::FOREST)].push_back(offset);
       }
       if (bd.hill_) {
-        features.hill_ = true;
+        cell_features_offsets_[size_t(FeatureKind::HILL)].push_back(offset);
       }
       if (bd.rocky_hill_) {
-        features.rocky_hill_ = true;
+        cell_features_offsets_[size_t(FeatureKind::ROCKY_HILL)].push_back(offset);
+      }
+      if ((scenario_ != OOB::Scenario::SMALL) && (bd.victory_points_ > 0.0)) {
+        cell_features_offsets_[size_t(FeatureKind::VICTORY_POINT)].push_back(offset);
+        assert(cell_features_offsets_[
+                 size_t(FeatureKind::VICTORY_POINT)].size() < MAX_VICTORY_POINT_HEX_COUNT);
       }
     }
   }
+
+  // Small scenario only has victory point in center of board...
+  if (scenario_ == OOB::Scenario::SMALL) {
+    const size_t offset =
+      ((board_row_cnt_ / 2) * board_column_cnt_) + (board_column_cnt_ / 2);
+    cell_features_[offset].victory_points_ = 1.0;
+    cell_features_offsets_[size_t(FeatureKind::VICTORY_POINT)].push_back(offset);
+    assert(cell_features_offsets_[
+             size_t(FeatureKind::VICTORY_POINT)].size() < MAX_VICTORY_POINT_HEX_COUNT);
+  }
 }
 
-bool
-BoardCellFactory::IsAccessible(size_t row, size_t column) const
+const BoardCellFactory::CellFeatures&
+BoardCellFactory::Features(FeatureKind kind, size_t n) const
 {
-  if ((row < board_row_cnt_) && (column < board_column_cnt_)) {
-    const size_t offset = (row * board_column_cnt_) + column;
-    return !cell_features_[offset].not_accessible_;
-  }
-
-  return false;
+  assert(n < FeaturesCount(kind));
+  assert(cell_features_offsets_[size_t(kind)][n] < cell_features_.size());
+  return cell_features_[cell_features_offsets_[size_t(kind)][n]];
 }
 
-bool
-BoardCellFactory::IsForest(size_t row, size_t column) const
+const BoardCellFactory::CellFeatures&
+BoardCellFactory::Features(size_t row, size_t column) const
 {
-  if ((row < board_row_cnt_) && (column < board_column_cnt_)) {
-    const size_t offset = (row * board_column_cnt_) + column;
-    return cell_features_[offset].forest_;
-  }
-
-  return false;
-}
-
-bool
-BoardCellFactory::IsHill(size_t row, size_t column) const
-{
-  if ((row < board_row_cnt_) && (column < board_column_cnt_)) {
-    const size_t offset = (row * board_column_cnt_) + column;
-    return cell_features_[offset].hill_;
-  }
-
-  return false;
-}
-
-bool
-BoardCellFactory::IsRockyHill(size_t row, size_t column) const
-{
-  if ((row < board_row_cnt_) && (column < board_column_cnt_)) {
-    const size_t offset = (row * board_column_cnt_) + column;
-    return cell_features_[offset].rocky_hill_;
-  }
-
-  return false;
+  assert((row < board_row_cnt_) && (column < board_column_cnt_));
+  const size_t offset = (row * board_column_cnt_) + column;
+  return cell_features_[offset];
 }
 
 Board2D::FlattenedCells

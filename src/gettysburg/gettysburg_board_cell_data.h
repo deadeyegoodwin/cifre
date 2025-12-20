@@ -16,12 +16,11 @@ class BoardCellData {
 public:
   BoardCellData(
     size_t r, size_t c, bool na, bool f, bool h, bool rh = false, float vp = 0) :
-    row_idx_(r), column_idx_(c), no_access_(na),
-    forest_(f), hill_(h), rocky_hill_(rh),
+    row_(r), column_(c), no_access_(na), forest_(f), hill_(h), rocky_hill_(rh),
     victory_points_(vp) { }
 
-  const size_t row_idx_;
-  const size_t column_idx_;
+  const size_t row_;
+  const size_t column_;
   const bool no_access_;
   const bool forest_;
   const bool hill_;
