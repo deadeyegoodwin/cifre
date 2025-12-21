@@ -6,7 +6,7 @@
 #include <cstdint>
 
 #include "cifre_action.h"
-#include "cifre_board2d_basic.h"
+#include "cifre_board2d.h"
 #include "othello_player.h"
 
 namespace cifre { namespace othello {

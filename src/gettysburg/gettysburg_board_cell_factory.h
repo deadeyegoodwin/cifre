@@ -7,7 +7,7 @@
 #include <map>
 #include <mutex>
 
-#include "cifre_board2d_hex.h"
+#include "cifre_boardhex.h"
 #include "gettysburg_board_cell_data.h"
 #include "gettysburg_oob.h"
 

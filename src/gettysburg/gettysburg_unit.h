@@ -6,7 +6,7 @@
 #include <cstdint>
 
 #include "cifre_action.h"
-#include "cifre_board2d_hex.h"
+#include "cifre_boardhex.h"
 
 namespace cifre { namespace gettysburg {
 

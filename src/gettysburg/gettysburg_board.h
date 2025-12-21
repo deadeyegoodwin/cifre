@@ -8,7 +8,7 @@
 #include <string>
 
 #include "cifre_action.h"
-#include "cifre_board2d_hex.h"
+#include "cifre_boardhex.h"
 #include "gettysburg_board_cell_factory.h"
 #include "gettysburg_board_move_factory.h"
 #include "gettysburg_oob.h"

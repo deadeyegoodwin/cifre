@@ -7,7 +7,7 @@
 #include <string>
 #include <sstream>
 
-#include "cifre_board2d_hex.h"
+#include "cifre_boardhex.h"
 #include "common_error.h"
 
 namespace cifre {

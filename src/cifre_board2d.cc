@@ -4,7 +4,7 @@
 #include <string>
 #include <sstream>
 
-#include "cifre_board2d_basic.h"
+#include "cifre_board2d.h"
 #include "common_error.h"
 
 namespace cifre {

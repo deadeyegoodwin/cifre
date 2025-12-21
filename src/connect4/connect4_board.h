@@ -6,7 +6,7 @@
 #include <cstdint>
 
 #include "cifre_action.h"
-#include "cifre_board2d_basic.h"
+#include "cifre_board2d.h"
 #include "connect4_player.h"
 
 namespace cifre { namespace connect4 {
