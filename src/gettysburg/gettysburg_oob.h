@@ -21,6 +21,11 @@ namespace cifre { namespace gettysburg {
 //
 class OOB {
 public:
+  // The maximum number of units that can be active at any given time
+  // for any scenario for either army (i.e. the maximum of union and
+  // confederate, not the sum of the maximums).
+  static constexpr size_t MAX_UNITS_PER_ARMY_COUNT = 6;
+
   // Game scenarios.
   enum class Scenario {
     SMALL,   // Single day, July 1st, small board and reduced units
@@ -46,7 +51,7 @@ public:
   // 'scenario' and 'army' on a given 'turn'. Turn 0 indicates the
   // start of the scenario, turn 1 indicates the start of the next
   // turn, etc.
-  static std::vector<std::unique_ptr<Unit>> Units(
+  static std::vector<Unit> Units(
     Scenario scenario, Unit::ArmyKind army, size_t turn);
 };
 

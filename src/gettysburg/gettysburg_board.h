@@ -131,13 +131,20 @@ private:
   // Utility method to get the active unit from active_army_ and
   // active_unit_idx_. Return nullptr if active army does not have any
   // units.
-  Unit* ActiveUnit() const;
+  Unit* ActiveUnit();
 
   // Return union or confederate UNITs at a given board position.
-  std::vector<Unit*> UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx) const;
-  std::vector<Unit*> UnionAt(size_t row_idx, size_t col_idx) const {
+  std::vector<Unit*> UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx);
+  std::vector<const Unit*> UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx) const;
+
+  std::vector<Unit*> UnionAt(size_t row_idx, size_t col_idx) {
     return UnitsAt(Unit::ArmyKind::UNION, row_idx, col_idx); }
-  std::vector<Unit*> ConfederateAt(size_t row_idx, size_t col_idx) const {
+  std::vector<const Unit*> UnionAt(size_t row_idx, size_t col_idx) const {
+    return UnitsAt(Unit::ArmyKind::UNION, row_idx, col_idx); }
+
+  std::vector<Unit*> ConfederateAt(size_t row_idx, size_t col_idx) {
+    return UnitsAt(Unit::ArmyKind::CONFEDERATE, row_idx, col_idx); }
+  std::vector<const Unit*> ConfederateAt(size_t row_idx, size_t col_idx) const {
     return UnitsAt(Unit::ArmyKind::CONFEDERATE, row_idx, col_idx); }
 
   void ReleaseInputPlanes();
@@ -147,7 +154,8 @@ private:
   void UpdateTerminalStatus();
   void UpdateValidActions();
   void ReinforceUnits();
-  bool NextArmyUnit(const std::vector<std::unique_ptr<Unit>>& units);
+  bool NextArmyUnit(
+    size_t units_count, std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units);
 
   std::vector<std::string> SmallBoardCell(size_t row_idx, size_t col_idx) const;
   std::vector<std::string> LargeBoardCell(
@@ -187,8 +195,9 @@ private:
   size_t captured_vps_count_;
 
   // Union and confederate units.
-  std::vector<std::unique_ptr<Unit>> union_units_;
-  std::vector<std::unique_ptr<Unit>> confederate_units_;
+  size_t union_units_count_, confederate_units_count_;
+  std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT> union_units_;
+  std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT> confederate_units_;
 };
 
 }} // namespace cifre::gettysburg

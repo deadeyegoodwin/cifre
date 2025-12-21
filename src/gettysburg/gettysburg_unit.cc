@@ -118,17 +118,17 @@ Unit::Hash() const
 }
 
 bool
-Unit::Equal(const Unit* other) const
+Unit::Equal(const Unit& other) const
 {
   // Don't compare 'name_', it is just descriptive...
   //
   // Don't compare 'army_kind_, 'unit_kind_', 'combat_factor_' or
   // 'move_factor_' as they are redundant with 'plane_idx_'.
 
-  return ((plane_idx_ == other->plane_idx_) &&
-          (move_factor_expended_ == other->move_factor_expended_) &&
-          (row_idx_ == other->row_idx_) &&
-          (column_idx_ == other->column_idx_));
+  return ((plane_idx_ == other.plane_idx_) &&
+          (move_factor_expended_ == other.move_factor_expended_) &&
+          (row_idx_ == other.row_idx_) &&
+          (column_idx_ == other.column_idx_));
 }
 
 void

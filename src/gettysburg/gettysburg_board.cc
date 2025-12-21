@@ -38,16 +38,17 @@ Board::Board(
   turn_ = 0;
 
   // Create initial units.
+  union_units_count_ = confederate_units_count_ = 0;
   ReinforceUnits();
 
   // Confederates always start, but in some scenarios they don't have
   // units. In that case union starts.
   assert(active_player_id_ == 0);
-  if (!confederate_units_.empty()) {
+  if (confederate_units_count_ > 0) {
     active_army_ = Unit::ArmyKind::CONFEDERATE;
   }
   else {
-    assert(!union_units_.empty());
+    assert(union_units_count_ > 0);
     active_army_ = Unit::ArmyKind::UNION;
     active_player_id_ = 1;
   }
@@ -73,18 +74,20 @@ Board::Board(const Board& other) :
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
   active_move_costs_(other.active_move_costs_), turn_(other.turn_),
   captured_vps_(other.captured_vps_), // copy entire array (but only first captured_vps_count_ used)
-  captured_vps_count_(other.captured_vps_count_)
+  captured_vps_count_(other.captured_vps_count_),
+  union_units_count_(other.union_units_count_),
+  confederate_units_count_(other.confederate_units_count_)
 {
   // WARNING: this does not copy 'cells_flattened_', 'cells_' or
   // 'cells_flattened_factory_key_'. To perform a complete copy, use
   // Copy().
   cells_ = nullptr;
 
-  for (const auto& u : other.union_units_) {
-    union_units_.push_back(std::make_unique<Unit>(*u));
+  for (size_t idx = 0; idx < union_units_count_; ++idx) {
+    union_units_[idx] = other.union_units_[idx];
   }
-  for (const auto& u : other.confederate_units_) {
-    confederate_units_.push_back(std::make_unique<Unit>(*u));
+  for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
+    confederate_units_[idx] = other.confederate_units_[idx];
   }
 
   active_unit_ = ActiveUnit();
@@ -129,11 +132,11 @@ Board::Hash() const
     hash += (captured_vps_[idx] * mulp) ^ (hash >> 23);
   }
 
-  for (const auto& u : union_units_) {
-    hash += u->Hash();
+  for (size_t idx = 0; idx < union_units_count_; ++idx) {
+    hash += union_units_[idx].Hash();
   }
-  for (const auto& u : confederate_units_) {
-    hash += u->Hash();
+  for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
+    hash += confederate_units_[idx].Hash();
   }
 
   return hash ^ (hash << 37);
@@ -172,20 +175,20 @@ Board::Equal(const State* other) const
     }
   }
 
-  if (union_units_.size() != ob->union_units_.size()) {
+  if (union_units_count_ != ob->union_units_count_) {
     return false;
   }
-  for (size_t idx = 0; idx < union_units_.size(); ++idx) {
-    if (!union_units_[idx]->Equal(ob->union_units_[idx].get())) {
+  for (size_t idx = 0; idx < union_units_count_; ++idx) {
+    if (!union_units_[idx].Equal(ob->union_units_[idx])) {
       return false;
     }
   }
 
-  if (confederate_units_.size() != ob->confederate_units_.size()) {
+  if (confederate_units_count_ != ob->confederate_units_count_) {
     return false;
   }
-  for (size_t idx = 0; idx < confederate_units_.size(); ++idx) {
-    if (!confederate_units_[idx]->Equal(ob->confederate_units_[idx].get())) {
+  for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
+    if (!confederate_units_[idx].Equal(ob->confederate_units_[idx])) {
       return false;
     }
   }
@@ -258,18 +261,18 @@ Board::StringToAction(const std::string& str) const
 }
 
 Unit*
-Board::ActiveUnit() const
+Board::ActiveUnit()
 {
   Unit* unit = nullptr;
   switch (active_army_) {
   case Unit::ArmyKind::UNION:
-    if (active_unit_idx_ < union_units_.size()) {
-      unit = union_units_[active_unit_idx_].get();
+    if (active_unit_idx_ < union_units_count_) {
+      unit = &union_units_[active_unit_idx_];
     }
     break;
   case Unit::ArmyKind::CONFEDERATE:
-    if (active_unit_idx_ < confederate_units_.size()) {
-      unit = confederate_units_[active_unit_idx_].get();
+    if (active_unit_idx_ < confederate_units_count_) {
+      unit = &confederate_units_[active_unit_idx_];
     }
     break;
   }
@@ -277,22 +280,54 @@ Board::ActiveUnit() const
   return unit;
 }
 
-std::vector<Unit*>
+std::vector<const Unit*>
 Board::UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx) const
 {
-  std::vector<Unit*> units;
+  // NOTE: same code as non-const version of UnitsAt().
+
+  std::vector<const Unit*> units;
   switch (kind) {
   case Unit::ArmyKind::UNION:
-    for (const auto& u : union_units_) {
+    for (size_t idx = 0; idx < union_units_count_; ++idx) {
+      const Unit* u = &union_units_[idx];
       if ((u->Row() == row_idx) && (u->Column() == col_idx)) {
-        units.push_back(u.get());
+        units.push_back(u);
       }
     }
     break;
   case Unit::ArmyKind::CONFEDERATE:
-    for (const auto& u : confederate_units_) {
+    for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
+      const Unit* u = &confederate_units_[idx];
       if ((u->Row() == row_idx) && (u->Column() == col_idx)) {
-        units.push_back(u.get());
+        units.push_back(u);
+      }
+    }
+    break;
+  }
+
+  return units;
+}
+
+std::vector<Unit*>
+Board::UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx)
+{
+  // NOTE: same code as const version of UnitsAt().
+
+  std::vector<Unit*> units;
+  switch (kind) {
+  case Unit::ArmyKind::UNION:
+    for (size_t idx = 0; idx < union_units_count_; ++idx) {
+      Unit* u = &union_units_[idx];
+      if ((u->Row() == row_idx) && (u->Column() == col_idx)) {
+        units.push_back(u);
+      }
+    }
+    break;
+  case Unit::ArmyKind::CONFEDERATE:
+    for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
+      Unit* u = &confederate_units_[idx];
+      if ((u->Row() == row_idx) && (u->Column() == col_idx)) {
+        units.push_back(u);
       }
     }
     break;
@@ -338,10 +373,15 @@ Board::Update(uint64_t action_id)
   // Change active to the next unit. If all units of a player have
   // completed movement then move to next player (and potentially next
   // turn).
-  if (!NextArmyUnit((active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_)) {
+  const size_t active_units_count =
+    (active_army_ == Unit::ArmyKind::UNION) ? union_units_count_ : confederate_units_count_;
+  std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& active_units =
+    (active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_;
+
+  if (!NextArmyUnit(active_units_count, active_units)) {
     // Reset move-factor-remaining for all units of the current army.
-    for (auto& u : (active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_) {
-      u->ResetMoveFactorRemaining();
+    for (size_t idx = 0; idx < active_units_count; ++idx) {
+      active_units[idx].ResetMoveFactorRemaining();
     }
 
     // Change to other player / army.
@@ -357,7 +397,9 @@ Board::Update(uint64_t action_id)
       ReinforceUnits();
     }
 
-    if (!NextArmyUnit((active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_)) {
+    if (!NextArmyUnit(
+          (active_army_ == Unit::ArmyKind::UNION) ? union_units_count_ : confederate_units_count_,
+          (active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_)) {
       THROW("at least one army should contain moveable units");
     }
   }
@@ -368,17 +410,18 @@ Board::Update(uint64_t action_id)
 }
 
 bool
-Board::NextArmyUnit(const std::vector<std::unique_ptr<Unit>>& units)
+Board::NextArmyUnit(
+  size_t units_count, std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units)
 {
-  assert(!units.empty());
+  assert(units_count > 0);
 
   // Check every unit in 'units' to see if they can become the active
   // unit. A unit can become active if it has enough move-factor
   // remaining to perform a movement.
   const size_t curr_idx = active_unit_idx_;
-  for (size_t idx = 0; idx < units.size(); ++idx) {
-    active_unit_idx_ = (curr_idx + idx + 1) % units.size();
-    active_unit_ = units[active_unit_idx_].get();
+  for (size_t idx = 0; idx < units_count; ++idx) {
+    active_unit_idx_ = (curr_idx + idx + 1) % units_count;
+    active_unit_ = &units[active_unit_idx_];
 
     if (active_unit_->MoveFactorRemaining() > 0.0) {
       UpdateMoveCosts();
@@ -401,10 +444,12 @@ Board::UpdateMoveCosts()
     move_factory_->MoveCost(active_unit_->Row(), active_unit_->Column());
 
   // Cannot move onto an opponent unit.
+  const auto& opponent_units_count =
+    ((active_army_ == Unit::ArmyKind::UNION) ? confederate_units_count_ : union_units_count_);
   const auto& opponent_units =
     ((active_army_ == Unit::ArmyKind::UNION) ? confederate_units_ : union_units_);
-  for (const auto& u : opponent_units) {
-    Direction dir = active_unit_->AdjacentDirection(*u);
+  for (size_t idx = 0; idx < opponent_units_count; ++idx) {
+    Direction dir = active_unit_->AdjacentDirection(opponent_units[idx]);
     if (dir != Direction::NONE) {
       active_move_costs_[size_t(dir)] = -1.0; // move not allowed
     }
@@ -449,11 +494,11 @@ Board::UpdateInputPlanes()
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
   // Update planes as required for all units.
-  for (const auto& u : union_units_) {
-    u->AddToBoard(this);
+  for (size_t idx = 0; idx < union_units_count_; ++idx) {
+    union_units_[idx].AddToBoard(this);
   }
-  for (const auto& u : confederate_units_) {
-    u->AddToBoard(this);
+  for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
+    confederate_units_[idx].AddToBoard(this);
   }
 
   // Update planes to show captured victory points.
@@ -487,11 +532,11 @@ Board::ReleaseInputPlanes()
 {
   if (!cells_flattened_.empty()) {
     // Update planes to remove all units.
-    for (const auto& u : union_units_) {
-      u->RemoveFromBoard(this);
+    for (size_t idx = 0; idx < union_units_count_; ++idx) {
+      union_units_[idx].RemoveFromBoard(this);
     }
-    for (const auto& u : confederate_units_) {
-      u->RemoveFromBoard(this);
+    for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
+      confederate_units_[idx].RemoveFromBoard(this);
     }
 
     // Update planes to remove captured victory points.
@@ -615,15 +660,17 @@ Board::ReinforceUnits()
 {
   // Union
   for (auto& u : OOB::Units(scenario_, Unit::ArmyKind::UNION, turn_)) {
-    if ((u->Row() < size_.RowCount()) && (u->Column() < size_.ColumnCount())) {
-      union_units_.emplace_back(std::move(u));
+    if ((u.Row() < size_.RowCount()) && (u.Column() < size_.ColumnCount())) {
+      assert(union_units_count_ < OOB::MAX_UNITS_PER_ARMY_COUNT);
+      union_units_[union_units_count_++] = u;
     }
   }
 
   // Confederate
   for (auto& u : OOB::Units(scenario_, Unit::ArmyKind::CONFEDERATE, turn_)) {
-    if ((u->Row() < size_.RowCount()) && (u->Column() < size_.ColumnCount())) {
-      confederate_units_.emplace_back(std::move(u));
+    if ((u.Row() < size_.RowCount()) && (u.Column() < size_.ColumnCount())) {
+      assert(confederate_units_count_ < OOB::MAX_UNITS_PER_ARMY_COUNT);
+      confederate_units_[confederate_units_count_++] = u;
     }
   }
 }

@@ -68,12 +68,15 @@ public:
   Unit(const std::string& name, ArmyKind army_kind, UnitKind unit_kind,
        float combat_factor, float move_factor, size_t row_idx, size_t col_idx);
 
+  // Create undefined unit.
+  Unit() = default;
+
   // Copy constructor.
   Unit(const Unit& other) = default;
 
   // Hash and equal...
   size_t Hash() const;
-  bool Equal(const Unit* other) const;
+  bool Equal(const Unit& other) const;
 
   const std::string& Name() const { return name_; }
   ArmyKind Army() const { return army_kind_; }
@@ -110,12 +113,12 @@ private:
     ArmyKind army_kind, UnitKind unit_kind,
     float combat_factor, float move_factor) const;
 
-  const std::string name_;
-  const ArmyKind army_kind_;
-  const UnitKind unit_kind_;
-  const float combat_factor_;
-  const float move_factor_;
-  const size_t plane_idx_;
+  std::string name_;
+  ArmyKind army_kind_;
+  UnitKind unit_kind_;
+  float combat_factor_;
+  float move_factor_;
+  size_t plane_idx_;
 
   float move_factor_expended_;
   size_t row_idx_;
