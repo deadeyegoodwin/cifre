@@ -173,15 +173,21 @@ class CifreNNetManager(object):
 
             # Use TensorRT. Note that the engine-cache-path given
             # below is within the Triton docker container.
-            f.write('optimization { execution_accelerators {\n')
-            f.write('  gpu_execution_accelerator : [ {\n')
-            f.write('    name : "tensorrt",\n')
-            f.write('    parameters { key: "precision_mode" value: "FP16" },\n')
-            f.write('    parameters { key: "max_workspace_size_bytes" value: "1073741824" },\n')
-            f.write('    parameters { key: "trt_engine_cache_enable" value: "1" },\n')
-            f.write('    parameters { key: "trt_engine_cache_path" value: "/tmp" }}\n')
-            f.write('  ]\n')
-            f.write('}}\n')
+            #
+            # NOTE: TensorRT conversion uses far too much memory
+            # inside triton and doesn't seem to release it, so using
+            # TensorRT in this manner doesn't seem doable (instead
+            # will need to convert offline with trtexec).
+            #
+            #f.write('optimization { execution_accelerators {\n')
+            #f.write('  gpu_execution_accelerator : [ {\n')
+            #f.write('    name : "tensorrt",\n')
+            #f.write('    parameters { key: "precision_mode" value: "FP16" },\n')
+            #f.write('    parameters { key: "max_workspace_size_bytes" value: "1073741824" },\n')
+            #f.write('    parameters { key: "trt_engine_cache_enable" value: "1" },\n')
+            #f.write('    parameters { key: "trt_engine_cache_path" value: "/tmp" }}\n')
+            #f.write('  ]\n')
+            #f.write('}}\n')
 
         # Appropriately sized input.
         input_shape_with_batch = (1,) + self._nnet_input_shape
