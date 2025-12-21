@@ -34,19 +34,19 @@ BoardMoveFactory::BoardMoveFactory(
       const std::pair<int64_t, int64_t> dn_lt(br + (((bc % 2) == 1) ? 1 : 0), bc - 1);
       const std::pair<int64_t, int64_t> up_lt(br - (((bc % 2) == 0) ? 1 : 0), bc - 1);
 
-      node.adjacent_idx_[size_t(Board2DHex::Direction::UP)] = RCToIndex(up);
-      node.adjacent_idx_[size_t(Board2DHex::Direction::UP_RT)] = RCToIndex(up_rt);
-      node.adjacent_idx_[size_t(Board2DHex::Direction::DN_RT)] = RCToIndex(dn_rt);
-      node.adjacent_idx_[size_t(Board2DHex::Direction::DN)] = RCToIndex(dn);
-      node.adjacent_idx_[size_t(Board2DHex::Direction::DN_LT)] = RCToIndex(dn_lt);
-      node.adjacent_idx_[size_t(Board2DHex::Direction::UP_LT)] = RCToIndex(up_lt);
+      node.adjacent_idx_[size_t(BoardHex::Direction::UP)] = RCToIndex(up);
+      node.adjacent_idx_[size_t(BoardHex::Direction::UP_RT)] = RCToIndex(up_rt);
+      node.adjacent_idx_[size_t(BoardHex::Direction::DN_RT)] = RCToIndex(dn_rt);
+      node.adjacent_idx_[size_t(BoardHex::Direction::DN)] = RCToIndex(dn);
+      node.adjacent_idx_[size_t(BoardHex::Direction::DN_LT)] = RCToIndex(dn_lt);
+      node.adjacent_idx_[size_t(BoardHex::Direction::UP_LT)] = RCToIndex(up_lt);
 
-      node.out_move_cost_[size_t(Board2DHex::Direction::UP)] = CalculateMoveCost(node_rc, up);
-      node.out_move_cost_[size_t(Board2DHex::Direction::UP_RT)] = CalculateMoveCost(node_rc, up_rt);
-      node.out_move_cost_[size_t(Board2DHex::Direction::DN_RT)] = CalculateMoveCost(node_rc, dn_rt);
-      node.out_move_cost_[size_t(Board2DHex::Direction::DN)] = CalculateMoveCost(node_rc, dn);
-      node.out_move_cost_[size_t(Board2DHex::Direction::DN_LT)] = CalculateMoveCost(node_rc, dn_lt);
-      node.out_move_cost_[size_t(Board2DHex::Direction::UP_LT)] = CalculateMoveCost(node_rc, up_lt);
+      node.out_move_cost_[size_t(BoardHex::Direction::UP)] = CalculateMoveCost(node_rc, up);
+      node.out_move_cost_[size_t(BoardHex::Direction::UP_RT)] = CalculateMoveCost(node_rc, up_rt);
+      node.out_move_cost_[size_t(BoardHex::Direction::DN_RT)] = CalculateMoveCost(node_rc, dn_rt);
+      node.out_move_cost_[size_t(BoardHex::Direction::DN)] = CalculateMoveCost(node_rc, dn);
+      node.out_move_cost_[size_t(BoardHex::Direction::DN_LT)] = CalculateMoveCost(node_rc, dn_lt);
+      node.out_move_cost_[size_t(BoardHex::Direction::UP_LT)] = CalculateMoveCost(node_rc, up_lt);
     }
   }
 }

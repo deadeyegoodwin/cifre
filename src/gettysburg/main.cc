@@ -19,9 +19,9 @@
 
 namespace cifre { namespace gettysburg {
 
-static const cifre::BoardSize2D MIN_GAME_SHAPE {5, 7};
-static const cifre::BoardSize2D MAX_GAME_SHAPE {11, 21};
-static const cifre::BoardSize2D DEFAULT_GAME_SHAPE {11, 21};
+static const cifre::Size2D MIN_GAME_SHAPE {5, 7};
+static const cifre::Size2D MAX_GAME_SHAPE {11, 21};
+static const cifre::Size2D DEFAULT_GAME_SHAPE {11, 21};
 static const size_t DEFAULT_MAX_TURNS_PER_GAME = 20;
 
 //
@@ -66,7 +66,7 @@ private:
   GameOption::OptionId OPTION_GAME_SHAPE;
   GameOption::OptionId OPTION_MAX_TURNS_PER_GAME;
 
-  cifre::BoardSize2D game_shape_;
+  cifre::Size2D game_shape_;
   std::shared_ptr<BoardCellFactory> cell_factory_;
   std::shared_ptr<BoardMoveFactory> move_factory_;
 };
@@ -122,7 +122,7 @@ bool
 Gettysburg::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
 {
   if (opt.Id() == OPTION_GAME_SHAPE) {
-    game_shape_ = cifre::BoardSize2D(arg_str);
+    game_shape_ = cifre::Size2D(arg_str);
     GameCheckTrueMsg(
       (game_shape_.RowCount() >= MIN_GAME_SHAPE.RowCount()) &&
       (game_shape_.ColumnCount() >= MIN_GAME_SHAPE.ColumnCount()) &&
@@ -211,7 +211,7 @@ Gettysburg::CreateInitialState(
   // controlled at the center of the plane, there must be a border
   // around the map to allow any actual map hex to be at the center of
   // the plane.
-  cifre::BoardSize2D plane_shape(
+  cifre::Size2D plane_shape(
     ((game_shape_.RowCount() - 1) * 2) + 1,
     ((game_shape_.ColumnCount() - 1) * 2) + 1);
 

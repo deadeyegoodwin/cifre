@@ -176,11 +176,11 @@ add_library(
   src/cifre_algo_alphazero.cc
   src/cifre_algo_minimax.cc
   src/cifre_algo_random.cc
-  src/cifre_board2d.cc
   src/cifre_board2d_basic.cc
   src/cifre_board2d_hex.cc
   src/cifre_game.cc
   src/cifre_player.cc
+  src/cifre_size.cc
   src/cifre_triton.cc
 )
 

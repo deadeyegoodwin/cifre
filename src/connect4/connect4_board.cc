@@ -17,9 +17,9 @@ static constexpr size_t IN_A_ROW = 4;
 //
 // Board
 //
-Board::Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
+Board::Board(const cifre::Size2D& size, const std::vector<Player*>& players,
              size_t starting_player_id) :
-  cifre::Board2DBasic(size, players, starting_player_id)
+  cifre::Board2D(size, players, starting_player_id)
 {
   // Initialize 'valid_action_ids_' and 'terminal_status_'.
   UpdateValidActions();
@@ -35,7 +35,7 @@ Board::ActionToString(const Action& action) const
     return std::string("Column ") + col_ch;
   }
 
-  return cifre::Board2DBasic::ActionToString(action);
+  return cifre::Board2D::ActionToString(action);
 }
 
 Action
@@ -46,7 +46,7 @@ Board::StringToAction(const std::string& str) const
 
   // Only 1-character commands recognized. We parse 'a', 'b', etc. as
   // column commands, and pass all other commands to
-  // cifre::Board2DBasic.
+  // cifre::Board2D.
   if (posstr.size() != 1) {
     return Action(Action::ActionKind::INVALID);
   }
@@ -56,7 +56,7 @@ Board::StringToAction(const std::string& str) const
     return Action(Action::ActionKind::ACTIONID, col_idx);
   }
 
-  return cifre::Board2DBasic::StringToAction(str);
+  return cifre::Board2D::StringToAction(str);
 }
 
 void

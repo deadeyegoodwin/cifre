@@ -22,7 +22,7 @@ namespace cifre { namespace gettysburg {
 //
 // The gettysburg playing board.
 //
-class Board : public cifre::Board2DHex {
+class Board : public cifre::BoardHex {
 public:
   static constexpr char UNION_CHAR = 'u';
   static constexpr char CONFEDERATE_CHAR = 'c';
@@ -33,7 +33,7 @@ public:
     const std::shared_ptr<BoardCellFactory>& cell_factory,
     const std::shared_ptr<BoardMoveFactory>& move_factory,
     const OOB::Scenario scenario,
-    const cifre::BoardSize2D& board_shape, const cifre::BoardSize2D& plane_shape,
+    const cifre::Size2D& board_shape, const cifre::Size2D& plane_shape,
     const std::vector<Player*>& players);
 
   // Destructor
@@ -58,7 +58,7 @@ public:
   // See cifre::State
   Action StringToAction(const std::string& str) const override;
 
-  // See cifre::Board2DHex
+  // See cifre::BoardHex
   std::string BoardHeader() const override;
   std::string BoardTrailer() const override;
   std::vector<std::string> BoardCell(
@@ -172,7 +172,7 @@ private:
   std::shared_ptr<BoardMoveFactory> move_factory_;
 
   const OOB::Scenario scenario_;
-  const cifre::BoardSize2D plane_shape_;
+  const cifre::Size2D plane_shape_;
 
   Unit::ArmyKind active_army_;
   Unit* active_unit_;
@@ -182,7 +182,7 @@ private:
 
   // Cost to move in each direction for the active unit. A negative
   // cost indicates that movement in that direction is not possible.
-  std::array<float, Board2DHex::DIRECTION_COUNT> active_move_costs_;
+  std::array<float, BoardHex::DIRECTION_COUNT> active_move_costs_;
 
   // Integer representing the game turn.
   size_t turn_;

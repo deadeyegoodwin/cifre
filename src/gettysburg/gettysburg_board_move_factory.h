@@ -32,12 +32,12 @@ public:
 
   // Return true if the is a hex adjacent to 'row' / 'column' in
   // direction 'dir'.
-  bool IsAdjacentHex(size_t row, size_t column, Board2DHex::Direction dir) {
+  bool IsAdjacentHex(size_t row, size_t column, BoardHex::Direction dir) {
     return nodes_[(row * column_cnt_) + column].adjacent_idx_[size_t(dir)] != NO_ADJACENT; }
 
   // Return the cost to move out of 'row' / 'column' in every
   // direction.
-  const std::array<float, Board2DHex::DIRECTION_COUNT>& MoveCost(
+  const std::array<float, BoardHex::DIRECTION_COUNT>& MoveCost(
     size_t row, size_t column) const {
     return nodes_[(row * column_cnt_) + column].out_move_cost_; }
 
@@ -50,8 +50,8 @@ private:
   // is no adjacent node in that direction (i.e. edge of board).
   //
   struct Node {
-    std::array<size_t, Board2DHex::DIRECTION_COUNT> adjacent_idx_ = {};
-    std::array<float, Board2DHex::DIRECTION_COUNT> out_move_cost_ = {};
+    std::array<size_t, BoardHex::DIRECTION_COUNT> adjacent_idx_ = {};
+    std::array<float, BoardHex::DIRECTION_COUNT> out_move_cost_ = {};
   };
 
 private:

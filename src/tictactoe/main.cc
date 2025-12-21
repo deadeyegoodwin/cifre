@@ -17,7 +17,7 @@
 
 namespace cifre { namespace tictactoe {
 
-static const cifre::BoardSize2D DEFAULT_GAME_SHAPE {3, 3};
+static const cifre::Size2D DEFAULT_GAME_SHAPE {3, 3};
 static const size_t DEFAULT_MAX_TURNS_PER_GAME = 5;
 
 //
@@ -58,7 +58,7 @@ private:
   GameOption::OptionId OPTION_GAME_SHAPE;
   GameOption::OptionId OPTION_MAX_TURNS_PER_GAME;
 
-  cifre::BoardSize2D game_shape_;
+  cifre::Size2D game_shape_;
 };
 
 TicTacToe::TicTacToe()
@@ -92,9 +92,9 @@ bool
 TicTacToe::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
 {
   if (opt.Id() == OPTION_GAME_SHAPE) {
-    game_shape_ = cifre::BoardSize2D(arg_str);
+    game_shape_ = cifre::Size2D(arg_str);
     GameCheckTrueMsg(game_shape_.RowCount() >= 2,
-                     Name() + " board must be " + cifre::BoardSize2D(2, 2).ToString() +
+                     Name() + " board must be " + cifre::Size2D(2, 2).ToString() +
                      " or larger");
     GameCheckTrueMsg(game_shape_.RowCount() == game_shape_.ColumnCount(),
                      Name() + " board must be square");

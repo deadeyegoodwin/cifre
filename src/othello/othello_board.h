@@ -16,15 +16,15 @@ namespace cifre { namespace othello {
 //
 // The othello playing board.
 //
-class Board : public cifre::Board2DBasic {
+class Board : public cifre::Board2D {
 public:
   // Create board at the required starting state.
-  Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
+  Board(const cifre::Size2D& size, const std::vector<Player*>& players,
         size_t starting_player_id);
 
   // Copy constructor.
   Board(const Board& other) :
-    cifre::Board2DBasic(other), do_nothing_action_id_(other.do_nothing_action_id_),
+    cifre::Board2D(other), do_nothing_action_id_(other.do_nothing_action_id_),
     active_do_nothing_(other.active_do_nothing_), opponent_do_nothing_(other.opponent_do_nothing_) { }
 
   // Return the action ID representing "do nothing".
@@ -35,11 +35,11 @@ public:
   void Update(uint64_t action_id) override;
 
   // One action for each board cell, plus the "do nothing" action. See
-  // cifre::Board2DBasic.
+  // cifre::Board2D.
   size_t TotalActionIdCount() const override { return size_.CellCount() + 1; }
 
   // Return the string representation of an 'action'.  See
-  // cifre::Board2DBasic.
+  // cifre::Board2D.
   std::string ActionToString(const Action& action) const override;
 
 private:

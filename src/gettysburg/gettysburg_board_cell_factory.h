@@ -7,7 +7,7 @@
 #include <map>
 #include <mutex>
 
-#include "cifre_board2d.h"
+#include "cifre_board2d_hex.h"
 #include "gettysburg_board_cell_data.h"
 #include "gettysburg_oob.h"
 
@@ -139,10 +139,10 @@ public:
   // indexing). Thread-safe. The caller may modify the returned
   // vector, but must restore it to its original values before calling
   // ReleaseCells.
-  Board2D::FlattenedCells AcquireCells(const CellsKey key);
+  FlattenedCells AcquireCells(const CellsKey key);
 
   // "Restock" the cells for a given row and column. Thread-safe.
-  void ReleaseCells(const CellsKey key, Board2D::FlattenedCells&& cells);
+  void ReleaseCells(const CellsKey key, FlattenedCells&& cells);
 
   // String representation.
   std::string ToString() const;
@@ -163,14 +163,14 @@ private:
   // Map from the row index and column index to the pre-initialized,
   // flattened planes representing the static valued portions of the
   // sets of planes.
-  std::map<CellsKey, Board2D::FlattenedCells> planes_map_;
+  std::map<CellsKey, FlattenedCells> planes_map_;
 
   // Map from the row index and column index to already allocated
   // planes. This map maintains the plane-sets that can be acquired
   // and released and thus allows reuse. This map must be thread safe
   // so a mutex is needed as well.
   std::mutex alloc_planes_mu_;
-  std::map<CellsKey, std::vector<Board2D::FlattenedCells>> alloc_planes_map_;
+  std::map<CellsKey, std::vector<FlattenedCells>> alloc_planes_map_;
 
   // Indexed by flattened cell index that gives features of each cell.
   std::vector<CellFeatures> cell_features_;

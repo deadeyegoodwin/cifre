@@ -1,10 +1,6 @@
 // Copyright 2025, David Goodwin. All rights reserved.
 
 #include <algorithm>
-#include <cctype>
-#include <cstddef>
-#include <cstdint>
-#include <regex>
 #include <string>
 #include <sstream>
 
@@ -14,15 +10,23 @@
 namespace cifre {
 
 //
-// Board2DBasic
+// Board2D
 //
-Board2DBasic::Board2DBasic(
-  const cifre::BoardSize2D& size, const std::vector<Player*>& players,
+Board2D::Board2D(
+  const cifre::Size2D& size, const std::vector<Player*>& players,
   size_t starting_player_id) :
-  Board2D(1 /* plane_cnt */, size, players, starting_player_id)
+  size_(size), players_(players), active_player_id_(starting_player_id),
+  terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL)
 {
   THROWIF(players_.size() != PLAYER_COUNT, "exactly 2 players are required");
   THROWIF(NoPlayerId() != PLAYER_COUNT, "exactly 2 players are required");
+  THROWIF(active_player_id_ >= NoPlayerId(),
+          "invalid starting player index " + std::to_string(active_player_id_));
+#ifndef NDEBUG
+  for (size_t pidx = 0; pidx < players_.size(); ++pidx) {
+    assert(players_[pidx]->Id() == pidx);
+  }
+#endif
 
   // Player 0 is 'o' and player 1 is 'x'.
   players[0]->SetChar('o');
@@ -32,15 +36,63 @@ Board2DBasic::Board2DBasic(
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 }
 
-Board2DBasic::Board2DBasic(const Board2DBasic& other) :
-  Board2D(other)
+Board2D::Board2D(const Board2D& other) :
+  size_(other.size_), players_(other.players_),
+  active_player_id_(other.active_player_id_), terminal_status_(other.terminal_status_),
+  valid_action_ids_(other.valid_action_ids_)
 {
   cells_flattened_.CopyFrom(other.cells_flattened_);
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 }
 
+size_t
+Board2D::Hash() const
+{
+  constexpr uint64_t mulp = 2654435789;
+  uint64_t hash = 104395301;
+
+  hash += (active_player_id_ * mulp) ^ (hash >> 23);
+
+  const auto& bytes = TritonRepresentation();
+  for (uint8_t b : bytes) {
+    hash += (b * mulp) ^ (hash >> 23);
+  }
+
+  return hash ^ (hash << 37);
+}
+
+bool
+Board2D::Equal(const State* other) const
+{
+  return ((active_player_id_ == other->ActivePlayerId()) &&
+          (TritonRepresentation() == other->TritonRepresentation()));
+}
+
+bool
+Board2D::IsValidAction(const Action& action) const
+{
+  switch (action.Kind()) {
+  case Action::ActionKind::INVALID:
+    return false;
+
+  case Action::ActionKind::HELP:
+  case Action::ActionKind::QUIT:
+  case Action::ActionKind::SHOW_STATE:
+  case Action::ActionKind::CUSTOM_0:
+  case Action::ActionKind::CUSTOM_1:
+  case Action::ActionKind::CUSTOM_2:
+  case Action::ActionKind::CUSTOM_3:
+    return true;
+
+  case Action::ActionKind::ACTIONID:
+    return valid_action_ids_.find(action.ActionId()) != valid_action_ids_.end();
+  }
+
+  return false;
+}
+
 Action
-Board2DBasic::StringToAction(const std::string& str) const
+Board2D::StringToAction(const std::string& str) const
 {
   std::string posstr(str);
   common::Trim(posstr);
@@ -72,7 +124,7 @@ Board2DBasic::StringToAction(const std::string& str) const
 }
 
 std::string
-Board2DBasic::ActionToString(const Action& action) const
+Board2D::ActionToString(const Action& action) const
 {
   if (action.Kind() != Action::ActionKind::ACTIONID) {
     return action.ToString();
@@ -99,7 +151,7 @@ Board2DBasic::ActionToString(const Action& action) const
 }
 
 std::string
-Board2DBasic::ToString() const
+Board2D::ToString() const
 {
   std::stringstream sstr;
   const size_t ch_width = (size_.ColumnCount() + 2) * 2;

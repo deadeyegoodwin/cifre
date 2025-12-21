@@ -4,7 +4,6 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
-#include <regex>
 #include <string>
 #include <sstream>
 
@@ -14,20 +13,82 @@
 namespace cifre {
 
 //
-// Board2DHex
+// BoardHex
 //
-Board2DHex::Board2DHex(
-  const size_t plane_cnt, const cifre::BoardSize2D& size,
+BoardHex::BoardHex(
+  const size_t plane_cnt, const cifre::Size2D& size,
   const std::vector<Player*>& players, size_t starting_player_id) :
-  Board2D(plane_cnt, size, players, starting_player_id),
-  display_kind_(DisplayKind::SMALL)
+  display_kind_(DisplayKind::SMALL), plane_cnt_(plane_cnt), size_(size),
+  players_(players), active_player_id_(starting_player_id),
+  terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL)
 {
   THROWIF(players_.size() != PLAYER_COUNT, "exactly 2 players are required");
   THROWIF(NoPlayerId() != PLAYER_COUNT, "exactly 2 players are required");
+  THROWIF(active_player_id_ >= NoPlayerId(),
+          "invalid starting player index " + std::to_string(active_player_id_));
+#ifndef NDEBUG
+  for (size_t pidx = 0; pidx < players_.size(); ++pidx) {
+    assert(players_[pidx]->Id() == pidx);
+  }
+#endif
+}
+
+BoardHex::BoardHex(const BoardHex& other) :
+  display_kind_(other.display_kind_), plane_cnt_(other.plane_cnt_),
+  size_(other.size_), players_(other.players_),
+  active_player_id_(other.active_player_id_), terminal_status_(other.terminal_status_),
+  valid_action_ids_(other.valid_action_ids_)
+{
+}
+
+size_t
+BoardHex::Hash() const
+{
+  constexpr uint64_t mulp = 2654435789;
+  uint64_t hash = 104395301;
+
+  hash += (active_player_id_ * mulp) ^ (hash >> 23);
+
+  const auto& bytes = TritonRepresentation();
+  for (uint8_t b : bytes) {
+    hash += (b * mulp) ^ (hash >> 23);
+  }
+
+  return hash ^ (hash << 37);
+}
+
+bool
+BoardHex::Equal(const State* other) const
+{
+  return ((active_player_id_ == other->ActivePlayerId()) &&
+          (TritonRepresentation() == other->TritonRepresentation()));
+}
+
+bool
+BoardHex::IsValidAction(const Action& action) const
+{
+  switch (action.Kind()) {
+  case Action::ActionKind::INVALID:
+    return false;
+
+  case Action::ActionKind::HELP:
+  case Action::ActionKind::QUIT:
+  case Action::ActionKind::SHOW_STATE:
+  case Action::ActionKind::CUSTOM_0:
+  case Action::ActionKind::CUSTOM_1:
+  case Action::ActionKind::CUSTOM_2:
+  case Action::ActionKind::CUSTOM_3:
+    return true;
+
+  case Action::ActionKind::ACTIONID:
+    return valid_action_ids_.find(action.ActionId()) != valid_action_ids_.end();
+  }
+
+  return false;
 }
 
 std::string
-Board2DHex::ToString() const
+BoardHex::ToString() const
 {
   switch (display_kind_) {
   case DisplayKind::SMALL:
@@ -41,7 +102,7 @@ Board2DHex::ToString() const
 }
 
 std::string
-Board2DHex::SmallBoard() const
+BoardHex::SmallBoard() const
 {
   std::stringstream sstr;
 
@@ -112,7 +173,7 @@ Board2DHex::SmallBoard() const
 }
 
 std::string
-Board2DHex::LargeBoard() const
+BoardHex::LargeBoard() const
 {
   std::stringstream sstr;
 
@@ -230,19 +291,19 @@ Board2DHex::LargeBoard() const
 }
 
 std::string
-Board2DHex::BoardHeader() const
+BoardHex::BoardHeader() const
 {
   return "";
 }
 
 std::string
-Board2DHex::BoardTrailer() const
+BoardHex::BoardTrailer() const
 {
   return "";
 }
 
 std::vector<std::string>
-Board2DHex::BoardCell(DisplayKind kind, size_t row_idx, size_t col_idx) const
+BoardHex::BoardCell(DisplayKind kind, size_t row_idx, size_t col_idx) const
 {
   std::string upper = std::to_string(row_idx);
   if (upper.size() == 1) {

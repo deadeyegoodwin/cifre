@@ -6,19 +6,24 @@
 #include <cstdint>
 #include <vector>
 
-#include "cifre_board2d.h"
+#include "cifre_action.h"
+#include "cifre_player.h"
+#include "cifre_size.h"
+#include "cifre_state.h"
+#include "common_util.h"
 
 namespace cifre {
 
 //
-// Board2DBasic
+// Board2D
 //
-// A specialization of Board2D for two player games where each cell
-// can have only one of three states: empty, "owned" by active player,
-// or "owned" by opponent player. By default the board has one action
-// for each board cell (i.e. "occupy the cell"), but derived classes
-// can override TotalActionIdCount(), StringToAction(),
-// ActionToString() to add/remove actions.
+// A specialization of State for two player games played on a 2D
+// surface of "cells" where each cell can have only one of three
+// states: empty, "owned" by active player, or "owned" by opponent
+// player. By default the board has one action for each board cell
+// (i.e. "occupy the cell"), but derived classes can override
+// TotalActionIdCount(), StringToAction(), ActionToString() to
+// add/remove actions.
 //
 // Provides a console representation of the board and methods to
 // convert text commands to/from actions.
@@ -31,22 +36,29 @@ namespace cifre {
 // implement appropriate action and board update logic via
 // State::Update().
 //
-class Board2DBasic : public Board2D {
+class Board2D : public State {
 public:
   static constexpr size_t PLAYER_COUNT = 2;
 
   // Create a board based on a given 'size' and 'players', where
   // player ID is the index of a given player in 'players'.
   // 'starting_player_id' indicates the player that will go first.
-  Board2DBasic(
-    const cifre::BoardSize2D& size, const std::vector<Player*>& players,
+  Board2D(
+    const cifre::Size2D& size, const std::vector<Player*>& players,
     size_t starting_player_id);
 
   // Copy constructor.
-  Board2DBasic(const Board2DBasic& other);
+  Board2D(const Board2D& other);
 
   // Destructor
-  virtual ~Board2DBasic() = default;
+  virtual ~Board2D() = default;
+
+  // See cifre::State. Hash based on 'active_player_id_' and 'cells_'.
+  virtual size_t Hash() const override;
+
+  // See cifre::State. Equally is determined by 'active_player_id_'
+  // and 'cells_'.
+  virtual bool Equal(const State* other) const override;
 
   // One action for each board cell. See cifre::State.
   virtual size_t TotalActionIdCount() const override { return size_.CellCount(); }
@@ -56,6 +68,36 @@ public:
 
   // See cifre::State.
   virtual std::string ActionToString(const Action& action) const override;
+
+  // See cifre::State
+  StateTerminalStatus TerminalStatus() const override { return terminal_status_; }
+
+  // See cifre::State
+  const std::unordered_set<uint64_t>& ValidActionIds() const override {
+    return valid_action_ids_; }
+
+  // See cifre::State.
+  virtual bool IsValidAction(const Action& action) const override;
+
+  // Get the representation of the state suitable for feeding to the
+  // model via triton. Returns flattened row-major ordering of the
+  // cell values. See cifre::State.
+  const FlattenedCells& TritonRepresentation() const override {
+    return cells_flattened_;
+  }
+
+  // Return the board size.
+  const Size2D& Size() const { return size_; }
+
+  // Return the player ID that represents "no player". By convention
+  // this ID is equal to the number of players in the game.
+  size_t NoPlayerId() const { return players_.size(); }
+
+  // Return the ID of the active player. See cifre::State.
+  size_t ActivePlayerId() const override { return active_player_id_; }
+
+  // Return the active player.
+  Player* ActivePlayer() const { return players_[active_player_id_]; }
 
   // Return the ID of the opponent player. There must be exactly two
   // players, so the opponent ID is the opposite of active player ID.
@@ -125,6 +167,25 @@ protected:
     assert(v == CELL_EMPTY);
     return nullptr;
   }
+
+  // Size of the board.
+  const Size2D size_;
+
+  // The players. The player's index in this vector is the player ID.
+  const std::vector<cifre::Player*> players_;
+
+  // ID of the currently active player.
+  size_t active_player_id_;
+
+  // The status of the board indicating winning condition.
+  cifre::StateTerminalStatus terminal_status_;
+
+  // The set of action ids that are valid for the current board.
+  std::unordered_set<uint64_t> valid_action_ids_;
+
+  // 'cells_' is simply a type-casted pointer into 'cells_flattened_'.
+  FlattenedCells cells_flattened_;
+  float* cells_;
 };
 
 } // namespace cifre

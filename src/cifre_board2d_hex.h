@@ -6,15 +6,19 @@
 #include <cstdint>
 #include <vector>
 
-#include "cifre_board2d.h"
+#include "cifre_action.h"
+#include "cifre_player.h"
+#include "cifre_size.h"
+#include "cifre_state.h"
+#include "common_util.h"
 
 namespace cifre {
 
 //
-// Board2DHex
+// BoardHex
 //
-// A specialization of Board2D for two-player, two-dimensional
-// hexagonal game boards.
+// A specialization of State for two-player, two-dimensional hexagonal
+// game boards.
 //
 // Provides a console representation of the board and methods to
 // convert text commands to/from actions. The console representation
@@ -46,7 +50,7 @@ namespace cifre {
 // via State::TotalActionIdCount(), State::StringToAction(),
 // State::ActionToString(), and State::Update().
 //
-class Board2DHex : public Board2D {
+class BoardHex : public State {
 public:
   static constexpr size_t PLAYER_COUNT = 2;
 
@@ -79,16 +83,56 @@ public:
   // 'players', where player ID is the index of a given player in
   // 'players'. 'starting_player_id' indicates the player that will go
   // first.
-  Board2DHex(
-    const size_t plane_cnt, const cifre::BoardSize2D& size,
+  BoardHex(
+    const size_t plane_cnt, const cifre::Size2D& size,
     const std::vector<Player*>& players, size_t starting_player_id);
 
   // Copy constructor.
-  Board2DHex(const Board2DHex& other) :
-    Board2D(other), display_kind_(other.display_kind_) { }
+  BoardHex(const BoardHex& other);
 
   // Destructor
-  virtual ~Board2DHex() = default;
+  virtual ~BoardHex() = default;
+
+  // See cifre::State. Hash based on 'active_player_id_' and 'cells_'.
+  virtual size_t Hash() const override;
+
+  // See cifre::State. Equally is determined by 'active_player_id_'
+  // and 'cells_'.
+  virtual bool Equal(const State* other) const override;
+
+  // Return the number of planes required for the board state. Each 2D
+  // plane's size is Size().
+  size_t PlaneCount() const { return plane_cnt_; }
+
+  // Return the board size.
+  const Size2D& Size() const { return size_; }
+
+  // Return the player ID that represents "no player". By convention
+  // this ID is equal to the number of players in the game.
+  size_t NoPlayerId() const { return players_.size(); }
+
+  // Return the ID of the active player. See cifre::State.
+  size_t ActivePlayerId() const override { return active_player_id_; }
+
+  // Return the active player.
+  Player* ActivePlayer() const { return players_[active_player_id_]; }
+
+  // See cifre::State
+  StateTerminalStatus TerminalStatus() const override { return terminal_status_; }
+
+  // See cifre::State
+  const std::unordered_set<uint64_t>& ValidActionIds() const override {
+    return valid_action_ids_; }
+
+  // See cifre::State.
+  virtual bool IsValidAction(const Action& action) const override;
+
+  // Get the representation of the state suitable for feeding to the
+  // model via triton. Returns flattened row-major ordering of the
+  // cell values. See cifre::State.
+  const FlattenedCells& TritonRepresentation() const override {
+    return cells_flattened_;
+  }
 
   // Get or set the way the board is displayed.
   DisplayKind Display() const { return display_kind_; }
@@ -121,7 +165,7 @@ public:
   virtual std::vector<std::string> BoardCell(
     DisplayKind kind, size_t row_idx, size_t col_idx) const;
 
-private:
+protected:
   std::string SmallBoard() const;
   std::string LargeBoard() const;
 
@@ -129,6 +173,28 @@ private:
   // State object. It is not part of the state seen by the algorithms
   // or hashing so it is ok to have it mutable.
   mutable DisplayKind display_kind_;
+
+  // Number of planes.
+  const size_t plane_cnt_;
+
+  // Size of the board.
+  const Size2D size_;
+
+  // The players. The player's index in this vector is the player ID.
+  const std::vector<cifre::Player*> players_;
+
+  // ID of the currently active player.
+  size_t active_player_id_;
+
+  // The status of the board indicating winning condition.
+  cifre::StateTerminalStatus terminal_status_;
+
+  // The set of action ids that are valid for the current board.
+  std::unordered_set<uint64_t> valid_action_ids_;
+
+  // 'cells_' is simply a type-casted pointer into 'cells_flattened_'.
+  FlattenedCells cells_flattened_;
+  float* cells_;
 };
 
 } // namespace cifre

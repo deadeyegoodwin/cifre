@@ -38,6 +38,31 @@ private:
   size_t winner_id_;
 };
 
+//
+// FlattenedCells
+//
+// Triton-friendly cell contents. FlattenedCells is just a
+// std:vector<uint8_t> protected so that it is not unintentionally
+// copied. Must us Copy() explicitly to copy.
+//
+class FlattenedCells : public std::vector<uint8_t> {
+public:
+  // Default constructor
+  FlattenedCells() = default;
+
+  // Default move constructor and operator
+  FlattenedCells(FlattenedCells&& other) = default;
+  FlattenedCells& operator=(FlattenedCells&& other) = default;
+
+  // Copy contents of 'c' into this FlattenedCells.
+  void CopyFrom(const FlattenedCells& c) {
+    *this = c;
+  }
+
+private:
+  FlattenedCells(const FlattenedCells&) = default;
+  FlattenedCells& operator=(const FlattenedCells&) = default;
+};
 
 //
 // State
@@ -102,7 +127,7 @@ public:
   // nnet via triton. This representation does not need to include all
   // of the state, but must include whatever is required by the model
   // being used.
-  virtual const std::vector<uint8_t>& TritonRepresentation() const = 0;
+  virtual const FlattenedCells& TritonRepresentation() const = 0;
 
   // Return string representation of the state.
   virtual std::string ToString() const = 0;

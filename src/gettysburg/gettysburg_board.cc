@@ -13,9 +13,9 @@ Board::Board(
   const std::shared_ptr<BoardCellFactory>& cell_factory,
   const std::shared_ptr<BoardMoveFactory>& move_factory,
   const OOB::Scenario scenario,
-  const cifre::BoardSize2D& board_shape, const cifre::BoardSize2D& plane_shape,
+  const cifre::Size2D& board_shape, const cifre::Size2D& plane_shape,
   const std::vector<Player*>& players) :
-  cifre::Board2DHex(BoardCellFactory::PLANE_COUNT, board_shape, players, 0 /* starting_player_id */),
+  cifre::BoardHex(BoardCellFactory::PLANE_COUNT, board_shape, players, 0 /* starting_player_id */),
   cell_factory_(cell_factory), move_factory_(move_factory),
   scenario_(scenario), plane_shape_(plane_shape)
 {
@@ -61,7 +61,7 @@ Board::Board(
 }
 
 Board::Board(const Board& other) :
-  cifre::Board2DHex(other),
+  cifre::BoardHex(other),
   cell_factory_(other.cell_factory_), move_factory_(other.move_factory_),
   scenario_(other.scenario_), plane_shape_(other.plane_shape_),
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
@@ -561,14 +561,14 @@ Board::ReleaseInputPlanes()
   }
 }
 
-static const std::array<std::pair<Board2DHex::Direction, Unit::ActionKind>,
-                        Board2DHex::DIRECTION_COUNT> direction_actions {{
-  { Board2DHex::Direction::UP, Unit::ActionKind::MOVE_UP },
-  { Board2DHex::Direction::UP_RT, Unit::ActionKind::MOVE_UPRIGHT },
-  { Board2DHex::Direction::DN_RT, Unit::ActionKind::MOVE_DOWNRIGHT },
-  { Board2DHex::Direction::DN, Unit::ActionKind::MOVE_DOWN },
-  { Board2DHex::Direction::DN_LT, Unit::ActionKind::MOVE_DOWNLEFT },
-  { Board2DHex::Direction::UP_LT, Unit::ActionKind::MOVE_UPLEFT } }};
+static const std::array<std::pair<BoardHex::Direction, Unit::ActionKind>,
+                        BoardHex::DIRECTION_COUNT> direction_actions {{
+  { BoardHex::Direction::UP, Unit::ActionKind::MOVE_UP },
+  { BoardHex::Direction::UP_RT, Unit::ActionKind::MOVE_UPRIGHT },
+  { BoardHex::Direction::DN_RT, Unit::ActionKind::MOVE_DOWNRIGHT },
+  { BoardHex::Direction::DN, Unit::ActionKind::MOVE_DOWN },
+  { BoardHex::Direction::DN_LT, Unit::ActionKind::MOVE_DOWNLEFT },
+  { BoardHex::Direction::UP_LT, Unit::ActionKind::MOVE_UPLEFT } }};
 
 void
 Board::UpdateValidActions()
@@ -763,7 +763,7 @@ Board::BoardTrailer() const
 }
 
 std::vector<std::string>
-Board::BoardCell(Board2DHex::DisplayKind kind, size_t row_idx, size_t col_idx) const
+Board::BoardCell(BoardHex::DisplayKind kind, size_t row_idx, size_t col_idx) const
 {
   switch (kind) {
   case DisplayKind::SMALL:

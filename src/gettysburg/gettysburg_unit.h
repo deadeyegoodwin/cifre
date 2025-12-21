@@ -93,7 +93,7 @@ public:
 
   // Update unit based on action 'kind'.
   void ApplyAction(
-    ActionKind kind, const std::array<float, Board2DHex::DIRECTION_COUNT>& move_cost);
+    ActionKind kind, const std::array<float, BoardHex::DIRECTION_COUNT>& move_cost);
 
   // Update 'board' to remove this unit.
   void RemoveFromBoard(Board* board) const;
@@ -103,7 +103,7 @@ public:
 
   // If 'this' and 'unit' are in adjacent hexes, return the direction
   // from 'this' unit to 'unit'. Otherwise return Direction::NONE.
-  Board2DHex::Direction AdjacentDirection(const Unit& unit) const;
+  BoardHex::Direction AdjacentDirection(const Unit& unit) const;
 
   // Return string representation of the unit.
   std::string ToString() const;

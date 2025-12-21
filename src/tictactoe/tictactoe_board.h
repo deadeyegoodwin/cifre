@@ -16,14 +16,14 @@ namespace cifre { namespace tictactoe {
 //
 // The tictactoe playing board.
 //
-class Board : public cifre::Board2DBasic {
+class Board : public cifre::Board2D {
 public:
   // Create board...
-  Board(const cifre::BoardSize2D& size, const std::vector<Player*>& players,
+  Board(const cifre::Size2D& size, const std::vector<Player*>& players,
         size_t starting_player_id);
 
   // Copy constructor.
-  Board(const Board& other) : cifre::Board2DBasic(other) { }
+  Board(const Board& other) : cifre::Board2D(other) { }
 
   // See cifre::State
   Board* Copy() const override { return new Board(*this); }
