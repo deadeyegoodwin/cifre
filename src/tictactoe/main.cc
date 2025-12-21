@@ -43,7 +43,8 @@ public:
   bool ParseCustomOption(const GameOption& opt, const std::string& arg_str) override;
 
   // See cifre::Game
-  cifre::AlphaZeroSettings DefaultAlphaZeroSettings(const bool train) const override;
+  cifre::AlphaZeroSettings DefaultAlphaZeroSettings(
+    bool training, bool az_vs_az) const override;
 
   // See cifre::Game
   Player* CreatePlayer(
@@ -110,30 +111,37 @@ TicTacToe::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
 }
 
 cifre::AlphaZeroSettings
-TicTacToe::DefaultAlphaZeroSettings(const bool train) const
+TicTacToe::DefaultAlphaZeroSettings(bool training, bool az_vs_az) const
 {
   cifre::AlphaZeroSettings settings;
-  settings.training_ = train;
+  settings.training_ = training;
 
-  if (train) { // train = true
-    settings.per_game_node_tree_ = false;
+  settings.per_game_node_tree_ = false;
+  settings.search_count_ = 64;
+  settings.max_search_depth_ = 12;
+  settings.cpuct_ = 10.0;
+
+  // If 'training' then using MCTS to self-play and so want to use
+  // both dirichlet and weighted-random action. If two alphazero
+  // players are playing each other ('az_vs_az') then no dirichlet but
+  // still use weighted-random action or else every game will be
+  // identical. Otherwise no dirichlet and choose the best move.
+  if (training) {
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
-    settings.dirichlet_alpha_ = 1.0;
-    settings.dirichlet_sample_count_ = 1111;
+    settings.dirichlet_alpha_ = 10.0 / 9.0;
+    settings.dirichlet_sample_count_ = 2117;
     settings.dirichlet_ratio_ = 0.25;
-    settings.search_count_ = 256;
-    settings.max_search_depth_ = 12;
-    settings.cpuct_ = 10.0;
   }
-  else { // train = false
-    settings.per_game_node_tree_ = false;
+  else if (az_vs_az) {
+    settings.next_action_kind_ =
+      cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
+    settings.dirichlet_alpha_ = 0.0; // disabled
+  }
+  else { // AZ vs non-AZ opponent
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::MAX_VISITED;
-    settings.dirichlet_alpha_ = 0.0; // disable dirichlet
-    settings.search_count_ = 256;
-    settings.max_search_depth_ = 12;
-    settings.cpuct_ = 1.0;
+    settings.dirichlet_alpha_ = 0.0; // disabled
   }
 
   return settings;

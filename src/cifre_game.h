@@ -170,9 +170,12 @@ public:
   virtual const std::string StartBanner() const { return std::string(); }
   virtual const std::string EndBanner() const { return std::string(); }
 
-  // Set the default AlphaZero settings for the game, depending on if
-  // 'train'ing is being done or not.
-  virtual cifre::AlphaZeroSettings DefaultAlphaZeroSettings(const bool train) const = 0;
+  // Set the default AlphaZero settings for the game.  If 'training'
+  // then using MCTS to self-play. If 'az_vs_az' then two alphazero
+  // players are playing each other outside of MCTS. If both are false
+  // then an AlphaZero player is playing a non-AlphaZero player.
+  virtual cifre::AlphaZeroSettings DefaultAlphaZeroSettings(
+    bool training, bool az_vs_az) const = 0;
 
   // Return the cifre::State representing the initial game state.
   virtual State* CreateInitialState(

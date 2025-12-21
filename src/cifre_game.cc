@@ -412,6 +412,7 @@ Game::Parse(int argc, char **argv)
   std::string log_filename = "stdout";
   bool train = false;
 
+  // Default players to human.
   PlayerSettings splayer1("human", 0);
   PlayerSettings splayer2("human", 1);
   PlayerSettings* active_splayer = nullptr;
@@ -439,15 +440,17 @@ Game::Parse(int argc, char **argv)
     }
   }
 
-  // By default only GAME logging is enabled.
+  // Enable default logging before parsing logging flags to override
+  // those defaults.
   logger_.reset(CreateLogger(log_filename));
   logger_->Enable(Logger::Kind::INVOKE);
   logger_->Enable(Logger::Kind::GAME);
 
-  // Second pass through the arguments to see if --train is
-  // specified. The flags must be parsed first to set game-specific
-  // and training-specific defaults. Also parse logging options here
-  // so that 'logger_' is correctly initialized.
+  // Second pass through the arguments to see if --train is specified
+  // and to determine the kind for each player. The flags must be
+  // parsed first to set game-specific and training-specific
+  // defaults. Also parse logging options here so that 'logger_' is
+  // correctly initialized.
   optind = 1;
   while ((flag = getopt_long(argc, argv, "", &long_options[0], NULL)) != -1) {
     switch (flag) {
@@ -484,6 +487,16 @@ Game::Parse(int argc, char **argv)
     case BuiltInOptionId::OPTION_TRAIN_DIR:
       train_dir_ = optarg;
       break;
+    case BuiltInOptionId::OPTION_PLAYER1:
+      splayer1.cmdline_specified_ = true;
+      splayer1.kind_ = PlayerSettings::StringToKind(optarg);
+      splayer1.name_ = splayer1.DefaultName();
+      break;
+    case BuiltInOptionId::OPTION_PLAYER2:
+      splayer2.cmdline_specified_ = true;
+      splayer2.kind_ = PlayerSettings::StringToKind(optarg);
+      splayer2.name_ = splayer2.DefaultName();
+      break;
     default:
       break;
     }
@@ -499,9 +512,16 @@ Game::Parse(int argc, char **argv)
     LOG_INVOKE(*logger_, cifre::VersionToString(true /* show_dependent_versions */));
   }
 
-  // Set default alphazero values based on --train.
-  splayer1.alphazero_settings_ = DefaultAlphaZeroSettings(train);
-  splayer2.alphazero_settings_ = DefaultAlphaZeroSettings(train);
+  // Set default alphazero values based on --train and if
+  // two-alphazero players are playing each other.
+  splayer1.alphazero_settings_ =
+    DefaultAlphaZeroSettings(train /* training */,
+                             (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) &&
+                             (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO));
+  splayer2.alphazero_settings_ =
+    DefaultAlphaZeroSettings(train /* training */,
+                             (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) &&
+                             (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO));
 
   // Third pass through the arguments for everything not handled in
   // the first and second passes.
@@ -537,15 +557,11 @@ Game::Parse(int argc, char **argv)
       break;
 
     case BuiltInOptionId::OPTION_PLAYER1:
-      splayer1.cmdline_specified_ = true;
-      splayer1.kind_ = PlayerSettings::StringToKind(optarg);
-      splayer1.name_ = splayer1.DefaultName();
+      // Name and kind parsed in previous pass...
       active_splayer = &splayer1;
       break;
     case BuiltInOptionId::OPTION_PLAYER2:
-      splayer2.cmdline_specified_ = true;
-      splayer2.kind_ = PlayerSettings::StringToKind(optarg);
-      splayer2.name_ = splayer2.DefaultName();
+      // Name and kind parsed in previous pass...
       active_splayer = &splayer2;
       break;
     case BuiltInOptionId::OPTION_PLAYER_NAME:
