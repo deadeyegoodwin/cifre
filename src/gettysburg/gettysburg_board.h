@@ -1,10 +1,11 @@
 // Copyright 2025, David Goodwin. All rights reserved.
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <map>
+#include <string>
 
 #include "cifre_action.h"
 #include "cifre_board2d_hex.h"
