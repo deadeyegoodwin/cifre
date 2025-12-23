@@ -30,8 +30,8 @@ public:
 public:
   // Create board...
   Board(
-    const std::shared_ptr<BoardCellFactory>& cell_factory,
-    const std::shared_ptr<BoardMoveFactory>& move_factory,
+    BoardCellFactory* cell_factory,
+    const BoardMoveFactory* move_factory,
     const OOB::Scenario scenario,
     const cifre::Size2D& board_shape, const cifre::Size2D& plane_shape,
     const std::vector<Player*>& players);
@@ -166,10 +166,10 @@ private:
   std::string LargeBoardTerrainString(size_t row_idx, size_t col_idx) const;
   std::string LargeBoardVictoryPointString(size_t row_idx, size_t col_idx) const;
 
-  std::shared_ptr<BoardCellFactory> cell_factory_;
+  BoardCellFactory* cell_factory_;
   BoardCellFactory::CellsKey cells_flattened_factory_key_;
 
-  std::shared_ptr<BoardMoveFactory> move_factory_;
+  const BoardMoveFactory* move_factory_;
 
   const OOB::Scenario scenario_;
   const cifre::Size2D plane_shape_;

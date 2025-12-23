@@ -12,7 +12,7 @@ namespace cifre { namespace gettysburg {
 // BoardMoveFactory
 //
 BoardMoveFactory::BoardMoveFactory(
-  const std::shared_ptr<BoardCellFactory>& cell_factory,
+  const BoardCellFactory* cell_factory,
   const OOB::Scenario scenario, size_t row_cnt, size_t column_cnt) :
   cell_factory_(cell_factory), scenario_(scenario),
   row_cnt_(row_cnt), column_cnt_(column_cnt)

@@ -10,8 +10,8 @@ namespace cifre { namespace gettysburg {
 // Board
 //
 Board::Board(
-  const std::shared_ptr<BoardCellFactory>& cell_factory,
-  const std::shared_ptr<BoardMoveFactory>& move_factory,
+  BoardCellFactory* cell_factory,
+  const BoardMoveFactory* move_factory,
   const OOB::Scenario scenario,
   const cifre::Size2D& board_shape, const cifre::Size2D& plane_shape,
   const std::vector<Player*>& players) :

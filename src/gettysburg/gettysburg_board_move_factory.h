@@ -27,12 +27,12 @@ public:
 public:
   // Constructor
   BoardMoveFactory(
-    const std::shared_ptr<BoardCellFactory>& cell_factory,
-    const OOB::Scenario scenario, size_t row_cnt, size_t column_cnt);
+    const BoardCellFactory* cell_factory, const OOB::Scenario scenario,
+    size_t row_cnt, size_t column_cnt);
 
   // Return true if the is a hex adjacent to 'row' / 'column' in
   // direction 'dir'.
-  bool IsAdjacentHex(size_t row, size_t column, BoardHex::Direction dir) {
+  bool IsAdjacentHex(size_t row, size_t column, BoardHex::Direction dir) const {
     return nodes_[(row * column_cnt_) + column].adjacent_idx_[size_t(dir)] != NO_ADJACENT; }
 
   // Return the cost to move out of 'row' / 'column' in every
@@ -63,7 +63,7 @@ private:
     const std::pair<int64_t, int64_t>& from,
     const std::pair<int64_t, int64_t>& to) const;
 
-  const std::shared_ptr<BoardCellFactory> cell_factory_;
+  const BoardCellFactory* cell_factory_;
   const OOB::Scenario scenario_;
   size_t row_cnt_;
   size_t column_cnt_;
