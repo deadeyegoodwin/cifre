@@ -183,6 +183,17 @@ def main():
         help=('Number of games to play when comparing two nnet models to decide which ' +
               'is better. Each player gets this number of games to start first, so the ' +
               'total number of games played is 2 * --cmp-game-count.'))
+    parser.add_argument(
+        '--cmp-game-threshold',
+        type=parse_positive_int,
+        default=0,
+        required=False,
+        help=('Winning percentage, as an integer, that must be equaled or exceeded by ' +
+              'the new model to replace the currently best model. For example, ' +
+              '--cmp-game-theshold=55 indicates that a model must will 55%% or more of ' +
+              'the comparison matches to become the new best model. Default is ' +
+              '--cmp-game-theshold=0 which indicates that each new model automatically ' +
+              'becomes the new best model without playing any comparison matches.'))
 
     parser.add_argument(
         '--repo-dir',
@@ -327,8 +338,10 @@ def main():
         manager.train(train_args, dataset)
         manager.save_checkpoint(train_dir, 'cpt.pth.tar', create_folder=False, overwrite=True)
 
-        # Compare 'model_name' against the best model.
-        if best_model_name is None:
+        # If comparing against current best model then play with each
+        # player getting a chance to be player1. Otherwise just use
+        # the new model.
+        if ((FLAGS.cmp_game_threshold == 0) or (best_model_name is None)):
             best_model_name = model_name
             best_model_cpt_dir = train_dir
         else:
@@ -378,7 +391,10 @@ def main():
 
             LOG.log(f'total {game_count} games: {model_name} {model_winner_count}, '
                     f'{best_model_name} {best_model_winner_count}, draw {draw_count}')
-            if model_winner_count >= best_model_winner_count:
+            model_winner_percentage = 100.0 * model_winner_count / game_count;
+            LOG.log(f'  {model_name} win percentage {model_winner_percentage}%, '
+                    f'threshold win percentage {FLAGS.cmp_game_threshold}%')
+            if model_winner_percentage >= FLAGS.cmp_game_threshold:
                 LOG.log(f'best model now {model_name}', flush=True)
                 best_model_name = model_name
                 best_model_cpt_dir = train_dir
