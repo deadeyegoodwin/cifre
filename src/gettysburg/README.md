@@ -32,9 +32,7 @@ install/bin/gettysburg --player1=human --player2=alphazero --starting --alphazer
 You can also have a random or alphazero player that plays against a
 human or each other. For example, use the following command to play a
 random player against the alphazero model. Use --game-count to play
-multiple games. `NOTE` it is not recommended to use a *perfect* player
-with Gettysburg as the computation time for perfect play is likely not
-reasonable.
+multiple games.
 
 ```bash
 install/bin/gettysburg --game-count=10 --player1=random --player2=alphazero --alphazero-model iter3

@@ -95,7 +95,7 @@ private:
 // Class for collecting command-line player options and settings.
 //
 struct PlayerSettings {
-  enum class Kind { UNKNOWN, HUMAN, RANDOM, ALPHAZERO, PERFECT };
+  enum class Kind { UNKNOWN, HUMAN, RANDOM, ALPHAZERO };
 
   PlayerSettings(const std::string& kind_str, size_t id) :
     kind_(StringToKind(kind_str)), id_(id), name_(DefaultName()) { }
@@ -104,7 +104,6 @@ struct PlayerSettings {
     if (str == "human") { return Kind::HUMAN; }
     if (str == "random") { return Kind::RANDOM; }
     if (str == "alphazero") { return Kind::ALPHAZERO; }
-    if (str == "perfect") { return Kind::PERFECT; }
     return Kind::UNKNOWN;
   }
 
@@ -114,7 +113,6 @@ struct PlayerSettings {
     case Kind::HUMAN: return "human";
     case Kind::RANDOM: return "random";
     case Kind::ALPHAZERO: return "alphazero";
-    case Kind::PERFECT: return "perfect";
     }
     return "<none>"; // unreachable
   }
@@ -125,7 +123,6 @@ struct PlayerSettings {
     case Kind::HUMAN: return Player::Kind::HUMAN;
     case Kind::RANDOM:
     case Kind::ALPHAZERO:
-    case Kind::PERFECT:
       return Player::Kind::ALGO;
     }
     return Player::Kind::UNKNOWN; // unreachable

@@ -5,7 +5,6 @@
 #include <sstream>
 #include <vector>
 
-#include "cifre_algo_minimax.h"
 #include "cifre_algo_random.h"
 #include "cifre_game.h"
 #include "cifre_version.h"
@@ -352,9 +351,9 @@ Game::Game() :
      "Number of games to play. Default is 1."},
 
     {BuiltInOptionId::OPTION_PLAYER1, "player1", GameOption::ArgStr,
-     "Type of the first player: 'human', 'random', 'alphazero', 'perfect'."},
+     "Type of the first player: 'human', 'random', 'alphazero'."},
     {BuiltInOptionId::OPTION_PLAYER2, "player2", GameOption::ArgStr,
-     "Type of the first player: 'human', 'random', 'alphazero', 'perfect'."},
+     "Type of the first player: 'human', 'random', 'alphazero'."},
     {BuiltInOptionId::OPTION_PLAYER_NAME, "name", GameOption::ArgStr,
      "Name of player. --player1 or --player2 must be specified before this argument. "
      "The default name is automatically generated from the player kind."},
@@ -766,10 +765,6 @@ Game::Play()
         case PlayerSettings::Kind::RANDOM:
           assert(algos[pid] == nullptr);
           algos[pid] = std::make_shared<RandomAlgo>();
-          break;
-        case PlayerSettings::Kind::PERFECT:
-          assert(algos[pid] == nullptr);
-          algos[pid] = std::make_shared<MiniMaxAlgo>(logger_);
           break;
         }
       }
