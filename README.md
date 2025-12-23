@@ -31,8 +31,8 @@ Where `${CIFRE_REPODIR}` is the full path to the model repository
 directory specified with the *--repodir* flag when you run the
 `cifre_train` executable. `${CIFRE_REPODIR}` must exist before you run
 the Docker command. For example, use the following commands to start
-Triton and train a model for the *tie-tac-toe* game on a 3x3 board,
-using `/tmp/cifre/models` to hold the Triton repository, and
+Triton and train a model for the *connect4* game on a 6x7 board, using
+`/tmp/cifre/models` to hold the Triton repository, and
 `/tmp/cifre/train` to hold the training data.
 
 ```base
@@ -46,14 +46,13 @@ docker run --gpus=1 --rm --net=host -v /tmp/cifre/models:/cifre/models nvcr.io/n
 cd python
 rm -fr /tmp/cifre/models/*
 rm -fr /tmp/cifre/train/*
-./cifre_train.py --repo-dir=/tmp/cifre/models --train-dir=/tmp/cifre/train --game=tictactoe --epoch-count=16 --iteration-count=4 --game-count=100
+./cifre_train.py --repo-dir=/tmp/cifre/models --train-dir=/tmp/cifre/train --game=connect4 --epoch-count=16 --iteration-count=4 --game-count=100
 ```
 
 ## Games
 
 * [Connect 4](src/connect4/README.md)
 * [Othello](src/othello/README.md)
-* [Tic-Tac-Toe](src/tictactoe/README.md)
 * [Gettysburg](src/gettysburg/README.md)
 
 ## Build

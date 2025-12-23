@@ -96,9 +96,8 @@ def main():
     parser.add_argument(
         '--game',
         type=str,
-        default="tictactoe",
-        required=False,
-        help='The game, default is tictactoe.')
+        required=True,
+        help='The game.')
     parser.add_argument(
         '--game-shape',
         type=parse_shape,
@@ -217,21 +216,7 @@ def main():
 
     # FIXME Should get default game shape, number actions from game
     # executable using --report-file.
-    if FLAGS.game == 'tictactoe':
-        game_shape = (3, 3) if (FLAGS.game_shape is None) else FLAGS.game_shape
-        nnet_shape = game_shape
-        train_batch_size = 2 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
-        infer_batch_size = 64 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
-        LOG.fail_if(len(game_shape) != 2, "tictactoe requires shape rank 2")
-        nnet_args = {
-            'batch_size' : train_batch_size,
-            'num_rows' : game_shape[0],
-            'num_cols' : game_shape[1],
-            'num_actions' : game_shape[0] * game_shape[1],
-            'dropout' : 0.25,
-            'num_channels' : 512 }
-        nnet = CifreBasicFcNNet(nnet_args)
-    elif FLAGS.game == 'connect4':
+    if FLAGS.game == 'connect4':
         game_shape = (6, 7) if (FLAGS.game_shape is None) else FLAGS.game_shape
         nnet_shape = game_shape
         train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
@@ -279,7 +264,7 @@ def main():
         nnet = CifreResidualConvNNet(nnet_args)
     else:
         raise ValueError(f"unexpected --game={FLAGS.game}, "
-                         "options are 'tictactoe', 'othello', 'connect4', 'gettysburg'")
+                         "options are 'othello', 'connect4', 'gettysburg'")
 
     # The same nnet is used for all iterations.
     manager = CifreNNetManager(LOG, nnet, nnet_shape, infer_batch_size, FLAGS.repo_dir)
