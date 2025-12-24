@@ -92,13 +92,8 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   // value.
   static std::atomic<size_t> global_generation(1);
 
-  // Depending on setting, we can reset the nodes each time so that a
-  // new node tree is built just to choose this action, or we cannot
-  // reset the nodes so that the nodes accumulate across the entire
-  // game.
-  if (!settings_.per_game_node_tree_) {
-    nodes_.clear();
-  }
+  // Reset the nodes... a new node tree is used to choose this action.
+  nodes_.clear();
 
   // If Dirichlet distribution is being used but has not yet been
   // generated, then do so now using GSL (GNU Scientific

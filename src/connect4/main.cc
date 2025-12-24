@@ -114,7 +114,6 @@ Connect4::DefaultAlphaZeroSettings(bool training, bool az_vs_az) const
   cifre::AlphaZeroSettings settings;
   settings.training_ = training;
 
-  settings.per_game_node_tree_ = false;
   settings.search_count_ = 250;
   settings.max_search_depth_ = 42;
   settings.cpuct_ = 10.0;
