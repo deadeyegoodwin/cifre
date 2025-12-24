@@ -53,7 +53,7 @@ public:
 
   // See cifre::Game
   State* CreateInitialState(
-    const std::vector<Player*>& players, size_t starting_player_idx) override;
+    const std::vector<Player*>& players, size_t starting_player_idx) const override;
 
 private:
   GameOption::OptionId OPTION_GAME_SHAPE;
@@ -171,7 +171,7 @@ Othello::CreatePlayer(
 
 cifre::State*
 Othello::CreateInitialState(
-  const std::vector<Player*>& players, size_t starting_player_idx)
+  const std::vector<Player*>& players, size_t starting_player_idx) const
 {
   return new Board(game_shape_, players, starting_player_idx);
 }

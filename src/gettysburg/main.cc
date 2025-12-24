@@ -61,18 +61,24 @@ public:
 
   // See cifre::Game
   State* CreateInitialState(
-    const std::vector<Player*>& players, size_t starting_player_idx) override;
+    const std::vector<Player*>& players, size_t starting_player_idx) const override;
+
+  // Custom one-time initialization for gettysburg.
+  void CustomInitialize();
 
 private:
   GameOption::OptionId OPTION_GAME_SHAPE;
   GameOption::OptionId OPTION_MAX_TURNS_PER_GAME;
 
+  OOB::Scenario scenario_;
   cifre::Size2D game_shape_;
+  cifre::Size2D plane_shape_;
   std::unique_ptr<BoardCellFactory> cell_factory_;
   std::unique_ptr<BoardMoveFactory> move_factory_;
 };
 
-Gettysburg::Gettysburg() : cifre::Game(), game_shape_(DEFAULT_GAME_SHAPE)
+Gettysburg::Gettysburg() :
+  cifre::Game(), game_shape_(DEFAULT_GAME_SHAPE), plane_shape_(DEFAULT_GAME_SHAPE)
 {
   cifre::GameOption::OptionId custom_id = cifre::Game::FirstCustomOptionId;
   OPTION_GAME_SHAPE = custom_id++;
@@ -199,18 +205,28 @@ Gettysburg::CreatePlayer(
 
 cifre::State*
 Gettysburg::CreateInitialState(
-  const std::vector<Player*>& players, size_t starting_player_idx)
+  const std::vector<Player*>& players, size_t starting_player_idx) const
 {
   // Player 0 is 'c' (confederate) and player 1 is 'u' (union).
   players[0]->SetChar(Board::CONFEDERATE_CHAR);
   players[1]->SetChar(Board::UNION_CHAR);
 
+  // 'starting_player_id' is ignored because gettysburg must start
+  // with confederates.
+  return new Board(
+    cell_factory_.get(), move_factory_.get(),
+    scenario_, game_shape_, plane_shape_, players);
+}
+
+void
+Gettysburg::CustomInitialize()
+{
   // A full-size game is DEFAULT_GAME_SHAPE. Anything smaller than
   // that is considered a "small game" and forces the use of the SMALL
   // scenario.
-  OOB::Scenario scenario = OOB::Scenario::JULY_1;
+  scenario_ = OOB::Scenario::JULY_1;
   if (game_shape_ != DEFAULT_GAME_SHAPE) {
-    scenario = OOB::Scenario::SMALL;
+    scenario_ = OOB::Scenario::SMALL;
   }
 
   // The input planes are based on the size of the board. Because the
@@ -218,23 +234,19 @@ Gettysburg::CreateInitialState(
   // controlled at the center of the plane, there must be a border
   // around the map to allow any actual map hex to be at the center of
   // the plane.
-  cifre::Size2D plane_shape(
+  plane_shape_ = cifre::Size2D(
     ((game_shape_.RowCount() - 1) * 2) + 1,
     ((game_shape_.ColumnCount() - 1) * 2) + 1);
 
-  cell_factory_.reset(new BoardCellFactory(
-                        scenario,
-                        game_shape_.RowCount(), game_shape_.ColumnCount(),
-                        plane_shape.RowCount(), plane_shape.ColumnCount()));
-  move_factory_.reset(new BoardMoveFactory(
-                        cell_factory_.get(), scenario,
-                        game_shape_.RowCount(), game_shape_.ColumnCount()));
-
-  // 'starting_player_id' is ignored because gettysburg must start
-  // with confederates.
-  return new Board(
-    cell_factory_.get(), move_factory_.get(),
-    scenario, game_shape_, plane_shape, players);
+  cell_factory_.reset(
+    new BoardCellFactory(
+      scenario_,
+      game_shape_.RowCount(), game_shape_.ColumnCount(),
+      plane_shape_.RowCount(), plane_shape_.ColumnCount()));
+  move_factory_.reset(
+    new BoardMoveFactory(
+      cell_factory_.get(), scenario_,
+      game_shape_.RowCount(), game_shape_.ColumnCount()));
 }
 
 }} // namespace cifre::gettysburg
@@ -244,6 +256,7 @@ main(int argc, char **argv)
 {
   cifre::gettysburg::Gettysburg game;
   game.Initialize(argc, argv);
+  game.CustomInitialize();
   game.Play();
 
   return 0;

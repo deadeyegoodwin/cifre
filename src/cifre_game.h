@@ -174,9 +174,11 @@ public:
   virtual cifre::AlphaZeroSettings DefaultAlphaZeroSettings(
     bool training, bool az_vs_az) const = 0;
 
-  // Return the cifre::State representing the initial game state.
+  // Return the cifre::State representing the initial game state. This
+  // may be called multiple times if it is necessary to create
+  // multiple copies of the initial state.
   virtual State* CreateInitialState(
-    const std::vector<Player*>& players, size_t starting_player_idx) = 0;
+    const std::vector<Player*>& players, size_t starting_player_idx) const = 0;
 
   // Create Player for the game. 'algo' must be nullptr for
   // non-algorithmic players. Returns nullptr if the game does not

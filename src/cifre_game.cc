@@ -924,6 +924,12 @@ Game::Play()
     if (!train_dir_.empty() && (alphazero_train_samples_ != nullptr)) {
       alphazero_train_samples_->WriteTraining(train_dir_);
     }
+
+    // FIXME the following are unneeded once we sort out copying
+    // nodes/states into samples
+    alphazero_train_samples_.reset();
+    triton_server_.reset();
+
   } catch (const std::exception& ex) {
     GameFail(ex.what());
   }
