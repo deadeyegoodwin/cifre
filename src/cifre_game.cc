@@ -90,7 +90,7 @@ public:
   // Return the alphazero training samples collected from playing one
   // game. Undefined until Invoke() is called and returns.  Currently
   // this is not generalized for other Algo types.
-  std::vector<AlphaZeroTrainingSamples::Sample>&& AcquireTrainSamples() {
+  std::deque<AlphaZeroTrainingSamples::Sample>&& AcquireTrainSamples() {
     return std::move(alphazero_train_samples_); }
 
   // See common::TaskPool::Task
@@ -104,7 +104,7 @@ private:
   const size_t max_turns_per_game_;
 
   AlphaZeroStatistics alphazero_statistics_;
-  std::vector<AlphaZeroTrainingSamples::Sample> alphazero_train_samples_;
+  std::deque<AlphaZeroTrainingSamples::Sample> alphazero_train_samples_;
   GameResult result_;
 };
 

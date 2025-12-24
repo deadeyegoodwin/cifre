@@ -3,11 +3,13 @@
 
 #include <atomic>
 #include <cmath>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "cifre_algo.h"
 #include "cifre_logger.h"
@@ -185,7 +187,7 @@ public:
 
   // Transfer ownership of a vector of 'samples' into 'this' set of
   // samples. The 'samples' are aggregated into any existing samples.
-  void AcquireAndAggregate(std::vector<Sample>&& samples);
+  void AcquireAndAggregate(std::deque<Sample>&& samples);
 
   // Write collected training data to 'dir'.
   void WriteTraining(const std::string& dir) const;
@@ -357,7 +359,7 @@ public:
   // alphazero object is reset.
   void GameEnd(
     const State& terminal_state, const StateTerminalStatus& status,
-    std::vector<AlphaZeroTrainingSamples::Sample>* samples);
+    std::deque<AlphaZeroTrainingSamples::Sample>* samples);
 
   // See cifre::Algo. Any search that reaches max-sideturns will be
   // declared a DRAW at that point and will update the tree
@@ -411,7 +413,7 @@ private:
     const State*, std::shared_ptr<AlphaZeroNode>, NodesMapHash, NodesMapEqual> nodes_;
 
   // Nodes for which alphazero selected an action in the current game.
-  std::vector<std::shared_ptr<AlphaZeroNode>> game_action_nodes_;
+  std::deque<std::shared_ptr<AlphaZeroNode>> game_action_nodes_;
 
   // Statistics...
   AlphaZeroStatistics statistics_;

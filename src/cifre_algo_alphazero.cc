@@ -49,7 +49,7 @@ AlphaZeroAlgo::GameStart()
 
 void
 AlphaZeroAlgo::GameEnd(const State& terminal_state, const StateTerminalStatus& status,
-                   std::vector<AlphaZeroTrainingSamples::Sample>* samples)
+                   std::deque<AlphaZeroTrainingSamples::Sample>* samples)
 {
   THROWIF(status.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
           "game ended with NON-TERMINAL status");
@@ -710,7 +710,7 @@ AlphaZeroTrainingSamples::ToString() const
 
 void
 AlphaZeroTrainingSamples::AcquireAndAggregate(
-  std::vector<AlphaZeroTrainingSamples::Sample>&& samples)
+  std::deque<AlphaZeroTrainingSamples::Sample>&& samples)
 {
   for (auto& sample : samples) {
     // Sample value is either game outcome value, predicted 'v' or
