@@ -5,6 +5,7 @@
 #include <cmath>
 #include <deque>
 #include <memory>
+#include <memory_resource>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -101,6 +102,111 @@ public:
 };
 
 //
+// AlphaZeroNode
+//
+// Node representing a state. A node can have multiple parents, the
+// visit counts of an edge from this node to each of the children are
+// tracked in 'children_visit_counts_'. The 'visit_count_' value on
+// the node is the sum of visits from all parents. AlphaZero maintains
+// the invariant that (except for terminal nodes that have no
+// children) the node's visit count equals 1 + (sum of the visit
+// counts of the children). This occurs because when a node is created
+// it is given a visit count of 1, but no child are visited.
+// Thereafter, every time the node is visited a child must be
+// visited. ValidateVisitCounts() can be used to validate this
+// property. Note that the "inverse" is not true... namely the sum of
+// all children visit counts "entering" a node does not equal a node's
+// visit count (because when a max depth is reached, the node that
+// reaches that depth is not counted as visited, even though the
+// incoming child edge is counted as visited).
+//
+class AlphaZeroNode {
+public:
+  // Create node for 'state'.
+  AlphaZeroNode(
+    std::pmr::memory_resource& arena, std::unique_ptr<const State> state,
+    std::shared_ptr<const TritonInferResult> infer_result);
+
+  // Is node a terminal?
+  bool IsTerminal() const {
+    return state_->TerminalStatus().Kind() != StateTerminalStatus::TerminalKind::NON_TERMINAL; }
+
+  // Return the State represented by this node.
+  const State& NodeState() const { return *state_; }
+
+  // Return the Triton result object associated with this node.
+  const TritonInferResult& NodeTritonResult() const { return *result_; }
+
+  // Return the child for a given action ID.
+  AlphaZeroNode* Child(uint64_t action_id) const { return children_[action_id]; }
+
+  // Set the child corresponding to 'action_id' to 'child' with
+  // 'visit_count' visits on the edge between this node and the
+  // child.
+  void SetChild(uint64_t action_id, AlphaZeroNode* child, size_t visit_count);
+
+  // Increment the visit count on the child edge corresponding to
+  // 'action_id'.
+  void IncrementChildVisitCount(uint64_t action_id) {
+    assert(children_[action_id] != nullptr); children_visit_counts_[action_id]++; }
+
+  // Return the child probabilities, calculated from the node visit
+  // count and the children visit counts.
+  std::vector<float> ChildProbability() const;
+
+  // Return and set 'node's generation.
+  size_t Generation() const { return generation_; }
+  void SetGeneration(size_t g) { generation_ = g; }
+
+  // Return and set 'node's value.
+  float Value() const { return value_; }
+  void SetValue(float v) { value_ = v; }
+
+  // Return node's visit count.
+  size_t VisitCount() const { return visit_count_; }
+
+  // Increment node's visit count and return new value.
+  size_t IncrementVisitCount() { return ++visit_count_; }
+
+  // Validate that the node's visit count agrees with the children
+  // visit counts as explained above.
+  void ValidateVisitCounts() const;
+
+  // Return the ID of the action that has the highest QU value. If
+  // 'qu's is non-nullptr then it will be filled with the QU value
+  // for each action/child.
+  std::optional<uint64_t> MaxQU(
+    const size_t generation, const float cpuct, const std::vector<double>* dirichlet,
+    const float dirichlet_ratio, size_t* cycle_avoided_count = nullptr,
+    std::vector<float>* qus = nullptr, std::vector<float>* nocycle_qus = nullptr) const;
+
+  // Return the action ID corresponding to the child edge that has
+  // the highest non-zero visited count and that represents a valid
+  // action for this node. Error if no such child.
+  uint64_t MaxVisitedValidChild() const;
+
+  // Return the action ID corresponding to the child edge that
+  // represents a valid action for this node, and that is chosen
+  // randomly from all valid children based on the child visit
+  // counts, so that the higher visited children have a higher
+  // probability of being chosen randomly. Error if no such child.
+  uint64_t RandomWeightedValidChild(common::Random& rnd) const;
+
+  // Return string representation of node. If 'cpuct' is non-zero then
+  // show the QUs for the node.
+  std::string ToString(float cpuct = 0.0) const;
+
+private:
+  std::unique_ptr<const State> state_;
+  std::shared_ptr<const TritonInferResult> result_;
+  std::pmr::vector<AlphaZeroNode*> children_;      // fully sized at construction
+  std::pmr::vector<size_t> children_visit_counts_; // fully sized at construction
+  size_t visit_count_;
+  float value_;
+  size_t generation_;
+};
+
+//
 // AlphaZeroTrainingSamples
 //
 // Collects training samples from one or more AlphaZeroAlgo objects.
@@ -112,11 +218,10 @@ public:
   //
   class Sample {
   public:
-    Sample(std::unique_ptr<AlphaZeroNode>&& node, float z_value) :
+    Sample(AlphaZeroNode&& node, float z_value) :
       node_(std::move(node)), z_value_(z_value), target_v_(0), count_(1) { }
 
-    Sample(std::unique_ptr<AlphaZeroNode>&& node, float z_value,
-           std::vector<float>&& pi, float v) :
+    Sample(AlphaZeroNode&& node, float z_value, std::vector<float>&& pi, float v) :
       node_(std::move(node)), z_value_(z_value),
       target_pi_(std::move(pi)), target_v_(v), count_(1) { }
 
@@ -127,7 +232,7 @@ public:
     friend class AlphaZeroTrainingSamples;
 
     // Corresponding node.
-    std::unique_ptr<AlphaZeroNode> node_;
+    AlphaZeroNode node_;
 
     // Game outcome value. If AggregateKind is AVERAGE, then this is
     // the outcome value for the first instance of this state that is
@@ -218,110 +323,6 @@ private:
 };
 
 //
-// AlphaZeroNode
-//
-// Node representing a state. A node can have multiple parents, the
-// visit counts of an edge from this node to each of the children are
-// tracked in 'children_visit_counts_'. The 'visit_count_' value on
-// the node is the sum of visits from all parents. AlphaZero maintains
-// the invariant that (except for terminal nodes that have no
-// children) the node's visit count equals 1 + (sum of the visit
-// counts of the children). This occurs because when a node is created
-// it is given a visit count of 1, but no child are visited.
-// Thereafter, every time the node is visited a child must be
-// visited. ValidateVisitCounts() can be used to validate this
-// property. Note that the "inverse" is not true... namely the sum of
-// all children visit counts "entering" a node does not equal a node's
-// visit count (because when a max depth is reached, the node that
-// reaches that depth is not counted as visited, even though the
-// incoming child edge is counted as visited).
-//
-class AlphaZeroNode {
-public:
-  // Create node for 'state'.
-  AlphaZeroNode(std::unique_ptr<const State> state,
-                std::shared_ptr<const TritonInferResult> infer_result);
-
-  // Is node a terminal?
-  bool IsTerminal() const {
-    return state_->TerminalStatus().Kind() != StateTerminalStatus::TerminalKind::NON_TERMINAL; }
-
-  // Return the State represented by this node.
-  const State& NodeState() const { return *state_; }
-
-  // Return the Triton result object associated with this node.
-  const TritonInferResult& NodeTritonResult() const { return *result_; }
-
-  // Return the child for a given action ID.
-  AlphaZeroNode* Child(uint64_t action_id) const { return children_[action_id]; }
-
-  // Set the child corresponding to 'action_id' to 'child' with
-  // 'visit_count' visits on the edge between this node and the
-  // child.
-  void SetChild(uint64_t action_id, AlphaZeroNode* child, size_t visit_count);
-
-  // Increment the visit count on the child edge corresponding to
-  // 'action_id'.
-  void IncrementChildVisitCount(uint64_t action_id) {
-    assert(children_[action_id] != nullptr); children_visit_counts_[action_id]++; }
-
-  // Return the child probabilities, calculated from the node visit
-  // count and the children visit counts.
-  std::vector<float> ChildProbability() const;
-
-  // Return and set 'node's generation.
-  size_t Generation() const { return generation_; }
-  void SetGeneration(size_t g) { generation_ = g; }
-
-  // Return and set 'node's value.
-  float Value() const { return value_; }
-  void SetValue(float v) { value_ = v; }
-
-  // Return node's visit count.
-  size_t VisitCount() const { return visit_count_; }
-
-  // Increment node's visit count and return new value.
-  size_t IncrementVisitCount() { return ++visit_count_; }
-
-  // Validate that the node's visit count agrees with the children
-  // visit counts as explained above.
-  void ValidateVisitCounts() const;
-
-  // Return the ID of the action that has the highest QU value. If
-  // 'qu's is non-nullptr then it will be filled with the QU value
-  // for each action/child.
-  std::optional<uint64_t> MaxQU(
-    const size_t generation, const float cpuct, const std::vector<double>* dirichlet,
-    const float dirichlet_ratio, size_t* cycle_avoided_count = nullptr,
-    std::vector<float>* qus = nullptr, std::vector<float>* nocycle_qus = nullptr) const;
-
-  // Return the action ID corresponding to the child edge that has
-  // the highest non-zero visited count and that represents a valid
-  // action for this node. Error if no such child.
-  uint64_t MaxVisitedValidChild() const;
-
-  // Return the action ID corresponding to the child edge that
-  // represents a valid action for this node, and that is chosen
-  // randomly from all valid children based on the child visit
-  // counts, so that the higher visited children have a higher
-  // probability of being chosen randomly. Error if no such child.
-  uint64_t RandomWeightedValidChild(common::Random& rnd) const;
-
-  // Return string representation of node. If 'cpuct' is non-zero then
-  // show the QUs for the node.
-  std::string ToString(float cpuct = 0.0) const;
-
-private:
-  std::unique_ptr<const State> state_;
-  std::shared_ptr<const TritonInferResult> result_;
-  std::vector<AlphaZeroNode*> children_;      // fully sized at construction
-  std::vector<size_t> children_visit_counts_; // fully sized at construction
-  size_t visit_count_;
-  float value_;
-  size_t generation_;
-};
-
-//
 // AlphaZeroAlgo
 //
 // Implementation of the alpha-zero algorithm. Not necessarily exactly
@@ -374,7 +375,7 @@ private:
     bool operator()(const State* a, const State* b) const { return a->Equal(b); }
   };
   using NodesIterator = std::unordered_map<
-    const State*, std::unique_ptr<AlphaZeroNode>, NodesMapHash, NodesMapEqual>::iterator;
+    const State*, AlphaZeroNode, NodesMapHash, NodesMapEqual>::iterator;
 
   // Return the node representing the given 'state', creating if
   // necessary. The created node, if any, takes ownership of 'state'.
@@ -408,15 +409,25 @@ private:
   size_t dirichlet_samples_idx_;
   std::vector<std::vector<double>> dirichlet_samples_;
 
+  // Monotonic arena used for 'nodes_' and the corresponding state
+  // created when building the search-tree for NextActionId(). This
+  // arena is reset on each call to NextActionId() and so nothing can
+  // be allocated to it that needs to live beyond an invocation of
+  // that function.
+  std::pmr::monotonic_buffer_resource nextactionid_arena_buffer_;
+  std::pmr::unsynchronized_pool_resource nextactionid_arena_;
+
   // Nodes are identified by their State, so we need to use a custom
   // hash and equal for the map containing all the nodes. The "State*"
   // key is a pointer to the same state that is owned by the
-  // unique_ptr<State> in the Node itself.
-  std::unordered_map<
-    const State*, std::unique_ptr<AlphaZeroNode>, NodesMapHash, NodesMapEqual> nodes_;
+  // unique_ptr<State> in the Node itself. 'nodes_' is reset on each
+  // call to NextActionId() and so nothing can be allocated to it that
+  // needs to live beyond an invocation of that function.
+  std::pmr::unordered_map<
+    const State*, AlphaZeroNode, NodesMapHash, NodesMapEqual> nodes_;
 
   // Nodes for which alphazero selected an action in the current game.
-  std::deque<std::unique_ptr<AlphaZeroNode>> game_action_nodes_;
+  std::deque<AlphaZeroNode> game_action_nodes_;
 
   // Statistics...
   AlphaZeroStatistics statistics_;

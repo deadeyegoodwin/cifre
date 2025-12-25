@@ -17,13 +17,18 @@ constexpr float DRAW_VALUE = 0.0;
 constexpr float WINNER_VALUE = 1.0;
 constexpr float LOSER_VALUE = -1.0;
 
+constexpr size_t ARENA_INITIAL_BYTES = 1024 * 1024;
+
 //
 // AlphaZeroAlgo
 //
 AlphaZeroAlgo::AlphaZeroAlgo(
   const std::shared_ptr<Logger>& logger, std::unique_ptr<TritonModel> triton_model,
   const AlphaZeroSettings& settings) :
-  logger_(logger), triton_model_(std::move(triton_model)), settings_(settings)
+  logger_(logger), triton_model_(std::move(triton_model)), settings_(settings),
+  nextactionid_arena_buffer_(ARENA_INITIAL_BYTES),
+  nextactionid_arena_(&nextactionid_arena_buffer_),
+  nodes_(&nextactionid_arena_)
 {
   THROWIF(triton_model_->Name() != settings_.model_name_,
           "alphazero settings model-name differs from triton model name");
@@ -42,7 +47,6 @@ AlphaZeroAlgo::AlphaZeroAlgo(
 void
 AlphaZeroAlgo::GameStart()
 {
-  nodes_.clear();
   game_action_nodes_.clear();
   statistics_.Reset();
 }
@@ -67,7 +71,7 @@ AlphaZeroAlgo::GameEnd(const State& terminal_state, const StateTerminalStatus& s
         break;
       case StateTerminalStatus::TerminalKind::WINNER:
         const size_t winner_id = status.WinnerId();
-        z_value = (n->NodeState().ActivePlayerId() == winner_id) ? WINNER_VALUE : LOSER_VALUE;
+        z_value = (n.NodeState().ActivePlayerId() == winner_id) ? WINNER_VALUE : LOSER_VALUE;
         break;
       }
 
@@ -75,7 +79,6 @@ AlphaZeroAlgo::GameEnd(const State& terminal_state, const StateTerminalStatus& s
     }
   }
 
-  nodes_.clear();
   game_action_nodes_.clear();
 }
 
@@ -92,8 +95,10 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   // value.
   static std::atomic<size_t> global_generation(1);
 
-  // Reset the nodes... a new node tree is used to choose this action.
+  // Reset the nodes and the arena... a new node tree is used to
+  // choose this action.
   nodes_.clear();
+  nextactionid_arena_.release();
 
   // If Dirichlet distribution is being used but has not yet been
   // generated, then do so now using GSL (GNU Scientific
@@ -110,12 +115,11 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
 
   // Find, creating if necessary, the tree node that represents 'state'.
   auto node_itr = FindOrCreateNode(std::unique_ptr<const State>(state.Copy()));
-  auto node = node_itr->second.get();
-  assert(node != nullptr);
+  auto& node = node_itr->second;
 
   LOG_ALGO(*logger_, "\nalphazero: starting node");
   LOG_ALGO_IE(
-    *logger_, node->ToString(settings_.cpuct_), 2 /* indent */, true /* endline */);
+    *logger_, node.ToString(settings_.cpuct_), 2 /* indent */, true /* endline */);
 
   // Update the tree by performing searches starting from 'node'.
   for (size_t idx = 0; idx < settings_.search_count_; ++idx) {
@@ -123,7 +127,7 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
     // to the starting node; in SearchTree we also assign the value to
     // visited nodes and use it to detect cycles.
     const size_t search_generation = global_generation.fetch_add(1);
-    node->SetGeneration(search_generation);
+    node.SetGeneration(search_generation);
 
     // Use dirichlet if enabled...
     const std::vector<double>* dirichlet = nullptr;
@@ -137,11 +141,11 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
       "search " + std::to_string(idx+1) + '/' + std::to_string(settings_.search_count_) + ':',
       0 /* indent */, false /* endline */);
     auto [v, tnode] = SearchTree(
-      node, settings_.max_search_depth_, max_game_sideturns_remaining, dirichlet);
+      &node, settings_.max_search_depth_, max_game_sideturns_remaining, dirichlet);
     LOG_ALGO_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
     if (tnode != nullptr) {
       LOG_ALGO_IE(*logger_, tnode->ToString(settings_.cpuct_),
-                       2 /* indent */, true /* endline */);
+                  2 /* indent */, true /* endline */);
     }
   }
 
@@ -153,10 +157,10 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   uint64_t action_id;
   switch (settings_.next_action_kind_) {
   case AlphaZeroSettings::NextActionKind::MAX_VISITED:
-    action_id = node->MaxVisitedValidChild();
+    action_id = node.MaxVisitedValidChild();
     break;
   case AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED:
-    action_id = node->RandomWeightedValidChild(rnd_);
+    action_id = node.RandomWeightedValidChild(rnd_);
     break;
   default:
     THROW("unreachable");
@@ -164,15 +168,20 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
 
   LOG_ALGO(
     *logger_, "\nalphazero: choose action " + std::to_string(action_id) +
-    " '" + node->NodeState().ActionToString(Action(Action::ActionKind::ACTIONID, action_id)) + "'");
-  LOG_ALGO_IE(*logger_, node->ToString(), 2 /* indent */, true /* endline */);
+    " '" + node.NodeState().ActionToString(Action(Action::ActionKind::ACTIONID, action_id)) + "'");
+  LOG_ALGO_IE(*logger_, node.ToString(), 2 /* indent */, true /* endline */);
 
   // If training, record the nodes for which alpha-zero makes an
   // action decision.
   if (settings_.training_) {
-    game_action_nodes_.push_back(std::move(node_itr->second));
-    nodes_.erase(node_itr);
+    // Copy node out of 'nextactionid_arena_' and into standard memory
+    // because 'game_action_nodes_' persists beyond this call.
+    game_action_nodes_.emplace_back(std::move(node_itr->second));
+    // nodes_.erase(node_itr); not needed because clear nodes_ below
   }
+
+  nodes_.clear();
+  nextactionid_arena_.release();
 
   return action_id;
 }
@@ -185,7 +194,6 @@ AlphaZeroAlgo::FindOrCreateNode(std::unique_ptr<const State> state, bool* create
     if (created != nullptr) {
       *created = false;
     }
-    assert(fnode_itr->second != nullptr);
     return fnode_itr;
   }
 
@@ -194,18 +202,19 @@ AlphaZeroAlgo::FindOrCreateNode(std::unique_ptr<const State> state, bool* create
 
   const State* pstate = state.get();
 
-  auto [node_itr, ok] = nodes_.insert(
-    {pstate, std::make_unique<AlphaZeroNode>(std::move(state), std::move(result))});
+  auto [node_itr, ok] = nodes_.emplace(
+    std::piecewise_construct,
+    std::forward_as_tuple(pstate),
+    std::forward_as_tuple(nextactionid_arena_, std::move(state), std::move(result)));
   assert(ok);
 
-  AlphaZeroNode* new_node = node_itr->second.get();
-  assert(new_node != nullptr);
+  AlphaZeroNode& new_node = node_itr->second;
 
   // Node creation needs to be recognized as the first visit.
-  new_node->IncrementVisitCount();
+  new_node.IncrementVisitCount();
 
   statistics_.total_node_count_++;
-  if (new_node->IsTerminal()) {
+  if (new_node.IsTerminal()) {
     statistics_.terminal_node_count_++;
   }
 
@@ -284,8 +293,7 @@ AlphaZeroAlgo::SearchTree(
     // when 'best_action_id' is applied to 'node'.
     std::unique_ptr<const State> next_state(node->NodeState().CopyAndUpdate(*best_action_id));
     NodesIterator snext_itr = FindOrCreateNode(std::move(next_state), &next_created);
-    next = snext_itr->second.get();
-    assert(next != nullptr);
+    next = &snext_itr->second;
 
     // Add the edge to connect 'node' to 'next'.
     node->SetChild(*best_action_id, next, 0 /* visit_count */);
@@ -365,10 +373,11 @@ AlphaZeroAlgo::GenerateDirichletSamples(
 // AlphaZeroNode
 //
 AlphaZeroNode::AlphaZeroNode(
-  std::unique_ptr<const State> state, std::shared_ptr<const TritonInferResult> infer_result) :
+  std::pmr::memory_resource& arena, std::unique_ptr<const State> state,
+  std::shared_ptr<const TritonInferResult> infer_result) :
   state_(std::move(state)), result_(infer_result),
-  children_(state_->TotalActionIdCount(), nullptr),
-  children_visit_counts_(state_->TotalActionIdCount(), 0),
+  children_(state_->TotalActionIdCount(), nullptr, &arena),
+  children_visit_counts_(state_->TotalActionIdCount(), 0, &arena),
   visit_count_(0), generation_(0)
 {
   // Is node is a terminal, then its value is based on the terminal
@@ -695,7 +704,7 @@ AlphaZeroTrainingSamples::Sample::ToString() const
     sstr << "]\n";
   }
 
-  sstr << "  " << common::DuplicateAndIndent(node_->NodeState().ToString(), 4 /* indent */) << '\n';
+  sstr << "  " << common::DuplicateAndIndent(node_.NodeState().ToString(), 4 /* indent */) << '\n';
 
   return sstr.str();
 }
@@ -724,20 +733,20 @@ AlphaZeroTrainingSamples::AcquireAndAggregate(
       node_value = sample.z_value_;
       break;
     case ValueKind::V:
-      node_value = sample.node_->Value();
+      node_value = sample.node_.Value();
       break;
     case ValueKind::AVERAGE:
-      node_value = (sample.z_value_ + sample.node_->Value()) / 2.0;
+      node_value = (sample.z_value_ + sample.node_.Value()) / 2.0;
       break;
     }
 
     // Set target 'pi' and 'v' for the training sample.
-    const State* sample_state = &sample.node_->NodeState();
+    const State* sample_state = &sample.node_.NodeState();
     auto sample_itr = train_samples_.find(sample_state);
     if ((aggregate_kind_ == AggregateKind::ALL) || (sample_itr == train_samples_.end())) {
       // For ALL or a first-time-seen node, create a new Sample.
-      auto node_probs = sample.node_->ChildProbability();
-      assert((node_probs.size() * sizeof(float)) == sample.node_->NodeTritonResult().PiByteSize());
+      auto node_probs = sample.node_.ChildProbability();
+      assert((node_probs.size() * sizeof(float)) == sample.node_.NodeTritonResult().PiByteSize());
 
       auto created_sample_itr =
         train_samples_.emplace(
@@ -756,8 +765,8 @@ AlphaZeroTrainingSamples::AcquireAndAggregate(
       Sample& sample = sample_itr->second;
       sample.target_v_ += node_value;
 
-      auto node_probs = sample.node_->ChildProbability();
-      assert((node_probs.size() * sizeof(float)) == sample.node_->NodeTritonResult().PiByteSize());
+      auto node_probs = sample.node_.ChildProbability();
+      assert((node_probs.size() * sizeof(float)) == sample.node_.NodeTritonResult().PiByteSize());
       for (size_t i = 0; i < node_probs.size(); ++i) {
         sample.target_pi_[i] += node_probs[i];
       }
@@ -791,7 +800,7 @@ AlphaZeroTrainingSamples::WriteTraining(const std::string& dir) const
   const TritonInferResult* repr_result = nullptr;
   for (const auto& pr : train_samples_) {
     if (repr_result == nullptr) {
-      repr_result = &(pr.second.node_->NodeTritonResult());
+      repr_result = &(pr.second.node_.NodeTritonResult());
     }
 
     LOG_ALGO_IE(*logger_, pr.second.ToString(), 2 /* indent */, true /* endline */);
