@@ -71,7 +71,7 @@ AlphaZeroAlgo::GameEnd(const State& terminal_state, const StateTerminalStatus& s
         break;
       }
 
-      samples->emplace_back(n, z_value);
+      samples->emplace_back(std::move(n), z_value);
     }
   }
 
@@ -109,7 +109,8 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   }
 
   // Find, creating if necessary, the tree node that represents 'state'.
-  auto node = FindOrCreateNode(std::unique_ptr<const State>(state.Copy()));
+  auto node_itr = FindOrCreateNode(std::unique_ptr<const State>(state.Copy()));
+  auto node = node_itr->second.get();
   assert(node != nullptr);
 
   LOG_ALGO(*logger_, "\nalphazero: starting node");
@@ -136,7 +137,7 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
       "search " + std::to_string(idx+1) + '/' + std::to_string(settings_.search_count_) + ':',
       0 /* indent */, false /* endline */);
     auto [v, tnode] = SearchTree(
-      node.get(), settings_.max_search_depth_, max_game_sideturns_remaining, dirichlet);
+      node, settings_.max_search_depth_, max_game_sideturns_remaining, dirichlet);
     LOG_ALGO_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
     if (tnode != nullptr) {
       LOG_ALGO_IE(*logger_, tnode->ToString(settings_.cpuct_),
@@ -169,48 +170,50 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   // If training, record the nodes for which alpha-zero makes an
   // action decision.
   if (settings_.training_) {
-    game_action_nodes_.push_back(node);
+    game_action_nodes_.push_back(std::move(node_itr->second));
+    nodes_.erase(node_itr);
   }
 
   return action_id;
 }
 
-std::shared_ptr<AlphaZeroNode>
+AlphaZeroAlgo::NodesIterator
 AlphaZeroAlgo::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
 {
-  std::shared_ptr<AlphaZeroNode> new_node;
-  bool new_created;
-
-  auto node_itr = nodes_.find(state.get());
-  if (node_itr != nodes_.end()) {
-    new_node = node_itr->second;
-    new_created = false;
-  }
-  else {
-    auto result = triton_model_->Infer(*state);
-    assert(result->PiEntryCount() == state->TotalActionIdCount());
-
-    const State* pstate = state.get();
-
-    new_created = true;
-    new_node = std::make_shared<AlphaZeroNode>(std::move(state), std::move(result));
-    nodes_[pstate] = new_node;
-
-    // Node creation needs to be recognized as the first visit.
-    new_node->IncrementVisitCount();
-
-    statistics_.total_node_count_++;
-    if (new_node->IsTerminal()) {
-      statistics_.terminal_node_count_++;
+  auto fnode_itr = nodes_.find(state.get());
+  if (fnode_itr != nodes_.end()) {
+    if (created != nullptr) {
+      *created = false;
     }
+    assert(fnode_itr->second != nullptr);
+    return fnode_itr;
+  }
+
+  auto result = triton_model_->Infer(*state);
+  assert(result->PiEntryCount() == state->TotalActionIdCount());
+
+  const State* pstate = state.get();
+
+  auto [node_itr, ok] = nodes_.insert(
+    {pstate, std::make_unique<AlphaZeroNode>(std::move(state), std::move(result))});
+  assert(ok);
+
+  AlphaZeroNode* new_node = node_itr->second.get();
+  assert(new_node != nullptr);
+
+  // Node creation needs to be recognized as the first visit.
+  new_node->IncrementVisitCount();
+
+  statistics_.total_node_count_++;
+  if (new_node->IsTerminal()) {
+    statistics_.terminal_node_count_++;
   }
 
   if (created != nullptr) {
-    *created = new_created;
+    *created = true;
   }
 
-  assert(new_node != nullptr);
-  return new_node;
+  return node_itr;
 }
 
 std::pair<float, AlphaZeroNode*>
@@ -280,9 +283,9 @@ AlphaZeroAlgo::SearchTree(
     // Find or create the node representing the state that results
     // when 'best_action_id' is applied to 'node'.
     std::unique_ptr<const State> next_state(node->NodeState().CopyAndUpdate(*best_action_id));
-    std::shared_ptr<AlphaZeroNode> snext = FindOrCreateNode(std::move(next_state), &next_created);
-    assert(snext != nullptr);
-    next = snext.get();
+    NodesIterator snext_itr = FindOrCreateNode(std::move(next_state), &next_created);
+    next = snext_itr->second.get();
+    assert(next != nullptr);
 
     // Add the edge to connect 'node' to 'next'.
     node->SetChild(*best_action_id, next, 0 /* visit_count */);
@@ -344,7 +347,7 @@ AlphaZeroAlgo::GenerateDirichletSamples(
 {
   const std::vector<double> alphas(sample_size, alpha);
 
-  gsl_rng *rng = gsl_rng_alloc (gsl_rng_mt19937);
+  gsl_rng *rng = gsl_rng_alloc(gsl_rng_mt19937);
   gsl_rng_set(rng, (unsigned)time(NULL));
 
   dirichlet_samples_idx_ = 0;
@@ -740,7 +743,7 @@ AlphaZeroTrainingSamples::AcquireAndAggregate(
         train_samples_.emplace(
           std::piecewise_construct,
           std::forward_as_tuple(sample_state),
-          std::forward_as_tuple(sample.node_, sample.z_value_, std::move(node_probs), node_value));
+          std::forward_as_tuple(std::move(sample.node_), sample.z_value_, std::move(node_probs), node_value));
       assert(created_sample_itr.second);
       LOG_ALGO(*logger_, "new training sample:");
       LOG_ALGO_IE(*logger_,  created_sample_itr.first->second.ToString(),

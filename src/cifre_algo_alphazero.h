@@ -112,12 +112,12 @@ public:
   //
   class Sample {
   public:
-    Sample(const std::shared_ptr<AlphaZeroNode>& node, float z_value) :
-      node_(node), z_value_(z_value), target_v_(0), count_(1) { }
+    Sample(std::unique_ptr<AlphaZeroNode>&& node, float z_value) :
+      node_(std::move(node)), z_value_(z_value), target_v_(0), count_(1) { }
 
-    Sample(const std::shared_ptr<AlphaZeroNode>& node, float z_value,
+    Sample(std::unique_ptr<AlphaZeroNode>&& node, float z_value,
            std::vector<float>&& pi, float v) :
-      node_(node), z_value_(z_value),
+      node_(std::move(node)), z_value_(z_value),
       target_pi_(std::move(pi)), target_v_(v), count_(1) { }
 
     // Return string representation of Sample.
@@ -127,7 +127,7 @@ public:
     friend class AlphaZeroTrainingSamples;
 
     // Corresponding node.
-    const std::shared_ptr<AlphaZeroNode> node_;
+    std::unique_ptr<AlphaZeroNode> node_;
 
     // Game outcome value. If AggregateKind is AVERAGE, then this is
     // the outcome value for the first instance of this state that is
@@ -314,8 +314,8 @@ public:
 private:
   std::unique_ptr<const State> state_;
   std::shared_ptr<const TritonInferResult> result_;
-  std::vector<AlphaZeroNode*> children_;
-  std::vector<size_t> children_visit_counts_;
+  std::vector<AlphaZeroNode*> children_;      // fully sized at construction
+  std::vector<size_t> children_visit_counts_; // fully sized at construction
   size_t visit_count_;
   float value_;
   size_t generation_;
@@ -367,11 +367,20 @@ public:
   uint64_t NextActionId(const State& state, size_t max_game_sideturns_remaining) override;
 
 private:
+  struct NodesMapHash {
+    size_t operator()(const State* s) const { return s->Hash(); }
+  };
+  struct NodesMapEqual {
+    bool operator()(const State* a, const State* b) const { return a->Equal(b); }
+  };
+  using NodesIterator = std::unordered_map<
+    const State*, std::unique_ptr<AlphaZeroNode>, NodesMapHash, NodesMapEqual>::iterator;
+
   // Return the node representing the given 'state', creating if
   // necessary. The created node, if any, takes ownership of 'state'.
   // If 'created' is not nullptr, returns true if node created, false
   // if already exists.
-  std::shared_ptr<AlphaZeroNode> FindOrCreateNode(
+  NodesIterator FindOrCreateNode(
     std::unique_ptr<const State> state, bool* created = nullptr);
 
   // Search from 'node' and update the tree. Return the 'V' value for
@@ -403,17 +412,11 @@ private:
   // hash and equal for the map containing all the nodes. The "State*"
   // key is a pointer to the same state that is owned by the
   // unique_ptr<State> in the Node itself.
-  struct NodesMapHash {
-    size_t operator()(const State* s) const { return s->Hash(); }
-  };
-  struct NodesMapEqual {
-    bool operator()(const State* a, const State* b) const { return a->Equal(b); }
-  };
   std::unordered_map<
-    const State*, std::shared_ptr<AlphaZeroNode>, NodesMapHash, NodesMapEqual> nodes_;
+    const State*, std::unique_ptr<AlphaZeroNode>, NodesMapHash, NodesMapEqual> nodes_;
 
   // Nodes for which alphazero selected an action in the current game.
-  std::deque<std::shared_ptr<AlphaZeroNode>> game_action_nodes_;
+  std::deque<std::unique_ptr<AlphaZeroNode>> game_action_nodes_;
 
   // Statistics...
   AlphaZeroStatistics statistics_;
