@@ -215,7 +215,8 @@ Gettysburg::CreateInitialState(
   // with confederates.
   return new Board(
     cell_factory_.get(), move_factory_.get(),
-    scenario_, game_shape_, plane_shape_, players);
+    scenario_, game_shape_, plane_shape_, players,
+    std::pmr::new_delete_resource());
 }
 
 void

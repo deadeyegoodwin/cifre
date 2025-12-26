@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory_resource>
 #include <mutex>
 
 #include "cifre_boardhex.h"
@@ -135,14 +136,17 @@ public:
   // Return the CellFeatures for a given 'row' / 'column'.
   const CellFeatures& Features(size_t row, size_t column) const;
 
-  // Return the cells for a given row and column (using plane
-  // indexing). Thread-safe. The caller may modify the returned
-  // vector, but must restore it to its original values before calling
-  // ReleaseCells.
-  FlattenedCells AcquireCells(const CellsKey key);
+  // Return in 'cells' the plane-set for a given row and column (using
+  // plane indexing). Any newly created or reused cells are verified
+  // to use memory-resource 'arena'. The caller may modify the
+  // returned vector, but must restore it to its original values
+  // before calling ReleaseCells. Thread-safe.
+  void AcquireCells(
+    const CellsKey key, FlattenedCells& cells, std::pmr::memory_resource* arena);
 
-  // "Restock" the cells for a given row and column. Thread-safe.
-  void ReleaseCells(const CellsKey key, FlattenedCells&& cells);
+  // "Restock" the 'cells' for a given row and column to they can be
+  // reused. Thread-safe.
+  void ReleaseCells(const CellsKey key, FlattenedCells& cells);
 
   // String representation.
   std::string ToString() const;

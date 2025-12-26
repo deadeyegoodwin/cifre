@@ -22,6 +22,14 @@ namespace cifre { namespace gettysburg {
 //
 // The gettysburg playing board.
 //
+// See cifre::State for information about memory management requires
+// classes derived from State. 'cells_flattened_' are handled
+// separately from the memory resource arena used for other parts of
+// the state. 'cells_flattened_' are handled globally by
+// BoardCellFactory as they must persist across player algorithm
+// invocations. 'cells_flattened_' is therefore kept in the default
+// new/delete memory.
+//
 class Board : public cifre::BoardHex {
 public:
   static constexpr char UNION_CHAR = 'u';
@@ -30,11 +38,10 @@ public:
 public:
   // Create board...
   Board(
-    BoardCellFactory* cell_factory,
-    const BoardMoveFactory* move_factory,
-    const OOB::Scenario scenario,
-    const cifre::Size2D& board_shape, const cifre::Size2D& plane_shape,
-    const std::vector<Player*>& players);
+    BoardCellFactory* cell_factory, const BoardMoveFactory* move_factory,
+    const OOB::Scenario scenario, const cifre::Size2D& board_shape,
+    const cifre::Size2D& plane_shape, const std::vector<Player*>& players,
+    std::pmr::memory_resource* arena);
 
   // Destructor
   virtual ~Board();
@@ -45,18 +52,27 @@ public:
   virtual bool Equal(const State* other) const override;
 
   // See cifre::State
-  Board* Copy() const override;
   void Update(uint64_t action_id) override;
-  Board* CopyAndUpdate(uint64_t action_id) const override;
+  Board* Copy(std::pmr::memory_resource* arena) const override;
+  Board* CopyAndUpdate(
+    uint64_t action_id, std::pmr::memory_resource* arena) const override;
 
   // See cifre::State
-  size_t TotalActionIdCount() const override;
+  size_t TotalActionIdCount() const override {
+    return size_t(Unit::ActionKind::ACTION_COUNT); }
 
   // See cifre::State
   std::string ActionToString(const Action& action) const override;
 
   // See cifre::State
   Action StringToAction(const std::string& str) const override;
+
+  // Get the representation of the state suitable for feeding to the
+  // model via triton. Returns flattened row-major ordering of the
+  // cell values. See cifre::State.
+  const FlattenedCells& TritonRepresentation() const override {
+    return cells_flattened_;
+  }
 
   // See cifre::BoardHex
   std::string BoardHeader() const override;
@@ -122,12 +138,18 @@ public:
     return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_HILL); }
 
 private:
-  Board& operator=(const Board&) = delete;  // assignment not allowed
+  // Don't allow default copy constructor or assignment to force the
+  // version below that requires an arena.
+  Board(Board& other) = delete;
+  Board& operator=(Board&) = delete;
+  Board(const Board& other) = delete;
+  Board& operator=(const Board&) = delete;
 
   // Copy constructor. WARNING: this does not copy 'cells_flattened_'
   // , 'cells_' and some other members. To perform a complete copy,
-  // use Copy().
-  Board(const Board& other);
+  // use Copy(). This constructor is kept private so that Copy() must
+  // be used, see cifre::State.
+  Board(const Board& other, std::pmr::memory_resource* arena);
 
   // Utility method to get the active unit from active_army_ and
   // active_unit_idx_. Return nullptr if active army does not have any
@@ -199,6 +221,10 @@ private:
   size_t union_units_count_, confederate_units_count_;
   std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT> union_units_;
   std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT> confederate_units_;
+
+  // 'cells_' is simply a type-casted pointer into 'cells_flattened_'.
+  FlattenedCells cells_flattened_;
+  float* cells_;
 };
 
 }} // namespace cifre::gettysburg

@@ -40,8 +40,8 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
 
   LOG_GAME(*logger_, board.ToString());
 
-  const auto& actionIds = board.ValidActionIds();
-  THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
+  THROWIF(board.ValidActionIds().empty(),
+          "player '" + name_ + "' has no valid action to choose from");
 
   while (true) {
     LOG_GAME_IE(*logger_, Name()  + " (" + Char() + "): ", 0 /* indent */, false /* endline */);

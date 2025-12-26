@@ -3,7 +3,8 @@
 
 #include <cassert>
 #include <cstdint>
-#include <unordered_set>
+#include <cstring>
+#include <memory_resource>
 #include <vector>
 
 #include "cifre_action.h"
@@ -42,26 +43,28 @@ private:
 // FlattenedCells
 //
 // Triton-friendly cell contents. FlattenedCells is just a
-// std:vector<uint8_t> protected so that it is not unintentionally
-// copied. Must us Copy() explicitly to copy.
+// std:vector<uint8_t> protected so that it can only be copied via a
+// memory arena.
 //
-class FlattenedCells : public std::vector<uint8_t> {
+class FlattenedCells : public std::pmr::vector<uint8_t> {
 public:
-  // Default constructor
-  FlattenedCells() = default;
+  FlattenedCells(std::pmr::memory_resource* arena) :
+    std::pmr::vector<uint8_t>(arena) { }
 
-  // Default move constructor and operator
+  // Construct as a copy of 'other' using 'arena' for memory required
+  // by flattened cells.
+  FlattenedCells(const FlattenedCells& other, std::pmr::memory_resource* arena) :
+    std::pmr::vector<uint8_t>(other.begin(), other.end(), arena) { }
+
+  // Allow move
   FlattenedCells(FlattenedCells&& other) = default;
   FlattenedCells& operator=(FlattenedCells&& other) = default;
 
-  // Copy contents of 'c' into this FlattenedCells.
-  void CopyFrom(const FlattenedCells& c) {
-    *this = c;
-  }
-
-private:
-  FlattenedCells(const FlattenedCells&) = default;
-  FlattenedCells& operator=(const FlattenedCells&) = default;
+  // Delete default copy and assign, must use arena version above.
+  FlattenedCells(FlattenedCells&) = delete;
+  FlattenedCells& operator=(FlattenedCells&) = delete;
+  FlattenedCells(const FlattenedCells&) = delete;
+  FlattenedCells& operator=(const FlattenedCells&) = delete;
 };
 
 //
@@ -69,6 +72,12 @@ private:
 //
 // Interface for game state. State represents all mutable status,
 // properties, etc. of a game. State is assumed to be non-thread-safe.
+//
+// Memory Management: The State interface refers to pmr resources to
+// enable player algorithms, like AlphaZero, to efficiently manage
+// memory used for game state. An algorithm may use a memory resource
+// to allocate state, and it is the state's responsibility to use the
+// provided pmr memory_resource for all allocations.
 //
 class State {
 public:
@@ -89,7 +98,7 @@ public:
   virtual size_t TotalActionIdCount() const = 0;
 
   // Get the action identifiers that are valid for this state.
-  virtual const std::unordered_set<uint64_t>& ValidActionIds() const = 0;
+  virtual const std::pmr::vector<uint64_t>& ValidActionIds() const = 0;
 
   // Return true if 'action' is a valid action for this state.
   virtual bool IsValidAction(const Action& action) const = 0;
@@ -110,18 +119,20 @@ public:
   // Return the terminal status of the state.
   virtual StateTerminalStatus TerminalStatus() const = 0;
 
-  // Virtual copy constructor. Make an exact copy of the entire state.
-  virtual State* Copy() const = 0;
-
   // Modify this state by applying the action associated with
   // 'action_id'.
   virtual void Update(uint64_t action_id) = 0;
 
+  // Virtual copy constructor. Return an exact copy of this state.
+  // Use 'arena' to allocate the memory needed for the copy.
+  virtual State* Copy(std::pmr::memory_resource* arena) const = 0;
+
   // Behaves exactly like Copy() followed by Update(). Derived classes
   // may implement if doing so provides a performance benefit. Return
   // the modified copy.
-  virtual State* CopyAndUpdate(uint64_t action_id) const {
-    State* nb = Copy(); nb->Update(action_id); return nb; }
+  virtual State* CopyAndUpdate(
+    uint64_t action_id, std::pmr::memory_resource* arena) const {
+    State* nb = Copy(arena); nb->Update(action_id); return nb; }
 
   // Get the representation of the state suitable for feeding to the
   // nnet via triton. This representation does not need to include all

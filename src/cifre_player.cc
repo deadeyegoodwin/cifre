@@ -50,8 +50,8 @@ AlgoPlayer::NextAction(const State& state, size_t max_game_sideturns_remaining) 
 {
   LOG_GAME(*logger_, state.ToString());
 
-  const auto& actionIds = state.ValidActionIds();
-  THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
+  THROWIF(state.ValidActionIds().empty(),
+          "player '" + name_ + "' has no valid action to choose from");
 
   uint64_t action_id = algo_->NextActionId(state, max_game_sideturns_remaining);
   Action action(Action::ActionKind::ACTIONID, action_id);

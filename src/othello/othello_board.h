@@ -20,18 +20,14 @@ class Board : public cifre::Board2D {
 public:
   // Create board at the required starting state.
   Board(const cifre::Size2D& size, const std::vector<Player*>& players,
-        size_t starting_player_id);
-
-  // Copy constructor.
-  Board(const Board& other) :
-    cifre::Board2D(other), do_nothing_action_id_(other.do_nothing_action_id_),
-    active_do_nothing_(other.active_do_nothing_), opponent_do_nothing_(other.opponent_do_nothing_) { }
+        size_t starting_player_id, std::pmr::memory_resource* arena);
 
   // Return the action ID representing "do nothing".
   size_t DoNothingActionId() const { return do_nothing_action_id_; }
 
   // See cifre::State
-  Board* Copy() const override { return new Board(*this); }
+  Board* Copy(std::pmr::memory_resource* arena) const override {
+    return new Board(*this, arena); }
   void Update(uint64_t action_id) override;
 
   // One action for each board cell, plus the "do nothing" action. See
@@ -43,7 +39,19 @@ public:
   std::string ActionToString(const Action& action) const override;
 
 private:
-  Board& operator=(const Board&) = delete;  // assignment not allowed
+  // Don't allow default copy constructor or assignment to force the
+  // version below that requires an arena.
+  Board(Board& other) = delete;
+  Board& operator=(Board&) = delete;
+  Board(const Board& other) = delete;
+  Board& operator=(const Board&) = delete;
+
+  // Construct board as a copy of 'other' using 'arena' for memory
+  // required by constructed board. This constructor is kept private
+  // so that Copy() must be used, see cifre::State.
+  Board(const Board& other, std::pmr::memory_resource* arena) :
+    cifre::Board2D(other, arena), do_nothing_action_id_(other.do_nothing_action_id_),
+    active_do_nothing_(other.active_do_nothing_), opponent_do_nothing_(other.opponent_do_nothing_) { }
 
   void UpdateTerminalStatus();
   void UpdateValidActions();

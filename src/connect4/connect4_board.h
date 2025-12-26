@@ -22,10 +22,11 @@ class Board : public cifre::Board2D {
 public:
   // Create board at the required starting state.
   Board(const cifre::Size2D& size, const std::vector<Player*>& players,
-        size_t starting_player_id);
+        size_t starting_player_id, std::pmr::memory_resource* arena);
 
   // See cifre::State
-  Board* Copy() const override { return new Board(*this); }
+  Board* Copy(std::pmr::memory_resource* arena) const override {
+    return new Board(*this, arena); }
   void Update(uint64_t action_id) override;
 
   // One action for each board column. See cifre::Board2D.
@@ -38,7 +39,18 @@ public:
   Action StringToAction(const std::string& str) const override;
 
 private:
-  Board& operator=(const Board&) = delete;  // assignment not allowed
+  // Don't allow default copy constructor or assignment to force the
+  // version below that requires an arena.
+  Board(Board& other) = delete;
+  Board& operator=(Board&) = delete;
+  Board(const Board& other) = delete;
+  Board& operator=(const Board&) = delete;
+
+  // Construct board as a copy of 'other' using 'arena' for memory
+  // required by constructed board. This constructor is kept private
+  // so that Copy() must be used, see cifre::State.
+  Board(const Board& other, std::pmr::memory_resource* arena) :
+    Board2D(other, arena) { }
 
   void UpdateTerminalStatus();
   void UpdateValidActions();

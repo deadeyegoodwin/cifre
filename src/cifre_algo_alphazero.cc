@@ -114,7 +114,8 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   }
 
   // Find, creating if necessary, the tree node that represents 'state'.
-  auto node_itr = FindOrCreateNode(std::unique_ptr<const State>(state.Copy()));
+  auto node_itr = FindOrCreateNode(
+    std::unique_ptr<const State>(state.Copy(&nextactionid_arena_)));
   auto& node = node_itr->second;
 
   LOG_ALGO(*logger_, "\nalphazero: starting node");
@@ -291,7 +292,8 @@ AlphaZeroAlgo::SearchTree(
   if (next == nullptr) {
     // Find or create the node representing the state that results
     // when 'best_action_id' is applied to 'node'.
-    std::unique_ptr<const State> next_state(node->NodeState().CopyAndUpdate(*best_action_id));
+    std::unique_ptr<const State> next_state(
+      node->NodeState().CopyAndUpdate(*best_action_id, &nextactionid_arena_));
     NodesIterator snext_itr = FindOrCreateNode(std::move(next_state), &next_created);
     next = &snext_itr->second;
 
@@ -537,7 +539,7 @@ AlphaZeroNode::RandomWeightedValidChild(common::Random& rnd) const
   // action IDs.
   const auto& vaids = state_->ValidActionIds();
   for (uint64_t aid = 0; aid < state_->TotalActionIdCount(); ++aid) {
-    if (vaids.find(aid) == vaids.end()) {
+    if (std::find(vaids.begin(), vaids.end(), aid) == vaids.end()) {
       assert(children_[aid] == nullptr);
       assert(children_visit_counts_[aid] == 0);
     }

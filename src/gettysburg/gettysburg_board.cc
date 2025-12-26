@@ -10,15 +10,18 @@ namespace cifre { namespace gettysburg {
 // Board
 //
 Board::Board(
-  BoardCellFactory* cell_factory,
-  const BoardMoveFactory* move_factory,
-  const OOB::Scenario scenario,
-  const cifre::Size2D& board_shape, const cifre::Size2D& plane_shape,
-  const std::vector<Player*>& players) :
-  cifre::BoardHex(BoardCellFactory::PLANE_COUNT, board_shape, players, 0 /* starting_player_id */),
+  BoardCellFactory* cell_factory, const BoardMoveFactory* move_factory,
+  const OOB::Scenario scenario, const cifre::Size2D& board_shape,
+  const cifre::Size2D& plane_shape, const std::vector<Player*>& players,
+  std::pmr::memory_resource* arena) :
+  cifre::BoardHex(BoardCellFactory::PLANE_COUNT, board_shape, players,
+                  0 /* starting_player_id */, arena),
   cell_factory_(cell_factory), move_factory_(move_factory),
-  scenario_(scenario), plane_shape_(plane_shape)
+  scenario_(scenario), plane_shape_(plane_shape),
+  cells_flattened_(std::pmr::new_delete_resource() /* arena */)
 {
+  valid_action_ids_.reserve(TotalActionIdCount());
+
   // Initially no vp hexes are captured. Fill the entire array even
   // though will only use BoardCellFactory::FeaturesCount(VICTORY_POINT).
   captured_vps_.fill(-1);
@@ -60,8 +63,8 @@ Board::Board(
   UpdateTerminalStatus();
 }
 
-Board::Board(const Board& other) :
-  cifre::BoardHex(other),
+Board::Board(const Board& other, std::pmr::memory_resource* arena) :
+  cifre::BoardHex(other, arena),
   cell_factory_(other.cell_factory_), move_factory_(other.move_factory_),
   scenario_(other.scenario_), plane_shape_(other.plane_shape_),
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
@@ -70,7 +73,8 @@ Board::Board(const Board& other) :
   captured_vps_(other.captured_vps_), // copy entire array (but only first captured_vps_count_ used)
   captured_vps_count_(other.captured_vps_count_),
   union_units_count_(other.union_units_count_),
-  confederate_units_count_(other.confederate_units_count_)
+  confederate_units_count_(other.confederate_units_count_),
+  cells_flattened_(std::pmr::new_delete_resource() /* arena */)
 {
   // WARNING: this does not copy 'cells_flattened_', 'cells_' or
   // 'cells_flattened_factory_key_'. To perform a complete copy, use
@@ -188,12 +192,6 @@ Board::Equal(const State* other) const
   }
 
   return true;
-}
-
-size_t
-Board::TotalActionIdCount() const
-{
-  return size_t(Unit::ActionKind::ACTION_COUNT);
 }
 
 std::string
@@ -331,25 +329,29 @@ Board::UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx)
 }
 
 Board*
-Board::Copy() const
+Board::Copy(std::pmr::memory_resource* arena) const
 {
+  void* buffer = arena->allocate(sizeof(Board), alignof(Board));
+  Board* nb = new(buffer) Board(*this, arena);
+
   // The copy constructor does not copy 'cells_flattened_' or set
   // 'cells_', so we need to do it explicitly.
-  Board* nb = new Board(*this);
-  nb->cells_flattened_.CopyFrom(cells_flattened_);
+  std::copy(cells_flattened_.begin(), cells_flattened_.end(), nb->cells_flattened_.begin());
   nb->cells_ = reinterpret_cast<float*>(nb->cells_flattened_.data());
   nb->cells_flattened_factory_key_ = cells_flattened_factory_key_;
   return nb;
 }
 
 Board*
-Board::CopyAndUpdate(uint64_t action_id) const
+Board::CopyAndUpdate(uint64_t action_id, std::pmr::memory_resource* arena) const
 {
+  void* buffer = arena->allocate(sizeof(Board), alignof(Board));
+  Board* nb = new(buffer) Board(*this, arena);
+
   // The copy constructor does not copy 'cells_flattened_' or
   // 'cells_flattened_factory_key_' or set 'cells_', which is what we
   // want because those values will be set by Update() and so setting
   // them now would be wasteful as they will be overwritten.
-  Board* nb = new Board(*this);
   nb->Update(action_id);
   return nb;
 }
@@ -422,7 +424,7 @@ Board::NextArmyUnit(
       UpdateValidActions();
       if ((valid_action_ids_.size() > 1) ||
           ((valid_action_ids_.size() == 1) &&
-           (*valid_action_ids_.begin() != uint64_t(Unit::ActionKind::MOVE_END)))) {
+           (valid_action_ids_[0] != uint64_t(Unit::ActionKind::MOVE_END)))) {
         return true;
       }
     }
@@ -484,7 +486,9 @@ Board::UpdateInputPlanes()
 
   cells_flattened_factory_key_ =
     std::make_pair(active_unit_->Row(), active_unit_->Column());
-  cells_flattened_ = cell_factory_->AcquireCells(cells_flattened_factory_key_);
+  cell_factory_->AcquireCells(
+    cells_flattened_factory_key_, cells_flattened_,
+    std::pmr::new_delete_resource() /* arena */);
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
   // Update planes as required for all units.
@@ -557,7 +561,7 @@ Board::ReleaseInputPlanes()
       }
     }
 
-    cell_factory_->ReleaseCells(cells_flattened_factory_key_, std::move(cells_flattened_));
+    cell_factory_->ReleaseCells(cells_flattened_factory_key_, cells_flattened_);
   }
 }
 
@@ -574,7 +578,7 @@ void
 Board::UpdateValidActions()
 {
   valid_action_ids_.clear();
-  valid_action_ids_.insert(uint64_t(Unit::ActionKind::MOVE_END));
+  valid_action_ids_.push_back(uint64_t(Unit::ActionKind::MOVE_END));
 
   const size_t row = active_unit_->Row();
   const size_t col = active_unit_->Column();
@@ -585,7 +589,7 @@ Board::UpdateValidActions()
       const float cost = active_move_costs_[size_t(pr.first)];
       if ((cost >= 0.0) &&
           (active_unit_->MoveFactorExpended() + cost) <= active_unit_->MoveFactor()) {
-        valid_action_ids_.insert(uint64_t(pr.second));
+        valid_action_ids_.push_back(uint64_t(pr.second));
       }
     }
   }

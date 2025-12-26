@@ -17,6 +17,15 @@ namespace cifre {
 //
 // Base class for game-playing algorithms.
 //
+// Memory Management: An algorithm may implement one or more monotonic
+// pmr memory resources to allocate game state. It is the state's
+// responsibility to use the provided memory resource for all
+// allocations. Note that if an algorithm provides a memory resource
+// that it must be monotonic, which means that the state does not need
+// to concern itself with deallocation; it is the responsibility of
+// the the algorithm to free memory as appropriate. See also
+// cifre::State.
+//
 class Algo {
 public:
   virtual ~Algo() = default;

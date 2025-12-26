@@ -153,7 +153,7 @@ TritonCache::Insert(
 
   auto cache_itr = cache_.find(&state);
   if (cache_itr == cache_.end()) {
-    std::unique_ptr<const State> ce_state(state.Copy());
+    std::unique_ptr<const State> ce_state(state.Copy(std::pmr::new_delete_resource()));
 
 #ifndef NDEBUG
     auto created_cache_itr =

@@ -25,11 +25,11 @@ RandomAlgo::NextActionId(const State& state, size_t max_game_sideturns_remaining
 {
   // Pick a random action from the valid actions. At least one action
   // must be valid.
-  const auto& actionIds = state.ValidActionIds();
-  THROWIF(actionIds.empty(), "no valid action to choose from");
+  const auto& action_ids = state.ValidActionIds();
+  THROWIF(action_ids.empty(), "no valid action to choose from");
 
   return
-    *std::next(actionIds.begin(), rnd_(uint64_t(0), uint64_t(actionIds.size() - 1)));
+    *std::next(action_ids.begin(), rnd_(uint64_t(0), uint64_t(action_ids.size() - 1)));
 }
 
 } // namespace cifre

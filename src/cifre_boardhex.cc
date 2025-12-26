@@ -17,15 +17,22 @@ namespace cifre {
 //
 BoardHex::BoardHex(
   const size_t plane_cnt, const cifre::Size2D& size,
-  const std::vector<Player*>& players, size_t starting_player_id) :
+  const std::vector<Player*>& players, size_t starting_player_id,
+  std::pmr::memory_resource* arena) :
   display_kind_(DisplayKind::SMALL), plane_cnt_(plane_cnt), size_(size),
-  players_(players), active_player_id_(starting_player_id),
-  terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL)
+  active_player_id_(starting_player_id),
+  terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL),
+  valid_action_ids_(arena)
 {
-  THROWIF(players_.size() != PLAYER_COUNT, "exactly 2 players are required");
+  THROWIF(players.size() != PLAYER_COUNT, "exactly 2 players are required");
   THROWIF(NoPlayerId() != PLAYER_COUNT, "exactly 2 players are required");
   THROWIF(active_player_id_ >= NoPlayerId(),
           "invalid starting player index " + std::to_string(active_player_id_));
+
+  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+    players_[idx] = players[idx];
+  }
+
 #ifndef NDEBUG
   for (size_t pidx = 0; pidx < players_.size(); ++pidx) {
     assert(players_[pidx]->Id() == pidx);
@@ -33,11 +40,11 @@ BoardHex::BoardHex(
 #endif
 }
 
-BoardHex::BoardHex(const BoardHex& other) :
+BoardHex::BoardHex(const BoardHex& other, std::pmr::memory_resource* arena) :
   display_kind_(other.display_kind_), plane_cnt_(other.plane_cnt_),
   size_(other.size_), players_(other.players_),
   active_player_id_(other.active_player_id_), terminal_status_(other.terminal_status_),
-  valid_action_ids_(other.valid_action_ids_)
+  valid_action_ids_(other.valid_action_ids_.begin(), other.valid_action_ids_.end(), arena)
 {
 }
 
@@ -81,7 +88,8 @@ BoardHex::IsValidAction(const Action& action) const
     return true;
 
   case Action::ActionKind::ACTIONID:
-    return valid_action_ids_.find(action.ActionId()) != valid_action_ids_.end();
+    return std::find(
+      valid_action_ids_.begin(), valid_action_ids_.end(), action.ActionId()) != valid_action_ids_.end();
   }
 
   return false;

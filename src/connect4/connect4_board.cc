@@ -18,9 +18,11 @@ static constexpr size_t IN_A_ROW = 4;
 // Board
 //
 Board::Board(const cifre::Size2D& size, const std::vector<Player*>& players,
-             size_t starting_player_id) :
-  cifre::Board2D(size, players, starting_player_id)
+             size_t starting_player_id, std::pmr::memory_resource* arena) :
+  cifre::Board2D(size, players, starting_player_id, arena)
 {
+  valid_action_ids_.reserve(TotalActionIdCount());
+
   // Initialize 'valid_action_ids_' and 'terminal_status_'.
   UpdateValidActions();
   UpdateTerminalStatus();
@@ -93,7 +95,7 @@ Board::UpdateValidActions()
   // Any non-full column can be played in.
   for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
     if (CellValueAt(size_.RowCount() - 1, cidx) == CELL_EMPTY) {
-      valid_action_ids_.insert(cidx);
+      valid_action_ids_.push_back(cidx);
     }
   }
 }

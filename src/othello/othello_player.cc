@@ -40,13 +40,14 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
 
   LOG_GAME(*logger_, board.ToString());
 
-  const auto& actionIds = board.ValidActionIds();
-  THROWIF(actionIds.empty(), "player '" + name_ + "' has no valid action to choose from");
+  const auto& action_ids = board.ValidActionIds();
+  THROWIF(action_ids.empty(), "player '" + name_ + "' has no valid action to choose from");
 
   // If only valid action is to do nothing, then skip this player's
   // turn. In othello it is not an option to intentionally choose "do
   // nothing".
-  if ((actionIds.size() == 1) && (actionIds.find(board.DoNothingActionId()) != actionIds.end())) {
+  if ((action_ids.size() == 1) &&
+      (std::find(action_ids.begin(), action_ids.end(), board.DoNothingActionId()) != action_ids.end())) {
     Action action(Action::ActionKind::ACTIONID, board.DoNothingActionId());
     LOG_GAME(*logger_, Name() + " (" + Char() + "): " + board.ActionToString(action));
     return action;

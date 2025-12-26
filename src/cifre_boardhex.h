@@ -4,6 +4,8 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <memory_resource>
+#include <set>
 #include <vector>
 
 #include "cifre_action.h"
@@ -50,6 +52,9 @@ namespace cifre {
 // via State::TotalActionIdCount(), State::StringToAction(),
 // State::ActionToString(), and State::Update().
 //
+// See cifre::State for information about memory management requires
+// classes derived from State.
+//
 class BoardHex : public State {
 public:
   static constexpr size_t PLAYER_COUNT = 2;
@@ -82,13 +87,16 @@ public:
   // Create a board based on a given number of planes, 2D 'size' and
   // 'players', where player ID is the index of a given player in
   // 'players'. 'starting_player_id' indicates the player that will go
-  // first.
+  // first. Dynamic allocations required by the board should be
+  // performed in 'arena'.
   BoardHex(
     const size_t plane_cnt, const cifre::Size2D& size,
-    const std::vector<Player*>& players, size_t starting_player_id);
+    const std::vector<Player*>& players, size_t starting_player_id,
+    std::pmr::memory_resource* arena);
 
-  // Copy constructor.
-  BoardHex(const BoardHex& other);
+  // Construct board as a copy of 'other' using 'arena' for memory
+  // required by constructed board.
+  BoardHex(const BoardHex& other, std::pmr::memory_resource* arena);
 
   // Destructor
   virtual ~BoardHex() = default;
@@ -121,18 +129,11 @@ public:
   StateTerminalStatus TerminalStatus() const override { return terminal_status_; }
 
   // See cifre::State
-  const std::unordered_set<uint64_t>& ValidActionIds() const override {
+  const std::pmr::vector<uint64_t>& ValidActionIds() const override {
     return valid_action_ids_; }
 
   // See cifre::State.
   virtual bool IsValidAction(const Action& action) const override;
-
-  // Get the representation of the state suitable for feeding to the
-  // model via triton. Returns flattened row-major ordering of the
-  // cell values. See cifre::State.
-  const FlattenedCells& TritonRepresentation() const override {
-    return cells_flattened_;
-  }
 
   // Get or set the way the board is displayed.
   DisplayKind Display() const { return display_kind_; }
@@ -166,6 +167,13 @@ public:
     DisplayKind kind, size_t row_idx, size_t col_idx) const;
 
 protected:
+  // Don't allow default copy constructor or assignment to force the
+  // version above that requires an arena.
+  BoardHex(BoardHex& other) = delete;
+  BoardHex& operator=(BoardHex&) = delete;
+  BoardHex(const BoardHex& other) = delete;
+  BoardHex& operator=(const BoardHex&) = delete;
+
   std::string SmallBoard() const;
   std::string LargeBoard() const;
 
@@ -181,7 +189,7 @@ protected:
   const Size2D size_;
 
   // The players. The player's index in this vector is the player ID.
-  const std::vector<cifre::Player*> players_;
+  std::array<cifre::Player*, PLAYER_COUNT> players_;
 
   // ID of the currently active player.
   size_t active_player_id_;
@@ -190,11 +198,7 @@ protected:
   cifre::StateTerminalStatus terminal_status_;
 
   // The set of action ids that are valid for the current board.
-  std::unordered_set<uint64_t> valid_action_ids_;
-
-  // 'cells_' is simply a type-casted pointer into 'cells_flattened_'.
-  FlattenedCells cells_flattened_;
-  float* cells_;
+  std::pmr::vector<uint64_t> valid_action_ids_;
 };
 
 } // namespace cifre

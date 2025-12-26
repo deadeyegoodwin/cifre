@@ -114,7 +114,7 @@ PlayOneTask::Invoke()
   // Create initial state for the game that gets modified as the game
   // progresses. We don't modify 'initial_state_' because this task
   // can be reused for another game.
-  std::unique_ptr<State> state(initial_state_->Copy());
+  std::unique_ptr<State> state(initial_state_->Copy(std::pmr::new_delete_resource()));
 
   try {
     // Let all players and algos know a new game is starting.

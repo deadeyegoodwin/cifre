@@ -16,11 +16,13 @@ namespace cifre { namespace othello {
 // Board
 //
 Board::Board(const cifre::Size2D& size, const std::vector<Player*>& players,
-             size_t starting_player_id) :
-  cifre::Board2D(size, players, starting_player_id),
+             size_t starting_player_id, std::pmr::memory_resource* arena) :
+  cifre::Board2D(size, players, starting_player_id, arena),
   do_nothing_action_id_(size_.CellCount()),
   active_do_nothing_(false), opponent_do_nothing_(false)
 {
+  valid_action_ids_.reserve(TotalActionIdCount());
+
   // Each player has two pieces diagonal from each other in the middle
   // of the board. Board must have even number of rows and columns
   // Othello when parsing board size.
@@ -160,7 +162,7 @@ Board::UpdateValidActions()
                 }
                 else if (cv == CELL_EMPTY) {
                   const size_t cell_idx = (sridx * size_.ColumnCount()) + scidx;
-                  valid_action_ids_.insert(cell_idx);
+                  valid_action_ids_.push_back(cell_idx);
                   break; // outflank
                 }
 
@@ -177,7 +179,7 @@ Board::UpdateValidActions()
   // "do nothing".
   active_do_nothing_ = valid_action_ids_.empty();
   if (active_do_nothing_) {
-    valid_action_ids_.insert(do_nothing_action_id_);
+    valid_action_ids_.push_back(do_nothing_action_id_);
   }
 }
 

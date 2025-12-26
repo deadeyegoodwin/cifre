@@ -36,6 +36,9 @@ namespace cifre {
 // implement appropriate action and board update logic via
 // State::Update().
 //
+// See cifre::State for information about memory management requires
+// classes derived from State.
+//
 class Board2D : public State {
 public:
   static constexpr size_t PLAYER_COUNT = 2;
@@ -45,10 +48,11 @@ public:
   // 'starting_player_id' indicates the player that will go first.
   Board2D(
     const cifre::Size2D& size, const std::vector<Player*>& players,
-    size_t starting_player_id);
+    size_t starting_player_id, std::pmr::memory_resource* arena);
 
-  // Copy constructor.
-  Board2D(const Board2D& other);
+  // Construct board as a copy of 'other' using 'arena' for memory
+  // required by constructed board.
+  Board2D(const Board2D& other, std::pmr::memory_resource* arena);
 
   // Destructor
   virtual ~Board2D() = default;
@@ -73,7 +77,7 @@ public:
   StateTerminalStatus TerminalStatus() const override { return terminal_status_; }
 
   // See cifre::State
-  const std::unordered_set<uint64_t>& ValidActionIds() const override {
+  const std::pmr::vector<uint64_t>& ValidActionIds() const override {
     return valid_action_ids_; }
 
   // See cifre::State.
@@ -135,6 +139,13 @@ protected:
   static constexpr float CELL_ACTIVE_PLAYER = 1.0;
   static constexpr float CELL_OPPONENT_PLAYER = -1.0;
 
+  // Don't allow default copy constructor or assignment to force the
+  // version above that requires an arena.
+  Board2D(Board2D& other) = delete;
+  Board2D& operator=(Board2D&) = delete;
+  Board2D(const Board2D& other) = delete;
+  Board2D& operator=(const Board2D&) = delete;
+
   // Return the value of the cell at the given row and column index.
   float CellValueAt(size_t row_idx, size_t col_idx) const {
     assert((row_idx < size_.RowCount()) && (col_idx < size_.ColumnCount()));
@@ -172,7 +183,7 @@ protected:
   const Size2D size_;
 
   // The players. The player's index in this vector is the player ID.
-  const std::vector<cifre::Player*> players_;
+  std::array<cifre::Player*, PLAYER_COUNT> players_;
 
   // ID of the currently active player.
   size_t active_player_id_;
@@ -181,7 +192,7 @@ protected:
   cifre::StateTerminalStatus terminal_status_;
 
   // The set of action ids that are valid for the current board.
-  std::unordered_set<uint64_t> valid_action_ids_;
+  std::pmr::vector<uint64_t> valid_action_ids_;
 
   // 'cells_' is simply a type-casted pointer into 'cells_flattened_'.
   FlattenedCells cells_flattened_;

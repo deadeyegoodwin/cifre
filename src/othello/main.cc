@@ -173,7 +173,8 @@ cifre::State*
 Othello::CreateInitialState(
   const std::vector<Player*>& players, size_t starting_player_idx) const
 {
-  return new Board(game_shape_, players, starting_player_idx);
+  return new Board(
+    game_shape_, players, starting_player_idx, std::pmr::new_delete_resource());
 }
 
 }} // namespace cifre::othello

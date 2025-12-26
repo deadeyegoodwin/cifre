@@ -33,7 +33,7 @@ BoardCellFactory::BoardCellFactory(
       // The set of planes for [br, bc] is represented as a flat
       // vector as that is what is most efficient for feeding to the
       // model.
-      FlattenedCells flat_vector;
+      FlattenedCells flat_vector(std::pmr::new_delete_resource() /* arena */);
       flat_vector.resize(flat_vector_byte_count_);
       float* flat = reinterpret_cast<float*>(flat_vector.data());
 
@@ -73,7 +73,12 @@ BoardCellFactory::BoardCellFactory(
         flat[offset + PLANE_IDX_VICTORY_POINT] = 1.0;
       }
 
-      planes_map_[std::make_pair(br, bc)] = std::move(flat_vector);
+//      planes_map_[std::make_pair(br, bc)] = std::move(flat_vector);
+      auto [_, ok] = planes_map_.emplace(
+        std::piecewise_construct,
+        std::forward_as_tuple(std::make_pair(br, bc)),
+        std::forward_as_tuple(std::move(flat_vector)));
+      assert(ok);
     }
   }
 
@@ -140,9 +145,12 @@ BoardCellFactory::Features(size_t row, size_t column) const
   return cell_features_[offset];
 }
 
-FlattenedCells
-BoardCellFactory::AcquireCells(const CellsKey key)
+void
+BoardCellFactory::AcquireCells(
+  const CellsKey key, FlattenedCells& cells, std::pmr::memory_resource* arena)
 {
+  assert(cells.empty());
+
   acquired_plane_sets_ += 1;
 
   // First check if there is a plane-set already available for
@@ -151,25 +159,27 @@ BoardCellFactory::AcquireCells(const CellsKey key)
     std::unique_lock<std::mutex> lk(alloc_planes_mu_);
     const auto iter = alloc_planes_map_.find(key);
     if ((iter != alloc_planes_map_.end()) && !iter->second.empty()) {
-      FlattenedCells ps = std::move(iter->second.back());
+      cells = std::move(iter->second.back());
       iter->second.pop_back();
-      return ps;
+
+      assert(cells.get_allocator().resource() == arena);
+      return;
     }
   }
 
-  // No existing plane-set so copy from the pre-initialized original
-  // (which must exist).
+  // No existing plane-set so make a copy from the pre-initialized
+  // original (which must exist).
   const auto iter = planes_map_.find(key);
   THROWIF(iter == planes_map_.end(), "expected pre-initialized plane set");
-  FlattenedCells ps;
-  ps.CopyFrom(iter->second);
-  created_plane_sets_ += 1;
+  FlattenedCells ps(iter->second, arena);
+  cells = std::move(ps);
+  assert(cells.get_allocator().resource() == arena);
 
-  return ps;
+  created_plane_sets_ += 1;
 }
 
 void
-BoardCellFactory::ReleaseCells(const CellsKey key, FlattenedCells&& cells)
+BoardCellFactory::ReleaseCells(const CellsKey key, FlattenedCells& cells)
 {
   released_plane_sets_ += 1;
 

@@ -14,14 +14,20 @@ namespace cifre {
 //
 Board2D::Board2D(
   const cifre::Size2D& size, const std::vector<Player*>& players,
-  size_t starting_player_id) :
-  size_(size), players_(players), active_player_id_(starting_player_id),
-  terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL)
+  size_t starting_player_id, std::pmr::memory_resource* arena) :
+  size_(size), active_player_id_(starting_player_id),
+  terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL),
+  valid_action_ids_(arena), cells_flattened_(arena)
 {
-  THROWIF(players_.size() != PLAYER_COUNT, "exactly 2 players are required");
+  THROWIF(players.size() != PLAYER_COUNT, "exactly 2 players are required");
   THROWIF(NoPlayerId() != PLAYER_COUNT, "exactly 2 players are required");
   THROWIF(active_player_id_ >= NoPlayerId(),
           "invalid starting player index " + std::to_string(active_player_id_));
+
+  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+    players_[idx] = players[idx];
+  }
+
 #ifndef NDEBUG
   for (size_t pidx = 0; pidx < players_.size(); ++pidx) {
     assert(players_[pidx]->Id() == pidx);
@@ -29,19 +35,19 @@ Board2D::Board2D(
 #endif
 
   // Player 0 is 'o' and player 1 is 'x'.
-  players[0]->SetChar('o');
-  players[1]->SetChar('x');
+  players_[0]->SetChar('o');
+  players_[1]->SetChar('x');
 
   cells_flattened_.resize(size_.CellCount() * sizeof(float));
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 }
 
-Board2D::Board2D(const Board2D& other) :
+Board2D::Board2D(const Board2D& other, std::pmr::memory_resource* arena) :
   size_(other.size_), players_(other.players_),
   active_player_id_(other.active_player_id_), terminal_status_(other.terminal_status_),
-  valid_action_ids_(other.valid_action_ids_)
+  valid_action_ids_(other.valid_action_ids_.begin(), other.valid_action_ids_.end(), arena),
+  cells_flattened_(other.cells_flattened_, arena)
 {
-  cells_flattened_.CopyFrom(other.cells_flattened_);
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 }
 
@@ -85,7 +91,8 @@ Board2D::IsValidAction(const Action& action) const
     return true;
 
   case Action::ActionKind::ACTIONID:
-    return valid_action_ids_.find(action.ActionId()) != valid_action_ids_.end();
+    return std::find(
+      valid_action_ids_.begin(), valid_action_ids_.end(), action.ActionId()) != valid_action_ids_.end();
   }
 
   return false;
