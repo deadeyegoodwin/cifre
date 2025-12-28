@@ -135,7 +135,7 @@ public:
   const State& NodeState() const { return *state_; }
 
   // Return the Triton result object associated with this node.
-  const TritonInferResult& NodeTritonResult() const { return *result_; }
+  const std::shared_ptr<const TritonInferResult>& NodeTritonResult() const { return result_; }
 
   // Return the child for a given action ID.
   AlphaZeroNode* Child(uint64_t action_id) const { return children_[action_id]; }
@@ -218,12 +218,22 @@ public:
   //
   class Sample {
   public:
-    Sample(AlphaZeroNode&& node, float z_value) :
-      node_(std::move(node)), z_value_(z_value), target_v_(0), count_(1) { }
+    Sample(
+      std::unique_ptr<const State> s, const std::shared_ptr<const TritonInferResult>& tr,
+      std::vector<float>&& pi, float azv) :
+      state_(std::move(s)), triton_result_(tr), z_value_(0),
+      az_value_(azv), target_pi_(std::move(pi)), target_v_(0), count_(1) { }
 
-    Sample(AlphaZeroNode&& node, float z_value, std::vector<float>&& pi, float v) :
-      node_(std::move(node)), z_value_(z_value),
+    Sample(
+      std::unique_ptr<const State> s, const std::shared_ptr<const TritonInferResult>& tr,
+      float z_value, float az_value, std::vector<float>&& pi, float v) :
+      state_(std::move(s)), triton_result_(tr), z_value_(z_value), az_value_(az_value),
       target_pi_(std::move(pi)), target_v_(v), count_(1) { }
+
+    const State& SampleState() const { return *state_; }
+
+    // Set the game-outcome value.
+    void SetZValue(float f) { z_value_ = f; }
 
     // Return string representation of Sample.
     std::string ToString() const;
@@ -231,15 +241,19 @@ public:
   private:
     friend class AlphaZeroTrainingSamples;
 
-    // Corresponding node.
-    AlphaZeroNode node_;
+    std::unique_ptr<const State> state_;
+    std::shared_ptr<const TritonInferResult> triton_result_;
 
     // Game outcome value. If AggregateKind is AVERAGE, then this is
     // the outcome value for the first instance of this state that is
     // seen.
-    const float z_value_;
+    float z_value_;
 
-    // Sample pi and v.
+    // Value calculated by alphazero.
+    float az_value_;
+
+    // The target pi and v values that should be trained for based on
+    // this sample.
     std::vector<float> target_pi_;
     float target_v_;
 
@@ -261,8 +275,8 @@ public:
   // Options for how training sample target value is calculated. Z is
   // the game-outcome value (-1, 0, 1) assigned to the node. V is the
   // alphazero calculated value.
-  //   Z - Training sample value is set to game outcome value.
-  //   V - Training sample value is set to alphazero calculated value.
+  //   Z - Training sample target value is set to game outcome value.
+  //   V - Training sample target value is set to alphazero calculated value.
   //   AVERAGE - Training sample value is set to average of Z and V.
   enum class ValueKind { Z, V, AVERAGE };
 
@@ -427,7 +441,7 @@ private:
     const State*, AlphaZeroNode, NodesMapHash, NodesMapEqual> nodes_;
 
   // Nodes for which alphazero selected an action in the current game.
-  std::deque<AlphaZeroNode> game_action_nodes_;
+  std::deque<AlphaZeroTrainingSamples::Sample> game_action_samples_;
 
   // Statistics...
   AlphaZeroStatistics statistics_;

@@ -47,7 +47,7 @@ AlphaZeroAlgo::AlphaZeroAlgo(
 void
 AlphaZeroAlgo::GameStart()
 {
-  game_action_nodes_.clear();
+  game_action_samples_.clear();
   statistics_.Reset();
 }
 
@@ -60,9 +60,9 @@ AlphaZeroAlgo::GameEnd(const State& terminal_state, const StateTerminalStatus& s
 
   // If 'samples' is non-nullptr, then append all the collected
   // training samples to 'samples'. At this point each training sample
-  // consists of just the node and the z-value (game outcome value).
+  // consists of just the state and the z-value (game outcome value).
   if (samples != nullptr) {
-    for (auto& n : game_action_nodes_) {
+    for (auto& s : game_action_samples_) {
       // Game outcome value (Z).
       float z_value = DRAW_VALUE;
       switch (status.Kind()) {
@@ -71,15 +71,17 @@ AlphaZeroAlgo::GameEnd(const State& terminal_state, const StateTerminalStatus& s
         break;
       case StateTerminalStatus::TerminalKind::WINNER:
         const size_t winner_id = status.WinnerId();
-        z_value = (n.NodeState().ActivePlayerId() == winner_id) ? WINNER_VALUE : LOSER_VALUE;
+        z_value =
+          (s.SampleState().ActivePlayerId() == winner_id) ? WINNER_VALUE : LOSER_VALUE;
         break;
       }
 
-      samples->emplace_back(std::move(n), z_value);
+      s.SetZValue(z_value);
+      samples->emplace_back(std::move(s));
     }
   }
 
-  game_action_nodes_.clear();
+  game_action_samples_.clear();
 }
 
 uint64_t
@@ -175,10 +177,15 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   // If training, record the nodes for which alpha-zero makes an
   // action decision.
   if (settings_.training_) {
-    // Copy node out of 'nextactionid_arena_' and into standard memory
-    // because 'game_action_nodes_' persists beyond this call.
-    game_action_nodes_.emplace_back(std::move(node_itr->second));
-    // nodes_.erase(node_itr); not needed because clear nodes_ below
+    // Create a sample for the just-chosen action for 'node'. Anything
+    // needed from 'node' must be copied out of 'nextactionid_arena_'
+    // and into standard memory because 'node' does not persist beyond
+    // this call.
+    auto node_probs = node.ChildProbability();
+    assert((node_probs.size() * sizeof(float)) == node.NodeTritonResult()->PiByteSize());
+    std::unique_ptr<const State> sptr(node.NodeState().Copy(std::pmr::new_delete_resource()));
+    game_action_samples_.emplace_back(
+      std::move(sptr), node.NodeTritonResult(), std::move(node_probs), node.Value());
   }
 
   nodes_.clear();
@@ -706,7 +713,7 @@ AlphaZeroTrainingSamples::Sample::ToString() const
     sstr << "]\n";
   }
 
-  sstr << "  " << common::DuplicateAndIndent(node_.NodeState().ToString(), 4 /* indent */) << '\n';
+  sstr << "  " << common::DuplicateAndIndent(state_->ToString(), 4 /* indent */) << '\n';
 
   return sstr.str();
 }
@@ -735,30 +742,32 @@ AlphaZeroTrainingSamples::AcquireAndAggregate(
       node_value = sample.z_value_;
       break;
     case ValueKind::V:
-      node_value = sample.node_.Value();
+      node_value = sample.az_value_;
       break;
     case ValueKind::AVERAGE:
-      node_value = (sample.z_value_ + sample.node_.Value()) / 2.0;
+      node_value = (sample.z_value_ + sample.az_value_) / 2.0;
       break;
     }
 
     // Set target 'pi' and 'v' for the training sample.
-    const State* sample_state = &sample.node_.NodeState();
-    auto sample_itr = train_samples_.find(sample_state);
+    auto sample_itr = train_samples_.find(sample.state_.get());
     if ((aggregate_kind_ == AggregateKind::ALL) || (sample_itr == train_samples_.end())) {
       // For ALL or a first-time-seen node, create a new Sample.
-      auto node_probs = sample.node_.ChildProbability();
-      assert((node_probs.size() * sizeof(float)) == sample.node_.NodeTritonResult().PiByteSize());
 
+      // FIXME, in ALL case this will overwrite. Need map to point to
+      // an index in a vector and not use map in this case... just
+      // accumulate in vector.
       auto created_sample_itr =
         train_samples_.emplace(
           std::piecewise_construct,
-          std::forward_as_tuple(sample_state),
-          std::forward_as_tuple(std::move(sample.node_), sample.z_value_, std::move(node_probs), node_value));
+          std::forward_as_tuple(sample.state_.get()),
+          std::forward_as_tuple(
+            std::move(sample.state_), sample.triton_result_, sample.z_value_,
+            sample.az_value_, std::move(sample.target_pi_), node_value));
       assert(created_sample_itr.second);
       LOG_ALGO(*logger_, "new training sample:");
       LOG_ALGO_IE(*logger_,  created_sample_itr.first->second.ToString(),
-                       2 /* indent */, true /* endline */);
+                  2 /* indent */, true /* endline */);
     }
     else {
       // Otherwise average 'node_probs' and 'node_value' into the
@@ -767,10 +776,8 @@ AlphaZeroTrainingSamples::AcquireAndAggregate(
       Sample& sample = sample_itr->second;
       sample.target_v_ += node_value;
 
-      auto node_probs = sample.node_.ChildProbability();
-      assert((node_probs.size() * sizeof(float)) == sample.node_.NodeTritonResult().PiByteSize());
-      for (size_t i = 0; i < node_probs.size(); ++i) {
-        sample.target_pi_[i] += node_probs[i];
+      for (size_t i = 0; i < sample.target_pi_.size(); ++i) {
+        sample.target_pi_[i] += sample.target_pi_[i];
       }
 
       sample.count_++;
@@ -802,7 +809,7 @@ AlphaZeroTrainingSamples::WriteTraining(const std::string& dir) const
   const TritonInferResult* repr_result = nullptr;
   for (const auto& pr : train_samples_) {
     if (repr_result == nullptr) {
-      repr_result = &(pr.second.node_.NodeTritonResult());
+      repr_result = pr.second.triton_result_.get();
     }
 
     LOG_ALGO_IE(*logger_, pr.second.ToString(), 2 /* indent */, true /* endline */);
