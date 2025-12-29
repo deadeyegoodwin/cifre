@@ -73,8 +73,10 @@ BoardCellFactory::BoardCellFactory(
         flat[offset + PLANE_IDX_VICTORY_POINT] = 1.0;
       }
 
-//      planes_map_[std::make_pair(br, bc)] = std::move(flat_vector);
-      auto [_, ok] = planes_map_.emplace(
+#ifndef NDEBUG
+      auto [_, ok] =
+#endif
+      planes_map_.emplace(
         std::piecewise_construct,
         std::forward_as_tuple(std::make_pair(br, bc)),
         std::forward_as_tuple(std::move(flat_vector)));
