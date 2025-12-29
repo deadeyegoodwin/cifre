@@ -767,21 +767,22 @@ AlphaZeroTrainingSamples::AcquireAndAggregate(
                   2 /* indent */, true /* endline */);
     }
     else {
-      // Otherwise average 'node_probs' and 'node_value' into the
-      // existing sample at the index given by 'sample_idx_itr'.
       assert(aggregate_kind_ == AggregateKind::AVERAGE);
+      // Otherwise average 'target_pi_' and 'node_value' into the
+      // existing sample at the index given by 'sample_idx_itr'.
       const size_t idx = sample_idx_itr->second;
       assert(idx < train_samples_.size());
-      Sample& sample = train_samples_[idx];
-      sample.target_v_ += node_value;
+      Sample& existing_sample = train_samples_[idx];
+      existing_sample.target_v_ += node_value;
 
-      for (size_t i = 0; i < sample.target_pi_.size(); ++i) {
-        sample.target_pi_[i] += sample.target_pi_[i];
+      assert(existing_sample.target_pi_.size() == sample.target_pi_.size());
+      for (size_t i = 0; i < existing_sample.target_pi_.size(); ++i) {
+        existing_sample.target_pi_[i] += sample.target_pi_[i];
       }
 
-      sample.count_++;
+      existing_sample.count_++;
       LOG_ALGO(*logger_, "aggregate into existing training sample:");
-      LOG_ALGO_IE(*logger_,  sample.ToString(), 2 /* indent */, true /* endline */);
+      LOG_ALGO_IE(*logger_,  existing_sample.ToString(), 2 /* indent */, true /* endline */);
     }
   }
 }
