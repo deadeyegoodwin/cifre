@@ -324,16 +324,18 @@ private:
   const ValueKind value_kind_;
 
   // Samples are identified by their State, so we need to use a custom
-  // hash and equal for the map containing all the nodes. The "State*"
-  // key is a pointer to the same state that is in the Sample's node.
-  struct SamplesMapHash {
+  // hash and equal for the map containing indices into
+  // 'train_samples_'. The "State*" key is a pointer to the same state
+  // that is in the Sample.
+  struct SamplesIndexMapHash {
     size_t operator()(const State* s) const { return s->Hash(); }
   };
-  struct SamplesMapEqual {
+  struct SamplesIndexMapEqual {
     bool operator()(const State* a, const State* b) const { return a->Equal(b); }
   };
   std::unordered_map<
-     const State*, Sample, SamplesMapHash, SamplesMapEqual> train_samples_;
+     const State*, size_t, SamplesIndexMapHash, SamplesIndexMapEqual> train_samples_idx_;
+  std::deque<Sample> train_samples_;
 };
 
 //

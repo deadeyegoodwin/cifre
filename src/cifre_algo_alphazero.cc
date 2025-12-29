@@ -750,30 +750,29 @@ AlphaZeroTrainingSamples::AcquireAndAggregate(
     }
 
     // Set target 'pi' and 'v' for the training sample.
-    auto sample_itr = train_samples_.find(sample.state_.get());
-    if ((aggregate_kind_ == AggregateKind::ALL) || (sample_itr == train_samples_.end())) {
-      // For ALL or a first-time-seen node, create a new Sample.
+    auto sample_idx_itr = train_samples_idx_.find(sample.state_.get());
+    if ((aggregate_kind_ == AggregateKind::ALL) || (sample_idx_itr == train_samples_idx_.end())) {
+      // For ALL or a first-time-seen node, create a new Sample. We
+      // don't update 'train_samples_idx_' map for ALL so that we
+      // always end up here and so always create a new sample.
+      if (aggregate_kind_ != AggregateKind::ALL) {
+        train_samples_idx_[sample.state_.get()] = train_samples_.size();
+      }
 
-      // FIXME, in ALL case this will overwrite. Need map to point to
-      // an index in a vector and not use map in this case... just
-      // accumulate in vector.
-      auto created_sample_itr =
-        train_samples_.emplace(
-          std::piecewise_construct,
-          std::forward_as_tuple(sample.state_.get()),
-          std::forward_as_tuple(
-            std::move(sample.state_), sample.triton_result_, sample.z_value_,
-            sample.az_value_, std::move(sample.target_pi_), node_value));
-      assert(created_sample_itr.second);
+      train_samples_.emplace_back(
+        std::move(sample.state_), sample.triton_result_, sample.z_value_,
+        sample.az_value_, std::move(sample.target_pi_), node_value);
       LOG_ALGO(*logger_, "new training sample:");
-      LOG_ALGO_IE(*logger_,  created_sample_itr.first->second.ToString(),
+      LOG_ALGO_IE(*logger_, train_samples_.back().ToString(),
                   2 /* indent */, true /* endline */);
     }
     else {
       // Otherwise average 'node_probs' and 'node_value' into the
-      // existing sample.
+      // existing sample at the index given by 'sample_idx_itr'.
       assert(aggregate_kind_ == AggregateKind::AVERAGE);
-      Sample& sample = sample_itr->second;
+      const size_t idx = sample_idx_itr->second;
+      assert(idx < train_samples_.size());
+      Sample& sample = train_samples_[idx];
       sample.target_v_ += node_value;
 
       for (size_t i = 0; i < sample.target_pi_.size(); ++i) {
@@ -806,34 +805,26 @@ AlphaZeroTrainingSamples::WriteTraining(const std::string& dir) const
 
   // Write training samples. Make sure the data sizes from each of the
   // training nodes is consistent.
-  const TritonInferResult* repr_result = nullptr;
-  for (const auto& pr : train_samples_) {
-    if (repr_result == nullptr) {
-      repr_result = pr.second.triton_result_.get();
-    }
-
-    LOG_ALGO_IE(*logger_, pr.second.ToString(), 2 /* indent */, true /* endline */);
-
-    auto& din = pr.first->TritonRepresentation();
-    fin.write(reinterpret_cast<const char*>(din.data()), din.size() * sizeof(uint8_t));
-    assert((din.size() * sizeof(uint8_t)) == repr_result->InputByteSize());
-
-    for (const float dpi : pr.second.target_pi_) {
-      float dpi_per = dpi / pr.second.count_;
-      fpi.write(reinterpret_cast<const char*>(&dpi_per), sizeof(dpi_per));
-    }
-
-    const float dv_per = pr.second.target_v_ / pr.second.count_;
-    fv.write(reinterpret_cast<const char*>(&dv_per), sizeof(dv_per));
-  }
-
-  fin.close();
-  fpi.close();
-  fv.close();
-
-  // Write train.json to contain descriptive metadata for the training
-  // data.
   if (!train_samples_.empty()) {
+    const TritonInferResult* repr_result = train_samples_.back().triton_result_.get();
+    for (const auto& s : train_samples_) {
+      LOG_ALGO_IE(*logger_, s.ToString(), 2 /* indent */, true /* endline */);
+
+      auto& din = s.state_->TritonRepresentation();
+      fin.write(reinterpret_cast<const char*>(din.data()), din.size() * sizeof(uint8_t));
+      assert((din.size() * sizeof(uint8_t)) == repr_result->InputByteSize());
+
+      for (const float dpi : s.target_pi_) {
+        float dpi_per = dpi / s.count_;
+        fpi.write(reinterpret_cast<const char*>(&dpi_per), sizeof(dpi_per));
+      }
+
+      const float dv_per = s.target_v_ / s.count_;
+      fv.write(reinterpret_cast<const char*>(&dv_per), sizeof(dv_per));
+    }
+
+    // Write train.json to contain descriptive metadata for the
+    // training data.
     std::filesystem::path pjson(dir); pjson /= "train.json";
     LOG_ALGO(*logger_, "writing training metadata to " + pjson.string());
     std::ofstream fjson(pjson, std::ios::out);
@@ -845,6 +836,10 @@ AlphaZeroTrainingSamples::WriteTraining(const std::string& dir) const
       << "}\n";
     fjson.close();
   }
+
+  fin.close();
+  fpi.close();
+  fv.close();
 }
 
 std::string
