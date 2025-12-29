@@ -184,58 +184,46 @@ Board::UpdateTerminalStatus()
     }
   }
 
-  // Down-to-right diagonals.
+  // Up-to-right diagonals.
   for (size_t ridx = 0; ridx <= (size_.RowCount() - IN_A_ROW); ++ridx) {
     for (size_t cidx = 0; cidx <= (size_.ColumnCount() - IN_A_ROW); ++cidx) {
-      size_t adj_count = 0;
-      size_t last_cv = CELL_EMPTY;
-      for (size_t idx = 0; idx < IN_A_ROW; ++idx) {
-        const float cv = CellValueAt(ridx + idx, cidx + idx);
-        if (cv == CELL_EMPTY) {
-          adj_count = 0; // empty cell
-        }
-        else if (cv == last_cv) {
-          adj_count++;
-          if (adj_count >= IN_A_ROW) {
-            terminal_status_ =
-              cifre::StateTerminalStatus(
-                cifre::StateTerminalStatus::TerminalKind::WINNER, CellValueToPlayer(cv)->Id());
-            return;
+      const float cv = CellValueAt(ridx, cidx);
+      if (cv != CELL_EMPTY) {
+        bool found = true;
+        for (size_t idx = 1; idx < IN_A_ROW; ++idx) {
+          if (cv != CellValueAt(ridx + idx, cidx + idx)) {
+            found = false;
+            break;
           }
         }
-        else {
-          adj_count = 1;
+        if (found) {
+          terminal_status_ =
+            cifre::StateTerminalStatus(
+              cifre::StateTerminalStatus::TerminalKind::WINNER, CellValueToPlayer(cv)->Id());
+          return;
         }
-
-        last_cv = cv;
       }
     }
   }
 
-  // Up-to-right diagonals.
-  for (size_t ridxp1 = size_.RowCount(); ridxp1 > IN_A_ROW; --ridxp1) {
-    for (size_t cidx = 0; cidx <= (size_.ColumnCount() - IN_A_ROW); ++cidx) {
-      size_t adj_count = 0;
-      size_t last_cv = CELL_EMPTY;
-      for (size_t idx = 0; idx < IN_A_ROW; ++idx) {
-        const float cv = CellValueAt(ridxp1 - 1 - idx, cidx + idx);
-        if (cv == CELL_EMPTY) {
-          adj_count = 0; // empty cell
-        }
-        else if (cv == last_cv) {
-          adj_count++;
-          if (adj_count >= IN_A_ROW) {
-            terminal_status_ =
-              cifre::StateTerminalStatus(
-                cifre::StateTerminalStatus::TerminalKind::WINNER, CellValueToPlayer(cv)->Id());
-            return;
+  // Up-to-left diagonals.
+  for (size_t ridx = 0; ridx <= (size_.RowCount() - IN_A_ROW); ++ridx) {
+    for (size_t cidx = (size_.ColumnCount() - IN_A_ROW); cidx < size_.ColumnCount(); ++cidx) {
+      const float cv = CellValueAt(ridx, cidx);
+      if (cv != CELL_EMPTY) {
+        bool found = true;
+        for (size_t idx = 1; idx < IN_A_ROW; ++idx) {
+          if (cv != CellValueAt(ridx + idx, cidx - idx)) {
+            found = false;
+            break;
           }
         }
-        else {
-          adj_count = 1;
+        if (found) {
+          terminal_status_ =
+            cifre::StateTerminalStatus(
+              cifre::StateTerminalStatus::TerminalKind::WINNER, CellValueToPlayer(cv)->Id());
+          return;
         }
-
-        last_cv = cv;
       }
     }
   }
