@@ -91,7 +91,8 @@ TritonStatistics::ToString() const
     << ", inferences: " << inference_count_ << " ("
     << (100.0 * inference_count_ / prediction_count_) << "%)"
     << ", cache hits: " << cache_hit_count_ << " ("
-    << (100.0 * cache_hit_count_ / prediction_count_) << "%)";
+    << (100.0 * cache_hit_count_ / prediction_count_) << "%)"
+    << ", cache flush: " << cache_flush_count_;
 
   return ss.str();
 }
@@ -166,6 +167,13 @@ TritonCache::Insert(
   }
 }
 
+void
+TritonCache::Flush()
+{
+  common::ScopedSpinlock sl(lock_);
+  cache_.clear();
+}
+
 //
 // TritonModel
 //
@@ -207,13 +215,22 @@ TritonModel::IsReady() const
   return ready;
 }
 
+void
+TritonModel::FlushCache()
+{
+  if (cache_ != nullptr) {
+    cache_->Flush();
+    statistics_->cache_flush_count_++;
+  }
+}
+
 std::shared_ptr<const TritonInferResult>
 TritonModel::Infer(const State& state)
 {
   statistics_->prediction_count_++;
 
   // See if 'model' has already run a prediction for 'state', and if
-  // it has use the cached result.
+  // it has use of the cached result.
   if (cache_ != nullptr) {
     std::shared_ptr<const TritonInferResult> ires = cache_->Lookup(state);
     if (ires != nullptr) {
@@ -505,6 +522,14 @@ TritonServer::InferenceStatistics() const
   }
 
   return stats;
+}
+
+void
+TritonServer::FlushAllCaches()
+{
+  for (auto& pr : model_cache_) {
+    pr.second->Flush();
+  }
 }
 
 bool

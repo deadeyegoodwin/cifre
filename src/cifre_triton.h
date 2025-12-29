@@ -84,6 +84,7 @@ struct TritonStatistics {
   std::atomic<size_t> prediction_count_ {0};
   std::atomic<size_t> inference_count_ {0};
   std::atomic<size_t> cache_hit_count_ {0};
+  std::atomic<size_t> cache_flush_count_ {0};
 };
 
 //
@@ -95,6 +96,9 @@ struct TritonStatistics {
 // itself. All methods are thread-safe.
 class TritonCache {
 public:
+  // Flush all entries from cache.
+  void Flush();
+
   // Lookup 'state' and return any cached result.
   std::shared_ptr<const TritonInferResult> Lookup(const State& state);
 
@@ -140,6 +144,9 @@ public:
 
   // Return true if the model is ready to receive inference requests.
   bool IsReady() const;
+
+  // Flush all entries from this model's cache.
+  void FlushCache();
 
   // Run model with 'state' as input to get a prediction result. If
   // caching is enable the result can be returned from the cache
@@ -263,6 +270,9 @@ public:
   // Return a map from model name to a TritonInferStatistics object
   // holding the inference statistics for the model.
   std::unordered_map<std::string, const TritonInferStatistics> InferenceStatistics() const;
+
+  // Flush all entries from all caches.
+  void FlushAllCaches();
 
   // Load 'model_name' into triton. Enable caching for the model if
   // 'enable_cache' is true. Nothing is done if the model is already

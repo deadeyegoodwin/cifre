@@ -925,9 +925,7 @@ Game::Play()
       alphazero_train_samples_->Reset();
     }
 
-    // FIXME the following are unneeded once we sort out copying
-    // nodes/states into samples
-    triton_server_.reset();
+    triton_server_->FlushAllCaches();
 
   } catch (const std::exception& ex) {
     GameFail(ex.what());
