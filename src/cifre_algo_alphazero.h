@@ -311,6 +311,9 @@ public:
   // Write collected training data to 'dir'.
   void WriteTraining(const std::string& dir) const;
 
+  // Remove all samples.
+  void Reset();
+
   // Return string representation of Samples.
   std::string ToString() const;
 

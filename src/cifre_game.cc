@@ -213,7 +213,6 @@ PlayOneTask::Invoke()
     LOG_GAME(*logger_, "game over: winner " + players_[winner_id]->Name());
     LOG_GAME(*logger_, state->ToString());
 
-    // FIXME only supports 2 player games
     result_ = (winner_id == 0) ? GameResult::WINNER1 : GameResult::WINNER2;
   }
   catch (const std::exception& ex) {
@@ -923,11 +922,11 @@ Game::Play()
     // Write alphazero training data.
     if (!train_dir_.empty() && (alphazero_train_samples_ != nullptr)) {
       alphazero_train_samples_->WriteTraining(train_dir_);
+      alphazero_train_samples_->Reset();
     }
 
     // FIXME the following are unneeded once we sort out copying
     // nodes/states into samples
-    alphazero_train_samples_.reset();
     triton_server_.reset();
 
   } catch (const std::exception& ex) {

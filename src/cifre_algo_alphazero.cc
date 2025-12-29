@@ -863,4 +863,11 @@ AlphaZeroTrainingSamples::ToJsonArray(const std::vector<int64_t> shape, size_t b
   return str;
 }
 
+void
+AlphaZeroTrainingSamples::Reset()
+{
+  train_samples_.clear();
+  train_samples_idx_.clear();
+}
+
 } // namespace cifre
