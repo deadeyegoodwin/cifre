@@ -53,8 +53,8 @@ public:
 
   // See cifre::State
   void Update(uint64_t action_id) override;
-  Board* Copy(std::pmr::memory_resource* arena) const override;
-  Board* CopyAndUpdate(
+  StateUniquePtr Copy(std::pmr::memory_resource* arena) const override;
+  StateUniquePtr CopyAndUpdate(
     uint64_t action_id, std::pmr::memory_resource* arena) const override;
 
   // See cifre::State

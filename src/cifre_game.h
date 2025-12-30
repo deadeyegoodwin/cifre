@@ -177,7 +177,7 @@ public:
   // Return the cifre::State representing the initial game state. This
   // may be called multiple times if it is necessary to create
   // multiple copies of the initial state.
-  virtual State* CreateInitialState(
+  virtual StateUniqueConstPtr CreateInitialState(
     const std::vector<Player*>& players, size_t starting_player_idx) const = 0;
 
   // Create Player for the game. 'algo' must be nullptr for

@@ -11,6 +11,8 @@
 
 namespace cifre {
 
+class State;
+
 //
 // StateTerminalStatus
 //
@@ -66,6 +68,63 @@ public:
   FlattenedCells(const FlattenedCells&) = delete;
   FlattenedCells& operator=(const FlattenedCells&) = delete;
 };
+
+//
+// StateDeleter
+//
+// Needed to correctly delete State objects allocated into a memory
+// arena using placement new (as is commonly done in implementations
+// of Copy() and CopyAndUpdate()). For a state object not allocated
+// using an arena and placement-new, the StateDeleter must be
+// constructed with 'arena' == std::pmr::new_delete_resource(), or
+// more efficiently use StateDeleterNewDelete<T>.
+//
+class StateDeleterBase {
+public:
+  void operator()(const void* ptr) const { operator()(const_cast<void*>(ptr)); }
+  void operator()(void* ptr) const { fn_(ptr, payload_); }
+protected:
+  StateDeleterBase(void (*fn)(void*, void*), void* payload) :
+    fn_(fn), payload_(payload) { }
+private:
+  void (*fn_)(void*, void*);
+  void* payload_;
+};
+
+template <typename T>
+class StateDeleterNewDelete : public StateDeleterBase {
+public:
+  StateDeleterNewDelete<T>() : StateDeleterBase(Deleter, nullptr) { }
+private:
+  static void Deleter(void* ptr, void* payload) {
+    if (ptr != nullptr) {
+      delete static_cast<T*>(ptr);
+    }
+  }
+};
+
+template <typename T>
+class StateDeleter : public StateDeleterBase {
+public:
+  StateDeleter<T>(std::pmr::memory_resource* arena) :
+    StateDeleterBase(Deleter, arena) { }
+private:
+  static void Deleter(void* ptr, void* payload) {
+    if (ptr != nullptr) {
+      std::pmr::memory_resource* arena = static_cast<std::pmr::memory_resource*>(payload);
+      if (arena->is_equal(*std::pmr::new_delete_resource())) {
+        delete static_cast<T*>(ptr);
+      }
+      else {
+        static_cast<T*>(ptr)->~T();
+        arena->deallocate(ptr, sizeof(T), alignof(T));
+      }
+    }
+  }
+};
+
+using StateUniquePtr = std::unique_ptr<State, StateDeleterBase>;
+using StateUniqueConstPtr = std::unique_ptr<const State, StateDeleterBase>;
 
 //
 // State
@@ -125,14 +184,14 @@ public:
 
   // Virtual copy constructor. Return an exact copy of this state.
   // Use 'arena' to allocate the memory needed for the copy.
-  virtual State* Copy(std::pmr::memory_resource* arena) const = 0;
+  virtual StateUniquePtr Copy(std::pmr::memory_resource* arena) const = 0;
 
   // Behaves exactly like Copy() followed by Update(). Derived classes
   // may implement if doing so provides a performance benefit. Return
   // the modified copy.
-  virtual State* CopyAndUpdate(
+  virtual StateUniquePtr CopyAndUpdate(
     uint64_t action_id, std::pmr::memory_resource* arena) const {
-    State* nb = Copy(arena); nb->Update(action_id); return nb; }
+    auto nb = Copy(arena); nb->Update(action_id); return nb; }
 
   // Get the representation of the state suitable for feeding to the
   // nnet via triton. This representation does not need to include all

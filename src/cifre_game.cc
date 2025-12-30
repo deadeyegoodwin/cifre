@@ -71,7 +71,7 @@ public:
 
   PlayOneTask(
     const std::shared_ptr<Logger>& logger,
-    std::unique_ptr<const State> initial_state,
+    StateUniqueConstPtr initial_state,
     std::vector<std::unique_ptr<Player>> players,
     std::vector<std::shared_ptr<Algo>> algos,
     size_t max_turns_per_game) :
@@ -98,7 +98,7 @@ public:
 
 private:
   std::shared_ptr<Logger> logger_;
-  std::unique_ptr<const State> initial_state_;
+  StateUniqueConstPtr initial_state_;
   std::vector<std::unique_ptr<Player>> players_;
   std::vector<std::shared_ptr<Algo>> algos_;
   const size_t max_turns_per_game_;
@@ -114,7 +114,7 @@ PlayOneTask::Invoke()
   // Create initial state for the game that gets modified as the game
   // progresses. We don't modify 'initial_state_' because this task
   // can be reused for another game.
-  std::unique_ptr<State> state(initial_state_->Copy(std::pmr::new_delete_resource()));
+  StateUniquePtr state(initial_state_->Copy(std::pmr::new_delete_resource()));
 
   try {
     // Let all players and algos know a new game is starting.
@@ -775,7 +775,7 @@ Game::Play()
       players.emplace_back(CreatePlayerInternal(psettings[1], algos[1]));
 
       // Initial state for all games.
-      std::unique_ptr<const State> istate(
+      StateUniqueConstPtr istate(
         CreateInitialState({ players[0].get(), players[1].get() }, starting_player_idx_));
 
       pool.Enqueue(std::make_unique<PlayOneTask>(

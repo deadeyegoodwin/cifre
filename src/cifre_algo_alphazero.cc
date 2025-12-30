@@ -116,8 +116,7 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   }
 
   // Find, creating if necessary, the tree node that represents 'state'.
-  auto node_itr = FindOrCreateNode(
-    std::unique_ptr<const State>(state.Copy(&nextactionid_arena_)));
+  auto node_itr = FindOrCreateNode(state.Copy(&nextactionid_arena_));
   auto& node = node_itr->second;
 
   LOG_ALGO(*logger_, "\nalphazero: starting node");
@@ -183,9 +182,9 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
     // this call.
     auto node_probs = node.ChildProbability();
     assert((node_probs.size() * sizeof(float)) == node.NodeTritonResult()->PiByteSize());
-    std::unique_ptr<const State> sptr(node.NodeState().Copy(std::pmr::new_delete_resource()));
     game_action_samples_.emplace_back(
-      std::move(sptr), node.NodeTritonResult(), std::move(node_probs), node.Value());
+      node.NodeState().Copy(std::pmr::new_delete_resource()),
+      node.NodeTritonResult(), std::move(node_probs), node.Value());
   }
 
   nodes_.clear();
@@ -195,7 +194,7 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
 }
 
 AlphaZeroAlgo::NodesIterator
-AlphaZeroAlgo::FindOrCreateNode(std::unique_ptr<const State> state, bool* created)
+AlphaZeroAlgo::FindOrCreateNode(StateUniqueConstPtr state, bool* created)
 {
   auto fnode_itr = nodes_.find(state.get());
   if (fnode_itr != nodes_.end()) {
@@ -299,7 +298,7 @@ AlphaZeroAlgo::SearchTree(
   if (next == nullptr) {
     // Find or create the node representing the state that results
     // when 'best_action_id' is applied to 'node'.
-    std::unique_ptr<const State> next_state(
+    StateUniqueConstPtr next_state(
       node->NodeState().CopyAndUpdate(*best_action_id, &nextactionid_arena_));
     NodesIterator snext_itr = FindOrCreateNode(std::move(next_state), &next_created);
     next = &snext_itr->second;
@@ -382,7 +381,7 @@ AlphaZeroAlgo::GenerateDirichletSamples(
 // AlphaZeroNode
 //
 AlphaZeroNode::AlphaZeroNode(
-  std::pmr::memory_resource& arena, std::unique_ptr<const State> state,
+  std::pmr::memory_resource& arena, StateUniqueConstPtr state,
   std::shared_ptr<const TritonInferResult> infer_result) :
   state_(std::move(state)), result_(infer_result),
   children_(state_->TotalActionIdCount(), nullptr, &arena),

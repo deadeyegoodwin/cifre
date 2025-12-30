@@ -60,7 +60,7 @@ public:
     const std::shared_ptr<cifre::Algo>& algo) const override;
 
   // See cifre::Game
-  State* CreateInitialState(
+  StateUniqueConstPtr CreateInitialState(
     const std::vector<Player*>& players, size_t starting_player_idx) const override;
 
   // Custom one-time initialization for gettysburg.
@@ -203,7 +203,7 @@ Gettysburg::CreatePlayer(
   return nullptr;
 }
 
-cifre::State*
+StateUniqueConstPtr
 Gettysburg::CreateInitialState(
   const std::vector<Player*>& players, size_t starting_player_idx) const
 {
@@ -213,10 +213,12 @@ Gettysburg::CreateInitialState(
 
   // 'starting_player_id' is ignored because gettysburg must start
   // with confederates.
-  return new Board(
-    cell_factory_.get(), move_factory_.get(),
-    scenario_, game_shape_, plane_shape_, players,
-    std::pmr::new_delete_resource());
+  return StateUniquePtr(
+    new Board(
+      cell_factory_.get(), move_factory_.get(),
+      scenario_, game_shape_, plane_shape_, players,
+      std::pmr::new_delete_resource()),
+    StateDeleterNewDelete<Board>());
 }
 
 void

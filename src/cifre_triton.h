@@ -92,7 +92,7 @@ struct TritonStatistics {
 //
 // Cache results to avoid running inference multiple times on the same
 // State. The "State*" key is a pointer to the same state that is
-// owned by the unique_ptr<State> in the TritonCache::CacheEntry
+// owned by the StateUniquePtr in the TritonCache::CacheEntry
 // itself. All methods are thread-safe.
 class TritonCache {
 public:
@@ -109,10 +109,9 @@ public:
 
 private:
   struct CacheEntry {
-    CacheEntry(std::unique_ptr<const State> state,
-               std::shared_ptr<const TritonInferResult> result) :
+    CacheEntry(StateUniqueConstPtr state, std::shared_ptr<const TritonInferResult> result) :
       state_(std::move(state)), result_(result) { }
-    const std::unique_ptr<const State> state_;
+    const StateUniqueConstPtr state_;
     const std::shared_ptr<const TritonInferResult> result_;
   };
 

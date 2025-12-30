@@ -328,7 +328,7 @@ Board::UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx)
   return units;
 }
 
-Board*
+StateUniquePtr
 Board::Copy(std::pmr::memory_resource* arena) const
 {
   void* buffer = arena->allocate(sizeof(Board), alignof(Board));
@@ -336,13 +336,14 @@ Board::Copy(std::pmr::memory_resource* arena) const
 
   // The copy constructor does not copy 'cells_flattened_' or set
   // 'cells_', so we need to do it explicitly.
-  std::copy(cells_flattened_.begin(), cells_flattened_.end(), nb->cells_flattened_.begin());
+  nb->cells_flattened_.assign(cells_flattened_.begin(), cells_flattened_.end());
   nb->cells_ = reinterpret_cast<float*>(nb->cells_flattened_.data());
   nb->cells_flattened_factory_key_ = cells_flattened_factory_key_;
-  return nb;
+
+  return StateUniquePtr(nb, StateDeleter<Board>(arena));
 }
 
-Board*
+StateUniquePtr
 Board::CopyAndUpdate(uint64_t action_id, std::pmr::memory_resource* arena) const
 {
   void* buffer = arena->allocate(sizeof(Board), alignof(Board));
@@ -353,7 +354,8 @@ Board::CopyAndUpdate(uint64_t action_id, std::pmr::memory_resource* arena) const
   // want because those values will be set by Update() and so setting
   // them now would be wasteful as they will be overwritten.
   nb->Update(action_id);
-  return nb;
+
+  return StateUniquePtr(nb, StateDeleter<Board>(arena));
 }
 
 void

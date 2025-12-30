@@ -25,8 +25,7 @@ public:
         size_t starting_player_id, std::pmr::memory_resource* arena);
 
   // See cifre::State
-  Board* Copy(std::pmr::memory_resource* arena) const override {
-    return new Board(*this, arena); }
+  StateUniquePtr Copy(std::pmr::memory_resource* arena) const override;
   void Update(uint64_t action_id) override;
 
   // One action for each board column. See cifre::Board2D.

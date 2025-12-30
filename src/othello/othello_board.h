@@ -26,8 +26,7 @@ public:
   size_t DoNothingActionId() const { return do_nothing_action_id_; }
 
   // See cifre::State
-  Board* Copy(std::pmr::memory_resource* arena) const override {
-    return new Board(*this, arena); }
+  StateUniquePtr Copy(std::pmr::memory_resource* arena) const override;
   void Update(uint64_t action_id) override;
 
   // One action for each board cell, plus the "do nothing" action. See

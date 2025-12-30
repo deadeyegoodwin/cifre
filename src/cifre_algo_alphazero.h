@@ -124,7 +124,7 @@ class AlphaZeroNode {
 public:
   // Create node for 'state'.
   AlphaZeroNode(
-    std::pmr::memory_resource& arena, std::unique_ptr<const State> state,
+    std::pmr::memory_resource& arena, StateUniqueConstPtr state,
     std::shared_ptr<const TritonInferResult> infer_result);
 
   // Is node a terminal?
@@ -197,7 +197,7 @@ public:
   std::string ToString(float cpuct = 0.0) const;
 
 private:
-  std::unique_ptr<const State> state_;
+  StateUniqueConstPtr state_;
   std::shared_ptr<const TritonInferResult> result_;
   std::pmr::vector<AlphaZeroNode*> children_;      // fully sized at construction
   std::pmr::vector<size_t> children_visit_counts_; // fully sized at construction
@@ -219,13 +219,13 @@ public:
   class Sample {
   public:
     Sample(
-      std::unique_ptr<const State> s, const std::shared_ptr<const TritonInferResult>& tr,
+      StateUniqueConstPtr s, const std::shared_ptr<const TritonInferResult>& tr,
       std::vector<float>&& pi, float azv) :
       state_(std::move(s)), triton_result_(tr), z_value_(0),
       az_value_(azv), target_pi_(std::move(pi)), target_v_(0), count_(1) { }
 
     Sample(
-      std::unique_ptr<const State> s, const std::shared_ptr<const TritonInferResult>& tr,
+      StateUniqueConstPtr s, const std::shared_ptr<const TritonInferResult>& tr,
       float z_value, float az_value, std::vector<float>&& pi, float v) :
       state_(std::move(s)), triton_result_(tr), z_value_(z_value), az_value_(az_value),
       target_pi_(std::move(pi)), target_v_(v), count_(1) { }
@@ -241,7 +241,7 @@ public:
   private:
     friend class AlphaZeroTrainingSamples;
 
-    std::unique_ptr<const State> state_;
+    StateUniqueConstPtr state_;
     std::shared_ptr<const TritonInferResult> triton_result_;
 
     // Game outcome value. If AggregateKind is AVERAGE, then this is
@@ -400,8 +400,7 @@ private:
   // necessary. The created node, if any, takes ownership of 'state'.
   // If 'created' is not nullptr, returns true if node created, false
   // if already exists.
-  NodesIterator FindOrCreateNode(
-    std::unique_ptr<const State> state, bool* created = nullptr);
+  NodesIterator FindOrCreateNode(StateUniqueConstPtr, bool* created = nullptr);
 
   // Search from 'node' and update the tree. Return the 'V' value for
   // the leaf node visited in the search, and the node that terminated

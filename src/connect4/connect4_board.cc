@@ -61,6 +61,14 @@ Board::StringToAction(const std::string& str) const
   return cifre::Board2D::StringToAction(str);
 }
 
+StateUniquePtr
+Board::Copy(std::pmr::memory_resource* arena) const
+{
+  void* buffer = arena->allocate(sizeof(Board), alignof(Board));
+  Board* nb = new(buffer) Board(*this, arena);
+  return StateUniquePtr(nb, StateDeleter<Board>(arena));
+}
+
 void
 Board::Update(uint64_t action_id)
 {

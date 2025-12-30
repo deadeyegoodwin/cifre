@@ -52,7 +52,7 @@ public:
     const std::shared_ptr<cifre::Algo>& algo) const override;
 
   // See cifre::Game
-  State* CreateInitialState(
+  StateUniqueConstPtr CreateInitialState(
     const std::vector<Player*>& players, size_t starting_player_idx) const override;
 
 private:
@@ -169,12 +169,14 @@ Othello::CreatePlayer(
   return nullptr;
 }
 
-cifre::State*
+StateUniqueConstPtr
 Othello::CreateInitialState(
   const std::vector<Player*>& players, size_t starting_player_idx) const
 {
-  return new Board(
-    game_shape_, players, starting_player_idx, std::pmr::new_delete_resource());
+  return StateUniquePtr(
+    new Board(
+      game_shape_, players, starting_player_idx, std::pmr::new_delete_resource()),
+    StateDeleterNewDelete<Board>());
 }
 
 }} // namespace cifre::othello
