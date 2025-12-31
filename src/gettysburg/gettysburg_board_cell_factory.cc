@@ -209,7 +209,7 @@ BoardCellFactory::ToString() const
   const size_t cplane_bytes = flat_vector_byte_count_ * planes_map_.size();
   ss
     << "constant plane sets:\n"
-    << "    created " << planes_map_.size() << ", " << "memory usage " << cplane_bytes << "\n";
+    << "  created " << planes_map_.size() << ", " << "memory usage " << cplane_bytes << "\n";
 
   size_t aplane_bytes = 0;
   for (const auto& pr : alloc_planes_map_) {
@@ -218,8 +218,8 @@ BoardCellFactory::ToString() const
   aplane_bytes *= flat_vector_byte_count_;
   ss
     << "allocated plane sets:\n"
-    << "    created " << created_plane_sets_ << ", " << "memory usage " << aplane_bytes << "\n"
-    << "    acquired " << acquired_plane_sets_ << ", " << "released " << released_plane_sets_;
+    << "  created " << created_plane_sets_ << ", " << "memory usage " << aplane_bytes << "\n"
+    << "  acquired " << acquired_plane_sets_ << ", " << "released " << released_plane_sets_;
 
   size_t max_per = 0;
   CellsKey max_key;
@@ -232,7 +232,7 @@ BoardCellFactory::ToString() const
 
   if (max_per > 0) {
     ss
-      << "\n    per-state maximum " << max_per << " for ["
+      << "\n  per-state maximum " << max_per << " for ["
       << std::get<0>(max_key) << ","
       << std::get<1>(max_key) << "]";
   }

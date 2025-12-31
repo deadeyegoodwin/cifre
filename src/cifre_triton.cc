@@ -78,12 +78,14 @@ TritonInferResult::ValidateResult(
 }
 
 //
-// TritonStatistics
+// TritonModelStatistics
 //
 std::string
-TritonStatistics::ToString() const
+TritonModelStatistics::ToString() const
 {
   std::stringstream ss;
+
+  assert(cache_lookup_count_ == prediction_count_);
 
   ss
     << std::fixed << std::setprecision(2)
@@ -91,8 +93,20 @@ TritonStatistics::ToString() const
     << ", inferences: " << inference_count_ << " ("
     << (100.0 * inference_count_ / prediction_count_) << "%)"
     << ", cache hits: " << cache_hit_count_ << " ("
-    << (100.0 * cache_hit_count_ / prediction_count_) << "%)"
-    << ", cache flush: " << cache_flush_count_;
+    << (100.0 * cache_hit_count_ / prediction_count_) << "%)\n";
+  ss
+    << "cache:\n"
+    << "  lookups: " << cache_lookup_count_ << ", ";
+  if (cache_lookup_count_ > 0) {
+    ss
+      << std::fixed << std::setprecision(2)
+      << "hits: " << cache_hit_count_ << " ("
+      << (100.0 * cache_hit_count_ / cache_lookup_count_) << "%), ";
+  }
+
+  ss
+    << "flushes: " << cache_flush_count_ << ", "
+    << "entries: " << cache_entry_count_;
 
   return ss.str();
 }
@@ -115,11 +129,12 @@ TritonInferStatistics::ToString() const
     common::Time(compute_output_time_ns_ / 1000) / std::max(compute_output_count_, size_t(1));
 
   ss
-    << "inferences: " << inference_count_
+    << "inference:\n"
+    << "  inferences: " << inference_count_
     << ", batch-size avg: "
     << std::fixed << std::setprecision(2)
     << ((float)inference_count_ / execution_count_) << '\n'
-    << "queue avg: " << queue_avg_time.ToString()
+    << "  queue avg: " << queue_avg_time.ToString()
     << ", compute input/infer/output avg: "
     << compute_input_avg_time.ToString() << " / "
     << compute_infer_avg_time.ToString() << " / "
@@ -135,6 +150,7 @@ std::shared_ptr<const TritonInferResult>
 TritonCache::Lookup(const State& state)
 {
   static std::shared_ptr<const TritonInferResult> miss;
+  statistics_->cache_lookup_count_++;
 
   common::ScopedSpinlock sl(lock_);
 
@@ -164,6 +180,8 @@ TritonCache::Insert(
         std::forward_as_tuple(ce_state.get()),
         std::forward_as_tuple(std::move(ce_state), result));
     assert(created_cache_itr.second);
+
+    statistics_->cache_entry_count_++;
   }
 }
 
@@ -172,6 +190,8 @@ TritonCache::Flush()
 {
   common::ScopedSpinlock sl(lock_);
   cache_.clear();
+  statistics_->cache_entry_count_ = 0;
+  statistics_->cache_flush_count_++;
 }
 
 //
@@ -179,7 +199,7 @@ TritonCache::Flush()
 //
 TritonModel::TritonModel(const std::string& model_name,
                          const std::shared_ptr<TritonCache>& cache,
-                         const std::shared_ptr<TritonStatistics>& statistics,
+                         const std::shared_ptr<TritonModelStatistics>& statistics,
                          const std::string& url, bool verbose) :
   model_name_(model_name), statistics_(statistics), cache_(cache)
 {
@@ -220,7 +240,6 @@ TritonModel::FlushCache()
 {
   if (cache_ != nullptr) {
     cache_->Flush();
-    statistics_->cache_flush_count_++;
   }
 }
 
@@ -544,12 +563,22 @@ TritonServer::LoadModel(const std::string& model_name, bool enable_cache)
 
   loaded_model_names_.insert(model_name);
 
-  // Create a cache for the model if requested and one doesn't already
-  // exist.
+  // Create statistics for model and cache doesn't already exist.
+  std::shared_ptr<TritonModelStatistics> statistics;
+  auto stats_itr = model_statistics_.find(model_name);
+  if (stats_itr == model_statistics_.end()) {
+    statistics.reset(new TritonModelStatistics());
+    model_statistics_[model_name] = statistics;
+  }
+  else {
+    statistics = stats_itr->second;
+  }
+
+  // Create a cache for model if requested and doesn't already exist.
   if (enable_cache) {
     auto cache_itr = model_cache_.find(model_name);
     if (cache_itr == model_cache_.end()) {
-      model_cache_[model_name] = std::make_shared<TritonCache>();
+      model_cache_[model_name] = std::make_shared<TritonCache>(statistics);
     }
   }
 
@@ -583,18 +612,11 @@ TritonServer::CreateTritonModel(const std::string& model_name, bool verbose)
     cache = cache_itr->second;
   }
 
-  // Statistics for 'model_name'.
-  std::shared_ptr<TritonStatistics> statistics;
+  // Find the statistics for the model.
   auto stats_itr = model_statistics_.find(model_name);
-  if (stats_itr == model_statistics_.end()) {
-    statistics.reset(new TritonStatistics());
-    model_statistics_[model_name] = statistics;
-  }
-  else {
-    statistics = stats_itr->second;
-  }
+  THROWIF(stats_itr == model_statistics_.end(), "expecting statistics for model");
 
-  return new TritonModel(model_name, cache, statistics, url_, verbose);
+  return new TritonModel(model_name, cache, stats_itr->second, url_, verbose);
 }
 
 std::string
@@ -615,12 +637,12 @@ TritonServer::ToString() const
 
     ss
       << "model " << model_name << '\n'
-      << common::DuplicateAndIndent(stats->ToString(), 4 /* indent */);
+      << common::DuplicateAndIndent(stats->ToString(), 2 /* indent */);
 
     auto infer_stats_itr = infer_stats.find(model_name);
     if (infer_stats_itr != infer_stats.end()) {
       const TritonInferStatistics& infer_stat = infer_stats_itr->second;
-      ss << '\n' << common::DuplicateAndIndent(infer_stat.ToString(), 4 /* indent */);
+      ss << '\n' << common::DuplicateAndIndent(infer_stat.ToString(), 2 /* indent */);
     }
 
     first = false;

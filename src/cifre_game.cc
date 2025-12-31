@@ -896,21 +896,21 @@ Game::Play()
     if (alphazero_statistics != nullptr) {
       LOG_ALGO_SUMMARY(*logger_, "AlphaZero");
       LOG_ALGO_SUMMARY_IE(
-        *logger_, alphazero_statistics->ToString(), 4 /* indent */, true /* endline */);
+        *logger_, alphazero_statistics->ToString(), 2 /* indent */, true /* endline */);
     }
 
     // Training sample statistics, if any...
     if (alphazero_train_samples_ != nullptr) {
       LOG_ALGO_SUMMARY(*logger_, "Training Samples");
       LOG_ALGO_SUMMARY_IE(
-        *logger_, alphazero_train_samples_->ToString(), 4 /* indent */, true /* endline */);
+        *logger_, alphazero_train_samples_->ToString(), 2 /* indent */, true /* endline */);
     }
 
     // Triton statistics, if any...
     if (triton_server_ != nullptr) {
       LOG_TRITON_SUMMARY(*logger_, "Triton");
       LOG_TRITON_SUMMARY_IE(
-        *logger_, triton_server_->ToString(), 4 /* indent */, true /* endline */);
+        *logger_, triton_server_->ToString(), 2 /* indent */, true /* endline */);
     }
 
     // Write report, if requested.

@@ -75,16 +75,21 @@ private:
 };
 
 //
-// TritonStatistics
+// TritonModelStatistics
 //
-struct TritonStatistics {
+// Per-model statistics.
+//
+struct TritonModelStatistics {
   // Return string representation of statistics.
   std::string ToString() const;
 
   std::atomic<size_t> prediction_count_ {0};
   std::atomic<size_t> inference_count_ {0};
+
+  std::atomic<size_t> cache_lookup_count_ {0};
   std::atomic<size_t> cache_hit_count_ {0};
   std::atomic<size_t> cache_flush_count_ {0};
+  std::atomic<size_t> cache_entry_count_ {0};
 };
 
 //
@@ -96,6 +101,9 @@ struct TritonStatistics {
 // itself. All methods are thread-safe.
 class TritonCache {
 public:
+  TritonCache(const std::shared_ptr<TritonModelStatistics>& statistics) :
+    statistics_(statistics) { }
+
   // Flush all entries from cache.
   void Flush();
 
@@ -114,6 +122,10 @@ private:
     const StateUniqueConstPtr state_;
     const std::shared_ptr<const TritonInferResult> result_;
   };
+
+  // Statistics for the cache. This object is shared across all
+  // models and caches that represent the same nnet model.
+  std::shared_ptr<TritonModelStatistics> statistics_;
 
   struct CacheMapHash {
     size_t operator()(const State* s) const { return s->Hash(); }
@@ -161,7 +173,7 @@ private:
   // use TritonServer::CreateTritonModel.
   TritonModel(const std::string& model_name,
               const std::shared_ptr<TritonCache>& cache,
-              const std::shared_ptr<TritonStatistics>& statistics,
+              const std::shared_ptr<TritonModelStatistics>& statistics,
               const std::string& url, bool verbose);
 
   triton::client::Error UpdateInputMetadata(
@@ -174,7 +186,7 @@ private:
 
   // Statistics for the model. This object is shared across all
   // TritonModels that represent the same nnet model.
-  std::shared_ptr<TritonStatistics> statistics_;
+  std::shared_ptr<TritonModelStatistics> statistics_;
 
   // Client to access the triton server. See TritonModel description
   // above as to why there is no mutex for this object even though
@@ -293,11 +305,6 @@ public:
 private:
   const std::string url_;
 
-  // Map from model name to statistics for that model. All TritonModel
-  // objects that represent the same model name share a
-  // TritonStatistics object from this map.
-  std::unordered_map<std::string, std::shared_ptr<TritonStatistics>> model_statistics_;
-
   // Client to access the triton server. InferenceServerHttpClient is
   // not thread-safe so use of 'client_' is protected by 'client_mu_'.
   std::unique_ptr<triton::client::InferenceServerHttpClient> client_;
@@ -308,6 +315,11 @@ private:
   // Names of all models loaded by this TritonServer that have not
   // been unloaded. Protected by 'client_mu_'.
   std::set<std::string> loaded_model_names_;
+
+  // Map from model name to statistics for that model. All TritonModel
+  // objects that represent the same model name share a
+  // TritonModelStatistics object from this map.
+  std::unordered_map<std::string, std::shared_ptr<TritonModelStatistics>> model_statistics_;
 
   // Map from model name to the cache of results for that model.
   std::unordered_map<std::string, std::shared_ptr<TritonCache>> model_cache_;
