@@ -101,13 +101,6 @@ public:
   // Destructor
   virtual ~BoardHex() = default;
 
-  // See cifre::State. Hash based on 'active_player_id_' and 'cells_'.
-  virtual size_t Hash() const override;
-
-  // See cifre::State. Equally is determined by 'active_player_id_'
-  // and 'cells_'.
-  virtual bool Equal(const State* other) const override;
-
   // Return the number of planes required for the board state. Each 2D
   // plane's size is Size().
   size_t PlaneCount() const { return plane_cnt_; }

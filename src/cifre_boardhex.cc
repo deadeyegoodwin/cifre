@@ -48,29 +48,6 @@ BoardHex::BoardHex(const BoardHex& other, std::pmr::memory_resource* arena) :
 {
 }
 
-size_t
-BoardHex::Hash() const
-{
-  constexpr uint64_t mulp = 2654435789;
-  uint64_t hash = 104395301;
-
-  hash += (active_player_id_ * mulp) ^ (hash >> 23);
-
-  const auto& bytes = TritonRepresentation();
-  for (uint8_t b : bytes) {
-    hash += (b * mulp) ^ (hash >> 23);
-  }
-
-  return hash ^ (hash << 37);
-}
-
-bool
-BoardHex::Equal(const State* other) const
-{
-  return ((active_player_id_ == other->ActivePlayerId()) &&
-          (TritonRepresentation() == other->TritonRepresentation()));
-}
-
 bool
 BoardHex::IsValidAction(const Action& action) const
 {

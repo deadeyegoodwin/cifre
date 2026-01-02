@@ -58,12 +58,7 @@ Board2D::Hash() const
   uint64_t hash = 104395301;
 
   hash += (active_player_id_ * mulp) ^ (hash >> 23);
-
-  const auto& bytes = TritonRepresentation();
-  for (uint8_t b : bytes) {
-    hash += (b * mulp) ^ (hash >> 23);
-  }
-
+  hash += FlattenedCellsHash<32>()(TritonRepresentation());
   return hash ^ (hash << 37);
 }
 

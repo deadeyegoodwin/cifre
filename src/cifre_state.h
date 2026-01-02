@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "cifre_action.h"
+#include "cifre_cell.h"
 
 namespace cifre {
 
@@ -39,34 +40,6 @@ public:
 private:
   TerminalKind kind_;
   size_t winner_id_;
-};
-
-//
-// FlattenedCells
-//
-// Triton-friendly cell contents. FlattenedCells is just a
-// std:vector<uint8_t> protected so that it can only be copied via a
-// memory arena.
-//
-class FlattenedCells : public std::pmr::vector<uint8_t> {
-public:
-  FlattenedCells(std::pmr::memory_resource* arena) :
-    std::pmr::vector<uint8_t>(arena) { }
-
-  // Construct as a copy of 'other' using 'arena' for memory required
-  // by flattened cells.
-  FlattenedCells(const FlattenedCells& other, std::pmr::memory_resource* arena) :
-    std::pmr::vector<uint8_t>(other.begin(), other.end(), arena) { }
-
-  // Allow move
-  FlattenedCells(FlattenedCells&& other) = default;
-  FlattenedCells& operator=(FlattenedCells&& other) = default;
-
-  // Delete default copy and assign, must use arena version above.
-  FlattenedCells(FlattenedCells&) = delete;
-  FlattenedCells& operator=(FlattenedCells&) = delete;
-  FlattenedCells(const FlattenedCells&) = delete;
-  FlattenedCells& operator=(const FlattenedCells&) = delete;
 };
 
 //
