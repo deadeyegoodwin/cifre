@@ -268,7 +268,7 @@ private:
 
   // Game independent settings
   size_t parallel_;
-  size_t triton_cache_size_mb_;
+  size_t triton_cache_size_;
   size_t game_count_;
   size_t starting_player_idx_;
   std::string report_filename_;

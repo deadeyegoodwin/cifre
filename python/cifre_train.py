@@ -131,10 +131,11 @@ def main():
     parser.add_argument(
         '--triton-cache-size',
         type=parse_nonnegative_int,
-        default=8,
+        default=64,
         required=False,
-        help=('Maximum size of Triton cache for each model, in megabytes. Set to ' +
-              'zero to disable the cache. Default is 8.'))
+        help=('Maximum size of Triton cache for each model, in kilo-entries. ' +
+              'Set to zero to disable caching. Default is 64, meaning each model ' +
+              'will have a cache of up to 64,000 entries.'))
     parser.add_argument(
         '--max-turns-per-game',
         type=parse_positive_int,

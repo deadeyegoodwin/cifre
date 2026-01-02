@@ -101,12 +101,14 @@ TritonModelStatistics::ToString() const
     ss
       << std::fixed << std::setprecision(2)
       << "hits: " << cache_hit_count_ << " ("
-      << (100.0 * cache_hit_count_ / cache_lookup_count_) << "%), ";
+      << (100.0 * cache_hit_count_ / cache_lookup_count_) << "%), "
+      << "evicts: " << cache_evict_count_ << " ("
+      << (100.0 * cache_evict_count_ / cache_lookup_count_) << "%)\n";
   }
 
   ss
-    << "flushes: " << cache_flush_count_ << ", "
-    << "entries: " << cache_entry_count_;
+    << "full sweeps: " << cache_sweep_count_
+    << ", flushes: " << cache_flush_count_;
 
   return ss.str();
 }
@@ -154,12 +156,19 @@ TritonCache::Lookup(const State& state)
 
   common::ScopedSpinlock sl(lock_);
 
-  auto cache_itr = cache_.find(&state);
-  if (cache_itr == cache_.end()) {
+  auto cache_itr = cache_lookup_.find(&state.TritonRepresentation());
+  if (cache_itr == cache_lookup_.end()) {
     return miss;
   }
 
-  return cache_itr->second.result_;
+  statistics_->cache_hit_count_++;
+
+  const size_t idx = cache_itr->second;
+  assert(idx < cache_.size());
+  assert(cache_[idx].valid_);
+
+  cache_[idx].referenced_ = true;
+  return cache_[idx].result_;
 }
 
 void
@@ -168,20 +177,44 @@ TritonCache::Insert(
 {
   common::ScopedSpinlock sl(lock_);
 
-  auto cache_itr = cache_.find(&state);
-  if (cache_itr == cache_.end()) {
-    StateUniqueConstPtr ce_state(state.Copy(std::pmr::new_delete_resource()));
+  const FlattenedCells& fc = state.TritonRepresentation();
 
+  auto cache_itr = cache_lookup_.find(&fc);
+  if (cache_itr == cache_lookup_.end()) {
+    // 'state's flattened input cells not in cache so search forward
+    // from 'clockhand_' to find a place to insert.
+    while (cache_[clockhand_].valid_ && cache_[clockhand_].referenced_) {
+      cache_[clockhand_].referenced_ = false;
+      clockhand_ = (clockhand_ + 1) % cache_.size();
+      if (clockhand_ == 0) {
+        statistics_->cache_sweep_count_++;
+      }
+    }
+
+    CacheEntry& entry = cache_[clockhand_];
+
+    // Evict current cache entry.
 #ifndef NDEBUG
-    auto created_cache_itr =
+    size_t ecnt =
 #endif
-      cache_.emplace(
-        std::piecewise_construct,
-        std::forward_as_tuple(ce_state.get()),
-        std::forward_as_tuple(std::move(ce_state), result));
-    assert(created_cache_itr.second);
+      cache_lookup_.erase(&entry.inp_);
+    assert((ecnt == 1) == entry.valid_);
+    if (entry.valid_) {
+      statistics_->cache_evict_count_++;
+    }
 
-    statistics_->cache_entry_count_++;
+    // Overwrite cache with new entry.
+    entry.inp_.assign(fc.begin(), fc.end());
+    entry.result_ = result;
+    entry.referenced_ = false;
+    entry.valid_ = true;
+
+    cache_lookup_[&entry.inp_] = clockhand_;
+
+    clockhand_ = (clockhand_ + 1) % cache_.size();
+    if (clockhand_ == 0) {
+      statistics_->cache_sweep_count_++;
+    }
   }
 }
 
@@ -189,8 +222,14 @@ void
 TritonCache::Flush()
 {
   common::ScopedSpinlock sl(lock_);
-  cache_.clear();
-  statistics_->cache_entry_count_ = 0;
+
+  cache_lookup_.clear();
+  clockhand_ = 0;
+  for (auto& entry : cache_) {
+    entry.result_.reset();
+    entry.valid_ = false;
+  }
+
   statistics_->cache_flush_count_++;
 }
 
@@ -253,7 +292,6 @@ TritonModel::Infer(const State& state)
   if (cache_ != nullptr) {
     std::shared_ptr<const TritonInferResult> ires = cache_->Lookup(state);
     if (ires != nullptr) {
-      statistics_->cache_hit_count_++;
       return ires;
     }
   }
@@ -552,7 +590,7 @@ TritonServer::FlushAllCaches()
 }
 
 bool
-TritonServer::LoadModel(const std::string& model_name, bool enable_cache)
+TritonServer::LoadModel(const std::string& model_name, size_t cache_size)
 {
   std::unique_lock<std::mutex> lk(client_mu_);
 
@@ -575,10 +613,10 @@ TritonServer::LoadModel(const std::string& model_name, bool enable_cache)
   }
 
   // Create a cache for model if requested and doesn't already exist.
-  if (enable_cache) {
+  if (cache_size > 0) {
     auto cache_itr = model_cache_.find(model_name);
     if (cache_itr == model_cache_.end()) {
-      model_cache_[model_name] = std::make_shared<TritonCache>(statistics);
+      model_cache_[model_name] = std::make_shared<TritonCache>(cache_size, statistics);
     }
   }
 

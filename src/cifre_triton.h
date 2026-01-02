@@ -8,6 +8,7 @@
 #include <set>
 #include <unordered_map>
 
+#include "cifre_cell.h"
 #include "cifre_state.h"
 #include "common_spinlock.h"
 #include "http_client.h"
@@ -88,21 +89,24 @@ struct TritonModelStatistics {
 
   std::atomic<size_t> cache_lookup_count_ {0};
   std::atomic<size_t> cache_hit_count_ {0};
+  std::atomic<size_t> cache_evict_count_ {0};
+  std::atomic<size_t> cache_sweep_count_ {0};
   std::atomic<size_t> cache_flush_count_ {0};
-  std::atomic<size_t> cache_entry_count_ {0};
 };
 
 //
 // TritonCache
 //
 // Cache results to avoid running inference multiple times on the same
-// State. The "State*" key is a pointer to the same state that is
-// owned by the StateUniquePtr in the TritonCache::CacheEntry
-// itself. All methods are thread-safe.
+// model input. The cache is organized using the "clock" algorithm to
+// provide a simple approximation to LRU. All methods are thread-safe.
+//
 class TritonCache {
 public:
-  TritonCache(const std::shared_ptr<TritonModelStatistics>& statistics) :
-    statistics_(statistics) { }
+  TritonCache(
+    size_t cache_size, const std::shared_ptr<TritonModelStatistics>& statistics) :
+    clockhand_(0), cache_(cache_size), statistics_(statistics) {
+    assert(cache_size > 0); }
 
   // Flush all entries from cache.
   void Flush();
@@ -116,25 +120,37 @@ public:
     const State& state, const std::shared_ptr<const TritonInferResult>& result);
 
 private:
+  //
+  // CacheEntry
+  //
+  // Each cache entry holds the FlattenedCells representation of the
+  // input tensor (see cifre::State), the corresponding result
+  // tensors and the reference bit.
+  //
   struct CacheEntry {
-    CacheEntry(StateUniqueConstPtr state, std::shared_ptr<const TritonInferResult> result) :
-      state_(std::move(state)), result_(result) { }
-    const StateUniqueConstPtr state_;
-    const std::shared_ptr<const TritonInferResult> result_;
+    CacheEntry() : inp_(std::pmr::new_delete_resource()), valid_(false) { }
+    FlattenedCells inp_;
+    std::shared_ptr<const TritonInferResult> result_;
+    bool valid_;
+    bool referenced_;
   };
+
+  // The current insert point into the cache.
+  size_t clockhand_;
+
+  // 'cache_lookup_' is map from FlattenedCells to the index of the
+  // cache entry in 'cache_'. The key is a pointer to the
+  // FlattenedCells held in the corresponding entry.
+  std::unordered_map<
+    const FlattenedCells*, size_t, FlattenedCellsHash<32>, FlattenedCellsEqual> cache_lookup_;
+  std::vector<CacheEntry> cache_;
+
+  // Lock protecting cache.
+  common::Spinlock lock_;
 
   // Statistics for the cache. This object is shared across all
   // models and caches that represent the same nnet model.
   std::shared_ptr<TritonModelStatistics> statistics_;
-
-  struct CacheMapHash {
-    size_t operator()(const State* s) const { return s->Hash(); }
-  };
-  struct CacheMapEqual {
-    bool operator()(const State* a, const State* b) const { return a->Equal(b); }
-  };
-  std::unordered_map<const State*, CacheEntry, CacheMapHash, CacheMapEqual> cache_;
-  common::Spinlock lock_;
 };
 
 //
@@ -286,9 +302,10 @@ public:
   void FlushAllCaches();
 
   // Load 'model_name' into triton. Enable caching for the model if
-  // 'enable_cache' is true. Nothing is done if the model is already
-  // loaded into triton. Return true if model load is successful.
-  bool LoadModel(const std::string& model_name, bool enable_cache);
+  // 'cache_size' is greater than 0. Nothing is done if the model is
+  // already loaded into triton. Return true if model load is
+  // successful.
+  bool LoadModel(const std::string& model_name, size_t cache_size);
 
   // Unload 'model_name' from triton. Remove any results cached for the
   // model. Return true if successful.
