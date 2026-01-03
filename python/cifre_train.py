@@ -318,6 +318,7 @@ def main():
             game_cmd, bufsize=0, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         while process.poll() is None:
             print(process.stdout.read(1), end='', flush=True)
+        print(process.stdout.read(), end='')
         process.stdout.close()
         cret = process.poll()
         LOG.fail_if(cret != 0, f'cifre return code is {cret}')
