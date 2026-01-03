@@ -211,7 +211,7 @@ BoardCellFactory::ToString() const
     << "constant plane sets:\n"
     << "  created " << planes_map_.size() << ", " << "memory usage " << cplane_bytes << "\n";
 
-  size_t aplane_bytes = 0;
+  size_t aplane_entries = 0;
   size_t max_per = 0;
   CellsKey max_key;
 
@@ -219,7 +219,7 @@ BoardCellFactory::ToString() const
     std::unique_lock<std::mutex> lk(alloc_planes_mu_);
     for (const auto& pr : alloc_planes_map_) {
       const size_t sz = pr.second.size();
-      aplane_bytes += sz;
+      aplane_entries += sz;
       if (sz > max_per) {
         max_per = sz;
         max_key = pr.first;
@@ -227,11 +227,14 @@ BoardCellFactory::ToString() const
     }
   }
 
-  aplane_bytes *= flat_vector_byte_count_;
+  size_t aplane_bytes = aplane_entries * flat_vector_byte_count_;
   ss
     << "allocated plane sets:\n"
-    << "  created " << created_plane_sets_ << ", " << "memory usage " << aplane_bytes << "\n"
-    << "  acquired " << acquired_plane_sets_ << ", " << "released " << released_plane_sets_;
+    << "  created " << created_plane_sets_ << ", "
+    << "acquired " << acquired_plane_sets_ << ", "
+    << "released " << released_plane_sets_ << "\n"
+    << "  entries " << aplane_entries << ", "
+    << "memory usage " << aplane_bytes;
 
   if (max_per > 0) {
     ss
