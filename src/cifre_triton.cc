@@ -157,7 +157,7 @@ TritonCache::Lookup(const State& state)
   // Mutiple reader...
   std::shared_lock<std::shared_mutex> lock(mtx_);
 
-  auto cache_itr = cache_lookup_.find(&state.TritonRepresentation());
+  auto cache_itr = cache_lookup_.find(&state);
   if (cache_itr == cache_lookup_.end()) {
     return miss;
   }
@@ -185,12 +185,10 @@ TritonCache::Insert(
   // both 'cache_lookup_', 'cache_' and 'clockhand_'.
   std::unique_lock<std::shared_mutex> lock(mtx_);
 
-  const FlattenedCells& fc = state.TritonRepresentation();
-
-  auto cache_itr = cache_lookup_.find(&fc);
+  auto cache_itr = cache_lookup_.find(&state);
   if (cache_itr == cache_lookup_.end()) {
-    // 'state's flattened input cells not in cache so search forward
-    // from 'clockhand_' to find a place to insert.
+    // 'state' not in cache so search forward from 'clockhand_' to
+    // find a place to insert.
     while (cache_[clockhand_].valid_ && cache_[clockhand_].referenced_) {
       cache_[clockhand_].referenced_ = false;
       clockhand_ = (clockhand_ + 1) % cache_.size();
@@ -202,22 +200,23 @@ TritonCache::Insert(
     CacheEntry& entry = cache_[clockhand_];
 
     // Evict current cache entry.
+    assert((entry.state_ == nullptr) == !entry.valid_);
 #ifndef NDEBUG
     size_t ecnt =
 #endif
-      cache_lookup_.erase(&entry.inp_);
+      (!entry.valid_ ? 0 : cache_lookup_.erase(entry.state_.get()));
     assert((ecnt == 1) == entry.valid_);
     if (entry.valid_) {
       statistics_->cache_evict_count_++;
     }
 
     // Overwrite cache with new entry.
-    entry.inp_.assign(fc.begin(), fc.end());
+    entry.state_ = state.Copy(std::pmr::new_delete_resource());
     entry.result_ = result;
     entry.referenced_ = false;
     entry.valid_ = true;
 
-    cache_lookup_[&entry.inp_] = clockhand_;
+    cache_lookup_[entry.state_.get()] = clockhand_;
 
     clockhand_ = (clockhand_ + 1) % cache_.size();
     if (clockhand_ == 0) {
@@ -235,6 +234,7 @@ TritonCache::Flush()
   cache_lookup_.clear();
   clockhand_ = 0;
   for (auto& entry : cache_) {
+    entry.state_.reset();
     entry.result_.reset();
     entry.valid_ = false;
   }

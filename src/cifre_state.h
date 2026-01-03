@@ -54,8 +54,10 @@ private:
 //
 class StateDeleterBase {
 public:
+  // This default constructor results in an invalid deleter...
+  StateDeleterBase() : fn_(nullptr), payload_(nullptr) { }
   void operator()(const void* ptr) const { operator()(const_cast<void*>(ptr)); }
-  void operator()(void* ptr) const { fn_(ptr, payload_); }
+  void operator()(void* ptr) const { assert(fn_ != nullptr); fn_(ptr, payload_); }
 protected:
   StateDeleterBase(void (*fn)(void*, void*), void* payload) :
     fn_(fn), payload_(payload) { }
@@ -182,6 +184,7 @@ public:
 // Functor for hashing States.
 //
 struct StateHash {
+  size_t operator()(StateUniqueConstPtr a) const { return a->Hash(); }
   size_t operator()(const State* a) const { return a->Hash(); }
   size_t operator()(const State& a) const { return a.Hash(); }
 };
@@ -192,6 +195,8 @@ struct StateHash {
 // Functor for comparing States.
 //
 struct StateEqual {
+  bool operator()(StateUniqueConstPtr a, StateUniqueConstPtr b) const {
+    return a->Equal(b.get()); }
   bool operator()(const State* a, const State* b) const {
     return a->Equal(b); }
   bool operator()(const State& a, const State& b) const {

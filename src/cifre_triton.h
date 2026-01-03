@@ -123,13 +123,12 @@ private:
   //
   // CacheEntry
   //
-  // Each cache entry holds the FlattenedCells representation of the
-  // input tensor (see cifre::State), the corresponding result
+  // Each cache entry holds the State, the corresponding result
   // tensors and the reference bit.
   //
   struct CacheEntry {
-    CacheEntry() : inp_(std::pmr::new_delete_resource()), valid_(false) { }
-    FlattenedCells inp_;
+    CacheEntry() : valid_(false) { }
+    StateUniqueConstPtr state_;
     std::shared_ptr<const TritonInferResult> result_;
     bool valid_;
     bool referenced_;
@@ -138,11 +137,10 @@ private:
   // The current insert point into the cache.
   size_t clockhand_;
 
-  // 'cache_lookup_' is map from FlattenedCells to the index of the
-  // cache entry in 'cache_'. The key is a pointer to the
-  // FlattenedCells held in the corresponding entry.
-  std::unordered_map<
-    const FlattenedCells*, size_t, FlattenedCellsHash<32>, FlattenedCellsEqual> cache_lookup_;
+  // 'cache_lookup_' is map from State to the index of the cache entry
+  // in 'cache_'. The key is a pointer to the State held in the
+  // corresponding CacheEntry.
+  std::unordered_map<const State*, size_t, StateHash, StateEqual> cache_lookup_;
   std::vector<CacheEntry> cache_;
 
   // Lock providing multiple-reader, single writing synchronization.

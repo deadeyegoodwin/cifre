@@ -423,8 +423,8 @@ private:
   // Nodes are identified by their State, so we need to use a custom
   // hash and equal for the map containing all the nodes. The "State*"
   // key is a pointer to the same state that is owned by the
-  // unique_ptr<State> in the Node itself. 'nodes_' is reset on each
-  // call to NextActionId() and so nothing can be allocated to it that
+  // StateUniquePtr in the Node itself. 'nodes_' is reset on each call
+  // to NextActionId() and so nothing can be allocated to it that
   // needs to live beyond an invocation of that function.
   NodesMap nodes_;
 
