@@ -131,7 +131,6 @@ PlayOneTask::Invoke()
     alphazero_train_samples_.clear();
     result_ = GameResult::ABORT;
 
-    const auto starting_player_id = state->ActivePlayerId();
     size_t game_sideturns_remaining = max_turns_per_game_ * players_.size();
 
     bool game_quit = false;
@@ -161,10 +160,9 @@ PlayOneTask::Invoke()
       }
 
       // If 'state' active player differs from 'player' (indicating
-      // that it changed as a result 'action'), and active player is
-      // now 'starting_player_id', then a turn has completed.
-      if ((player_id != state->ActivePlayerId()) &&
-          (starting_player_id == state->ActivePlayerId())) {
+      // that it changed as a result 'action') then a side-turn has
+      // completed.
+      if (player_id != state->ActivePlayerId()) {
         --game_sideturns_remaining;
       }
     }
