@@ -4,13 +4,13 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <set>
 #include <unordered_map>
 
 #include "cifre_cell.h"
 #include "cifre_state.h"
-#include "common_spinlock.h"
 #include "http_client.h"
 #include "json_utils.h"
 
@@ -145,8 +145,8 @@ private:
     const FlattenedCells*, size_t, FlattenedCellsHash<32>, FlattenedCellsEqual> cache_lookup_;
   std::vector<CacheEntry> cache_;
 
-  // Lock protecting cache.
-  common::Spinlock lock_;
+  // Lock providing multiple-reader, single writing synchronization.
+  std::shared_mutex mtx_;
 
   // Statistics for the cache. This object is shared across all
   // models and caches that represent the same nnet model.

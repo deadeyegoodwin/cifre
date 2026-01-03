@@ -154,7 +154,8 @@ TritonCache::Lookup(const State& state)
   static std::shared_ptr<const TritonInferResult> miss;
   statistics_->cache_lookup_count_++;
 
-  common::ScopedSpinlock sl(lock_);
+  // Mutiple reader...
+  std::shared_lock<std::shared_mutex> lock(mtx_);
 
   auto cache_itr = cache_lookup_.find(&state.TritonRepresentation());
   if (cache_itr == cache_lookup_.end()) {
@@ -167,7 +168,12 @@ TritonCache::Lookup(const State& state)
   assert(idx < cache_.size());
   assert(cache_[idx].valid_);
 
+  // Note that we are writing the "referenced" bit here even though we
+  // only have a reader lock. The only place this bit is read is under
+  // the writer lock and so we don't care if there is a race for
+  // readers setting it to true.
   cache_[idx].referenced_ = true;
+
   return cache_[idx].result_;
 }
 
@@ -175,7 +181,9 @@ void
 TritonCache::Insert(
   const State& state, const std::shared_ptr<const TritonInferResult>& result)
 {
-  common::ScopedSpinlock sl(lock_);
+  // Unique writer lock as we are going to potentially be modifying
+  // both 'cache_lookup_', 'cache_' and 'clockhand_'.
+  std::unique_lock<std::shared_mutex> lock(mtx_);
 
   const FlattenedCells& fc = state.TritonRepresentation();
 
@@ -221,7 +229,8 @@ TritonCache::Insert(
 void
 TritonCache::Flush()
 {
-  common::ScopedSpinlock sl(lock_);
+  // Unique writer lock.
+  std::unique_lock<std::shared_mutex> lock(mtx_);
 
   cache_lookup_.clear();
   clockhand_ = 0;
