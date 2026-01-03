@@ -173,7 +173,7 @@ private:
   // planes. This map maintains the plane-sets that can be acquired
   // and released and thus allows reuse. This map must be thread safe
   // so a mutex is needed as well.
-  std::mutex alloc_planes_mu_;
+  mutable std::mutex alloc_planes_mu_;
   std::map<CellsKey, std::vector<FlattenedCells>> alloc_planes_map_;
 
   // Indexed by flattened cell index that gives features of each cell.
