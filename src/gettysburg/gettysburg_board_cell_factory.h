@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <memory_resource>
 #include <mutex>
@@ -139,7 +140,7 @@ public:
   // Return in 'cells' the plane-set for a given row and column (using
   // plane indexing). Any newly created or reused cells are verified
   // to use memory-resource 'arena'. The caller may modify the
-  // returned vector, but must restore it to its original values
+  // returned cells, but must restore it to its original values
   // before calling ReleaseCells. Thread-safe.
   void AcquireCells(
     const CellsKey key, FlattenedCells& cells, std::pmr::memory_resource* arena);
@@ -174,7 +175,7 @@ private:
   // and released and thus allows reuse. This map must be thread safe
   // so a mutex is needed as well.
   mutable std::mutex alloc_planes_mu_;
-  std::map<CellsKey, std::vector<FlattenedCells>> alloc_planes_map_;
+  std::map<CellsKey, std::deque<FlattenedCells>> alloc_planes_map_;
 
   // Indexed by flattened cell index that gives features of each cell.
   std::vector<CellFeatures> cell_features_;
