@@ -326,18 +326,9 @@ private:
   const AggregateKind aggregate_kind_;
   const ValueKind value_kind_;
 
-  // Samples are identified by their State, so we need to use a custom
-  // hash and equal for the map containing indices into
-  // 'train_samples_'. The "State*" key is a pointer to the same state
-  // that is in the Sample.
-  struct SamplesIndexMapHash {
-    size_t operator()(const State* s) const { return s->Hash(); }
-  };
-  struct SamplesIndexMapEqual {
-    bool operator()(const State* a, const State* b) const { return a->Equal(b); }
-  };
-  std::unordered_map<
-     const State*, size_t, SamplesIndexMapHash, SamplesIndexMapEqual> train_samples_idx_;
+  // Samples are identified by their State. The "State*" key is a
+  // pointer to the same state that is in the Sample.
+  std::unordered_map<const State*, size_t, StateHash, StateEqual> train_samples_idx_;
   std::deque<Sample> train_samples_;
 };
 
@@ -387,20 +378,14 @@ public:
   uint64_t NextActionId(const State& state, size_t max_game_sideturns_remaining) override;
 
 private:
-  struct NodesMapHash {
-    size_t operator()(const State* s) const { return s->Hash(); }
-  };
-  struct NodesMapEqual {
-    bool operator()(const State* a, const State* b) const { return a->Equal(b); }
-  };
-  using NodesIterator = std::unordered_map<
-    const State*, AlphaZeroNode, NodesMapHash, NodesMapEqual>::iterator;
+  using NodesMap = std::pmr::unordered_map<
+    const State*, AlphaZeroNode, StateHash, StateEqual>;
 
   // Return the node representing the given 'state', creating if
   // necessary. The created node, if any, takes ownership of 'state'.
   // If 'created' is not nullptr, returns true if node created, false
   // if already exists.
-  NodesIterator FindOrCreateNode(StateUniqueConstPtr, bool* created = nullptr);
+  NodesMap::iterator FindOrCreateNode(StateUniqueConstPtr, bool* created = nullptr);
 
   // Search from 'node' and update the tree. Return the 'V' value for
   // the leaf node visited in the search, and the node that terminated
@@ -441,8 +426,7 @@ private:
   // unique_ptr<State> in the Node itself. 'nodes_' is reset on each
   // call to NextActionId() and so nothing can be allocated to it that
   // needs to live beyond an invocation of that function.
-  std::pmr::unordered_map<
-    const State*, AlphaZeroNode, NodesMapHash, NodesMapEqual> nodes_;
+  NodesMap nodes_;
 
   // Nodes for which alphazero selected an action in the current game.
   std::deque<AlphaZeroTrainingSamples::Sample> game_action_samples_;

@@ -193,7 +193,7 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   return action_id;
 }
 
-AlphaZeroAlgo::NodesIterator
+AlphaZeroAlgo::NodesMap::iterator
 AlphaZeroAlgo::FindOrCreateNode(StateUniqueConstPtr state, bool* created)
 {
   auto fnode_itr = nodes_.find(state.get());
@@ -300,7 +300,7 @@ AlphaZeroAlgo::SearchTree(
     // when 'best_action_id' is applied to 'node'.
     StateUniqueConstPtr next_state(
       node->NodeState().CopyAndUpdate(*best_action_id, &nextactionid_arena_));
-    NodesIterator snext_itr = FindOrCreateNode(std::move(next_state), &next_created);
+    NodesMap::iterator snext_itr = FindOrCreateNode(std::move(next_state), &next_created);
     next = &snext_itr->second;
 
     // Add the edge to connect 'node' to 'next'.

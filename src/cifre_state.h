@@ -176,4 +176,26 @@ public:
   virtual std::string ToString() const = 0;
 };
 
+//
+// StateHash
+//
+// Functor for hashing States.
+//
+struct StateHash {
+  size_t operator()(const State* a) const { return a->Hash(); }
+  size_t operator()(const State& a) const { return a.Hash(); }
+};
+
+//
+// StateEqual
+//
+// Functor for comparing States.
+//
+struct StateEqual {
+  bool operator()(const State* a, const State* b) const {
+    return a->Equal(b); }
+  bool operator()(const State& a, const State& b) const {
+    return a.Equal(&b); }
+};
+
 } // namespace cifre
