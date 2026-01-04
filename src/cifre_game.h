@@ -278,7 +278,10 @@ private:
   // settings for "player 1" which is player ID 0, etc. These settings
   // are assigned during Initialize() and are constant as they cannot
   // be changed after that point.
-  std::unique_ptr<const std::vector<PlayerSettings>> player_settings_;
+  std::vector<PlayerSettings> player_settings_;
+
+  // AlphaZero statistics collected across all games.
+  std::unique_ptr<AlphaZeroStatistics> total_alphazero_statistics_;
 
   // Shared triton and alpha-zero training samples objects. These
   // objects are shared across all games.
