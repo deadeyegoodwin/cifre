@@ -158,6 +158,10 @@ public:
   std::string ToString() const;
 
 private:
+  // Maximum number of plane-sets that will be saved for re-use for
+  // any given board cell.
+  static constexpr size_t MAX_ALLOC_PLANES_PER_CELL = 128;
+
   BoardCellFactory(const BoardCellFactory&) = delete;
   BoardCellFactory& operator=(const BoardCellFactory&) = delete;
 
@@ -192,7 +196,6 @@ private:
   std::atomic<size_t> created_plane_sets_ {0};
   std::atomic<size_t> acquired_plane_sets_ {0};
   std::atomic<size_t> released_plane_sets_ {0};
-
 };
 
 }} // namespace cifre::gettysburg

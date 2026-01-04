@@ -193,11 +193,22 @@ BoardCellFactory::ReleaseCells(const CellsKey key, FlattenedCells& cells)
   assert(cells == iter->second);
 #endif
 
-  // Save 'cells' so that it is available for reuse.
+  // Save 'cells' so that it is available for reuse. Don't exceed the
+  // maximum number of per-cell saves.
   {
     std::unique_lock<std::mutex> lk(alloc_planes_mu_);
-    auto pr = alloc_planes_map_.try_emplace(key);
-    pr.first->second.emplace_back(std::move(cells));
+
+    const auto iter = alloc_planes_map_.find(key);
+    if ((iter == alloc_planes_map_.end()) || (iter->second.size() < MAX_ALLOC_PLANES_PER_CELL)) {
+      auto pr = alloc_planes_map_.try_emplace(key);
+      pr.first->second.emplace_back(std::move(cells));
+    }
+    else {
+      // Already have enough planes-sets saved for reuse for 'key', so
+      // just clear (really don't need to as 'cells' will be
+      // overwritten or released by a subsequent copy or AcquireCells() call.
+      cells.clear();
+    }
   }
 }
 
