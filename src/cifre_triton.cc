@@ -107,7 +107,7 @@ TritonModelStatistics::ToString() const
   }
 
   ss
-    << "full sweeps: " << cache_sweep_count_
+    << "  full sweeps: " << cache_sweep_count_
     << ", flushes: " << cache_flush_count_;
 
   return ss.str();
