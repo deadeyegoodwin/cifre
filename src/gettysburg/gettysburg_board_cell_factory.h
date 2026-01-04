@@ -120,6 +120,11 @@ public:
   // CellsKey is <row-idx, column-idx>
   using CellsKey = std::pair<size_t, size_t>;
 
+  static std::string CellsKeyToString(const CellsKey& k) {
+    return
+      "[" + std::to_string(std::get<0>(k)) + "," + std::to_string(std::get<1>(k)) + "]";
+  }
+
 public:
   BoardCellFactory(
     const OOB::Scenario scenario,

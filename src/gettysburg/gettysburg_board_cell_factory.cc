@@ -238,9 +238,8 @@ BoardCellFactory::ToString() const
 
   if (max_per > 0) {
     ss
-      << "\n  per-state maximum " << max_per << " for ["
-      << std::get<0>(max_key) << ","
-      << std::get<1>(max_key) << "]";
+      << "\n  per-state maximum " << max_per << " for "
+      << CellsKeyToString(max_key);
   }
 
   return ss.str();
