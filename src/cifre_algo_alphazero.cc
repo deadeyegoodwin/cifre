@@ -749,13 +749,13 @@ AlphaZeroTrainingSamples::AcquireAndAggregate(
     }
 
     // Set target 'pi' and 'v' for the training sample.
-    auto sample_idx_itr = train_samples_idx_.find(sample.state_.get());
-    if ((aggregate_kind_ == AggregateKind::ALL) || (sample_idx_itr == train_samples_idx_.end())) {
+    auto sample_idx_itr = train_samples_lookup_.find(sample.state_.get());
+    if ((aggregate_kind_ == AggregateKind::ALL) || (sample_idx_itr == train_samples_lookup_.end())) {
       // For ALL or a first-time-seen node, create a new Sample. We
-      // don't update 'train_samples_idx_' map for ALL so that we
+      // don't update 'train_samples_lookup_' map for ALL so that we
       // always end up here and so always create a new sample.
       if (aggregate_kind_ != AggregateKind::ALL) {
-        train_samples_idx_[sample.state_.get()] = train_samples_.size();
+        train_samples_lookup_[sample.state_.get()] = train_samples_.size();
       }
 
       train_samples_.emplace_back(
@@ -867,7 +867,7 @@ void
 AlphaZeroTrainingSamples::Reset()
 {
   train_samples_.clear();
-  train_samples_idx_.clear();
+  train_samples_lookup_.clear();
 }
 
 } // namespace cifre

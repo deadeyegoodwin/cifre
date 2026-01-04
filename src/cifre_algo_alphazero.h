@@ -326,9 +326,10 @@ private:
   const AggregateKind aggregate_kind_;
   const ValueKind value_kind_;
 
-  // Samples are identified by their State. The "State*" key is a
-  // pointer to the same state that is in the Sample.
-  std::unordered_map<const State*, size_t, StateHash, StateEqual> train_samples_idx_;
+  // Samples are identified by their State. The "State*" key maps to
+  // an index into the deque of Samples. The "State*" key is a pointer
+  // to the same state that is in the indexed Sample.
+  std::unordered_map<const State*, size_t, StateHash, StateEqual> train_samples_lookup_;
   std::deque<Sample> train_samples_;
 };
 

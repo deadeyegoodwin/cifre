@@ -6,7 +6,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <unordered_map>
 
 #include "cifre_state.h"
 
