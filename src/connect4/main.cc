@@ -114,7 +114,7 @@ Connect4::DefaultAlphaZeroSettings(bool training, bool az_vs_az) const
   cifre::AlphaZeroSettings settings;
   settings.training_ = training;
 
-  settings.search_count_ = 250;
+  settings.search_count_ = 600;
   settings.max_search_depth_ = 42;
   settings.cpuct_ = 10.0;
 

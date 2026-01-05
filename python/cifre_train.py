@@ -239,12 +239,14 @@ def main():
         LOG.fail_if(len(game_shape) != 2, "connect4 requires shape rank 2")
         nnet_args = {
             'batch_size' : train_batch_size,
+            'num_planes' : 1,
             'num_rows' : game_shape[0],
             'num_cols' : game_shape[1],
+            'num_residual_blocks' : 5,
             'num_actions' : game_shape[1],
             'dropout' : 0.25,
-            'num_channels' : 512 }
-        nnet = CifreBasicConvNNet(nnet_args)
+            'num_channels' : 128 }
+        nnet = CifreResidualConvNNet(nnet_args)
     elif FLAGS.game == 'othello':
         game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
         nnet_shape = game_shape
