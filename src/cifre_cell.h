@@ -20,16 +20,18 @@ public:
   FlattenedCells(std::pmr::memory_resource* arena) :
     std::pmr::vector<uint8_t>(arena) { }
 
-  // Construct as a copy of 'other' using 'arena' for memory required
-  // by flattened cells.
+  // Construct as a copy of 'other' using 'arena' for the newly
+  // created copy.
   FlattenedCells(const FlattenedCells& other, std::pmr::memory_resource* arena) :
     std::pmr::vector<uint8_t>(other.begin(), other.end(), arena) { }
 
-  // Allow move
+  // Allow move constructor but not operator because the move operator
+  // will not transfer the arena.
   FlattenedCells(FlattenedCells&& other) = default;
-  FlattenedCells& operator=(FlattenedCells&& other) = default;
+  FlattenedCells& operator=(FlattenedCells&& other) = delete;
 
-  // Delete default copy and assign, must use arena version above.
+  // Delete default copy constructor and operator because they do not
+  // copy the arena, must use arena version above.
   FlattenedCells(FlattenedCells&) = delete;
   FlattenedCells& operator=(FlattenedCells&) = delete;
   FlattenedCells(const FlattenedCells&) = delete;

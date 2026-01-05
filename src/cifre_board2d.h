@@ -140,11 +140,14 @@ protected:
   static constexpr float CELL_OPPONENT_PLAYER = -1.0;
 
   // Don't allow default copy constructor or assignment to force the
-  // version above that requires an arena.
+  // version above that requires an arena. Don't allow move
+  // assignment as it does not move the allocator for any pmr
+  // containers (move constructor is ok).
   Board2D(Board2D& other) = delete;
   Board2D& operator=(Board2D&) = delete;
   Board2D(const Board2D& other) = delete;
   Board2D& operator=(const Board2D&) = delete;
+  Board2D& operator=(Board2D&& other) = delete;
 
   // Return the value of the cell at the given row and column index.
   float CellValueAt(size_t row_idx, size_t col_idx) const {

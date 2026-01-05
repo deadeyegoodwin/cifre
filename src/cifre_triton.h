@@ -34,9 +34,11 @@ public:
   // Don't allow move or copy (to avoid accidental performance
   // overhead).
   TritonInferResult(TritonInferResult& other) = delete;
+  TritonInferResult& operator=(TritonInferResult&) = delete;
   TritonInferResult(const TritonInferResult& other) = delete;
-  TritonInferResult(const TritonInferResult&& other) = delete;
+  TritonInferResult& operator=(const TritonInferResult&) = delete;
   TritonInferResult(TritonInferResult&& other) = delete;
+  TritonInferResult& operator=(TritonInferResult&& other) = delete;
 
   // Return the shape input and output tensors.
   const std::vector<int64_t>& InputShape() const { return input_shape_; }
