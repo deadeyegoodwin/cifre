@@ -164,11 +164,11 @@ protected:
   // version above that requires an arena. Don't allow move assignment
   // as it does not move the allocator for any pmr containers (move
   // constructor is ok).
-  BoardHex(BoardHex& other) = delete;
+  BoardHex(BoardHex&) = delete;
   BoardHex& operator=(BoardHex&) = delete;
-  BoardHex(const BoardHex& other) = delete;
+  BoardHex(const BoardHex&) = delete;
   BoardHex& operator=(const BoardHex&) = delete;
-  BoardHex& operator=(BoardHex&& other) = delete;
+  BoardHex& operator=(BoardHex&&) = delete;
 
   std::string SmallBoard() const;
   std::string LargeBoard() const;

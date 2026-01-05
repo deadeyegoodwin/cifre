@@ -27,8 +27,8 @@ public:
 
   // Allow move constructor but not operator because the move operator
   // will not transfer the arena.
-  FlattenedCells(FlattenedCells&& other) = default;
-  FlattenedCells& operator=(FlattenedCells&& other) = delete;
+  FlattenedCells(FlattenedCells&&) = default;
+  FlattenedCells& operator=(FlattenedCells&&) = delete;
 
   // Delete default copy constructor and operator because they do not
   // copy the arena, must use arena version above.

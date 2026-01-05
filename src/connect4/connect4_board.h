@@ -42,11 +42,11 @@ private:
   // version below that requires an arena. Don't allow move assignment
   // as it does not move the allocator for any pmr containers (move
   // constructor is ok).
-  Board(Board& other) = delete;
+  Board(Board&) = delete;
   Board& operator=(Board&) = delete;
-  Board(const Board& other) = delete;
+  Board(const Board&) = delete;
   Board& operator=(const Board&) = delete;
-  Board& operator=(Board&& other) = delete;
+  Board& operator=(Board&&) = delete;
 
   // Construct board as a copy of 'other' using 'arena' for memory
   // required by constructed board. This constructor is kept private

@@ -142,28 +142,20 @@ public:
   // Return the CellFeatures for a given 'row' / 'column'.
   const CellFeatures& Features(size_t row, size_t column) const;
 
-  // Return in 'cells' the plane-set for a given row and column (using
-  // plane indexing). Any newly created or reused cells are verified
-  // to use memory-resource 'arena'. The caller may modify the
-  // returned cells, but must restore it to its original values
-  // before calling ReleaseCells. Thread-safe.
-  void AcquireCells(
-    const CellsKey key, FlattenedCells& cells, std::pmr::memory_resource* arena);
-
-  // "Restock" the 'cells' for a given row and column to they can be
-  // reused. Thread-safe.
-  void ReleaseCells(const CellsKey key, FlattenedCells& cells);
+  // Return the plane-set for a given row and column (using plane
+  // indexing).
+  const FlattenedCells& PlaneSet(const CellsKey key);
 
   // String representation.
   std::string ToString() const;
 
 private:
-  // Maximum number of plane-sets that will be saved for re-use for
-  // any given board cell.
-  static constexpr size_t MAX_ALLOC_PLANES_PER_CELL = 128;
-
+  BoardCellFactory(BoardCellFactory&) = delete;
   BoardCellFactory(const BoardCellFactory&) = delete;
+  BoardCellFactory& operator=(BoardCellFactory&) = delete;
   BoardCellFactory& operator=(const BoardCellFactory&) = delete;
+  BoardCellFactory(BoardCellFactory&&) = delete;
+  Board& operator=(BoardCellFactory&&) = delete;
 
   const OOB::Scenario scenario_;
   size_t board_row_cnt_;
@@ -179,23 +171,11 @@ private:
   // sets of planes.
   std::map<CellsKey, FlattenedCells> planes_map_;
 
-  // Map from the row index and column index to already allocated
-  // planes. This map maintains the plane-sets that can be acquired
-  // and released and thus allows reuse. This map must be thread safe
-  // so a mutex is needed as well.
-  mutable std::mutex alloc_planes_mu_;
-  std::map<CellsKey, std::deque<FlattenedCells>> alloc_planes_map_;
-
   // Indexed by flattened cell index that gives features of each cell.
   std::vector<CellFeatures> cell_features_;
 
     // For each feature kind, a vector of offsets into cell_features_.
   std::array<std::vector<size_t>, FEATURE_COUNT> cell_features_offsets_;
-
-  // Statistics
-  std::atomic<size_t> created_plane_sets_ {0};
-  std::atomic<size_t> acquired_plane_sets_ {0};
-  std::atomic<size_t> released_plane_sets_ {0};
 };
 
 }} // namespace cifre::gettysburg

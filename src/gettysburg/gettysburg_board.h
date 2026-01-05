@@ -43,9 +43,6 @@ public:
     const cifre::Size2D& plane_shape, const std::vector<Player*>& players,
     std::pmr::memory_resource* arena);
 
-  // Destructor
-  virtual ~Board();
-
   // See cifre::State.
   // Hash/compare all members that uniquely define this board.
   virtual size_t Hash() const override;
@@ -142,11 +139,11 @@ private:
   // version below that requires an arena. Don't allow move assignment
   // as it does not move the allocator for any pmr containers (move
   // constructor is ok).
-  Board(Board& other) = delete;
+  Board(Board&) = delete;
   Board& operator=(Board&) = delete;
-  Board(const Board& other) = delete;
+  Board(const Board&) = delete;
   Board& operator=(const Board&) = delete;
-  Board& operator=(Board&& other) = delete;
+  Board& operator=(Board&&) = delete;
 
   // Copy constructor. WARNING: this does not copy 'cells_flattened_'
   // , 'cells_' and some other members. To perform a complete copy,
@@ -173,7 +170,6 @@ private:
   std::vector<const Unit*> ConfederateAt(size_t row_idx, size_t col_idx) const {
     return UnitsAt(Unit::ArmyKind::CONFEDERATE, row_idx, col_idx); }
 
-  void ReleaseInputPlanes();
   void UpdateInputPlanes();
   void UpdateMoveCosts();
   void UpdateCapturedVictoryPoints();

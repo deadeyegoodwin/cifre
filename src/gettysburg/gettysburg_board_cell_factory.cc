@@ -147,69 +147,13 @@ BoardCellFactory::Features(size_t row, size_t column) const
   return cell_features_[offset];
 }
 
-void
-BoardCellFactory::AcquireCells(
-  const CellsKey key, FlattenedCells& cells, std::pmr::memory_resource* arena)
+const FlattenedCells&
+BoardCellFactory::PlaneSet(const CellsKey key)
 {
-  assert(cells.empty());
-
-  acquired_plane_sets_ += 1;
-
-  // First check if there is a plane-set already available for
-  // immediate use.
-  {
-    std::unique_lock<std::mutex> lk(alloc_planes_mu_);
-    const auto iter = alloc_planes_map_.find(key);
-    if ((iter != alloc_planes_map_.end()) && !iter->second.empty()) {
-      cells = std::move(iter->second.back());
-      iter->second.pop_back();
-
-      assert(cells.get_allocator().resource() == arena);
-      return;
-    }
-  }
-
-  // No existing plane-set so make a copy from the pre-initialized
-  // original (which must exist).
   const auto iter = planes_map_.find(key);
   THROWIF(iter == planes_map_.end(), "expected pre-initialized plane set");
-  FlattenedCells ps(iter->second, arena);
-  cells = std::move(ps);
-  assert(cells.get_allocator().resource() == arena);
 
-  created_plane_sets_ += 1;
-}
-
-void
-BoardCellFactory::ReleaseCells(const CellsKey key, FlattenedCells& cells)
-{
-  released_plane_sets_ += 1;
-
-  // When debugging, check that the returned cells match what was
-  // originally acquired.
-#ifndef NDEBUG
-  const auto iter = planes_map_.find(key);
-  assert(iter != planes_map_.end());
-  assert(cells == iter->second);
-#endif
-
-  // Save 'cells' so that it is available for reuse. Don't exceed the
-  // maximum number of per-cell saves.
-  {
-    std::unique_lock<std::mutex> lk(alloc_planes_mu_);
-
-    const auto iter = alloc_planes_map_.find(key);
-    if ((iter == alloc_planes_map_.end()) || (iter->second.size() < MAX_ALLOC_PLANES_PER_CELL)) {
-      auto pr = alloc_planes_map_.try_emplace(key);
-      pr.first->second.emplace_back(std::move(cells));
-    }
-    else {
-      // Already have enough planes-sets saved for reuse for 'key', so
-      // just clear (really don't need to as 'cells' will be
-      // overwritten or released by a subsequent copy or AcquireCells() call.
-      cells.clear();
-    }
-  }
+  return iter->second;
 }
 
 std::string
@@ -220,38 +164,7 @@ BoardCellFactory::ToString() const
   const size_t cplane_bytes = flat_vector_byte_count_ * planes_map_.size();
   ss
     << "constant plane sets:\n"
-    << "  created " << planes_map_.size() << ", " << "memory usage " << cplane_bytes << "\n";
-
-  size_t aplane_entries = 0;
-  size_t max_per = 0;
-  CellsKey max_key;
-
-  {
-    std::unique_lock<std::mutex> lk(alloc_planes_mu_);
-    for (const auto& pr : alloc_planes_map_) {
-      const size_t sz = pr.second.size();
-      aplane_entries += sz;
-      if (sz > max_per) {
-        max_per = sz;
-        max_key = pr.first;
-      }
-    }
-  }
-
-  size_t aplane_bytes = aplane_entries * flat_vector_byte_count_;
-  ss
-    << "allocated plane sets:\n"
-    << "  created " << created_plane_sets_ << ", "
-    << "acquired " << acquired_plane_sets_ << ", "
-    << "released " << released_plane_sets_ << "\n"
-    << "  entries " << aplane_entries << ", "
-    << "memory usage " << aplane_bytes;
-
-  if (max_per > 0) {
-    ss
-      << "\n  per-state maximum " << max_per << " for "
-      << CellsKeyToString(max_key);
-  }
+    << "  created " << planes_map_.size() << ", " << "memory usage " << cplane_bytes;
 
   return ss.str();
 }

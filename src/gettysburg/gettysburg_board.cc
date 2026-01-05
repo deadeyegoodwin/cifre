@@ -17,8 +17,7 @@ Board::Board(
   cifre::BoardHex(BoardCellFactory::PLANE_COUNT, board_shape, players,
                   0 /* starting_player_id */, arena),
   cell_factory_(cell_factory), move_factory_(move_factory),
-  scenario_(scenario), plane_shape_(plane_shape),
-  cells_flattened_(std::pmr::new_delete_resource() /* arena */)
+  scenario_(scenario), plane_shape_(plane_shape), cells_flattened_(arena)
 {
   valid_action_ids_.reserve(TotalActionIdCount());
 
@@ -74,7 +73,7 @@ Board::Board(const Board& other, std::pmr::memory_resource* arena) :
   captured_vps_count_(other.captured_vps_count_),
   union_units_count_(other.union_units_count_),
   confederate_units_count_(other.confederate_units_count_),
-  cells_flattened_(std::pmr::new_delete_resource() /* arena */)
+  cells_flattened_(arena)
 {
   // WARNING: this does not copy 'cells_flattened_', 'cells_' or
   // 'cells_flattened_factory_key_'. To perform a complete copy, use
@@ -90,11 +89,6 @@ Board::Board(const Board& other, std::pmr::memory_resource* arena) :
 
   active_unit_ = ActiveUnit();
   assert(active_unit_ != nullptr);
-}
-
-Board::~Board()
-{
-  ReleaseInputPlanes();
 }
 
 size_t
@@ -363,7 +357,6 @@ Board::Update(uint64_t action_id)
 {
   const Unit::ActionKind action = Unit::ActionKind(action_id);
 
-  ReleaseInputPlanes();
   active_unit_->ApplyAction(action, active_move_costs_);
 
   UpdateCapturedVictoryPoints();
@@ -488,9 +481,8 @@ Board::UpdateInputPlanes()
 
   cells_flattened_factory_key_ =
     std::make_pair(active_unit_->Row(), active_unit_->Column());
-  cell_factory_->AcquireCells(
-    cells_flattened_factory_key_, cells_flattened_,
-    std::pmr::new_delete_resource() /* arena */);
+  const auto& fcf = cell_factory_->PlaneSet(cells_flattened_factory_key_);
+  cells_flattened_.assign(fcf.begin(), fcf.end());
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
   // Update planes as required for all units.
@@ -524,46 +516,6 @@ Board::UpdateInputPlanes()
         break;
       }
     }
-  }
-}
-
-void
-Board::ReleaseInputPlanes()
-{
-  if (!cells_flattened_.empty()) {
-    // Update planes to remove all units.
-    for (size_t idx = 0; idx < union_units_count_; ++idx) {
-      union_units_[idx].RemoveFromBoard(this);
-    }
-    for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
-      confederate_units_[idx].RemoveFromBoard(this);
-    }
-
-    // Update planes to remove captured victory points.
-    for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
-      if (captured_vps_[idx] >= 0) {
-        const auto& features =
-          cell_factory_->Features(BoardCellFactory::FeatureKind::VICTORY_POINT, idx);
-        assert(features.victory_points_ > 0.0);
-        assert(VictoryPointAt(features.row_, features.column_) == features.victory_points_);
-
-        const Unit::ArmyKind army = Unit::ArmyKind(captured_vps_[idx]);
-        switch (army) {
-        case Unit::ArmyKind::UNION:
-          assert(UnionVictoryPointAt(features.row_, features.column_) > 0.0);
-          assert(ConfederateVictoryPointAt(features.row_, features.column_) == 0.0);
-          SetUnionVictoryPointAt(0.0, features.row_, features.column_);
-          break;
-        case Unit::ArmyKind::CONFEDERATE:
-          assert(UnionVictoryPointAt(features.row_, features.column_) == 0.0);
-          assert(ConfederateVictoryPointAt(features.row_, features.column_) > 0.0);
-          SetConfederateVictoryPointAt(0.0, features.row_, features.column_);
-          break;
-        }
-      }
-    }
-
-    cell_factory_->ReleaseCells(cells_flattened_factory_key_, cells_flattened_);
   }
 }
 
