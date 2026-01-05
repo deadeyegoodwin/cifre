@@ -3,6 +3,7 @@
 import os
 import pathlib
 import random
+import subprocess
 import sys
 import time
 
@@ -151,9 +152,9 @@ class CifreNNetManager(object):
         self._optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self._epoch = checkpoint['epoch']
 
-    def save_triton_repository(self, model_name, model_version=1):
+    def save_triton_repository(self, LOG, model_kind, model_name, model_version=1):
         """
-        Save nnet as a onnxruntime model called 'model_name'.
+        Save nnet as a 'model_kind' model called 'model_name'.
         """
         if not os.path.isdir(self._repodir):
             raise NotADirectoryError(f"model directory {self._repodir} does not exist")
@@ -164,10 +165,12 @@ class CifreNNetManager(object):
         model_version_dir = os.path.join(model_dir, str(model_version))
         os.mkdir(model_version_dir)
 
+        model_backend = 'onnxruntime' if (model_kind == 'onnx') else 'tensorrt'
+
         # Write triton configuration file.
         model_config_file = pathlib.Path(model_dir) / 'config.pbtxt'
         with model_config_file.open('w', encoding ='utf-8') as f:
-            f.write('backend: "onnxruntime"\n')
+            f.write(f'backend: "{model_backend}"\n')
             f.write(f'max_batch_size: {self._nnet_max_batch_size}\n')
             f.write('dynamic_batching: { }\n')
 
@@ -195,11 +198,11 @@ class CifreNNetManager(object):
         if self._use_cuda:
             board_tensor = board_tensor.contiguous().cuda()
 
-        # Export the model
+        # Export the model as onnx
         torch.onnx.export(
             self._nnet,
             board_tensor,
-            os.path.join(model_version_dir, "model.onnx"),
+            os.path.join(model_version_dir, 'model.onnx'),
             export_params=True,        # store the trained parameter weights inside the model file
             opset_version=15,          # the ONNX version to export the model to
             do_constant_folding=True,  # whether to execute constant folding for optimization
@@ -208,3 +211,29 @@ class CifreNNetManager(object):
             dynamic_axes={'board' : {0 : 'batch_size'},    # variable length axes
                           'pi' : {0 : 'batch_size'},
                           'v' : {0 : 'batch_size'}})
+
+        # If model kind is tensorrt, then convert the onnx model to tensorrt
+        if model_backend == 'tensorrt':
+            min_batch = 'x'.join(map(str, (1,) + self._nnet_input_shape))
+            opt_batch = 'x'.join(map(str, (self._nnet_max_batch_size,) + self._nnet_input_shape))
+            max_batch = 'x'.join(map(str, (self._nnet_max_batch_size,) + self._nnet_input_shape))
+            tensorrt_cmd = [
+                'docker', 'run', '--rm', '--gpus', 'all',
+                '-v', f'{model_version_dir}:/tmp/model',
+                f'nvcr.io/nvidia/{model_kind}-py3', 'trtexec',
+                f'--onnx=/tmp/model/model.onnx',
+                f'--saveEngine=/tmp/model/model.plan',
+                '--fp16',
+                f'--minShapes=board:{min_batch}',
+                f'--optShapes=board:{opt_batch}',
+                f'--maxShapes=board:{max_batch}' ]
+
+            LOG.log(f'\n==== Convert to TensorRT ====')
+            process = subprocess.Popen(
+                tensorrt_cmd, bufsize=0, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            while process.poll() is None:
+                print(process.stdout.read(1), end='', flush=True)
+            print(process.stdout.read(), end='')
+            process.stdout.close()
+            cret = process.poll()
+            LOG.fail_if(cret != 0, f'TensorRT conversion return code is {cret}')

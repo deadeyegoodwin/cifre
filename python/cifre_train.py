@@ -212,6 +212,13 @@ def main():
         type=parse_existing_dir,
         required=True,
         help='Training data directory.')
+    parser.add_argument(
+        '--model-kind',
+        type=str,
+        choices=['onnx', 'tensorrt:25.01'],
+        default='onnx',
+        required=False,
+        help=('Type of model to generate, default is "onnx".'))
 
     FLAGS = parser.parse_args()
     LOG = CifreLogger(verbose=FLAGS.verbose, quiet=FLAGS.quiet, debug=FLAGS.debug)
@@ -288,7 +295,7 @@ def main():
 
     for iter in range(FLAGS.iteration_count):
         model_name = f'iter{iter}'
-        manager.save_triton_repository(model_name)
+        manager.save_triton_repository(LOG, FLAGS.model_kind, model_name)
 
         train_dir = pathlib.Path(FLAGS.train_dir) / model_name
         if os.path.exists(train_dir):
