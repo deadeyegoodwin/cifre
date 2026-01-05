@@ -26,9 +26,7 @@ AlphaZeroAlgo::AlphaZeroAlgo(
   const std::shared_ptr<Logger>& logger, std::unique_ptr<TritonModel> triton_model,
   const AlphaZeroSettings& settings) :
   logger_(logger), triton_model_(std::move(triton_model)), settings_(settings),
-  nextactionid_arena_buffer_(ARENA_INITIAL_BYTES),
-  nextactionid_arena_(&nextactionid_arena_buffer_),
-  nodes_(&nextactionid_arena_)
+  nextactionid_arena_(ARENA_INITIAL_BYTES), nodes_(&nextactionid_arena_)
 {
   THROWIF(triton_model_->Name() != settings_.model_name_,
           "alphazero settings model-name differs from triton model name");
@@ -99,8 +97,9 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
 
   // Reset the nodes and the arena... a new node tree is used to
   // choose this action.
-  nodes_.clear();
+  nodes_.clear(); // Node and State destructors
   nextactionid_arena_.release();
+  nodes_ = NodesMap(&nextactionid_arena_); // Force 'nodes_' to release all "old" memory
 
   // If Dirichlet distribution is being used but has not yet been
   // generated, then do so now using GSL (GNU Scientific
@@ -187,8 +186,9 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
       node.NodeTritonResult(), std::move(node_probs), node.Value());
   }
 
-  nodes_.clear();
+  nodes_.clear(); // Node and State destructors
   nextactionid_arena_.release();
+  nodes_ = NodesMap(&nextactionid_arena_); // Force 'nodes_' to release all "old" memory
 
   return action_id;
 }

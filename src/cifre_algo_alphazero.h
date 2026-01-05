@@ -418,8 +418,7 @@ private:
   // arena is reset on each call to NextActionId() and so nothing can
   // be allocated to it that needs to live beyond an invocation of
   // that function.
-  std::pmr::monotonic_buffer_resource nextactionid_arena_buffer_;
-  std::pmr::unsynchronized_pool_resource nextactionid_arena_;
+  std::pmr::monotonic_buffer_resource nextactionid_arena_;
 
   // Nodes are identified by their State, so we need to use a custom
   // hash and equal for the map containing all the nodes. The "State*"
