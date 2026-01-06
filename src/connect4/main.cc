@@ -132,7 +132,7 @@ Connect4::DefaultAlphaZeroSettings(bool training, bool az_vs_az) const
   }
   else if (az_vs_az) {
     settings.next_action_kind_ =
-      cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
+      cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED_90;
     settings.dirichlet_alpha_ = 0.0; // disabled
   }
   else { // AZ vs non-AZ opponent

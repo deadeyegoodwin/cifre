@@ -43,7 +43,11 @@ struct AlphaZeroSettings {
   //   RANDOM_VISIT_WEIGHTED - choose randomly taking into account
   //   child visits so that the more visited children are
   //   proportionally more likely to be selected
-  enum class NextActionKind { MAX_VISITED, RANDOM_VISIT_WEIGHTED };
+  //   RANDOM_VISIT_WEIGHTED_90 - choose randomly taking into account
+  //   child visits so that the more visited children are
+  //   proportionally more likely to be selected. Consider only the
+  //   children that account for up to 90% of the visit counts
+  enum class NextActionKind { MAX_VISITED, RANDOM_VISIT_WEIGHTED, RANDOM_VISIT_WEIGHTED_90 };
   NextActionKind next_action_kind_ {NextActionKind::MAX_VISITED};
 
   // Dirichlet alpha value, must be non-negative. Zero indicates
@@ -187,16 +191,22 @@ public:
 
   // Return the action ID corresponding to the child edge that
   // represents a valid action for this node, and that is chosen
-  // randomly from all valid children based on the child visit
-  // counts, so that the higher visited children have a higher
-  // probability of being chosen randomly. Error if no such child.
-  uint64_t RandomWeightedValidChild(common::Random& rnd) const;
+  // randomly from all valid children based on the child visit counts,
+  // so that the higher visited children have a higher probability of
+  // being chosen randomly. Consider only the valid children that
+  // account for up to 'percent' of the visit counts. Error if no such
+  // child.
+  uint64_t RandomWeightedValidChild(
+    common::Random& rnd, float percent, std::pmr::memory_resource* arena) const;
 
   // Return string representation of node. If 'cpuct' is non-zero then
   // show the QUs for the node.
   std::string ToString(float cpuct = 0.0) const;
 
 private:
+  uint64_t RandomWeightedValidChild(
+    common::Random& rnd, size_t visit_count, const std::pmr::vector<uint64_t>& vaids) const;
+
   StateUniqueConstPtr state_;
   std::shared_ptr<const TritonInferResult> result_;
   std::pmr::vector<AlphaZeroNode*> children_;      // fully sized at construction

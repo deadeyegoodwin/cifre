@@ -155,16 +155,19 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   // Based on 'kind', choose the next action. Because 'state' is not a
   // terminal state, there must be at least one action with a non-zero
   // visit count.
-  uint64_t action_id;
+  uint64_t action_id = 0;
   switch (settings_.next_action_kind_) {
   case AlphaZeroSettings::NextActionKind::MAX_VISITED:
     action_id = node.MaxVisitedValidChild();
     break;
   case AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED:
-    action_id = node.RandomWeightedValidChild(rnd_);
+    action_id =
+      node.RandomWeightedValidChild(rnd_, 100.0 /* percent */, &nextactionid_arena_);
     break;
-  default:
-    THROW("unreachable");
+  case AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED_90:
+    action_id =
+      node.RandomWeightedValidChild(rnd_, 90.0 /* percent */, &nextactionid_arena_);
+    break;
   }
 
   LOG_ALGO(
@@ -534,18 +537,19 @@ AlphaZeroNode::MaxVisitedValidChild() const
 }
 
 uint64_t
-AlphaZeroNode::RandomWeightedValidChild(common::Random& rnd) const
+AlphaZeroNode::RandomWeightedValidChild(
+  common::Random& rnd, size_t visit_count,
+  const std::pmr::vector<uint64_t>& vaids) const
 {
-  THROWIF(visit_count_ == 0, "alpha-zero node has zero visits");
-
-  uint64_t visit_offset = rnd(uint64_t(1), uint64_t(visit_count_ - 1));
+  assert(visit_count >= 2); // see ValidateVisitCounts()
+  const uint64_t visit_offset = rnd(uint64_t(1), uint64_t(visit_count-1));
 
 #ifndef NDEBUG
   // When debugging, make sure that there are no children for invalid
   // action IDs.
-  const auto& vaids = state_->ValidActionIds();
+  const auto& all_vaids = state_->ValidActionIds();
   for (uint64_t aid = 0; aid < state_->TotalActionIdCount(); ++aid) {
-    if (std::find(vaids.begin(), vaids.end(), aid) == vaids.end()) {
+    if (std::find(all_vaids.begin(), all_vaids.end(), aid) == all_vaids.end()) {
       assert(children_[aid] == nullptr);
       assert(children_visit_counts_[aid] == 0);
     }
@@ -553,7 +557,7 @@ AlphaZeroNode::RandomWeightedValidChild(common::Random& rnd) const
 #endif
 
   uint64_t count_total = 0;
-  for (uint64_t aid : state_->ValidActionIds()) {
+  for (uint64_t aid : vaids) {
     count_total += children_visit_counts_[aid];
     if (count_total >= visit_offset) {
       return aid;
@@ -563,17 +567,51 @@ AlphaZeroNode::RandomWeightedValidChild(common::Random& rnd) const
   THROW("alpha-zero unable to find valid child with non-zero visits");
 }
 
+uint64_t
+AlphaZeroNode::RandomWeightedValidChild(
+  common::Random& rnd, float percent, std::pmr::memory_resource* arena) const
+{
+  THROWIF(visit_count_ == 0, "alpha-zero node has zero visits");
+
+  if ((percent <= 0.0) || (percent >= 100.0)) {
+    return RandomWeightedValidChild(rnd, visit_count_, state_->ValidActionIds());
+  }
+
+  // Sort valid action ids from highest count to lowest.
+  const auto& all_vaids = state_->ValidActionIds();
+  std::pmr::vector<size_t> vaids(
+    all_vaids.begin(), all_vaids.end(), arena);
+  std::stable_sort(
+    vaids.begin(), vaids.end(),
+    [&v = children_visit_counts_](size_t a, size_t b) { return v[a] > v[b]; });
+
+  // Add the visit counts (highest to lowest) of the children that
+  // together make up 'percent' of the total visit count. Note that
+  // 'percent_visit_count' can exceed the threshold because the
+  // complete visit-count of the included children is added.
+  const size_t percent_visit_count_threshold = (visit_count_ - 1) * (percent / 100.0);
+  size_t percent_visit_count = 0;
+  for (uint64_t aid : vaids) {
+    percent_visit_count += children_visit_counts_[aid];
+    if (percent_visit_count >= percent_visit_count_threshold) {
+      break;
+    }
+  }
+
+  return RandomWeightedValidChild(rnd, percent_visit_count + 1, vaids);
+}
+
 void
 AlphaZeroNode::ValidateVisitCounts() const
 {
   // Make sure non-terminal 'node's visit count equals 1 + sum of the
   // children visit counts. See AlphaZeroNode header documentation.
-  uint64_t total_child_visit_count = 1;
+  uint64_t total_child_visit_count = 0;
   for (uint64_t aid : state_->ValidActionIds()) {
     total_child_visit_count += children_visit_counts_[aid];
   }
 
-  if ((visit_count_ == 0) || (visit_count_ != total_child_visit_count)) {
+  if ((visit_count_ == 0) || (visit_count_ != (1 + total_child_visit_count))) {
     THROW("invalid node and children visit counts\n" + ToString());
   }
 }
