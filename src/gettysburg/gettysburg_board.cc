@@ -22,10 +22,10 @@ Board::Board(
   valid_action_ids_.reserve(TotalActionIdCount());
 
   // Initially no vp hexes are captured. Fill the entire array even
-  // though will only use BoardCellFactory::FeaturesCount(VICTORY_POINT).
+  // though will only use BoardCellFactory::CellFeaturesCount(VICTORY_POINT).
   captured_vps_.fill(-1);
   captured_vps_count_ =
-    cell_factory_->FeaturesCount(BoardCellFactory::FeatureKind::VICTORY_POINT);
+    cell_factory_->CellFeaturesCount(BoardCellFactory::CellFeatureKind::VICTORY_POINT);
 
   // Turn is represented by a integer. Each day has seven turns plus 1
   // for the night. So for JULY_1 scenario turn 0 is the first turn
@@ -452,11 +452,11 @@ Board::UpdateCapturedVictoryPoints()
 {
   // Is the active unit capturing a victory point?
   const auto& features =
-    cell_factory_->Features(active_unit_->Row(), active_unit_->Column());
+    cell_factory_->CellFeaturesFromCoordinates(active_unit_->Row(), active_unit_->Column());
   if (features.victory_points_ > 0.0) {
     for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
       const auto& cf =
-        cell_factory_->Features(BoardCellFactory::FeatureKind::VICTORY_POINT, idx);
+        cell_factory_->CellFeaturesFromIndex(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
       assert(cf.victory_points_ > 0.0);
       if ((features.row_ == cf.row_) && (features.column_ == cf.column_)) {
         assert(cf.victory_points_ == features.victory_points_);
@@ -497,7 +497,7 @@ Board::UpdateInputPlanes()
   for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
     if (captured_vps_[idx] >= 0) {
       const auto& features =
-        cell_factory_->Features(BoardCellFactory::FeatureKind::VICTORY_POINT, idx);
+        cell_factory_->CellFeaturesFromIndex(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
       assert(features.victory_points_ > 0.0);
 
       assert(VictoryPointAt(features.row_, features.column_) == features.victory_points_);
@@ -570,7 +570,7 @@ Board::UpdateTerminalStatus()
     for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
       if (captured_vps_[idx] >= 0) {
         const auto& features =
-          cell_factory_->Features(BoardCellFactory::FeatureKind::VICTORY_POINT, idx);
+          cell_factory_->CellFeaturesFromIndex(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
         assert(features.victory_points_ > 0.0);
         assert(VictoryPointAt(features.row_, features.column_) == features.victory_points_);
 
@@ -699,7 +699,7 @@ Board::BoardHeader() const
       }
 
       const auto& features =
-        cell_factory_->Features(BoardCellFactory::FeatureKind::VICTORY_POINT, idx);
+        cell_factory_->CellFeaturesFromIndex(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
       assert(features.victory_points_ > 0.0);
       assert(VictoryPointAt(features.row_, features.column_) == features.victory_points_);
 

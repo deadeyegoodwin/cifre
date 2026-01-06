@@ -64,8 +64,8 @@ public:
   static constexpr size_t MAX_VICTORY_POINT_HEX_COUNT = 8;
 
   // Kinds of cell features.
-  enum class FeatureKind { NO_ACCESS, FOREST, HILL, ROCKY_HILL, VICTORY_POINT };
-  static constexpr size_t FEATURE_COUNT = 5;
+  enum class CellFeatureKind { NO_ACCESS, FOREST, HILL, ROCKY_HILL, TOWN, VICTORY_POINT };
+  static constexpr size_t CELL_FEATURE_COUNT = 6;
 
   // Features of a hex cell.
   class CellFeatures {
@@ -73,7 +73,7 @@ public:
     CellFeatures& operator=(const BoardCellData& bd) {
       row_ = bd.row_; column_ = bd.column_; not_accessible_ = bd.no_access_;
       forest_ = bd.forest_; hill_ = bd.hill_; rocky_hill_ = bd.rocky_hill_;
-      victory_points_ = bd.victory_points_; return *this; }
+      town_ = bd.town_; victory_points_ = bd.victory_points_; return *this; }
 
     size_t row_ {0};
     size_t column_ {0};
@@ -81,7 +81,28 @@ public:
     bool forest_ {false};
     bool hill_ {false};
     bool rocky_hill_ {false};
+    bool town_ {false};
     float victory_points_ {0.0};
+  };
+
+  // Kinds of edge features.
+  enum class EdgeFeatureKind { ROAD, STREAM, RAILROAD };
+  static constexpr size_t EDGE_FEATURE_COUNT = 3;
+
+  // Features of an edge between cells.
+  class EdgeFeatures {
+  public:
+    EdgeFeatures& operator=(const BoardEdgeData& bd) {
+      row_ = bd.row_; column_ = bd.column_; dir_ = bd.dir_;
+      road_ = bd.road_; stream_ = bd.stream_; railroad_ = bd.railroad_;
+      return *this; }
+
+    size_t row_ {0};
+    size_t column_ {0};
+    BoardHex::Direction dir_ {BoardHex::Direction::NONE};
+    bool road_ {false};
+    bool stream_ {false};
+    bool railroad_ {false};
   };
 
   // The planes.
@@ -132,15 +153,20 @@ public:
     size_t plane_row_cnt, size_t plane_column_cnt);
 
   // The number of cells/hexes containing a given 'kind' of feature.
-  size_t FeaturesCount(FeatureKind kind) const {
+  size_t CellFeaturesCount(CellFeatureKind kind) const {
     return cell_features_offsets_[size_t(kind)].size(); }
 
   // Return the CellFeatures for the 'n'th cell for a given feature
   // 'kind'. 'n' must be less than FeaturesCount.
-  const CellFeatures& Features(FeatureKind kind, size_t n) const;
+  const CellFeatures& CellFeaturesFromIndex(CellFeatureKind kind, size_t n) const;
 
   // Return the CellFeatures for a given 'row' / 'column'.
-  const CellFeatures& Features(size_t row, size_t column) const;
+  const CellFeatures& CellFeaturesFromCoordinates(size_t row, size_t column) const;
+
+  // Return the EdgeFeatures for edge between 'a_row' / 'a_column' and
+  // 'b_row' / 'b_column'.
+  const EdgeFeatures& EdgeFeaturesFromCoordinates(
+    size_t a_row, size_t a_column, size_t b_row, size_t b_column) const;
 
   // Return the plane-set for a given row and column (using plane
   // indexing).
@@ -175,7 +201,7 @@ private:
   std::vector<CellFeatures> cell_features_;
 
     // For each feature kind, a vector of offsets into cell_features_.
-  std::array<std::vector<size_t>, FEATURE_COUNT> cell_features_offsets_;
+  std::array<std::vector<size_t>, CELL_FEATURE_COUNT> cell_features_offsets_;
 };
 
 }} // namespace cifre::gettysburg

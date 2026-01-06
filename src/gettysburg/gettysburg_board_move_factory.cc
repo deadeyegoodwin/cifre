@@ -64,7 +64,7 @@ BoardMoveFactory::RCToIndex(const std::pair<int64_t, int64_t>& pr) const
   }
 
   // Also any cell marked as inaccessible in not adjacent.
-  if (cell_factory_->Features(row, column).not_accessible_) {
+  if (cell_factory_->CellFeaturesFromCoordinates(row, column).not_accessible_) {
     return NO_ADJACENT;
   }
 
@@ -75,8 +75,8 @@ float
 BoardMoveFactory::CalculateMoveCost(
   const std::pair<int64_t, int64_t>& from, const std::pair<int64_t, int64_t>& to) const
 {
-  //const int64_t from_row = from.first;
-  //const int64_t from_column = from.second;
+  const int64_t from_row = from.first;
+  const int64_t from_column = from.second;
   const int64_t to_row = to.first;
   const int64_t to_column = to.second;
 
@@ -86,14 +86,31 @@ BoardMoveFactory::CalculateMoveCost(
     return 1.0;
   }
 
-  const auto& features = cell_factory_->Features(to_row, to_column);
-
-  // Moving off the board cost 1 MF.
-  if (features.not_accessible_) {
+  // Move cost associated with features of the 'to' cell. Moving off
+  // the board cost 1 MF. Moving into a town costs 0.5.
+  const auto& cell_features = cell_factory_->CellFeaturesFromCoordinates(to_row, to_column);
+  if (cell_features.not_accessible_) {
     return 1.0;
   }
+  else if (cell_features.town_) {
+    return 0.5;
+  }
 
-  return 1.0 + (features.forest_ ? 1 : 0) + (features.rocky_hill_ ? 1 : 0);
+  float move_cost = 1.0 + (cell_features.forest_ ? 1 : 0) + (cell_features.rocky_hill_ ? 1 : 0);
+
+  // Move cost associated with features of the edge between 'from' and
+  // 'to' cells.
+  const auto& edge_features =
+    cell_factory_->EdgeFeaturesFromCoordinates(from_row, from_column, to_row, to_column);
+  if (edge_features.road_ || edge_features.railroad_) {
+    return 0.5;
+  }
+
+  if (edge_features.stream_) {
+    move_cost += 1;
+  }
+
+  return move_cost;
 }
 
 }} // namespace cifre::gettysburg

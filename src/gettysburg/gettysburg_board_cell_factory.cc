@@ -101,21 +101,21 @@ BoardCellFactory::BoardCellFactory(
       // Add cell offset feature list corresponding to a feature that
       // is present in the cell.
       if (bd.no_access_) {
-        cell_features_offsets_[size_t(FeatureKind::NO_ACCESS)].push_back(offset);
+        cell_features_offsets_[size_t(CellFeatureKind::NO_ACCESS)].push_back(offset);
       }
       if (bd.forest_) {
-        cell_features_offsets_[size_t(FeatureKind::FOREST)].push_back(offset);
+        cell_features_offsets_[size_t(CellFeatureKind::FOREST)].push_back(offset);
       }
       if (bd.hill_) {
-        cell_features_offsets_[size_t(FeatureKind::HILL)].push_back(offset);
+        cell_features_offsets_[size_t(CellFeatureKind::HILL)].push_back(offset);
       }
       if (bd.rocky_hill_) {
-        cell_features_offsets_[size_t(FeatureKind::ROCKY_HILL)].push_back(offset);
+        cell_features_offsets_[size_t(CellFeatureKind::ROCKY_HILL)].push_back(offset);
       }
       if ((scenario_ != OOB::Scenario::SMALL) && (bd.victory_points_ > 0.0)) {
-        cell_features_offsets_[size_t(FeatureKind::VICTORY_POINT)].push_back(offset);
+        cell_features_offsets_[size_t(CellFeatureKind::VICTORY_POINT)].push_back(offset);
         assert(cell_features_offsets_[
-                 size_t(FeatureKind::VICTORY_POINT)].size() < MAX_VICTORY_POINT_HEX_COUNT);
+                 size_t(CellFeatureKind::VICTORY_POINT)].size() < MAX_VICTORY_POINT_HEX_COUNT);
       }
     }
   }
@@ -125,14 +125,14 @@ BoardCellFactory::BoardCellFactory(
     const size_t offset =
       ((board_row_cnt_ / 2) * board_column_cnt_) + (board_column_cnt_ / 2);
     cell_features_[offset].victory_points_ = 1.0;
-    cell_features_offsets_[size_t(FeatureKind::VICTORY_POINT)].push_back(offset);
+    cell_features_offsets_[size_t(CellFeatureKind::VICTORY_POINT)].push_back(offset);
     assert(cell_features_offsets_[
-             size_t(FeatureKind::VICTORY_POINT)].size() < MAX_VICTORY_POINT_HEX_COUNT);
+             size_t(CellFeatureKind::VICTORY_POINT)].size() < MAX_VICTORY_POINT_HEX_COUNT);
   }
 }
 
 const BoardCellFactory::CellFeatures&
-BoardCellFactory::Features(FeatureKind kind, size_t n) const
+BoardCellFactory::CellFeaturesFromIndex(CellFeatureKind kind, size_t n) const
 {
   assert(n < FeaturesCount(kind));
   assert(cell_features_offsets_[size_t(kind)][n] < cell_features_.size());
@@ -140,11 +140,22 @@ BoardCellFactory::Features(FeatureKind kind, size_t n) const
 }
 
 const BoardCellFactory::CellFeatures&
-BoardCellFactory::Features(size_t row, size_t column) const
+BoardCellFactory::CellFeaturesFromCoordinates(size_t row, size_t column) const
 {
   assert((row < board_row_cnt_) && (column < board_column_cnt_));
   const size_t offset = (row * board_column_cnt_) + column;
   return cell_features_[offset];
+}
+
+const BoardCellFactory::EdgeFeatures&
+BoardCellFactory::EdgeFeaturesFromCoordinates(
+  size_t a_row, size_t a_column, size_t b_row, size_t b_column) const
+{
+  assert((a_row < board_row_cnt_) && (a_column < board_column_cnt_));
+  assert((b_row < board_row_cnt_) && (b_column < board_column_cnt_));
+
+  static EdgeFeatures ee; // FIXME
+  return ee;
 }
 
 const FlattenedCells&
