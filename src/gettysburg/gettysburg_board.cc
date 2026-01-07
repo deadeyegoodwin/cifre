@@ -440,8 +440,8 @@ Board::UpdateMoveCosts()
   const auto& opponent_units =
     ((active_army_ == Unit::ArmyKind::UNION) ? confederate_units_ : union_units_);
   for (size_t idx = 0; idx < opponent_units_count; ++idx) {
-    Direction dir = active_unit_->AdjacentDirection(opponent_units[idx]);
-    if (dir != Direction::NONE) {
+    HexDirection dir = active_unit_->AdjacentDirection(opponent_units[idx]);
+    if (dir != HexDirection::NONE) {
       active_move_costs_[size_t(dir)] = -1.0; // move not allowed
     }
   }
@@ -519,14 +519,14 @@ Board::UpdateInputPlanes()
   }
 }
 
-static const std::array<std::pair<BoardHex::Direction, Unit::ActionKind>,
-                        BoardHex::DIRECTION_COUNT> direction_actions {{
-  { BoardHex::Direction::UP, Unit::ActionKind::MOVE_UP },
-  { BoardHex::Direction::UP_RT, Unit::ActionKind::MOVE_UPRIGHT },
-  { BoardHex::Direction::DN_RT, Unit::ActionKind::MOVE_DOWNRIGHT },
-  { BoardHex::Direction::DN, Unit::ActionKind::MOVE_DOWN },
-  { BoardHex::Direction::DN_LT, Unit::ActionKind::MOVE_DOWNLEFT },
-  { BoardHex::Direction::UP_LT, Unit::ActionKind::MOVE_UPLEFT } }};
+static const std::array<
+  std::pair<HexDirection, Unit::ActionKind>, HEX_DIRECTION_COUNT> direction_actions {{
+    { HexDirection::UP, Unit::ActionKind::MOVE_UP },
+    { HexDirection::UP_RT, Unit::ActionKind::MOVE_UPRIGHT },
+    { HexDirection::DN_RT, Unit::ActionKind::MOVE_DOWNRIGHT },
+    { HexDirection::DN, Unit::ActionKind::MOVE_DOWN },
+    { HexDirection::DN_LT, Unit::ActionKind::MOVE_DOWNLEFT },
+    { HexDirection::UP_LT, Unit::ActionKind::MOVE_UPLEFT } }};
 
 void
 Board::UpdateValidActions()

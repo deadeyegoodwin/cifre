@@ -99,7 +99,7 @@ public:
 
     size_t row_ {0};
     size_t column_ {0};
-    BoardHex::Direction dir_ {BoardHex::Direction::NONE};
+    HexDirection dir_ {HexDirection::NONE};
     bool road_ {false};
     bool stream_ {false};
     bool railroad_ {false};

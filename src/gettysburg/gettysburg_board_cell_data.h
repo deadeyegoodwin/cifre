@@ -225,12 +225,12 @@ static std::vector<BoardCellData> board_cell_data {
 class BoardEdgeData {
 public:
   BoardEdgeData(
-    size_t r, size_t c, BoardHex::Direction d, bool rd, bool s = false, bool rr = false) :
+    size_t r, size_t c, HexDirection d, bool rd, bool s = false, bool rr = false) :
     row_(r), column_(c), dir_(d), road_(rd), stream_(s), railroad_(rr) { }
 
   const size_t row_;
   const size_t column_;
-  const BoardHex::Direction dir_;
+  const HexDirection dir_;
   const bool road_;
   const bool stream_;
   const bool railroad_;
@@ -238,12 +238,12 @@ public:
 
 namespace {
 
-static constexpr BoardHex::Direction UP = BoardHex::Direction::UP;
-static constexpr BoardHex::Direction UR = BoardHex::Direction::UP_RT;
-static constexpr BoardHex::Direction DR = BoardHex::Direction::DN_RT;
-static constexpr BoardHex::Direction DN = BoardHex::Direction::DN;
-static constexpr BoardHex::Direction DL = BoardHex::Direction::DN_LT;
-static constexpr BoardHex::Direction UL = BoardHex::Direction::UP_LT;
+static constexpr HexDirection UP = HexDirection::UP;
+static constexpr HexDirection UR = HexDirection::UP_RT;
+static constexpr HexDirection DR = HexDirection::DN_RT;
+static constexpr HexDirection DN = HexDirection::DN;
+static constexpr HexDirection DL = HexDirection::DN_LT;
+static constexpr HexDirection UL = HexDirection::UP_LT;
 
 } // namespace
 

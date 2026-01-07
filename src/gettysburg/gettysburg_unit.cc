@@ -148,17 +148,17 @@ Unit::AddToBoard(Board* board) const
 
 void
 Unit::ApplyAction(
-  ActionKind kind, const std::array<float, BoardHex::DIRECTION_COUNT>& move_cost)
+  ActionKind kind, const std::array<float, HEX_DIRECTION_COUNT>& move_cost)
 {
   switch (kind) {
   case ActionKind::MOVE_UP:
     assert(row_idx_ > 0);
     row_idx_ -= 1;
-    move_factor_expended_ += move_cost[size_t(BoardHex::Direction::UP)];
+    move_factor_expended_ += move_cost[size_t(HexDirection::UP)];
     break;
   case ActionKind::MOVE_DOWN:
     row_idx_ += 1;
-    move_factor_expended_ += move_cost[size_t(BoardHex::Direction::DN)];
+    move_factor_expended_ += move_cost[size_t(HexDirection::DN)];
     break;
   case ActionKind::MOVE_UPRIGHT:
     if ((column_idx_ % 2) == 0) {
@@ -166,14 +166,14 @@ Unit::ApplyAction(
       row_idx_ -= 1;
     }
     column_idx_ += 1;
-    move_factor_expended_ += move_cost[size_t(BoardHex::Direction::UP_RT)];
+    move_factor_expended_ += move_cost[size_t(HexDirection::UP_RT)];
     break;
   case ActionKind::MOVE_DOWNRIGHT:
     if ((column_idx_ % 2) == 1) {
       row_idx_ += 1;
     }
     column_idx_ += 1;
-    move_factor_expended_ += move_cost[size_t(BoardHex::Direction::DN_RT)];
+    move_factor_expended_ += move_cost[size_t(HexDirection::DN_RT)];
     break;
   case ActionKind::MOVE_DOWNLEFT:
     if ((column_idx_ % 2) == 1) {
@@ -181,7 +181,7 @@ Unit::ApplyAction(
     }
     assert(column_idx_ > 0);
     column_idx_ -= 1;
-    move_factor_expended_ += move_cost[size_t(BoardHex::Direction::DN_LT)];
+    move_factor_expended_ += move_cost[size_t(HexDirection::DN_LT)];
     break;
   case ActionKind::MOVE_UPLEFT:
     if ((column_idx_ % 2) == 0) {
@@ -190,7 +190,7 @@ Unit::ApplyAction(
     }
     assert(column_idx_ > 0);
     column_idx_ -= 1;
-    move_factor_expended_ += move_cost[size_t(BoardHex::Direction::UP_LT)];
+    move_factor_expended_ += move_cost[size_t(HexDirection::UP_LT)];
     break;
   case ActionKind::MOVE_END:
     move_factor_expended_ = move_factor_;
@@ -202,38 +202,38 @@ Unit::ApplyAction(
   assert(move_factor_expended_ <= move_factor_);
 }
 
-BoardHex::Direction
+HexDirection
 Unit::AdjacentDirection(const Unit& unit) const
 {
   const int64_t row_delta = unit.row_idx_ - row_idx_;
   const int64_t col_delta = unit.column_idx_ - column_idx_;
   if (((row_delta == 0) && (col_delta == 0)) ||
       (abs(row_delta) > 1) || (abs(col_delta) > 1)) {
-    return BoardHex::Direction::NONE;
+    return HexDirection::NONE;
   }
 
   if (col_delta == 0) {
-    return (row_delta == 1) ? BoardHex::Direction::DN : BoardHex::Direction::UP;
+    return (row_delta == 1) ? HexDirection::DN : HexDirection::UP;
   }
 
   if ((column_idx_ % 2) == 0) {
     if (row_delta == 0) {
-      return (col_delta == 1) ? BoardHex::Direction::DN_RT : BoardHex::Direction::DN_LT;
+      return (col_delta == 1) ? HexDirection::DN_RT : HexDirection::DN_LT;
     }
     else if (row_delta == -1) {
-      return (col_delta == 1) ? BoardHex::Direction::UP_RT : BoardHex::Direction::UP_LT;
+      return (col_delta == 1) ? HexDirection::UP_RT : HexDirection::UP_LT;
     }
   }
   else { // (column_idx_ % 2) == 1
     if (row_delta == 0) {
-      return (col_delta == 1) ? BoardHex::Direction::UP_RT : BoardHex::Direction::UP_LT;
+      return (col_delta == 1) ? HexDirection::UP_RT : HexDirection::UP_LT;
     }
     else if (row_delta == 1) {
-      return (col_delta == 1) ? BoardHex::Direction::DN_RT : BoardHex::Direction::DN_LT;
+      return (col_delta == 1) ? HexDirection::DN_RT : HexDirection::DN_LT;
     }
   }
 
-  return BoardHex::Direction::NONE;
+  return HexDirection::NONE;
 }
 
 std::string

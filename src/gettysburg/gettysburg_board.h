@@ -203,7 +203,7 @@ private:
 
   // Cost to move in each direction for the active unit. A negative
   // cost indicates that movement in that direction is not possible.
-  std::array<float, BoardHex::DIRECTION_COUNT> active_move_costs_;
+  std::array<float, HEX_DIRECTION_COUNT> active_move_costs_;
 
   // Integer representing the game turn.
   size_t turn_;
