@@ -16,7 +16,7 @@ namespace cifre {
 // BoardHex
 //
 BoardHex::BoardHex(
-  const size_t plane_cnt, const cifre::Vector2& size,
+  const size_t plane_cnt, const cifre::MatrixSize& size,
   const std::vector<Player*>& players, size_t starting_player_id,
   std::pmr::memory_resource* arena) :
   display_kind_(DisplayKind::SMALL), plane_cnt_(plane_cnt), size_(size),

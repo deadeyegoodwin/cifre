@@ -11,8 +11,8 @@ namespace cifre { namespace gettysburg {
 //
 Board::Board(
   BoardCellFactory* cell_factory, const BoardMoveFactory* move_factory,
-  const OOB::Scenario scenario, const cifre::Vector2& board_shape,
-  const cifre::Vector2& plane_shape, const std::vector<Player*>& players,
+  const OOB::Scenario scenario, const cifre::MatrixSize& board_shape,
+  const cifre::MatrixSize& plane_shape, const std::vector<Player*>& players,
   std::pmr::memory_resource* arena) :
   cifre::BoardHex(BoardCellFactory::PLANE_COUNT, board_shape, players,
                   0 /* starting_player_id */, arena),
@@ -480,7 +480,7 @@ Board::UpdateInputPlanes()
   active_first_column_ = size_.ColumnCount() - 1 - active_unit_->Column();
 
   cells_flattened_factory_key_ =
-    std::make_pair(active_unit_->Row(), active_unit_->Column());
+    MatrixCoordinate(active_unit_->Row(), active_unit_->Column());
   const auto& fcf = cell_factory_->PlaneSet(cells_flattened_factory_key_);
   cells_flattened_.assign(fcf.begin(), fcf.end());
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());

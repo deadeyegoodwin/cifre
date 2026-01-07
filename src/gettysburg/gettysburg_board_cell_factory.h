@@ -138,12 +138,14 @@ public:
   static constexpr float CELL_EMPTY = 0.0;
   static constexpr float CELL_ACTIVE = 1.0;
 
-  // CellsKey is <row-idx, column-idx>
-  using CellsKey = std::pair<size_t, size_t>;
+  // CellsKey is <row, column>
+  using CellsKey = MatrixCoordinate;
+  using CellsKeyHash = MatrixCoordinateHash;
+  using CellsKeyEqual = MatrixCoordinateEqual;
 
   static std::string CellsKeyToString(const CellsKey& k) {
     return
-      "[" + std::to_string(std::get<0>(k)) + "," + std::to_string(std::get<1>(k)) + "]";
+      "[" + std::to_string(k.Row()) + "," + std::to_string(k.Column()) + "]";
   }
 
 public:
@@ -195,7 +197,7 @@ private:
   // Map from the row index and column index to the pre-initialized,
   // flattened planes representing the static valued portions of the
   // sets of planes.
-  std::map<CellsKey, FlattenedCells> planes_map_;
+  std::unordered_map<CellsKey, FlattenedCells, CellsKeyHash, CellsKeyEqual> planes_map_;
 
   // Indexed by flattened cell index that gives features of each cell.
   std::vector<CellFeatures> cell_features_;

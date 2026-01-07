@@ -17,7 +17,7 @@
 
 namespace cifre { namespace othello {
 
-static const cifre::Vector2 DEFAULT_GAME_SHAPE {8, 8};
+static const cifre::MatrixSize DEFAULT_GAME_SHAPE {8, 8};
 static const size_t DEFAULT_MAX_TURNS_PER_GAME = 64;
 
 //
@@ -59,7 +59,7 @@ private:
   GameOption::OptionId OPTION_GAME_SHAPE;
   GameOption::OptionId OPTION_MAX_TURNS_PER_GAME;
 
-  cifre::Vector2 game_shape_;
+  cifre::MatrixSize game_shape_;
 };
 
 Othello::Othello()
@@ -93,9 +93,9 @@ bool
 Othello::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
 {
   if (opt.Id() == OPTION_GAME_SHAPE) {
-    game_shape_ = cifre::Vector2(arg_str);
+    game_shape_ = cifre::MatrixSize(arg_str);
     GameCheckTrueMsg(game_shape_.RowCount() >= 4,
-                     Name() + " board must be " + cifre::Vector2(4, 4).ToString() +
+                     Name() + " board must be " + cifre::MatrixSize(4, 4).ToString() +
                      " or larger");
     GameCheckTrueMsg(game_shape_.RowCount() == game_shape_.ColumnCount(),
                      Name() + " board must be square");

@@ -78,7 +78,7 @@ struct FlattenedCellsHash {
 //
 struct FlattenedCellsEqual {
   bool operator()(const FlattenedCells* a, const FlattenedCells* b) const {
-    return operator()(*a, *b); }
+    return (*a) == (*b); }
   bool operator()(const FlattenedCells& a, const FlattenedCells& b) const {
     return a == b; }
 };

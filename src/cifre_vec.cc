@@ -9,9 +9,9 @@
 namespace cifre {
 
 //
-// Vector2
+// MatrixSize
 //
-Vector2::Vector2(const std::string& str)
+MatrixSize::MatrixSize(const std::string& str)
 {
   static std::regex regex_square("^([1-9][0-9]*)$");
   static std::regex regex_rectangle("^([1-9][0-9]*)[x,]([1-9][0-9]*)$");
@@ -29,9 +29,32 @@ Vector2::Vector2(const std::string& str)
 }
 
 std::string
-Vector2::ToString() const
+MatrixSize::ToString() const
 {
   return std::to_string(row_cnt_) + "x" + std::to_string(column_cnt_);
+}
+
+//
+// MatrixCoordinate
+//
+MatrixCoordinate::MatrixCoordinate(const std::string& str)
+{
+  static std::regex regex_coord("^([1-9][0-9]*),([1-9][0-9]*)$");
+
+  std::smatch m;
+  if (!std::regex_match(str, m, regex_coord)) {
+    THROW("coordinate must be specified as 'N,M'");
+  }
+  else {
+    row_ = std::stoi(m[1]);
+    column_ = std::stoi(m[2]);
+  }
+}
+
+std::string
+MatrixCoordinate::ToString() const
+{
+  return std::to_string(row_) + "," + std::to_string(column_);
 }
 
 } // namespace cifre

@@ -47,7 +47,7 @@ public:
   // player ID is the index of a given player in 'players'.
   // 'starting_player_id' indicates the player that will go first.
   Board2D(
-    const cifre::Vector2& size, const std::vector<Player*>& players,
+    const cifre::MatrixSize& size, const std::vector<Player*>& players,
     size_t starting_player_id, std::pmr::memory_resource* arena);
 
   // Construct board as a copy of 'other' using 'arena' for memory
@@ -92,7 +92,7 @@ public:
   }
 
   // Return the board size.
-  const Vector2& Size() const { return size_; }
+  const MatrixSize& Size() const { return size_; }
 
   // Return the player ID that represents "no player". By convention
   // this ID is equal to the number of players in the game.
@@ -184,7 +184,7 @@ protected:
   }
 
   // Size of the board.
-  const Vector2 size_;
+  const MatrixSize size_;
 
   // The players. The player's index in this vector is the player ID.
   std::array<cifre::Player*, PLAYER_COUNT> players_;

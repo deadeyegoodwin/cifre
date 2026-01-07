@@ -78,7 +78,7 @@ BoardCellFactory::BoardCellFactory(
 #endif
       planes_map_.emplace(
         std::piecewise_construct,
-        std::forward_as_tuple(std::make_pair(br, bc)),
+        std::forward_as_tuple(br, bc),
         std::forward_as_tuple(std::move(flat_vector)));
       assert(ok);
     }

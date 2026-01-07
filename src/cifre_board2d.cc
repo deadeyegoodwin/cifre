@@ -13,7 +13,7 @@ namespace cifre {
 // Board2D
 //
 Board2D::Board2D(
-  const cifre::Vector2& size, const std::vector<Player*>& players,
+  const cifre::MatrixSize& size, const std::vector<Player*>& players,
   size_t starting_player_id, std::pmr::memory_resource* arena) :
   size_(size), active_player_id_(starting_player_id),
   terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL),

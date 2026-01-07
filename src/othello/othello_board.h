@@ -19,7 +19,7 @@ namespace cifre { namespace othello {
 class Board : public cifre::Board2D {
 public:
   // Create board at the required starting state.
-  Board(const cifre::Vector2& size, const std::vector<Player*>& players,
+  Board(const cifre::MatrixSize& size, const std::vector<Player*>& players,
         size_t starting_player_id, std::pmr::memory_resource* arena);
 
   // Return the action ID representing "do nothing".

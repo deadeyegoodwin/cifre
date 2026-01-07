@@ -17,7 +17,7 @@ static constexpr size_t IN_A_ROW = 4;
 //
 // Board
 //
-Board::Board(const cifre::Vector2& size, const std::vector<Player*>& players,
+Board::Board(const cifre::MatrixSize& size, const std::vector<Player*>& players,
              size_t starting_player_id, std::pmr::memory_resource* arena) :
   cifre::Board2D(size, players, starting_player_id, arena)
 {

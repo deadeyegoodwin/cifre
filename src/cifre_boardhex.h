@@ -74,7 +74,7 @@ public:
   // first. Dynamic allocations required by the board should be
   // performed in 'arena'.
   BoardHex(
-    const size_t plane_cnt, const cifre::Vector2& size,
+    const size_t plane_cnt, const cifre::MatrixSize& size,
     const std::vector<Player*>& players, size_t starting_player_id,
     std::pmr::memory_resource* arena);
 
@@ -90,7 +90,7 @@ public:
   size_t PlaneCount() const { return plane_cnt_; }
 
   // Return the board size.
-  const Vector2& Size() const { return size_; }
+  const MatrixSize& Size() const { return size_; }
 
   // Return the player ID that represents "no player". By convention
   // this ID is equal to the number of players in the game.
@@ -166,7 +166,7 @@ protected:
   const size_t plane_cnt_;
 
   // Size of the board.
-  const Vector2 size_;
+  const MatrixSize size_;
 
   // The players. The player's index in this vector is the player ID.
   std::array<cifre::Player*, PLAYER_COUNT> players_;
