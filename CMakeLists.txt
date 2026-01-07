@@ -178,8 +178,8 @@ add_library(
   src/cifre_boardhex.cc
   src/cifre_game.cc
   src/cifre_player.cc
-  src/cifre_size.cc
   src/cifre_triton.cc
+  src/cifre_vec.cc
 )
 
 target_compile_features(cifre-library PRIVATE cxx_std_17)

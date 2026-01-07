@@ -17,7 +17,7 @@ static constexpr size_t IN_A_ROW = 4;
 //
 // Board
 //
-Board::Board(const cifre::Size2D& size, const std::vector<Player*>& players,
+Board::Board(const cifre::Vector2& size, const std::vector<Player*>& players,
              size_t starting_player_id, std::pmr::memory_resource* arena) :
   cifre::Board2D(size, players, starting_player_id, arena)
 {
@@ -112,7 +112,7 @@ void
 Board::SwitchActivePlayer()
 {
   // Swap cell values for players.
-  for (size_t fidx = 0; fidx < size_.CellCount(); ++fidx) {
+  for (size_t fidx = 0; fidx < size_.ElementCount(); ++fidx) {
     const float cv = CellValueAtFlattened(fidx);
     if (cv != CELL_EMPTY) {
       const float ncv =

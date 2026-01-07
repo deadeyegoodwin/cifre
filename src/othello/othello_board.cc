@@ -15,10 +15,10 @@ namespace cifre { namespace othello {
 //
 // Board
 //
-Board::Board(const cifre::Size2D& size, const std::vector<Player*>& players,
+Board::Board(const cifre::Vector2& size, const std::vector<Player*>& players,
              size_t starting_player_id, std::pmr::memory_resource* arena) :
   cifre::Board2D(size, players, starting_player_id, arena),
-  do_nothing_action_id_(size_.CellCount()),
+  do_nothing_action_id_(size_.ElementCount()),
   active_do_nothing_(false), opponent_do_nothing_(false)
 {
   valid_action_ids_.reserve(TotalActionIdCount());
@@ -195,7 +195,7 @@ void
 Board::SwitchActivePlayer()
 {
   // Swap cell values for players.
-  for (size_t fidx = 0; fidx < size_.CellCount(); ++fidx) {
+  for (size_t fidx = 0; fidx < size_.ElementCount(); ++fidx) {
     const float cv = CellValueAtFlattened(fidx);
     if (cv != CELL_EMPTY) {
       const float ncv =
@@ -215,7 +215,7 @@ Board::UpdateTerminalStatus()
   // Check winning conditions and set 'terminal_status_'.
   size_t active_count = 0;
   size_t opponent_count = 0;
-  for (size_t cidx = 0; cidx < size_.CellCount(); ++cidx) {
+  for (size_t cidx = 0; cidx < size_.ElementCount(); ++cidx) {
     const float cv = CellValueAtFlattened(cidx);
     if (cv == CELL_ACTIVE_PLAYER) {
       active_count++;
@@ -227,7 +227,7 @@ Board::UpdateTerminalStatus()
 
   // If neither player can move or all squares taken, then game is over.
   if ((active_do_nothing_ && opponent_do_nothing_) ||
-      ((active_count + opponent_count) == size_.CellCount())) {
+      ((active_count + opponent_count) == size_.ElementCount())) {
     if (active_count > opponent_count) {
       terminal_status_ =
         cifre::StateTerminalStatus(

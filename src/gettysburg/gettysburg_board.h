@@ -39,8 +39,8 @@ public:
   // Create board...
   Board(
     BoardCellFactory* cell_factory, const BoardMoveFactory* move_factory,
-    const OOB::Scenario scenario, const cifre::Size2D& board_shape,
-    const cifre::Size2D& plane_shape, const std::vector<Player*>& players,
+    const OOB::Scenario scenario, const cifre::Vector2& board_shape,
+    const cifre::Vector2& plane_shape, const std::vector<Player*>& players,
     std::pmr::memory_resource* arena);
 
   // See cifre::State.
@@ -193,7 +193,7 @@ private:
   const BoardMoveFactory* move_factory_;
 
   const OOB::Scenario scenario_;
-  const cifre::Size2D plane_shape_;
+  const cifre::Vector2 plane_shape_;
 
   Unit::ArmyKind active_army_;
   Unit* active_unit_;

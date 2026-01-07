@@ -8,8 +8,8 @@
 
 #include "cifre_action.h"
 #include "cifre_player.h"
-#include "cifre_size.h"
 #include "cifre_state.h"
+#include "cifre_vec.h"
 #include "common_util.h"
 
 namespace cifre {
@@ -47,7 +47,7 @@ public:
   // player ID is the index of a given player in 'players'.
   // 'starting_player_id' indicates the player that will go first.
   Board2D(
-    const cifre::Size2D& size, const std::vector<Player*>& players,
+    const cifre::Vector2& size, const std::vector<Player*>& players,
     size_t starting_player_id, std::pmr::memory_resource* arena);
 
   // Construct board as a copy of 'other' using 'arena' for memory
@@ -65,7 +65,8 @@ public:
   virtual bool Equal(const State* other) const override;
 
   // One action for each board cell. See cifre::State.
-  virtual size_t TotalActionIdCount() const override { return size_.CellCount(); }
+  virtual size_t TotalActionIdCount() const override {
+    return size_.ElementCount(); }
 
   // See cifre::State.
   virtual Action StringToAction(const std::string& str) const override;
@@ -91,7 +92,7 @@ public:
   }
 
   // Return the board size.
-  const Size2D& Size() const { return size_; }
+  const Vector2& Size() const { return size_; }
 
   // Return the player ID that represents "no player". By convention
   // this ID is equal to the number of players in the game.
@@ -161,11 +162,11 @@ protected:
 
   // Return the value of the cell at the flattened index 'flat_idx'.
   float CellValueAtFlattened(size_t flat_idx) const {
-    assert(flat_idx < size_.CellCount()); return cells_[flat_idx]; }
+    assert(flat_idx < size_.ElementCount()); return cells_[flat_idx]; }
 
   // Set the value of the cell at the flattened index 'flat_idx'.
   void SetCellValueAtFlattened(const float value, size_t flat_idx) {
-    assert(flat_idx < size_.CellCount()); cells_[flat_idx] = value; }
+    assert(flat_idx < size_.ElementCount()); cells_[flat_idx] = value; }
 
   // Convert player to/from the corresponding cell value. A nullptr
   // player represents an empty cell (i.e. no player).
@@ -183,7 +184,7 @@ protected:
   }
 
   // Size of the board.
-  const Size2D size_;
+  const Vector2 size_;
 
   // The players. The player's index in this vector is the player ID.
   std::array<cifre::Player*, PLAYER_COUNT> players_;

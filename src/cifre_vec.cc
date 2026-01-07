@@ -3,15 +3,15 @@
 #include <algorithm>
 #include <regex>
 
-#include "cifre_size.h"
+#include "cifre_vec.h"
 #include "common_error.h"
 
 namespace cifre {
 
 //
-// Size2D
+// Vector2
 //
-Size2D::Size2D(const std::string& str)
+Vector2::Vector2(const std::string& str)
 {
   static std::regex regex_square("^([1-9][0-9]*)$");
   static std::regex regex_rectangle("^([1-9][0-9]*)[x,]([1-9][0-9]*)$");
@@ -19,7 +19,7 @@ Size2D::Size2D(const std::string& str)
   std::smatch m;
   if (!std::regex_match(str, m, regex_rectangle)) {
     THROWIF(!std::regex_match(str, m, regex_square),
-            "board size must be specified as 'NxM' or 'N,M'");
+            "size must be specified as 'NxM' or 'N,M'");
     row_cnt_ = column_cnt_ = std::stoi(m[1]);
   }
   else {
@@ -29,7 +29,7 @@ Size2D::Size2D(const std::string& str)
 }
 
 std::string
-Size2D::ToString() const
+Vector2::ToString() const
 {
   return std::to_string(row_cnt_) + "x" + std::to_string(column_cnt_);
 }

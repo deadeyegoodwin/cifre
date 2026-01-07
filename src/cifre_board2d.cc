@@ -13,7 +13,7 @@ namespace cifre {
 // Board2D
 //
 Board2D::Board2D(
-  const cifre::Size2D& size, const std::vector<Player*>& players,
+  const cifre::Vector2& size, const std::vector<Player*>& players,
   size_t starting_player_id, std::pmr::memory_resource* arena) :
   size_(size), active_player_id_(starting_player_id),
   terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL),
@@ -38,7 +38,7 @@ Board2D::Board2D(
   players_[0]->SetChar('o');
   players_[1]->SetChar('x');
 
-  cells_flattened_.resize(size_.CellCount() * sizeof(float));
+  cells_flattened_.resize(size_.ElementCount() * sizeof(float));
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 }
 

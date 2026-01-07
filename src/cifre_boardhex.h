@@ -10,8 +10,8 @@
 
 #include "cifre_action.h"
 #include "cifre_player.h"
-#include "cifre_size.h"
 #include "cifre_state.h"
+#include "cifre_vec.h"
 #include "common_util.h"
 
 namespace cifre {
@@ -90,7 +90,7 @@ public:
   // first. Dynamic allocations required by the board should be
   // performed in 'arena'.
   BoardHex(
-    const size_t plane_cnt, const cifre::Size2D& size,
+    const size_t plane_cnt, const cifre::Vector2& size,
     const std::vector<Player*>& players, size_t starting_player_id,
     std::pmr::memory_resource* arena);
 
@@ -106,7 +106,7 @@ public:
   size_t PlaneCount() const { return plane_cnt_; }
 
   // Return the board size.
-  const Size2D& Size() const { return size_; }
+  const Vector2& Size() const { return size_; }
 
   // Return the player ID that represents "no player". By convention
   // this ID is equal to the number of players in the game.
@@ -182,7 +182,7 @@ protected:
   const size_t plane_cnt_;
 
   // Size of the board.
-  const Size2D size_;
+  const Vector2 size_;
 
   // The players. The player's index in this vector is the player ID.
   std::array<cifre::Player*, PLAYER_COUNT> players_;

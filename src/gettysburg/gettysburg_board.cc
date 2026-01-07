@@ -11,8 +11,8 @@ namespace cifre { namespace gettysburg {
 //
 Board::Board(
   BoardCellFactory* cell_factory, const BoardMoveFactory* move_factory,
-  const OOB::Scenario scenario, const cifre::Size2D& board_shape,
-  const cifre::Size2D& plane_shape, const std::vector<Player*>& players,
+  const OOB::Scenario scenario, const cifre::Vector2& board_shape,
+  const cifre::Vector2& plane_shape, const std::vector<Player*>& players,
   std::pmr::memory_resource* arena) :
   cifre::BoardHex(BoardCellFactory::PLANE_COUNT, board_shape, players,
                   0 /* starting_player_id */, arena),
