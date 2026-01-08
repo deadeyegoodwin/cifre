@@ -1,4 +1,4 @@
-// Copyright 2025, David Goodwin. All rights reserved.
+// Copyright 2026, David Goodwin. All rights reserved.
 
 #include <limits>
 
@@ -75,8 +75,6 @@ float
 BoardMoveFactory::CalculateMoveCost(
   const std::pair<int64_t, int64_t>& from, const std::pair<int64_t, int64_t>& to) const
 {
-  const int64_t from_row = from.first;
-  const int64_t from_column = from.second;
   const int64_t to_row = to.first;
   const int64_t to_column = to.second;
 
@@ -100,6 +98,7 @@ BoardMoveFactory::CalculateMoveCost(
 
   // Move cost associated with features of the edge between 'from' and
   // 'to' cells.
+#if 0
   const auto& edge_features =
     cell_factory_->EdgeFeaturesFromCoordinates(from_row, from_column, to_row, to_column);
   if (edge_features.road_ || edge_features.railroad_) {
@@ -109,7 +108,7 @@ BoardMoveFactory::CalculateMoveCost(
   if (edge_features.stream_) {
     move_cost += 1;
   }
-
+#endif
   return move_cost;
 }
 

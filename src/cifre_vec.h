@@ -84,6 +84,11 @@ struct MatrixSizeEqual {
 //
 class MatrixCoordinate {
 public:
+  // Unknown matrix coordinate is represented by size_t::max row and
+  // column value.
+  static MatrixCoordinate UNKNOWN;
+
+public:
   // Zero-coordinate.
   MatrixCoordinate() : MatrixCoordinate(0, 0) {}
 

@@ -4,16 +4,10 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <memory_resource>
 #include <vector>
 
 namespace cifre {
-
-// Hex directions.
-enum class HexDirection { UP=0, UP_RT=1, DN_RT=2, DN=3, DN_LT=4, UP_LT=5, NONE=6 };
-static constexpr size_t HEX_DIRECTION_COUNT = 6;
-
-// Return the string representation of a hex direction.
-std::string HexDirectionToString(const HexDirection d);
 
 //
 // FlattenedCells

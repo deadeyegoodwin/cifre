@@ -63,18 +63,40 @@ public:
   // points. The actual number will vary by scenario.
   static constexpr size_t MAX_VICTORY_POINT_HEX_COUNT = 8;
 
+  // Kinds of edge features.
+  enum class EdgeFeatureKind { ROAD, STREAM, RAILROAD };
+  static constexpr size_t EDGE_FEATURE_COUNT = 3;
+
+  //
+  // EdgeFeatures
+  //
+  // Features of an edge between cells.
+  //
+  class EdgeFeatures {
+  public:
+    EdgeFeatures& operator=(const BoardEdgeData& bd) {
+      road_ = bd.road_; stream_ = bd.stream_; railroad_ = bd.railroad_;
+      return *this; }
+    bool road_ {false};
+    bool stream_ {false};
+    bool railroad_ {false};
+  };
+
   // Kinds of cell features.
   enum class CellFeatureKind { NO_ACCESS, FOREST, HILL, ROCKY_HILL, TOWN, VICTORY_POINT };
   static constexpr size_t CELL_FEATURE_COUNT = 6;
 
-  // Features of a hex cell.
+  //
+  // CellFeatures
+  //
+  // Features of a hex cell and features of all edges bordering the cell.
+  //
   class CellFeatures {
   public:
     CellFeatures& operator=(const BoardCellData& bd) {
       row_ = bd.row_; column_ = bd.column_; not_accessible_ = bd.no_access_;
       forest_ = bd.forest_; hill_ = bd.hill_; rocky_hill_ = bd.rocky_hill_;
       town_ = bd.town_; victory_points_ = bd.victory_points_; return *this; }
-
     size_t row_ {0};
     size_t column_ {0};
     bool not_accessible_ {false};
@@ -83,26 +105,7 @@ public:
     bool rocky_hill_ {false};
     bool town_ {false};
     float victory_points_ {0.0};
-  };
-
-  // Kinds of edge features.
-  enum class EdgeFeatureKind { ROAD, STREAM, RAILROAD };
-  static constexpr size_t EDGE_FEATURE_COUNT = 3;
-
-  // Features of an edge between cells.
-  class EdgeFeatures {
-  public:
-    EdgeFeatures& operator=(const BoardEdgeData& bd) {
-      row_ = bd.row_; column_ = bd.column_; dir_ = bd.dir_;
-      road_ = bd.road_; stream_ = bd.stream_; railroad_ = bd.railroad_;
-      return *this; }
-
-    size_t row_ {0};
-    size_t column_ {0};
-    HexDirection dir_ {HexDirection::NONE};
-    bool road_ {false};
-    bool stream_ {false};
-    bool railroad_ {false};
+    std::array<EdgeFeatures, HEX_DIRECTION_COUNT> edges_;
   };
 
   // The planes.
@@ -165,13 +168,7 @@ public:
   // Return the CellFeatures for a given 'row' / 'column'.
   const CellFeatures& CellFeaturesFromCoordinates(size_t row, size_t column) const;
 
-  // Return the EdgeFeatures for edge between 'a_row' / 'a_column' and
-  // 'b_row' / 'b_column'.
-  const EdgeFeatures& EdgeFeaturesFromCoordinates(
-    size_t a_row, size_t a_column, size_t b_row, size_t b_column) const;
-
-  // Return the plane-set for a given row and column (using plane
-  // indexing).
+  // Return the plane-set for a given board row and column.
   const FlattenedCells& PlaneSet(const CellsKey key);
 
   // String representation.

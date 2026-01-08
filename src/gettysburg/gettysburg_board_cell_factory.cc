@@ -147,17 +147,6 @@ BoardCellFactory::CellFeaturesFromCoordinates(size_t row, size_t column) const
   return cell_features_[offset];
 }
 
-const BoardCellFactory::EdgeFeatures&
-BoardCellFactory::EdgeFeaturesFromCoordinates(
-  size_t a_row, size_t a_column, size_t b_row, size_t b_column) const
-{
-  assert((a_row < board_row_cnt_) && (a_column < board_column_cnt_));
-  assert((b_row < board_row_cnt_) && (b_column < board_column_cnt_));
-
-  static EdgeFeatures ee; // FIXME
-  return ee;
-}
-
 const FlattenedCells&
 BoardCellFactory::PlaneSet(const CellsKey key)
 {

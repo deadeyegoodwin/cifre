@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "cifre_action.h"
-#include "cifre_cell.h"
+#include "cifre_hex.h"
 #include "cifre_player.h"
 #include "cifre_state.h"
 #include "cifre_vec.h"
