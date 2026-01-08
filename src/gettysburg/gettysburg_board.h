@@ -81,8 +81,8 @@ public:
   // Return the value of the plane cell at the given row, column, and
   // plane. Row and column index are relative to the plane.
   float PlaneCellValueAt(const MatrixCoordinate& pos, size_t plane_idx) const {
-    assert((pos.Row() < plane_shape_.RowCount()) &&
-           (pos.Column() < plane_shape_.ColumnCount()) &&
+    assert((pos.Row() < int64_t(plane_shape_.RowCount())) &&
+           (pos.Column() < int64_t(plane_shape_.ColumnCount())) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
     return cells_[(pos.Row() * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
                   (pos.Column() * BoardCellFactory::PLANE_COUNT) + plane_idx]; }
@@ -90,8 +90,8 @@ public:
   // Set the value of the plane cell at the given row, column, and
   // plane. Row and column index are relative to the plane.
   void SetPlaneCellValueAt(float value, const MatrixCoordinate& pos, size_t plane_idx) {
-    assert((pos.Row() < plane_shape_.RowCount()) &&
-           (pos.Column() < plane_shape_.ColumnCount()) &&
+    assert((pos.Row() < int64_t(plane_shape_.RowCount())) &&
+           (pos.Column() < int64_t(plane_shape_.ColumnCount())) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
     cells_[(pos.Row() * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
            (pos.Column() * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }
@@ -99,8 +99,8 @@ public:
   // Return the value of the board cell at the given row, column, and
   // plane. Row and column index are relative to the visible board.
   float BoardCellValueAt(const MatrixCoordinate& pos, size_t plane_idx) const {
-    assert((pos.Row() < size_.RowCount()) &&
-           (pos.Column() < size_.ColumnCount()) &&
+    assert((pos.Row() < int64_t(size_.RowCount())) &&
+           (pos.Column() < int64_t(size_.ColumnCount())) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
     return cells_[((pos.Row() + active_first_row_) * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
                   ((pos.Column() + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx]; }
@@ -108,8 +108,8 @@ public:
   // Set the value of the board cell at the given row, column, and
   // plane. Row and column index are relative to the visible board.
   void SetBoardCellValueAt(float value, const MatrixCoordinate& pos, size_t plane_idx) {
-    assert((pos.Row() < size_.RowCount()) &&
-           (pos.Column() < size_.ColumnCount()) &&
+    assert((pos.Row() < int64_t(size_.RowCount())) &&
+           (pos.Column() < int64_t(size_.ColumnCount())) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
     cells_[((pos.Row() + active_first_row_) * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
            ((pos.Column() + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }

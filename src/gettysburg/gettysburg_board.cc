@@ -499,9 +499,12 @@ Board::UpdateInputPlanes()
         cell_factory_->CellFeaturesFromIndex(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
       assert(features.victory_points_ > 0.0);
 
-      assert(VictoryPointAt(features.row_, features.column_) == features.victory_points_);
-      assert(UnionVictoryPointAt(features.row_, features.column_) == 0.0);
-      assert(ConfederateVictoryPointAt(features.row_, features.column_) == 0.0);
+      assert(VictoryPointAt(
+               MatrixCoordinate(features.row_, features.column_)) == features.victory_points_);
+      assert(UnionVictoryPointAt(
+               MatrixCoordinate(features.row_, features.column_)) == 0.0);
+      assert(ConfederateVictoryPointAt(
+               MatrixCoordinate(features.row_, features.column_)) == 0.0);
 
       const Unit::ArmyKind army = Unit::ArmyKind(captured_vps_[idx]);
       switch (army) {
@@ -568,16 +571,19 @@ Board::UpdateTerminalStatus()
         const auto& features =
           cell_factory_->CellFeaturesFromIndex(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
         assert(features.victory_points_ > 0.0);
-        assert(VictoryPointAt(features.row_, features.column_) == features.victory_points_);
+        assert(VictoryPointAt(
+                 MatrixCoordinate(features.row_, features.column_)) == features.victory_points_);
 
         const Unit::ArmyKind army = Unit::ArmyKind(captured_vps_[idx]);
         switch (army) {
         case Unit::ArmyKind::UNION:
-          assert(UnionVictoryPointAt(features.row_, features.column_) == features.victory_points_);
+          assert(UnionVictoryPointAt(
+                   MatrixCoordinate(features.row_, features.column_)) == features.victory_points_);
           uvp += features.victory_points_;
           break;
         case Unit::ArmyKind::CONFEDERATE:
-          assert(ConfederateVictoryPointAt(features.row_, features.column_) == features.victory_points_);
+          assert(ConfederateVictoryPointAt(
+                   MatrixCoordinate(features.row_, features.column_)) == features.victory_points_);
           cvp += features.victory_points_;
           break;
         }
@@ -699,7 +705,8 @@ Board::BoardHeader() const
       const auto& features =
         cell_factory_->CellFeaturesFromIndex(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
       assert(features.victory_points_ > 0.0);
-      assert(VictoryPointAt(features.row_, features.column_) == features.victory_points_);
+      assert(VictoryPointAt(
+               MatrixCoordinate(features.row_, features.column_)) == features.victory_points_);
 
       const Unit::ArmyKind army = Unit::ArmyKind(captured_vps_[idx]);
       sstr
