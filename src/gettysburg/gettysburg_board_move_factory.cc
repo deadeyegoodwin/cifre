@@ -85,33 +85,29 @@ BoardMoveFactory::CalculateMoveCost(
     return 1.0;
   }
 
-  // Move cost associated with features of the 'to_pos' cell. Moving
-  // off the board cost 1 MF. Moving into a town costs 0.5. Forest
-  // costs +1, rocky-hill costs +1.
-  const auto& cell_features = cell_factory_->CellFeaturesFromCoordinates(to_pos);
-  if (cell_features.not_accessible_) {
+  // Move cost is determined by the features of the 'to_pos' cell and
+  // the features of the edge between 'pos' and 'to_pos'
+  const auto& to_pos_features = cell_factory_->CellFeaturesFromCoordinates(to_pos);
+  const auto& edge_features = cell_factory_->CellFeaturesFromCoordinates(pos).edges_[size_t(dir)];
+
+  // If the edge contains a road or railroad, or if moving into a town
+  // then the cost is always 0.5.
+  if (to_pos_features.town_ || edge_features.road_ || edge_features.railroad_) {
+    return 0.5;
+  }
+
+  // Moving off the board cost 1 MF.
+  if (to_pos_features.not_accessible_) {
     return 1.0;
   }
-  else if (cell_features.town_) {
-    return 0.5;
-  }
 
-  float move_cost = 1.0 + (cell_features.forest_ ? 1 : 0) + (cell_features.rocky_hill_ ? 1 : 0);
-
-  // Move cost associated with features of the edge between 'from' and
-  // 'to' cells.
-#if 0
-  const auto& edge_features =
-    cell_factory_->EdgeFeaturesFromCoordinates(from_row, from_column, to_row, to_column);
-  if (edge_features.road_ || edge_features.railroad_) {
-    return 0.5;
-  }
-
-  if (edge_features.stream_) {
-    move_cost += 1;
-  }
-#endif
-  return move_cost;
+  // Otherwise move cost is 1.0, +1 for forest, +1 for rocky-hill, +1 for stream
+  // crossing.
+  return
+    1.0 +
+    (to_pos_features.forest_ ? 1 : 0) +
+    (to_pos_features.rocky_hill_ ? 1 : 0) +
+    (edge_features.stream_ ? 1 : 0);
 }
 
 }} // namespace cifre::gettysburg

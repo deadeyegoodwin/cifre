@@ -289,15 +289,16 @@ static std::vector<BoardEdgeData> board_edge_data {
   // row col dir road   stream  railroad
   {  0,  4,  UR, true  },
   {  0,  4,  UL, true  },
-  {  2,  4,  DL, true  },
+  {  2,  4,  DR, true  },
   {  3,  4,  UR, true  },
   {  3,  4,  DN, true  },
   {  6,  4,  DR, true  },
   {  7,  4,  UR, true  },
   {  7,  4,  DN, true  },
   {  8,  4,  DL, true  },
-  {  9,  4,  DL, true  },
+  {  9,  4,  UR, true  },
   {  9,  4,  DN, false, true  },
+  {  9,  4,  DL, true  },
   { 10,  4,  UR, false, true  },
   // column 5 adjacent
   // row col dir road   stream  railroad
