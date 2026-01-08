@@ -117,10 +117,10 @@ BoardHex::SmallBoard() const
   for (size_t row_idx = 0; row_idx < size_.RowCount(); ++row_idx) {
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
-        sstr << "/" << BoardCell(display_kind_, row_idx, col_idx)[0] << "\\";
+        sstr << "/" << BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx))[0] << "\\";
       }
       else if (row_idx > 0) {
-        sstr << BoardCell(display_kind_, row_idx - 1, col_idx)[1];
+        sstr << BoardCell(display_kind_, MatrixCoordinate(row_idx - 1, col_idx))[1];
       }
       else {
         sstr << "__";
@@ -133,10 +133,10 @@ BoardHex::SmallBoard() const
 
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
-        sstr << "\\" << BoardCell(display_kind_, row_idx, col_idx)[1] << "/";
+        sstr << "\\" << BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx))[1] << "/";
       }
       else {
-        sstr << BoardCell(display_kind_, row_idx, col_idx)[0];
+        sstr << BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx))[0];
       }
     }
     if ((size_.ColumnCount() % 2) == 0) {
@@ -148,7 +148,9 @@ BoardHex::SmallBoard() const
   // Lower half of last row.
   sstr << " ";
   for (size_t col_idx = 1; col_idx < size_.ColumnCount(); col_idx += 2) {
-    sstr << "  \\" << BoardCell(display_kind_, size_.RowCount() - 1, col_idx)[1] << "/";
+    sstr << "  \\" <<
+      BoardCell(
+        display_kind_, MatrixCoordinate(size_.RowCount() - 1, col_idx))[1] << "/";
   }
   sstr << "\n";
 
@@ -193,11 +195,11 @@ BoardHex::LargeBoard() const
         if (col_idx == 0) {
           sstr << " ";
         }
-        sstr << "/" << BoardCell(display_kind_, row_idx, col_idx)[0] << "\\";
+        sstr << "/" << BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx))[0] << "\\";
 
       }
       else if (row_idx > 0) {
-        sstr << BoardCell(display_kind_, row_idx - 1, col_idx)[2];
+        sstr << BoardCell(display_kind_, MatrixCoordinate(row_idx - 1, col_idx))[2];
       }
       else {
         sstr << "      ";
@@ -211,10 +213,10 @@ BoardHex::LargeBoard() const
     // Loc 1...
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
-        sstr << "/" << BoardCell(display_kind_, row_idx, col_idx)[1] << "\\";
+        sstr << "/" << BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx))[1] << "\\";
       }
       else if (row_idx > 0) {
-        sstr << BoardCell(display_kind_, row_idx - 1, col_idx)[3];
+        sstr << BoardCell(display_kind_, MatrixCoordinate(row_idx - 1, col_idx))[3];
       }
       else {
         sstr << "____";
@@ -227,7 +229,7 @@ BoardHex::LargeBoard() const
 
     // Loc 2...
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
-      auto cstr = BoardCell(display_kind_, row_idx, col_idx);
+      auto cstr = BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx));
       if ((col_idx % 2) == 0) {
         sstr << "\\" << cstr[2] << "/";
       }
@@ -242,7 +244,7 @@ BoardHex::LargeBoard() const
 
     // Loc 3...
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
-      auto cstr = BoardCell(display_kind_, row_idx, col_idx);
+      auto cstr = BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx));
       if ((col_idx % 2) == 0) {
         if (col_idx == 0) {
           sstr << " ";
@@ -262,11 +264,15 @@ BoardHex::LargeBoard() const
   // Lower half of last row.
   sstr << "  ";
   for (size_t col_idx = 1; col_idx < size_.ColumnCount(); col_idx += 2) {
-    sstr << "    \\" << BoardCell(display_kind_, size_.RowCount() - 1, col_idx)[2] << "/";
+    sstr
+      << "    \\"
+      << BoardCell(display_kind_, MatrixCoordinate(size_.RowCount() - 1, col_idx))[2] << "/";
   }
   sstr << "\n ";
   for (size_t col_idx = 1; col_idx < size_.ColumnCount(); col_idx += 2) {
-    sstr << "      \\" << BoardCell(display_kind_, size_.RowCount() - 1, col_idx)[3] << "/";
+    sstr
+      << "      \\"
+      << BoardCell(display_kind_, MatrixCoordinate(size_.RowCount() - 1, col_idx))[3] << "/";
   }
   sstr << "\n";
 
@@ -288,14 +294,14 @@ BoardHex::BoardTrailer() const
 }
 
 std::vector<std::string>
-BoardHex::BoardCell(DisplayKind kind, size_t row_idx, size_t col_idx) const
+BoardHex::BoardCell(DisplayKind kind, const MatrixCoordinate& pos) const
 {
-  std::string upper = std::to_string(row_idx);
+  std::string upper = std::to_string(pos.Row());
   if (upper.size() == 1) {
     upper += " ";
   }
 
-  std::string lower = std::to_string(col_idx);
+  std::string lower = std::to_string(pos.Column());
   if (lower.size() == 1) {
     lower = "_" + lower;
   }

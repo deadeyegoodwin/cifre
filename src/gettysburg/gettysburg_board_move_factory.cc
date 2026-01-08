@@ -25,68 +25,70 @@ BoardMoveFactory::BoardMoveFactory(
   for (size_t br = 0; br < row_cnt_; ++br) {
     for (size_t bc = 0; bc < column_cnt_; ++bc) {
       Node& node = nodes_[(br * column_cnt_) + bc];
-      const std::pair<int64_t, int64_t> node_rc(br, bc);
+      const MatrixCoordinate node_rc(br, bc);
 
-      const std::pair<int64_t, int64_t> up(br - 1, bc);
-      const std::pair<int64_t, int64_t> up_rt(br - (((bc % 2) == 0) ? 1 : 0), bc + 1);
-      const std::pair<int64_t, int64_t> dn_rt(br + (((bc % 2) == 1) ? 1 : 0), bc + 1);
-      const std::pair<int64_t, int64_t> dn(br + 1, bc);
-      const std::pair<int64_t, int64_t> dn_lt(br + (((bc % 2) == 1) ? 1 : 0), bc - 1);
-      const std::pair<int64_t, int64_t> up_lt(br - (((bc % 2) == 0) ? 1 : 0), bc - 1);
+      node.adjacent_idx_[size_t(HexDirection::UP)] =
+        RCToIndex(HexAdjacentCoordinate(node_rc, HexDirection::UP));
+      node.adjacent_idx_[size_t(HexDirection::UP_RT)] =
+        RCToIndex(HexAdjacentCoordinate(node_rc, HexDirection::UP_RT));
+      node.adjacent_idx_[size_t(HexDirection::DN_RT)] =
+        RCToIndex(HexAdjacentCoordinate(node_rc, HexDirection::DN_RT));
+      node.adjacent_idx_[size_t(HexDirection::DN)] =
+        RCToIndex(HexAdjacentCoordinate(node_rc, HexDirection::DN));
+      node.adjacent_idx_[size_t(HexDirection::DN_LT)] =
+        RCToIndex(HexAdjacentCoordinate(node_rc, HexDirection::DN_LT));
+      node.adjacent_idx_[size_t(HexDirection::UP_LT)] =
+        RCToIndex(HexAdjacentCoordinate(node_rc, HexDirection::UP_LT));
 
-      node.adjacent_idx_[size_t(HexDirection::UP)] = RCToIndex(up);
-      node.adjacent_idx_[size_t(HexDirection::UP_RT)] = RCToIndex(up_rt);
-      node.adjacent_idx_[size_t(HexDirection::DN_RT)] = RCToIndex(dn_rt);
-      node.adjacent_idx_[size_t(HexDirection::DN)] = RCToIndex(dn);
-      node.adjacent_idx_[size_t(HexDirection::DN_LT)] = RCToIndex(dn_lt);
-      node.adjacent_idx_[size_t(HexDirection::UP_LT)] = RCToIndex(up_lt);
-
-      node.out_move_cost_[size_t(HexDirection::UP)] = CalculateMoveCost(node_rc, up);
-      node.out_move_cost_[size_t(HexDirection::UP_RT)] = CalculateMoveCost(node_rc, up_rt);
-      node.out_move_cost_[size_t(HexDirection::DN_RT)] = CalculateMoveCost(node_rc, dn_rt);
-      node.out_move_cost_[size_t(HexDirection::DN)] = CalculateMoveCost(node_rc, dn);
-      node.out_move_cost_[size_t(HexDirection::DN_LT)] = CalculateMoveCost(node_rc, dn_lt);
-      node.out_move_cost_[size_t(HexDirection::UP_LT)] = CalculateMoveCost(node_rc, up_lt);
+      node.out_move_cost_[size_t(HexDirection::UP)] =
+        CalculateMoveCost(node_rc, HexDirection::UP);
+      node.out_move_cost_[size_t(HexDirection::UP_RT)] =
+        CalculateMoveCost(node_rc, HexDirection::UP_RT);
+      node.out_move_cost_[size_t(HexDirection::DN_RT)] =
+        CalculateMoveCost(node_rc, HexDirection::DN_RT);
+      node.out_move_cost_[size_t(HexDirection::DN)] =
+        CalculateMoveCost(node_rc, HexDirection::DN);
+      node.out_move_cost_[size_t(HexDirection::DN_LT)] =
+        CalculateMoveCost(node_rc, HexDirection::DN_LT);
+      node.out_move_cost_[size_t(HexDirection::UP_LT)] =
+        CalculateMoveCost(node_rc, HexDirection::UP_LT);
     }
   }
 }
 
 size_t
-BoardMoveFactory::RCToIndex(const std::pair<int64_t, int64_t>& pr) const
+BoardMoveFactory::RCToIndex(const MatrixCoordinate& pr) const
 {
-  const int64_t row = pr.first;
-  const int64_t column = pr.second;
-
   // Hexes outside the bounds of the board are not adjacent.
-  if ((row < 0) || (row >= int64_t(row_cnt_)) ||
-      (column < 0) || (column >= int64_t(column_cnt_))) {
+  if ((pr.Row() < 0) || (pr.Row() >= int64_t(row_cnt_)) ||
+      (pr.Column() < 0) || (pr.Column() >= int64_t(column_cnt_))) {
     return NO_ADJACENT;
   }
 
   // Also any cell marked as inaccessible in not adjacent.
-  if (cell_factory_->CellFeaturesFromCoordinates(row, column).not_accessible_) {
+  if (cell_factory_->CellFeaturesFromCoordinates(pr).not_accessible_) {
     return NO_ADJACENT;
   }
 
-  return (row * column_cnt_) + column;
+  return (pr.Row() * column_cnt_) + pr.Column();
 }
 
 float
 BoardMoveFactory::CalculateMoveCost(
-  const std::pair<int64_t, int64_t>& from, const std::pair<int64_t, int64_t>& to) const
+  const MatrixCoordinate& pos, HexDirection dir) const
 {
-  const int64_t to_row = to.first;
-  const int64_t to_column = to.second;
+  MatrixCoordinate to_pos = HexAdjacentCoordinate(pos, dir);
 
   // Hexes outside the bounds of the board are moving off the board.
-  if ((to_row < 0) || (to_row >= int64_t(row_cnt_)) ||
-      (to_column < 0) || (to_column >= int64_t(column_cnt_))) {
+  if ((to_pos.Row() < 0) || (to_pos.Row() >= int64_t(row_cnt_)) ||
+      (to_pos.Column() < 0) || (to_pos.Column() >= int64_t(column_cnt_))) {
     return 1.0;
   }
 
-  // Move cost associated with features of the 'to' cell. Moving off
-  // the board cost 1 MF. Moving into a town costs 0.5.
-  const auto& cell_features = cell_factory_->CellFeaturesFromCoordinates(to_row, to_column);
+  // Move cost associated with features of the 'to_pos' cell. Moving
+  // off the board cost 1 MF. Moving into a town costs 0.5. Forest
+  // costs +1, rocky-hill costs +1.
+  const auto& cell_features = cell_factory_->CellFeaturesFromCoordinates(to_pos);
   if (cell_features.not_accessible_) {
     return 1.0;
   }

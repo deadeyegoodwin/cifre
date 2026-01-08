@@ -57,10 +57,6 @@ HexAdjacentCoordinate(const MatrixCoordinate& pos, HexDirection dir)
     break;
   }
 
-  if ((br < 0) || (bc < 0)) {
-    return MatrixCoordinate::UNKNOWN;
-  }
-
   return MatrixCoordinate(br, bc);
 }
 

@@ -38,9 +38,6 @@ MatrixSize::ToString() const
 //
 // MatrixCoordinate
 //
-MatrixCoordinate MatrixCoordinate::UNKNOWN(
-  std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
-
 MatrixCoordinate::MatrixCoordinate(const std::string& str)
 {
   static std::regex regex_coord("^([1-9][0-9]*),([1-9][0-9]*)$");

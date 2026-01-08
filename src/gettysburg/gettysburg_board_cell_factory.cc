@@ -140,10 +140,10 @@ BoardCellFactory::CellFeaturesFromIndex(CellFeatureKind kind, size_t n) const
 }
 
 const BoardCellFactory::CellFeatures&
-BoardCellFactory::CellFeaturesFromCoordinates(size_t row, size_t column) const
+BoardCellFactory::CellFeaturesFromCoordinates(const MatrixCoordinate& pos) const
 {
-  assert((row < board_row_cnt_) && (column < board_column_cnt_));
-  const size_t offset = (row * board_column_cnt_) + column;
+  assert((pos.Row() < board_row_cnt_) && (pos.Column() < board_column_cnt_));
+  const size_t offset = (pos.Row() * board_column_cnt_) + pos.Column();
   return cell_features_[offset];
 }
 

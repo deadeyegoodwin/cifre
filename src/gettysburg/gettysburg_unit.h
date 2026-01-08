@@ -66,7 +66,7 @@ public:
 public:
   // Create unit at a given board position.
   Unit(const std::string& name, ArmyKind army_kind, UnitKind unit_kind,
-       float combat_factor, float move_factor, size_t row_idx, size_t col_idx);
+       float combat_factor, float move_factor, const MatrixCoordinate& position);
 
   // Create undefined unit.
   Unit() = default;
@@ -83,8 +83,7 @@ public:
   UnitKind Kind() const { return unit_kind_; }
   float CombatFactor() const { return combat_factor_; }
   float MoveFactor() const { return move_factor_; }
-  size_t Row() const { return row_idx_; }
-  size_t Column() const { return column_idx_; }
+  const MatrixCoordinate& Position() const { return position_; }
 
   float MoveFactorExpended() const { return move_factor_expended_; }
   float MoveFactorRemaining() const {
@@ -100,10 +99,6 @@ public:
 
   // Update 'board' to reflect current status of this unit.
   void AddToBoard(Board* board) const;
-
-  // If 'this' and 'unit' are in adjacent hexes, return the direction
-  // from 'this' unit to 'unit'. Otherwise return HexDirection::NONE.
-  HexDirection AdjacentDirection(const Unit& unit) const;
 
   // Return string representation of the unit.
   std::string ToString() const;
@@ -121,8 +116,7 @@ private:
   size_t plane_idx_;
 
   float move_factor_expended_;
-  size_t row_idx_;
-  size_t column_idx_;
+  MatrixCoordinate position_;
 };
 
 }} // namespace cifre::gettysburg

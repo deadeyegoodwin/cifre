@@ -30,16 +30,15 @@ public:
     const BoardCellFactory* cell_factory, const OOB::Scenario scenario,
     size_t row_cnt, size_t column_cnt);
 
-  // Return true if the is a hex adjacent to 'row' / 'column' in
+  // Return true if there is an in-bounds hex adjacent to 'pos' in
   // direction 'dir'.
-  bool IsAdjacentHex(size_t row, size_t column, HexDirection dir) const {
-    return nodes_[(row * column_cnt_) + column].adjacent_idx_[size_t(dir)] != NO_ADJACENT; }
+  bool IsInBoundsAdjacentHex(const MatrixCoordinate& pos, HexDirection dir) const {
+    return nodes_[(pos.Row() * column_cnt_) + pos.Column()].adjacent_idx_[size_t(dir)] != NO_ADJACENT; }
 
   // Return the cost to move out of 'row' / 'column' in every
   // direction.
-  const std::array<float, HEX_DIRECTION_COUNT>& MoveCost(
-    size_t row, size_t column) const {
-    return nodes_[(row * column_cnt_) + column].out_move_cost_; }
+  const std::array<float, HEX_DIRECTION_COUNT>& MoveCost(const MatrixCoordinate& pos) const {
+    return nodes_[(pos.Row() * column_cnt_) + pos.Column()].out_move_cost_; }
 
 private:
   // Node represents a graph node. Edges are not represented
@@ -58,10 +57,8 @@ private:
   BoardMoveFactory(const BoardMoveFactory&) = delete;
   BoardMoveFactory& operator=(const BoardMoveFactory&) = delete;
 
-  size_t RCToIndex(const std::pair<int64_t, int64_t>& pr) const;
-  float CalculateMoveCost(
-    const std::pair<int64_t, int64_t>& from,
-    const std::pair<int64_t, int64_t>& to) const;
+  size_t RCToIndex(const MatrixCoordinate& pr) const;
+  float CalculateMoveCost(const MatrixCoordinate& pos, HexDirection dir) const;
 
   const BoardCellFactory* cell_factory_;
   const OOB::Scenario scenario_;

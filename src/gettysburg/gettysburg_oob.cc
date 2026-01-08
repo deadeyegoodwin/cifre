@@ -18,14 +18,17 @@ UnionUnitsSmall(size_t turn)
   switch (turn) {
   case 0: // 6-8am, start of scenario
     units.emplace_back(
-      "Reynolds", Unit::ArmyKind::UNION, Unit::UnitKind::HEADQUARTERS, 0 /*CF*/, 10 /*MF*/, 0, 0);
+      "Reynolds", Unit::ArmyKind::UNION, Unit::UnitKind::HEADQUARTERS,
+      0 /*CF*/, 10 /*MF*/, MatrixCoordinate(0, 0));
     units.emplace_back(
-      "Wadsworth", Unit::ArmyKind::UNION, Unit::UnitKind::INFANTRY, 3 /*CF*/, 5 /*MF*/, 0, 0);
+      "Wadsworth", Unit::ArmyKind::UNION, Unit::UnitKind::INFANTRY,
+      3 /*CF*/, 5 /*MF*/, MatrixCoordinate(0, 0));
     break;
 
   case 1: // 8-10am
     units.emplace_back(
-      "Devin", Unit::ArmyKind::UNION, Unit::UnitKind::CAVALRY, 1 /*CF*/, 7 /*MF*/, 4, 1);
+      "Devin", Unit::ArmyKind::UNION, Unit::UnitKind::CAVALRY,
+      1 /*CF*/, 7 /*MF*/, MatrixCoordinate(4, 1));
     break;
   }
 
@@ -47,14 +50,17 @@ ConfederateUnitsSmall(size_t turn)
 
   case 1: // 8-10am
     units.emplace_back(
-      "Heth", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::INFANTRY, 5 /*CF*/, 5 /*MF*/, 0, 6);
+      "Heth", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::INFANTRY,
+      5 /*CF*/, 5 /*MF*/, MatrixCoordinate(0, 6));
     units.emplace_back(
-      "Pegram", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::ARTILLERY, 2 /*CF*/, 5 /*MF*/, 0, 6);
+      "Pegram", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::ARTILLERY,
+      2 /*CF*/, 5 /*MF*/, MatrixCoordinate(0, 6));
     break;
 
   case 2: // 10am-12pm
     units.emplace_back(
-      "Hill", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::HEADQUARTERS, 0 /*CF*/, 10 /*MF*/, 4, 6);
+      "Hill", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::HEADQUARTERS,
+      0 /*CF*/, 10 /*MF*/, MatrixCoordinate(4, 6));
   }
 
   return units;
@@ -69,20 +75,26 @@ UnionUnitsJuly1(size_t turn)
   switch (turn) {
   case 0: // 6-8am, start of scenario
     units.emplace_back(
-      "Reynolds", Unit::ArmyKind::UNION, Unit::UnitKind::HEADQUARTERS, 0 /*CF*/, 10 /*MF*/, 2 /*3*/, 3 /*D*/);
+      "Reynolds", Unit::ArmyKind::UNION, Unit::UnitKind::HEADQUARTERS,
+      0 /*CF*/, 10 /*MF*/, MatrixCoordinate(2 /*3*/, 3 /*D*/));
     units.emplace_back(
-      "Wadsworth", Unit::ArmyKind::UNION, Unit::UnitKind::INFANTRY, 3 /*CF*/, 5 /*MF*/, 2 /*3*/, 3 /*D*/);
+      "Wadsworth", Unit::ArmyKind::UNION, Unit::UnitKind::INFANTRY,
+      3 /*CF*/, 5 /*MF*/, MatrixCoordinate(2 /*3*/, 3 /*D*/));
     units.emplace_back(
-      "Buford", Unit::ArmyKind::UNION, Unit::UnitKind::HEADQUARTERS, 0 /*CF*/, 10 /*MF*/, 4 /*5*/, 14 /*O*/);
+      "Buford", Unit::ArmyKind::UNION, Unit::UnitKind::HEADQUARTERS,
+      0 /*CF*/, 10 /*MF*/, MatrixCoordinate(4 /*5*/, 14 /*O*/));
     units.emplace_back(
-      "Gamble", Unit::ArmyKind::UNION, Unit::UnitKind::CAVALRY, 1 /*CF*/, 7 /*MF*/, 4 /*5*/, 14 /*O*/);
+      "Gamble", Unit::ArmyKind::UNION, Unit::UnitKind::CAVALRY,
+      1 /*CF*/, 7 /*MF*/, MatrixCoordinate(4 /*5*/, 14 /*O*/));
     units.emplace_back(
-      "Devin", Unit::ArmyKind::UNION, Unit::UnitKind::CAVALRY, 1 /*CF*/, 7 /*MF*/, 6 /*7*/, 16 /*Q*/);
+      "Devin", Unit::ArmyKind::UNION, Unit::UnitKind::CAVALRY,
+      1 /*CF*/, 7 /*MF*/, MatrixCoordinate(6 /*7*/, 16 /*Q*/));
     break;
 
   case 1: // 8-10am
     units.emplace_back(
-      "Howard", Unit::ArmyKind::UNION, Unit::UnitKind::HEADQUARTERS, 0 /*CF*/, 10 /*MF*/, 7 /*8*/, 0 /*A*/);
+      "Howard", Unit::ArmyKind::UNION, Unit::UnitKind::HEADQUARTERS,
+      0 /*CF*/, 10 /*MF*/, MatrixCoordinate(7 /*8*/, 0 /*A*/));
     break;
   }
 
@@ -101,9 +113,11 @@ ConfederateUnitsJuly1(size_t turn)
 
   case 1: // 8-10am
     units.emplace_back(
-      "Heth", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::INFANTRY, 5 /*CF*/, 5 /*MF*/, 0 /*1*/, 18 /*S*/);
+      "Heth", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::INFANTRY,
+      5 /*CF*/, 5 /*MF*/, MatrixCoordinate(0 /*1*/, 18 /*S*/));
     units.emplace_back(
-      "Pegram", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::ARTILLERY, 2 /*CF*/, 5 /*MF*/, 0 /*1*/, 18 /*S*/);
+      "Pegram", Unit::ArmyKind::CONFEDERATE, Unit::UnitKind::ARTILLERY,
+      2 /*CF*/, 5 /*MF*/, MatrixCoordinate(0 /*1*/, 18 /*S*/));
     break;
   }
 

@@ -75,64 +75,64 @@ public:
   std::string BoardHeader() const override;
   std::string BoardTrailer() const override;
   std::vector<std::string> BoardCell(
-    DisplayKind kind, size_t row_idx, size_t col_idx) const override;
+    DisplayKind kind, const MatrixCoordinate& pos) const override;
 
 public:
   // Return the value of the plane cell at the given row, column, and
   // plane. Row and column index are relative to the plane.
-  float PlaneCellValueAt(size_t row_idx, size_t col_idx, size_t plane_idx) const {
-    assert((row_idx < plane_shape_.RowCount()) &&
-           (col_idx < plane_shape_.ColumnCount()) &&
+  float PlaneCellValueAt(const MatrixCoordinate& pos, size_t plane_idx) const {
+    assert((pos.Row() < plane_shape_.RowCount()) &&
+           (pos.Column() < plane_shape_.ColumnCount()) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
-    return cells_[(row_idx * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
-                  (col_idx * BoardCellFactory::PLANE_COUNT) + plane_idx]; }
+    return cells_[(pos.Row() * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
+                  (pos.Column() * BoardCellFactory::PLANE_COUNT) + plane_idx]; }
 
   // Set the value of the plane cell at the given row, column, and
   // plane. Row and column index are relative to the plane.
-  void SetPlaneCellValueAt(float value, size_t row_idx, size_t col_idx, size_t plane_idx) {
-    assert((row_idx < plane_shape_.RowCount()) &&
-           (col_idx < plane_shape_.ColumnCount()) &&
+  void SetPlaneCellValueAt(float value, const MatrixCoordinate& pos, size_t plane_idx) {
+    assert((pos.Row() < plane_shape_.RowCount()) &&
+           (pos.Column() < plane_shape_.ColumnCount()) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
-    cells_[(row_idx * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
-           (col_idx * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }
+    cells_[(pos.Row() * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
+           (pos.Column() * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }
 
   // Return the value of the board cell at the given row, column, and
   // plane. Row and column index are relative to the visible board.
-  float BoardCellValueAt(size_t row_idx, size_t col_idx, size_t plane_idx) const {
-    assert((row_idx < size_.RowCount()) &&
-           (col_idx < size_.ColumnCount()) &&
+  float BoardCellValueAt(const MatrixCoordinate& pos, size_t plane_idx) const {
+    assert((pos.Row() < size_.RowCount()) &&
+           (pos.Column() < size_.ColumnCount()) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
-    return cells_[((row_idx + active_first_row_) * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
-                  ((col_idx + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx]; }
+    return cells_[((pos.Row() + active_first_row_) * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
+                  ((pos.Column() + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx]; }
 
   // Set the value of the board cell at the given row, column, and
   // plane. Row and column index are relative to the visible board.
-  void SetBoardCellValueAt(float value, size_t row_idx, size_t col_idx, size_t plane_idx) {
-    assert((row_idx < size_.RowCount()) &&
-           (col_idx < size_.ColumnCount()) &&
+  void SetBoardCellValueAt(float value, const MatrixCoordinate& pos, size_t plane_idx) {
+    assert((pos.Row() < size_.RowCount()) &&
+           (pos.Column() < size_.ColumnCount()) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
-    cells_[((row_idx + active_first_row_) * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
-           ((col_idx + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }
+    cells_[((pos.Row() + active_first_row_) * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
+           ((pos.Column() + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }
 
-  void SetUnionVictoryPointAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_VP); }
-  float UnionVictoryPointAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_UNION_VP); }
+  void SetUnionVictoryPointAt(float value, const MatrixCoordinate& pos) {
+    SetBoardCellValueAt(value, pos, BoardCellFactory::PLANE_IDX_UNION_VP); }
+  float UnionVictoryPointAt(const MatrixCoordinate& pos) const {
+    return BoardCellValueAt(pos, BoardCellFactory::PLANE_IDX_UNION_VP); }
 
-  void SetConfederateVictoryPointAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_VP); }
-  float ConfederateVictoryPointAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_CONFEDERATE_VP); }
+  void SetConfederateVictoryPointAt(float value, const MatrixCoordinate& pos) {
+    SetBoardCellValueAt(value, pos, BoardCellFactory::PLANE_IDX_CONFEDERATE_VP); }
+  float ConfederateVictoryPointAt(const MatrixCoordinate& pos) const {
+    return BoardCellValueAt(pos, BoardCellFactory::PLANE_IDX_CONFEDERATE_VP); }
 
-  void SetVictoryPointAt(float value, size_t row_idx, size_t col_idx) {
-    SetBoardCellValueAt(value, row_idx, col_idx, BoardCellFactory::PLANE_IDX_VICTORY_POINT); }
-  float VictoryPointAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_VICTORY_POINT); }
+  void SetVictoryPointAt(float value, const MatrixCoordinate& pos) {
+    SetBoardCellValueAt(value, pos, BoardCellFactory::PLANE_IDX_VICTORY_POINT); }
+  float VictoryPointAt(const MatrixCoordinate& pos) const {
+    return BoardCellValueAt(pos, BoardCellFactory::PLANE_IDX_VICTORY_POINT); }
 
-  float ForestAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_FOREST); }
-  float HillAt(size_t row_idx, size_t col_idx) const {
-    return BoardCellValueAt(row_idx, col_idx, BoardCellFactory::PLANE_IDX_HILL); }
+  float ForestAt(const MatrixCoordinate& pos) const {
+    return BoardCellValueAt(pos, BoardCellFactory::PLANE_IDX_FOREST); }
+  float HillAt(const MatrixCoordinate& pos) const {
+    return BoardCellValueAt(pos, BoardCellFactory::PLANE_IDX_HILL); }
 
 private:
   // Don't allow default copy constructor or assignment to force the
@@ -157,18 +157,17 @@ private:
   Unit* ActiveUnit();
 
   // Return union or confederate UNITs at a given board position.
-  std::vector<Unit*> UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx);
-  std::vector<const Unit*> UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx) const;
+  std::vector<const Unit*> UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos) const;
+  std::vector<Unit*> UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos);
 
-  std::vector<Unit*> UnionAt(size_t row_idx, size_t col_idx) {
-    return UnitsAt(Unit::ArmyKind::UNION, row_idx, col_idx); }
-  std::vector<const Unit*> UnionAt(size_t row_idx, size_t col_idx) const {
-    return UnitsAt(Unit::ArmyKind::UNION, row_idx, col_idx); }
-
-  std::vector<Unit*> ConfederateAt(size_t row_idx, size_t col_idx) {
-    return UnitsAt(Unit::ArmyKind::CONFEDERATE, row_idx, col_idx); }
-  std::vector<const Unit*> ConfederateAt(size_t row_idx, size_t col_idx) const {
-    return UnitsAt(Unit::ArmyKind::CONFEDERATE, row_idx, col_idx); }
+  std::vector<const Unit*> UnionAt(const MatrixCoordinate& pos) const {
+    return UnitsAt(Unit::ArmyKind::UNION, pos); }
+  std::vector<Unit*> UnionAt(const MatrixCoordinate& pos) {
+    return UnitsAt(Unit::ArmyKind::UNION, pos); }
+  std::vector<const Unit*> ConfederateAt(const MatrixCoordinate& pos) const {
+    return UnitsAt(Unit::ArmyKind::CONFEDERATE, pos); }
+  std::vector<Unit*> ConfederateAt(const MatrixCoordinate& pos) {
+    return UnitsAt(Unit::ArmyKind::CONFEDERATE, pos); }
 
   void UpdateInputPlanes();
   void UpdateMoveCosts();
@@ -179,13 +178,12 @@ private:
   bool NextArmyUnit(
     size_t units_count, std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units);
 
-  std::vector<std::string> SmallBoardCell(size_t row_idx, size_t col_idx) const;
-  std::vector<std::string> LargeBoardCell(
-    bool verbose, size_t row_idx, size_t col_idx) const;
-  std::string BoardUnitString(size_t row_idx, size_t col_idx) const;
-  std::string SmallBoardTerrainString(size_t row_idx, size_t col_idx) const;
-  std::string LargeBoardTerrainString(size_t row_idx, size_t col_idx) const;
-  std::string LargeBoardVictoryPointString(size_t row_idx, size_t col_idx) const;
+  std::vector<std::string> SmallBoardCell(const MatrixCoordinate& pos) const;
+  std::vector<std::string> LargeBoardCell(bool verbose, const MatrixCoordinate& pos) const;
+  std::string BoardUnitString(const MatrixCoordinate& pos) const;
+  std::string SmallBoardTerrainString(const MatrixCoordinate& pos) const;
+  std::string LargeBoardTerrainString(const MatrixCoordinate& pos) const;
+  std::string LargeBoardVictoryPointString(const MatrixCoordinate& pos) const;
 
   BoardCellFactory* cell_factory_;
   BoardCellFactory::CellsKey cells_flattened_factory_key_;

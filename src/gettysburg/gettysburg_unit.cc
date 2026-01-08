@@ -16,11 +16,11 @@ namespace cifre { namespace gettysburg {
 // Unit
 //
 Unit::Unit(const std::string& name, ArmyKind army_kind, UnitKind unit_kind,
-           float combat_factor, float move_factor, size_t row_idx, size_t col_idx) :
+           float combat_factor, float move_factor, const MatrixCoordinate& position) :
   name_(name), army_kind_(army_kind), unit_kind_(unit_kind),
   combat_factor_(combat_factor), move_factor_(move_factor),
   plane_idx_(UnitPlane(army_kind, unit_kind, combat_factor, move_factor)),
-  move_factor_expended_(0.0), row_idx_(row_idx), column_idx_(col_idx)
+  move_factor_expended_(0.0), position_(position)
 {
 }
 
@@ -111,8 +111,8 @@ Unit::Hash() const
 
   hash += (plane_idx_ * mulp) ^ (hash >> 23);
   hash += (uint64_t(move_factor_expended_ * 100000.0) * mulp) ^ (hash >> 23);
-  hash += (row_idx_ * mulp) ^ (hash >> 23);
-  hash += (column_idx_ * mulp) ^ (hash >> 23);
+  hash += (position_.Row() * mulp) ^ (hash >> 23);
+  hash += (position_.Column() * mulp) ^ (hash >> 23);
 
   return hash ^ (hash << 37);
 }
@@ -127,69 +127,71 @@ Unit::Equal(const Unit& other) const
 
   return ((plane_idx_ == other.plane_idx_) &&
           (move_factor_expended_ == other.move_factor_expended_) &&
-          (row_idx_ == other.row_idx_) &&
-          (column_idx_ == other.column_idx_));
+          (position_ == other.position_));
 }
 
 void
 Unit::RemoveFromBoard(Board* board) const
 {
-  float v = board->BoardCellValueAt(row_idx_, column_idx_, plane_idx_);
+  float v = board->BoardCellValueAt(position_, plane_idx_);
   assert(v >= 1.0);
-  board->SetBoardCellValueAt(v - 1.0, row_idx_, column_idx_, plane_idx_);
+  board->SetBoardCellValueAt(v - 1.0, position_, plane_idx_);
 }
 
 void
 Unit::AddToBoard(Board* board) const
 {
-  float v = board->BoardCellValueAt(row_idx_, column_idx_, plane_idx_);
-  board->SetBoardCellValueAt(v + 1.0, row_idx_, column_idx_, plane_idx_);
+  float v = board->BoardCellValueAt(position_, plane_idx_);
+  board->SetBoardCellValueAt(v + 1.0, position_, plane_idx_);
 }
 
 void
 Unit::ApplyAction(
   ActionKind kind, const std::array<float, HEX_DIRECTION_COUNT>& move_cost)
 {
+  auto r = position_.Row();
+  auto c = position_.Column();
+
   switch (kind) {
   case ActionKind::MOVE_UP:
-    assert(row_idx_ > 0);
-    row_idx_ -= 1;
+    assert(position_.Row() > 0);
+    r -= 1;
     move_factor_expended_ += move_cost[size_t(HexDirection::UP)];
     break;
   case ActionKind::MOVE_DOWN:
-    row_idx_ += 1;
+    r += 1;
     move_factor_expended_ += move_cost[size_t(HexDirection::DN)];
     break;
   case ActionKind::MOVE_UPRIGHT:
-    if ((column_idx_ % 2) == 0) {
-      assert(row_idx_ > 0);
-      row_idx_ -= 1;
+    if ((position_.Column() % 2) == 0) {
+      assert(position_.Row() > 0);
+      r -= 1;
     }
-    column_idx_ += 1;
+    c += 1;
     move_factor_expended_ += move_cost[size_t(HexDirection::UP_RT)];
     break;
   case ActionKind::MOVE_DOWNRIGHT:
-    if ((column_idx_ % 2) == 1) {
-      row_idx_ += 1;
+    if ((position_.Column() % 2) == 1) {
+      r += 1;
     }
-    column_idx_ += 1;
+    c += 1;
     move_factor_expended_ += move_cost[size_t(HexDirection::DN_RT)];
     break;
   case ActionKind::MOVE_DOWNLEFT:
-    if ((column_idx_ % 2) == 1) {
-      row_idx_ += 1;
+    if ((position_.Column() % 2) == 1) {
+      r += 1;
     }
-    assert(column_idx_ > 0);
-    column_idx_ -= 1;
+    assert(position_.Column() > 0);
+    c -= 1;
     move_factor_expended_ += move_cost[size_t(HexDirection::DN_LT)];
     break;
   case ActionKind::MOVE_UPLEFT:
-    if ((column_idx_ % 2) == 0) {
-      assert(row_idx_ > 0);
-      row_idx_ -= 1;
+    if ((position_.Column() % 2) == 0) {
+      assert(position_.Row() > 0);
+      r -= 1;
     }
-    assert(column_idx_ > 0);
-    column_idx_ -= 1;
+    assert(position_.Column() > 0);
+    c -= 1;
     move_factor_expended_ += move_cost[size_t(HexDirection::UP_LT)];
     break;
   case ActionKind::MOVE_END:
@@ -200,40 +202,7 @@ Unit::ApplyAction(
   }
 
   assert(move_factor_expended_ <= move_factor_);
-}
-
-HexDirection
-Unit::AdjacentDirection(const Unit& unit) const
-{
-  const int64_t row_delta = unit.row_idx_ - row_idx_;
-  const int64_t col_delta = unit.column_idx_ - column_idx_;
-  if (((row_delta == 0) && (col_delta == 0)) ||
-      (abs(row_delta) > 1) || (abs(col_delta) > 1)) {
-    return HexDirection::NONE;
-  }
-
-  if (col_delta == 0) {
-    return (row_delta == 1) ? HexDirection::DN : HexDirection::UP;
-  }
-
-  if ((column_idx_ % 2) == 0) {
-    if (row_delta == 0) {
-      return (col_delta == 1) ? HexDirection::DN_RT : HexDirection::DN_LT;
-    }
-    else if (row_delta == -1) {
-      return (col_delta == 1) ? HexDirection::UP_RT : HexDirection::UP_LT;
-    }
-  }
-  else { // (column_idx_ % 2) == 1
-    if (row_delta == 0) {
-      return (col_delta == 1) ? HexDirection::UP_RT : HexDirection::UP_LT;
-    }
-    else if (row_delta == 1) {
-      return (col_delta == 1) ? HexDirection::DN_RT : HexDirection::DN_LT;
-    }
-  }
-
-  return HexDirection::NONE;
+  position_ = MatrixCoordinate(r, c);
 }
 
 std::string

@@ -166,7 +166,7 @@ public:
   const CellFeatures& CellFeaturesFromIndex(CellFeatureKind kind, size_t n) const;
 
   // Return the CellFeatures for a given 'row' / 'column'.
-  const CellFeatures& CellFeaturesFromCoordinates(size_t row, size_t column) const;
+  const CellFeatures& CellFeaturesFromCoordinates(const MatrixCoordinate& pos) const;
 
   // Return the plane-set for a given board row and column.
   const FlattenedCells& PlaneSet(const CellsKey key);

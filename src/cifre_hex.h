@@ -17,8 +17,8 @@ static constexpr size_t HEX_DIRECTION_COUNT = 6;
 std::string HexDirectionToString(const HexDirection d);
 
 // Return the coordinates of the hex that is adjacent to the hex at
-// position 'pos' in direction 'dir'. Return MatrixCoordinate::UNKNOWN
-// if the adjacent hex has negative coordinates.
+// position 'pos' in direction 'dir'. The returned coordinates can be
+// negative if the 'dir'ection leads "out of" the matrix.
 MatrixCoordinate HexAdjacentCoordinate(
   const MatrixCoordinate& pos, HexDirection dir);
 

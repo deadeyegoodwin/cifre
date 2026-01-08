@@ -80,20 +80,17 @@ struct MatrixSizeEqual {
 //
 // MatrixCoordinate
 //
-// Represents a position of a matrix element as a row and column.
+// Represents a position of a matrix element as a row and
+// column. Negative coordinate values are allowed to support using
+// this class for deltas, etc.
 //
 class MatrixCoordinate {
-public:
-  // Unknown matrix coordinate is represented by size_t::max row and
-  // column value.
-  static MatrixCoordinate UNKNOWN;
-
 public:
   // Zero-coordinate.
   MatrixCoordinate() : MatrixCoordinate(0, 0) {}
 
   // A matrix coordinate.
-  MatrixCoordinate(size_t r, size_t c) : row_(r), column_(c) {}
+  MatrixCoordinate(int64_t r, int64_t c) : row_(r), column_(c) {}
 
   // Create a MatrixCoordinate by parsing a string with the format
   // "<row>,<column>", for example "4,3".
@@ -106,20 +103,20 @@ public:
     return !(*this == other); }
 
   // Return the row.
-  size_t Row() const { return row_; }
+  int64_t Row() const { return row_; }
 
   // Return the column.
-  size_t Column() const { return column_; }
+  int64_t Column() const { return column_; }
 
   // Return the matrix coordinate as a std::pair { row, column }.
-  std::pair<size_t, size_t> ToPair() const { return { row_, column_ }; }
+  std::pair<int64_t, int64_t> ToPair() const { return { row_, column_ }; }
 
   // Return string representation of the matrix coordinate.
   std::string ToString() const;
 
 private:
-  size_t row_;
-  size_t column_;
+  int64_t row_;
+  int64_t column_;
 };
 
 //

@@ -141,7 +141,7 @@ public:
   //          the top to bottom content of a large hex
   //   LARGE_VERBOSE: Same as LARGE but return verbose content
   virtual std::vector<std::string> BoardCell(
-    DisplayKind kind, size_t row_idx, size_t col_idx) const;
+    DisplayKind kind, const MatrixCoordinate& pos) const;
 
 protected:
   // Don't allow default copy constructor or assignment to force the

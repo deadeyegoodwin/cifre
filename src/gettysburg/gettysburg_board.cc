@@ -267,7 +267,7 @@ Board::ActiveUnit()
 }
 
 std::vector<const Unit*>
-Board::UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx) const
+Board::UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos) const
 {
   // NOTE: same code as non-const version of UnitsAt().
 
@@ -276,7 +276,7 @@ Board::UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx) const
   case Unit::ArmyKind::UNION:
     for (size_t idx = 0; idx < union_units_count_; ++idx) {
       const Unit* u = &union_units_[idx];
-      if ((u->Row() == row_idx) && (u->Column() == col_idx)) {
+      if (u->Position() == pos) {
         units.push_back(u);
       }
     }
@@ -284,7 +284,7 @@ Board::UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx) const
   case Unit::ArmyKind::CONFEDERATE:
     for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
       const Unit* u = &confederate_units_[idx];
-      if ((u->Row() == row_idx) && (u->Column() == col_idx)) {
+      if (u->Position() == pos) {
         units.push_back(u);
       }
     }
@@ -295,7 +295,7 @@ Board::UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx) const
 }
 
 std::vector<Unit*>
-Board::UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx)
+Board::UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos)
 {
   // NOTE: same code as const version of UnitsAt().
 
@@ -304,7 +304,7 @@ Board::UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx)
   case Unit::ArmyKind::UNION:
     for (size_t idx = 0; idx < union_units_count_; ++idx) {
       Unit* u = &union_units_[idx];
-      if ((u->Row() == row_idx) && (u->Column() == col_idx)) {
+      if (u->Position() == pos) {
         units.push_back(u);
       }
     }
@@ -312,7 +312,7 @@ Board::UnitsAt(Unit::ArmyKind kind, size_t row_idx, size_t col_idx)
   case Unit::ArmyKind::CONFEDERATE:
     for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
       Unit* u = &confederate_units_[idx];
-      if ((u->Row() == row_idx) && (u->Column() == col_idx)) {
+      if (u->Position() == pos) {
         units.push_back(u);
       }
     }
@@ -431,8 +431,7 @@ Board::NextArmyUnit(
 void
 Board::UpdateMoveCosts()
 {
-  active_move_costs_ =
-    move_factory_->MoveCost(active_unit_->Row(), active_unit_->Column());
+  active_move_costs_ = move_factory_->MoveCost(active_unit_->Position());
 
   // Cannot move onto an opponent unit.
   const auto& opponent_units_count =
@@ -440,7 +439,8 @@ Board::UpdateMoveCosts()
   const auto& opponent_units =
     ((active_army_ == Unit::ArmyKind::UNION) ? confederate_units_ : union_units_);
   for (size_t idx = 0; idx < opponent_units_count; ++idx) {
-    HexDirection dir = active_unit_->AdjacentDirection(opponent_units[idx]);
+    const HexDirection dir =
+      HexAdjacentDirection(active_unit_->Position(), opponent_units[idx].Position());
     if (dir != HexDirection::NONE) {
       active_move_costs_[size_t(dir)] = -1.0; // move not allowed
     }
@@ -452,7 +452,7 @@ Board::UpdateCapturedVictoryPoints()
 {
   // Is the active unit capturing a victory point?
   const auto& features =
-    cell_factory_->CellFeaturesFromCoordinates(active_unit_->Row(), active_unit_->Column());
+    cell_factory_->CellFeaturesFromCoordinates(active_unit_->Position());
   if (features.victory_points_ > 0.0) {
     for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
       const auto& cf =
@@ -476,11 +476,10 @@ Board::UpdateInputPlanes()
   // The active unit's position determines where on the planes the
   // board is located; location is set to place that unit in the
   // center of the planes.
-  active_first_row_ = size_.RowCount() - 1 - active_unit_->Row();
-  active_first_column_ = size_.ColumnCount() - 1 - active_unit_->Column();
+  active_first_row_ = size_.RowCount() - 1 - active_unit_->Position().Row();
+  active_first_column_ = size_.ColumnCount() - 1 - active_unit_->Position().Column();
 
-  cells_flattened_factory_key_ =
-    MatrixCoordinate(active_unit_->Row(), active_unit_->Column());
+  cells_flattened_factory_key_ = active_unit_->Position();
   const auto& fcf = cell_factory_->PlaneSet(cells_flattened_factory_key_);
   cells_flattened_.assign(fcf.begin(), fcf.end());
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
@@ -508,11 +507,11 @@ Board::UpdateInputPlanes()
       switch (army) {
       case Unit::ArmyKind::UNION:
         SetUnionVictoryPointAt(
-          features.victory_points_, features.row_, features.column_);
+          features.victory_points_, MatrixCoordinate(features.row_, features.column_));
         break;
       case Unit::ArmyKind::CONFEDERATE:
         SetConfederateVictoryPointAt(
-          features.victory_points_, features.row_, features.column_);
+          features.victory_points_, MatrixCoordinate(features.row_, features.column_));
         break;
       }
     }
@@ -534,12 +533,9 @@ Board::UpdateValidActions()
   valid_action_ids_.clear();
   valid_action_ids_.push_back(uint64_t(Unit::ActionKind::MOVE_END));
 
-  const size_t row = active_unit_->Row();
-  const size_t col = active_unit_->Column();
-
   for (const auto& pr : direction_actions) {
     // For now don't allow unit to move off of the board...
-    if (move_factory_->IsAdjacentHex(row, col, pr.first)) {
+    if (move_factory_->IsInBoundsAdjacentHex(active_unit_->Position(), pr.first)) {
       const float cost = active_move_costs_[size_t(pr.first)];
       if ((cost >= 0.0) &&
           (active_unit_->MoveFactorExpended() + cost) <= active_unit_->MoveFactor()) {
@@ -612,7 +608,8 @@ Board::ReinforceUnits()
 {
   // Union
   for (auto& u : OOB::Units(scenario_, Unit::ArmyKind::UNION, turn_)) {
-    if ((u.Row() < size_.RowCount()) && (u.Column() < size_.ColumnCount())) {
+    if ((u.Position().Row() < int64_t(size_.RowCount())) &&
+        (u.Position().Column() < int64_t(size_.ColumnCount()))) {
       assert(union_units_count_ < OOB::MAX_UNITS_PER_ARMY_COUNT);
       union_units_[union_units_count_++] = u;
     }
@@ -620,7 +617,8 @@ Board::ReinforceUnits()
 
   // Confederate
   for (auto& u : OOB::Units(scenario_, Unit::ArmyKind::CONFEDERATE, turn_)) {
-    if ((u.Row() < size_.RowCount()) && (u.Column() < size_.ColumnCount())) {
+    if ((u.Position().Row() < int64_t(size_.RowCount())) &&
+        (u.Position().Column() < int64_t(size_.ColumnCount()))) {
       assert(confederate_units_count_ < OOB::MAX_UNITS_PER_ARMY_COUNT);
       confederate_units_[confederate_units_count_++] = u;
     }
@@ -721,45 +719,44 @@ Board::BoardTrailer() const
 }
 
 std::vector<std::string>
-Board::BoardCell(BoardHex::DisplayKind kind, size_t row_idx, size_t col_idx) const
+Board::BoardCell(BoardHex::DisplayKind kind, const MatrixCoordinate& pos) const
 {
   switch (kind) {
   case DisplayKind::SMALL:
-    return SmallBoardCell(row_idx, col_idx);
+    return SmallBoardCell(pos);
   case DisplayKind::LARGE:
-    return LargeBoardCell(false /* verbose */, row_idx, col_idx);
+    return LargeBoardCell(false /* verbose */, pos);
   case DisplayKind::LARGE_VERBOSE:
-    return LargeBoardCell(true /* verbose */, row_idx, col_idx);
+    return LargeBoardCell(true /* verbose */, pos);
   }
 
   return {}; // unreachable
 }
 
 std::vector<std::string>
-Board::SmallBoardCell(size_t row_idx, size_t col_idx) const
+Board::SmallBoardCell(const MatrixCoordinate& pos) const
 {
-  return { BoardUnitString(row_idx, col_idx), SmallBoardTerrainString(row_idx, col_idx) };
+  return { BoardUnitString(pos), SmallBoardTerrainString(pos) };
 }
 
 std::vector<std::string>
-Board::LargeBoardCell(bool verbose, size_t row_idx, size_t col_idx) const
+Board::LargeBoardCell(bool verbose, const MatrixCoordinate& pos) const
 {
   return {
-    BoardUnitString(row_idx, col_idx) + "  ",
+    BoardUnitString(pos) + "  ",
     "      ",
-    LargeBoardVictoryPointString(row_idx, col_idx),
-    LargeBoardTerrainString(row_idx, col_idx) };
+    LargeBoardVictoryPointString(pos),
+    LargeBoardTerrainString(pos) };
 }
 
 // Return 2-character string representing the unit(s) in the hex.
 std::string
-Board::BoardUnitString(size_t row_idx, size_t col_idx) const
+Board::BoardUnitString(const MatrixCoordinate& pos) const
 {
   if (!cells_flattened_.empty()) {
     const bool active_at =
-      ((active_unit_!= nullptr) && (active_unit_->Row() == row_idx) &&
-       (active_unit_->Column() == col_idx));
-    const size_t uc = UnionAt(row_idx, col_idx).size();
+      ((active_unit_!= nullptr) && (active_unit_->Position() == pos));
+    const size_t uc = UnionAt(pos).size();
     if (uc > 0) {
       std::string str =
         ((!active_at) ?
@@ -772,7 +769,7 @@ Board::BoardUnitString(size_t row_idx, size_t col_idx) const
       return str;
     }
 
-    const size_t cc = ConfederateAt(row_idx, col_idx).size();
+    const size_t cc = ConfederateAt(pos).size();
     if (cc > 0) {
       std::string str =
         ((!active_at) ?
@@ -790,14 +787,14 @@ Board::BoardUnitString(size_t row_idx, size_t col_idx) const
 }
 
 std::string
-Board::SmallBoardTerrainString(size_t row_idx, size_t col_idx) const
+Board::SmallBoardTerrainString(const MatrixCoordinate& pos) const
 {
   std::string str("__");
 
   if (!cells_flattened_.empty()) {
-    const bool forest = (ForestAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE);
-    const bool hill = (HillAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE);
-    const float vp = VictoryPointAt(row_idx, col_idx);
+    const bool forest = (ForestAt(pos) == BoardCellFactory::CELL_ACTIVE);
+    const bool hill = (HillAt(pos) == BoardCellFactory::CELL_ACTIVE);
+    const float vp = VictoryPointAt(pos);
 
     if (forest && hill) {
       str[0] = 'b';
@@ -824,14 +821,14 @@ Board::SmallBoardTerrainString(size_t row_idx, size_t col_idx) const
 }
 
 std::string
-Board::LargeBoardTerrainString(size_t row_idx, size_t col_idx) const
+Board::LargeBoardTerrainString(const MatrixCoordinate& pos) const
 {
   std::string str("____");
 
   if (!cells_flattened_.empty()) {
-    const bool forest = (ForestAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE);
-    const bool hill = (HillAt(row_idx, col_idx) == BoardCellFactory::CELL_ACTIVE);
-    const float vp = VictoryPointAt(row_idx, col_idx);
+    const bool forest = (ForestAt(pos) == BoardCellFactory::CELL_ACTIVE);
+    const bool hill = (HillAt(pos) == BoardCellFactory::CELL_ACTIVE);
+    const float vp = VictoryPointAt(pos);
 
     str[0] = ((forest) ? 'f' : '_');
     str[1] = ((hill) ? 'h' : '_');
@@ -851,12 +848,12 @@ Board::LargeBoardTerrainString(size_t row_idx, size_t col_idx) const
 }
 
 std::string
-Board::LargeBoardVictoryPointString(size_t row_idx, size_t col_idx) const
+Board::LargeBoardVictoryPointString(const MatrixCoordinate& pos) const
 {
   std::string str = "      ";
   if (!cells_flattened_.empty()) {
-    const float uvp = UnionVictoryPointAt(row_idx, col_idx);
-    const float cvp = ConfederateVictoryPointAt(row_idx, col_idx);
+    const float uvp = UnionVictoryPointAt(pos);
+    const float cvp = ConfederateVictoryPointAt(pos);
     assert((uvp == 0.0) || (cvp == 0.0));
 
     str[4] = ((uvp > 0.0) ? UNION_CHAR : (cvp > 0.0) ? CONFEDERATE_CHAR : ' ');
