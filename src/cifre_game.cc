@@ -938,7 +938,9 @@ Game::Play()
       alphazero_train_samples_->Reset();
     }
 
-    triton_server_->FlushAllCaches();
+    if (triton_server_ != nullptr) {
+      triton_server_->FlushAllCaches();
+    }
 
   } catch (const std::exception& ex) {
     GameFail(ex.what());
