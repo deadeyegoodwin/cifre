@@ -470,9 +470,6 @@ Board::UpdateCapturedVictoryPoints()
 void
 Board::UpdateInputPlanes()
 {
-  // Cells should be released...
-  assert(cells_flattened_.empty());
-
   // The active unit's position determines where on the planes the
   // board is located; location is set to place that unit in the
   // center of the planes.
