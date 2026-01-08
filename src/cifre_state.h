@@ -47,10 +47,11 @@ private:
 //
 // Needed to correctly delete State objects allocated into a memory
 // arena using placement new (as is commonly done in implementations
-// of Copy() and CopyAndUpdate()). For a state object not allocated
-// using an arena and placement-new, the StateDeleter must be
-// constructed with 'arena' == std::pmr::new_delete_resource(), or
-// more efficiently use StateDeleterNewDelete<T>.
+// of Copy() and CopyAndUpdate()). For a state object allocated using
+// using placement-new with memory allocated by an arena,
+// StateDeleter<T> must be used. For a state object allocated using
+// "new" and not using placement-new, StateDeleterNewDelete<T> must be
+// used.
 //
 class StateDeleterBase {
 public:
@@ -87,13 +88,8 @@ private:
   static void Deleter(void* ptr, void* payload) {
     if (ptr != nullptr) {
       std::pmr::memory_resource* arena = static_cast<std::pmr::memory_resource*>(payload);
-      if (arena->is_equal(*std::pmr::new_delete_resource())) {
-        delete static_cast<T*>(ptr);
-      }
-      else {
-        static_cast<T*>(ptr)->~T();
-        arena->deallocate(ptr, sizeof(T), alignof(T));
-      }
+      static_cast<T*>(ptr)->~T();
+      arena->deallocate(ptr, sizeof(T), alignof(T));
     }
   }
 };
