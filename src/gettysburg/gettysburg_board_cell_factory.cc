@@ -129,12 +129,38 @@ BoardCellFactory::BoardCellFactory(
     assert(cell_features_offsets_[
              size_t(CellFeatureKind::VICTORY_POINT)].size() < MAX_VICTORY_POINT_HEX_COUNT);
   }
+
+  // Go through board edge data and initialize edge features.
+  for (auto& be : board_edge_data) {
+    if ((be.row_ < board_row_cnt_) && (be.column_ < board_column_cnt_)) {
+      // Initialize in cell explicitly listed in 'be'.
+      const size_t offset = (be.row_ * board_column_cnt_) + be.column_;
+      auto& cf = cell_features_[offset];
+      assert(!cf.edges_[size_t(be.dir_)].road_ && !cf.edges_[size_t(be.dir_)].stream_ &&
+             !cf.edges_[size_t(be.dir_)].railroad_); // make sure not already inited
+      cf.edges_[size_t(be.dir_)] = be;
+
+      // Initialize in cell on other side of edge.
+      auto other_coord = HexAdjacentCoordinate(MatrixCoordinate(be.row_, be.column_), be.dir_);
+      if ((other_coord.Row() >= 0) && (other_coord.Column() >= 0) &&
+          (other_coord.Row() < int64_t(board_row_cnt_)) &&
+          (other_coord.Column() < int64_t(board_column_cnt_))) {
+        const size_t other_offset =
+          (other_coord.Row() * board_column_cnt_) + other_coord.Column();
+        HexDirection other_dir = HexOppositeDirection(be.dir_);
+        auto& ocf = cell_features_[other_offset];
+        assert(!ocf.edges_[size_t(other_dir)].road_ && !ocf.edges_[size_t(other_dir)].stream_ &&
+               !ocf.edges_[size_t(other_dir)].railroad_); // make sure not already inited
+        ocf.edges_[size_t(other_dir)] = be;
+      }
+    }
+  }
 }
 
 const BoardCellFactory::CellFeatures&
 BoardCellFactory::CellFeaturesFromIndex(CellFeatureKind kind, size_t n) const
 {
-  assert(n < FeaturesCount(kind));
+  assert(n < CellFeaturesCount(kind));
   assert(cell_features_offsets_[size_t(kind)][n] < cell_features_.size());
   return cell_features_[cell_features_offsets_[size_t(kind)][n]];
 }
@@ -142,7 +168,8 @@ BoardCellFactory::CellFeaturesFromIndex(CellFeatureKind kind, size_t n) const
 const BoardCellFactory::CellFeatures&
 BoardCellFactory::CellFeaturesFromCoordinates(const MatrixCoordinate& pos) const
 {
-  assert((pos.Row() < board_row_cnt_) && (pos.Column() < board_column_cnt_));
+  assert((pos.Row() < int64_t(board_row_cnt_)) &&
+         (pos.Column() < int64_t(board_column_cnt_)));
   const size_t offset = (pos.Row() * board_column_cnt_) + pos.Column();
   return cell_features_[offset];
 }

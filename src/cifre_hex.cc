@@ -6,9 +6,9 @@
 namespace cifre {
 
 std::string
-HexDirectionToString(const HexDirection d)
+HexDirectionToString(const HexDirection dir)
 {
-  switch (d) {
+  switch (dir) {
   case HexDirection::UP: return "UP";
   case HexDirection::UP_RT: return "UP-RT";
   case HexDirection::DN_RT: return "DN-RT";
@@ -19,6 +19,22 @@ HexDirectionToString(const HexDirection d)
   }
 
   return "<none>"; // unreachable
+}
+
+HexDirection
+HexOppositeDirection(const HexDirection dir)
+{
+  switch (dir) {
+  case HexDirection::UP: return HexDirection::DN;
+  case HexDirection::UP_RT: return HexDirection::DN_LT;
+  case HexDirection::DN_RT: return HexDirection::UP_LT;
+  case HexDirection::DN: return HexDirection::UP;
+  case HexDirection::DN_LT: return HexDirection::UP_RT;
+  case HexDirection::UP_LT: return HexDirection::DN_RT;
+  case HexDirection::NONE: return HexDirection::NONE;
+  }
+
+  return HexDirection::NONE;
 }
 
 MatrixCoordinate
