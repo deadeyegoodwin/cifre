@@ -146,63 +146,24 @@ Unit::AddToBoard(Board* board) const
 }
 
 void
-Unit::ApplyAction(
-  ActionKind kind, const std::array<float, HEX_DIRECTION_COUNT>& move_cost)
+Unit::ApplyActionId(
+  uint64_t aid, const std::array<float, MOVE_ACTIONID_COUNT>& move_cost)
 {
-  auto r = position_.Row();
-  auto c = position_.Column();
-
-  switch (kind) {
-  case ActionKind::MOVE_UP:
-    assert(position_.Row() > 0);
-    r -= 1;
-    move_factor_expended_ += move_cost[size_t(HexDirection::UP)];
-    break;
-  case ActionKind::MOVE_DOWN:
-    r += 1;
-    move_factor_expended_ += move_cost[size_t(HexDirection::DN)];
-    break;
-  case ActionKind::MOVE_UPRIGHT:
-    if ((position_.Column() % 2) == 0) {
-      assert(position_.Row() > 0);
-      r -= 1;
-    }
-    c += 1;
-    move_factor_expended_ += move_cost[size_t(HexDirection::UP_RT)];
-    break;
-  case ActionKind::MOVE_DOWNRIGHT:
-    if ((position_.Column() % 2) == 1) {
-      r += 1;
-    }
-    c += 1;
-    move_factor_expended_ += move_cost[size_t(HexDirection::DN_RT)];
-    break;
-  case ActionKind::MOVE_DOWNLEFT:
-    if ((position_.Column() % 2) == 1) {
-      r += 1;
-    }
-    assert(position_.Column() > 0);
-    c -= 1;
-    move_factor_expended_ += move_cost[size_t(HexDirection::DN_LT)];
-    break;
-  case ActionKind::MOVE_UPLEFT:
-    if ((position_.Column() % 2) == 0) {
-      assert(position_.Row() > 0);
-      r -= 1;
-    }
-    assert(position_.Column() > 0);
-    c -= 1;
-    move_factor_expended_ += move_cost[size_t(HexDirection::UP_LT)];
-    break;
-  case ActionKind::MOVE_END:
+  // If move is ended then show no move-factor remaining...
+  if (aid == ACTIONID_MOVE_END) {
     move_factor_expended_ = move_factor_;
-    break;
-  case ActionKind::ACTION_COUNT:
-    THROW("unexpected unit action");
+  }
+  else {
+    const auto dir = ActionIdToHexDirection(aid);
+    assert(dir);
+    if (dir) {
+      position_ = HexDirectionCoordinate(position_, *dir);
+      assert((position_.Row() >= 0) && (position_.Column() >= 0));
+      move_factor_expended_ += move_cost[aid];
+    }
   }
 
   assert(move_factor_expended_ <= move_factor_);
-  position_ = MatrixCoordinate(r, c);
 }
 
 std::string

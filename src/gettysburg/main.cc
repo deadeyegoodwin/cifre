@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "cifre_game.h"
+#include "gettysburg_action.h"
 #include "gettysburg_board.h"
 #include "gettysburg_board_cell_factory.h"
 #include "gettysburg_board_move_factory.h"
@@ -166,7 +167,7 @@ Gettysburg::DefaultAlphaZeroSettings(bool training, bool az_vs_az) const
   if (training) {
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
-    settings.dirichlet_alpha_ = 10.0 / float(Unit::ActionKind::ACTION_COUNT);
+    settings.dirichlet_alpha_ = 10.0 / float(TOTAL_ACTIONID_COUNT);
     settings.dirichlet_sample_count_ = 2117;
     settings.dirichlet_ratio_ = 0.25;
   }

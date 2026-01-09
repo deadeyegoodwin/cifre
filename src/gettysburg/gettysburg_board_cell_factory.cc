@@ -141,7 +141,7 @@ BoardCellFactory::BoardCellFactory(
       cf.edges_[size_t(be.dir_)] = be;
 
       // Initialize in cell on other side of edge.
-      auto other_coord = HexAdjacentCoordinate(MatrixCoordinate(be.row_, be.column_), be.dir_);
+      auto other_coord = HexDirectionCoordinate(MatrixCoordinate(be.row_, be.column_), be.dir_);
       if ((other_coord.Row() >= 0) && (other_coord.Column() >= 0) &&
           (other_coord.Row() < int64_t(board_row_cnt_)) &&
           (other_coord.Column() < int64_t(board_column_cnt_))) {

@@ -5,8 +5,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "cifre_action.h"
 #include "cifre_boardhex.h"
+#include "gettysburg_action.h"
 
 namespace cifre { namespace gettysburg {
 
@@ -25,10 +25,6 @@ public:
   enum class UnitKind {
     HEADQUARTERS = 0, INFANTRY, CAVALRY, ARTILLERY, HORSE_ARTILLERY };
 
-  enum class ActionKind {
-    MOVE_UP = 0, MOVE_UPRIGHT, MOVE_DOWNRIGHT, MOVE_DOWN, MOVE_DOWNLEFT, MOVE_UPLEFT,
-    MOVE_END, ACTION_COUNT };
-
   static std::string ArmyKindToString(const ArmyKind kind) {
     switch (kind) {
     case ArmyKind::UNION: return "UNION";
@@ -44,21 +40,6 @@ public:
     case UnitKind::CAVALRY: return "CAVALRY";
     case UnitKind::ARTILLERY: return "ARTILLERY";
     case UnitKind::HORSE_ARTILLERY: return "HORSE_ARTILLERY";
-    }
-    return "<none>"; // unreachable
-  }
-
-  static std::string ActionKindToString(const ActionKind kind) {
-    switch (kind) {
-    case ActionKind::MOVE_UP: return "MOVE_UP";
-    case ActionKind::MOVE_UPRIGHT: return "MOVE_UPRIGHT";
-    case ActionKind::MOVE_DOWNRIGHT: return "MOVE_DOWNRIGHT";
-    case ActionKind::MOVE_DOWN: return "MOVE_DOWN";
-    case ActionKind::MOVE_DOWNLEFT: return "MOVE_DOWNLEFT";
-    case ActionKind::MOVE_UPLEFT: return "MOVE_UPLEFT";
-    case ActionKind::MOVE_END: return "MOVE_END";
-    case ActionKind::ACTION_COUNT:
-      break;
     }
     return "<none>"; // unreachable
   }
@@ -90,9 +71,9 @@ public:
     return move_factor_ - move_factor_expended_; }
   void ResetMoveFactorRemaining() { move_factor_expended_ = 0.0; }
 
-  // Update unit based on action 'kind'.
-  void ApplyAction(
-    ActionKind kind, const std::array<float, HEX_DIRECTION_COUNT>& move_cost);
+  // Update unit based on action-id.
+  void ApplyActionId(
+    uint64_t aid, const std::array<float, MOVE_ACTIONID_COUNT>& move_cost);
 
   // Update 'board' to remove this unit.
   void RemoveFromBoard(Board* board) const;

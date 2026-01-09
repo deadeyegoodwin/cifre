@@ -105,7 +105,7 @@ public:
     bool rocky_hill_ {false};
     bool town_ {false};
     float victory_points_ {0.0};
-    std::array<EdgeFeatures, HEX_DIRECTION_COUNT> edges_;
+    std::array<EdgeFeatures, 1 + HEX_RADIUS1_DIRECTION_COUNT> edges_;
   };
 
   // The planes.

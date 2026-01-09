@@ -119,6 +119,15 @@ private:
   int64_t column_;
 };
 
+// Operators
+inline MatrixCoordinate
+operator+(const MatrixCoordinate& lhs, const MatrixCoordinate& rhs) {
+  return MatrixCoordinate(lhs.Row() + rhs.Row(), lhs.Column() + rhs.Column()); }
+
+inline MatrixCoordinate
+operator-(const MatrixCoordinate& lhs, const MatrixCoordinate& rhs) {
+  return MatrixCoordinate(lhs.Row() - rhs.Row(), lhs.Column() - rhs.Column()); }
+
 //
 // MatrixCoordinateHash
 //

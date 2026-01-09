@@ -55,8 +55,7 @@ public:
     uint64_t action_id, std::pmr::memory_resource* arena) const override;
 
   // See cifre::State
-  size_t TotalActionIdCount() const override {
-    return size_t(Unit::ActionKind::ACTION_COUNT); }
+  size_t TotalActionIdCount() const override { return TOTAL_ACTIONID_COUNT; }
 
   // See cifre::State
   std::string ActionToString(const Action& action) const override;
@@ -201,7 +200,7 @@ private:
 
   // Cost to move in each direction for the active unit. A negative
   // cost indicates that movement in that direction is not possible.
-  std::array<float, HEX_DIRECTION_COUNT> active_move_costs_;
+  std::array<float, MOVE_ACTIONID_COUNT> active_move_costs_;
 
   // Integer representing the game turn.
   size_t turn_;

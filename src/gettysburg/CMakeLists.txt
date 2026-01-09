@@ -58,6 +58,7 @@ install(
 #
 add_library(
   gettysburg-library STATIC
+  gettysburg_action.cc
   gettysburg_board.cc
   gettysburg_board_cell_factory.cc
   gettysburg_board_move_factory.cc

@@ -195,7 +195,7 @@ Board::ActionToString(const Action& action) const
     return action.ToString();
   }
 
-  return Unit::ActionKindToString((Unit::ActionKind)action.ActionId());
+  return ActionIdToString(action.ActionId());
 }
 
 Action
@@ -220,27 +220,21 @@ Board::StringToAction(const std::string& str) const
 
   common::ToLower(posstr);
 
-  // Moves
-  if ((posstr == "up") || (posstr == "u")) {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_UP);
-  }
-  if ((posstr == "up-right") || (posstr == "upright") || (posstr == "ur")) {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_UPRIGHT);
-  }
-  if ((posstr == "down-right") || (posstr == "downright") || (posstr == "dr")) {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_DOWNRIGHT);
-  }
-  if ((posstr == "down") || (posstr == "d")) {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_DOWN);
-  }
-  if ((posstr == "down-left") || (posstr == "downleft") || (posstr == "dl")) {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_DOWNLEFT);
-  }
-  if ((posstr == "up-left") || (posstr == "upleft") || (posstr == "ul")) {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_UPLEFT);
-  }
+  // 'end' indicates the move NONE action and ends the units movement
+  // for the turn
   if (posstr == "end") {
-    return Action(Action::ActionKind::ACTIONID, (uint64_t)Unit::ActionKind::MOVE_END);
+    return Action(Action::ActionKind::ACTIONID, ACTIONID_MOVE_END);
+  }
+
+  // Try parsing as a HexDirection. If success then use corresponding
+  // move action-id. Don't allow NONE as that is indicated by using
+  // "end".
+  auto cdir = StringToHexDirection(posstr);
+  if (cdir) {
+    auto aid = HexDirectionToActionId(*cdir);
+    if (aid && (aid != ACTIONID_MOVE_END)) {
+      return Action(Action::ActionKind::ACTIONID, *aid);
+    }
   }
 
   return Action(Action::ActionKind::INVALID);
@@ -355,9 +349,7 @@ Board::CopyAndUpdate(uint64_t action_id, std::pmr::memory_resource* arena) const
 void
 Board::Update(uint64_t action_id)
 {
-  const Unit::ActionKind action = Unit::ActionKind(action_id);
-
-  active_unit_->ApplyAction(action, active_move_costs_);
+  active_unit_->ApplyActionId(action_id, active_move_costs_);
 
   UpdateCapturedVictoryPoints();
 
@@ -419,12 +411,15 @@ Board::NextArmyUnit(
       UpdateValidActions();
       if ((valid_action_ids_.size() > 1) ||
           ((valid_action_ids_.size() == 1) &&
-           (valid_action_ids_[0] != uint64_t(Unit::ActionKind::MOVE_END)))) {
+           (valid_action_ids_[0] != ACTIONID_MOVE_END))) {
+        // Return true indicating now have next active unit in the
+        // same army.
         return true;
       }
     }
   }
 
+  // Return false indicating *no* next unit available in the army.
   return false;
 }
 
@@ -518,28 +513,25 @@ Board::UpdateInputPlanes()
   }
 }
 
-static const std::array<
-  std::pair<HexDirection, Unit::ActionKind>, HEX_DIRECTION_COUNT> direction_actions {{
-    { HexDirection::UP, Unit::ActionKind::MOVE_UP },
-    { HexDirection::UP_RT, Unit::ActionKind::MOVE_UPRIGHT },
-    { HexDirection::DN_RT, Unit::ActionKind::MOVE_DOWNRIGHT },
-    { HexDirection::DN, Unit::ActionKind::MOVE_DOWN },
-    { HexDirection::DN_LT, Unit::ActionKind::MOVE_DOWNLEFT },
-    { HexDirection::UP_LT, Unit::ActionKind::MOVE_UPLEFT } }};
-
 void
 Board::UpdateValidActions()
 {
   valid_action_ids_.clear();
-  valid_action_ids_.push_back(uint64_t(Unit::ActionKind::MOVE_END));
+  valid_action_ids_.push_back(ACTIONID_MOVE_END);
 
-  for (const auto& pr : direction_actions) {
-    // For now don't allow unit to move off of the board...
-    if (move_factory_->IsInBoundsAdjacentHex(active_unit_->Position(), pr.first)) {
-      const float cost = active_move_costs_[size_t(pr.first)];
-      if ((cost >= 0.0) &&
-          (active_unit_->MoveFactorExpended() + cost) <= active_unit_->MoveFactor()) {
-        valid_action_ids_.push_back(uint64_t(pr.second));
+  for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
+    if (aid != ACTIONID_MOVE_END) {
+      // For now don't allow unit to move off of the board...
+      auto dir = ActionIdToHexDirection(aid);
+      assert(dir);
+      // FIXME move-cost must take into account in-bounds-ness because
+      // need to handle radius-2+ moves.
+      if (dir && move_factory_->IsInBoundsAdjacentHex(active_unit_->Position(), *dir)) {
+        const float cost = active_move_costs_[aid];
+        if ((cost >= 0.0) &&
+            (active_unit_->MoveFactorExpended() + cost) <= active_unit_->MoveFactor()) {
+          valid_action_ids_.push_back(aid);
+        }
       }
     }
   }

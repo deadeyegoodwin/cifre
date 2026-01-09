@@ -239,11 +239,11 @@ public:
 namespace {
 
 static constexpr HexDirection UP = HexDirection::UP;
-static constexpr HexDirection UR = HexDirection::UP_RT;
-static constexpr HexDirection DR = HexDirection::DN_RT;
+static constexpr HexDirection UR = HexDirection::UR;
+static constexpr HexDirection DR = HexDirection::DR;
 static constexpr HexDirection DN = HexDirection::DN;
-static constexpr HexDirection DL = HexDirection::DN_LT;
-static constexpr HexDirection UL = HexDirection::UP_LT;
+static constexpr HexDirection DL = HexDirection::DL;
+static constexpr HexDirection UL = HexDirection::UL;
 
 } // namespace
 

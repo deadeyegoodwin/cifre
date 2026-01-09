@@ -31,13 +31,17 @@ public:
     size_t row_cnt, size_t column_cnt);
 
   // Return true if there is an in-bounds hex adjacent to 'pos' in
-  // direction 'dir'.
+  // direction 'dir'. 'dir' must be one of the radius-1 directions or
+  // NONE. The returned array should be indexed by HexDirection.
   bool IsInBoundsAdjacentHex(const MatrixCoordinate& pos, HexDirection dir) const {
+    assert((size_t(dir) >= 0) && (size_t(dir) < (1 + HEX_RADIUS1_DIRECTION_COUNT)));
     return nodes_[(pos.Row() * column_cnt_) + pos.Column()].adjacent_idx_[size_t(dir)] != NO_ADJACENT; }
 
-  // Return the cost to move out of 'row' / 'column' in every
-  // direction.
-  const std::array<float, HEX_DIRECTION_COUNT>& MoveCost(const MatrixCoordinate& pos) const {
+  // Return the cost to move out of 'row' / 'column' in every radius-1
+  // direction (NONE is also included in the returned array and its
+  // value is always 0.0). The returned array should be indexed by
+  // HexDirection.
+  const std::array<float, 1 + HEX_RADIUS1_DIRECTION_COUNT>& MoveCost(const MatrixCoordinate& pos) const {
     return nodes_[(pos.Row() * column_cnt_) + pos.Column()].out_move_cost_; }
 
 private:
@@ -45,12 +49,13 @@ private:
   // explicitly, but instead as arrays of adjacent nodes and move cost
   // for outgoing along the edge.  'adjacent_idx_' is the index into
   // 'nodes_' for the node in each of the six directions represented
-  // by HexDirection. An index value of NO_ADJACENT indicates that
-  // there is no adjacent node in that direction (i.e. edge of board).
+  // by HexDirection + NONE. An index value of NO_ADJACENT indicates
+  // that there is no adjacent node in that direction (i.e. edge of
+  // board).
   //
   struct Node {
-    std::array<size_t, HEX_DIRECTION_COUNT> adjacent_idx_ = {};
-    std::array<float, HEX_DIRECTION_COUNT> out_move_cost_ = {};
+    std::array<size_t, 1 + HEX_RADIUS1_DIRECTION_COUNT> adjacent_idx_ = {};
+    std::array<float, 1 + HEX_RADIUS1_DIRECTION_COUNT> out_move_cost_ = {};
   };
 
 private:
