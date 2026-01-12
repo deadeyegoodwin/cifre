@@ -22,6 +22,10 @@ static constexpr size_t TOTAL_ACTIONID_COUNT = MOVE_ACTIONID_COUNT;
 // corresponding to HexDirection::NONE.
 static constexpr uint64_t ACTIONID_MOVE_END = uint64_t(HexDirection::NONE);
 
+// Return true is direction 'dir' has a corresponding action-id.
+inline bool IsActionIdForHexDirection(HexDirection dir) {
+  return (uint64_t(dir) < MOVE_ACTIONID_COUNT); }
+
 // Convert an action-id to the corresponding HexDirection. Error if
 // action-id does not correspond to a HexDirection.
 inline HexDirection ActionIdToHexDirection(uint64_t aid) {

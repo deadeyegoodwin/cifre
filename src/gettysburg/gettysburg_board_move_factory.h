@@ -22,6 +22,8 @@ class BoardCellFactory;
 //
 class BoardMoveFactory {
 public:
+  static constexpr float MOVE_OFF_BOARD_COST = 1.0;
+
   static constexpr size_t NO_ADJACENT = std::numeric_limits<size_t>::max();
 
 public:
@@ -37,10 +39,10 @@ public:
     assert((size_t(dir) >= 0) && (size_t(dir) < (1 + HEX_RADIUS1_DIRECTION_COUNT)));
     return nodes_[(pos.Row() * column_cnt_) + pos.Column()].adjacent_idx_[size_t(dir)] != NO_ADJACENT; }
 
-  // Return the cost to move out of 'row' / 'column' in every radius-1
-  // direction (NONE is also included in the returned array and its
-  // value is always 0.0). The returned array should be indexed by
-  // HexDirection.
+  // Return the cost to move out of 'pos' in every radius-1 direction
+  // (NONE is also included in the returned array and its value is
+  // always 0.0). The returned array should be indexed by
+  // HexDirection. 'pos' must be a valid board position.
   const std::array<float, 1 + HEX_RADIUS1_DIRECTION_COUNT>&
   AdjacentHexMoveCost(const MatrixCoordinate& pos) const {
     return nodes_[(pos.Row() * column_cnt_) + pos.Column()].out_move_cost_; }

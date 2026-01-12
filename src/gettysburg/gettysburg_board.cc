@@ -230,9 +230,10 @@ Board::StringToAction(const std::string& str) const
   // move action-id. Don't allow NONE as that is indicated by using
   // "end".
   auto cdir = StringToHexDirection(posstr);
-  if (cdir) {
+  if (cdir && IsActionIdForHexDirection(*cdir)) {
     auto aid = HexDirectionToActionId(*cdir);
-    if ((aid < MOVE_ACTIONID_COUNT) && (aid != ACTIONID_MOVE_END)) {
+    assert(aid < MOVE_ACTIONID_COUNT);
+    if (aid != ACTIONID_MOVE_END) {
       return Action(Action::ActionKind::ACTIONID, aid);
     }
   }
@@ -448,7 +449,14 @@ Board::UpdateMoveCosts()
   for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
     const auto dir = ActionIdToHexDirection(aid);
     const auto dest_pos = HexDirectionToPosition(active_unit_->Position(), dir);
-    dest_move_out_costs[aid] = move_factory_->AdjacentHexMoveCost(dest_pos);
+    if ((dest_pos.Row() < 0) || (dest_pos.Column() < 0) ||
+        (dest_pos.Row() >= int64_t(size_.RowCount())) ||
+        (dest_pos.Column() >= int64_t(size_.ColumnCount()))) {
+      // FIXME dest_pos is off board so initialize to something (off board perhaps)
+    }
+    else {
+      dest_move_out_costs[aid] = move_factory_->AdjacentHexMoveCost(dest_pos);
+    }
   }
 
   // Initialize move-cost for each action-id to be maximum cost,
@@ -502,11 +510,12 @@ Board::UpdateMoveCosts()
         HexDirection dir = ActionIdToHexDirection(aid);
         for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
           HexDirection ndir = HexDirectionConcatenate(dir, HexDirection(idx));
-          if (ndir != HexDirection::NONE) {
+          if ((ndir != HexDirection::NONE) && IsActionIdForHexDirection(ndir)) {
+            uint64_t naid = HexDirectionToActionId(ndir);
             float ncost = active_move_costs_[aid] + dest_move_out_costs[aid][idx];
-            if (ncost < active_move_costs_[HexDirectionToActionId(ndir)]) {
-              assert(active_move_costs_[HexDirectionToActionId(ndir)] >= 0.0);
-              active_move_costs_[HexDirectionToActionId(ndir)] = ncost;
+            if (ncost < active_move_costs_[naid]) {
+              assert(active_move_costs_[naid] >= 0.0);
+              active_move_costs_[naid] = ncost;
               changed = true;
             }
           }
