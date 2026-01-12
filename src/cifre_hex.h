@@ -31,9 +31,20 @@ enum class HexDirection {
   DR_DR
 };
 
-static constexpr size_t HEX_RADIUS1_DIRECTION_COUNT = 6;
-static constexpr size_t HEX_RADIUS2_DIRECTION_COUNT = 6 + 12;
-static constexpr size_t HEX_TOTAL_DIRECTION_COUNT = 1 + 6 + 12;
+static constexpr size_t HEX_MAX_RADIUS = 2;
+
+static constexpr size_t HEX_RADIUS1_FIRST_DIRECTION_IDX = size_t(HexDirection::UP);
+static constexpr size_t HEX_RADIUS1_LAST_DIRECTION_IDX = size_t(HexDirection::UL);
+static constexpr size_t HEX_RADIUS1_DIRECTION_COUNT =
+  (HEX_RADIUS1_LAST_DIRECTION_IDX - HEX_RADIUS1_FIRST_DIRECTION_IDX + 1);
+
+static constexpr size_t HEX_RADIUS2_FIRST_DIRECTION_IDX = size_t(HexDirection::UP_UP);
+static constexpr size_t HEX_RADIUS2_LAST_DIRECTION_IDX = size_t(HexDirection::DR_DR);
+static constexpr size_t HEX_RADIUS2_DIRECTION_COUNT =
+  (HEX_RADIUS2_LAST_DIRECTION_IDX - HEX_RADIUS2_FIRST_DIRECTION_IDX + 1);
+
+static constexpr size_t HEX_TOTAL_DIRECTION_COUNT =
+  1 + HEX_RADIUS1_DIRECTION_COUNT + HEX_RADIUS2_DIRECTION_COUNT;
 
 // Return the string representation of a hex direction.
 std::string HexDirectionToString(const HexDirection dir);
@@ -41,22 +52,28 @@ std::string HexDirectionToString(const HexDirection dir);
 // Parse a string into a HexDirection.
 std::optional<HexDirection> StringToHexDirection(const std::string& str);
 
-// For a radius-1 'dir'ection, return the direction that is opposite
-// 'dir'. If 'dir' is HexDirection::NONE return
-// HexDirection::NONE. Error if 'dir' is not a radius-1 direction or
-// NONE.
+// For a 'dir'ection return the direction that is opposite 'dir'. If
+// 'dir' is HexDirection::NONE return HexDirection::NONE.
 HexDirection HexOppositeDirection(const HexDirection dir);
 
-// If 'from' and 'to' are the position of adjacent hexes, return the
-// radius-1 HexDirection of 'from' -> 'to'. If 'from' and 'to' are not
-// adjacent, return HexDirection::NONE.
-HexDirection HexAdjacentDirection(
+// 'from' and 'to' are hex positions, return the HexDirection of
+// 'from' -> 'to'. If no HexDirection corresponds to 'from' and 'to'
+// then return HexDirection::NONE. Also return HexDirection::NONE if
+// 'from' == 'to'.
+HexDirection PositionToHexDirection(
   const MatrixCoordinate& from, const MatrixCoordinate& to);
 
 // Return the coordinates of the hex that is 'dir'ection relative to
 // hex at position 'pos'. The returned coordinates can be negative if
 // the 'dir'ection leads "out of" the matrix.
-MatrixCoordinate HexDirectionCoordinate(
+MatrixCoordinate HexDirectionToPosition(
   const MatrixCoordinate& pos, HexDirection dir);
+
+// Assume P is a hex. S is the hex at 'dir0' relative to P, that is P
+// -> dir0 -> S. D is the hex that is 'dir1' relative to S, that is S
+// -> dir1 -> D. Return the HexDirection, cdir, that satisfies P ->
+// cdir -> D. Return HexDirection::NONE if cdir is not a valid
+// HexDirection.
+HexDirection HexDirectionConcatenate(HexDirection dir0, HexDirection dir1);
 
 } // namespace cifre

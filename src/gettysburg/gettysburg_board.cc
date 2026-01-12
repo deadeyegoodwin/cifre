@@ -232,8 +232,8 @@ Board::StringToAction(const std::string& str) const
   auto cdir = StringToHexDirection(posstr);
   if (cdir) {
     auto aid = HexDirectionToActionId(*cdir);
-    if (aid && (aid != ACTIONID_MOVE_END)) {
-      return Action(Action::ActionKind::ACTIONID, *aid);
+    if ((aid < MOVE_ACTIONID_COUNT) && (aid != ACTIONID_MOVE_END)) {
+      return Action(Action::ActionKind::ACTIONID, aid);
     }
   }
 
@@ -426,18 +426,99 @@ Board::NextArmyUnit(
 void
 Board::UpdateMoveCosts()
 {
-  active_move_costs_ = move_factory_->MoveCost(active_unit_->Position());
+  // Calculate the move cost to perform each move action. Move actions
+  // have names like UP-UL but that is not an indication of the exact
+  // path of the move, it means that the destination of the move is
+  // the hex that is up-1 and then up-left-1 from the current hex. The
+  // move cost for UP-UL will be the lowest total move factor required
+  // to get from the current hex to the destination hex along any
+  // valid path between the two.
+  //
+  // We find these costs by iterating over the actions and updating
+  // minimum move-costs based on neighbor values, until there are no
+  // changes. For the problem size this iterative method is fast
+  // enough, and maybe even faster than an all-pairs-shortest-path
+  // algorithm.
 
-  // Cannot move onto an opponent unit.
-  const auto& opponent_units_count =
-    ((active_army_ == Unit::ArmyKind::UNION) ? confederate_units_count_ : union_units_count_);
-  const auto& opponent_units =
-    ((active_army_ == Unit::ArmyKind::UNION) ? confederate_units_ : union_units_);
-  for (size_t idx = 0; idx < opponent_units_count; ++idx) {
+  // For each move action, get the static terrain cost to move out of
+  // the destination hex represented by that move action.
+  // FIXME move to MoveFactory and pre-calc for each board position
+  std::array<
+    std::array<float, 1 + HEX_RADIUS1_DIRECTION_COUNT>, MOVE_ACTIONID_COUNT> dest_move_out_costs;
+  for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
+    const auto dir = ActionIdToHexDirection(aid);
+    const auto dest_pos = HexDirectionToPosition(active_unit_->Position(), dir);
+    dest_move_out_costs[aid] = move_factory_->AdjacentHexMoveCost(dest_pos);
+  }
+
+  // Initialize move-cost for each action-id to be maximum cost,
+  // except for action MOVE-END (corresponding to HexDirection::NONE)
+  // which has move-cost 0.0.
+  active_move_costs_.fill(std::numeric_limits<float>::max());
+  active_move_costs_[ACTIONID_MOVE_END] = 0.0;
+
+  // Set move-cost to -1 for actions that would move unit onto
+  // inaccessible hex. The move-cost will remain -1 even as other move
+  // costs are minimized below.
+  //
+  // Cannot move onto an opponent unit so make inaccessible the
+  // actions that move the active unit onto an opponent.
+  const auto& opponent_units = OpponentUnits();
+  for (size_t idx = 0; idx < OpponentUnitsCount(); ++idx) {
     const HexDirection dir =
-      HexAdjacentDirection(active_unit_->Position(), opponent_units[idx].Position());
+      PositionToHexDirection(active_unit_->Position(), opponent_units[idx].Position());
     if (dir != HexDirection::NONE) {
       active_move_costs_[size_t(dir)] = -1.0; // move not allowed
+    }
+  }
+
+  for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
+    // For now don't allow active unit to move off of the board. Make
+    // inaccessible the actions that would move active unit off the
+    // board.
+    MatrixCoordinate dest =
+      HexDirectionToPosition(active_unit_->Position(), ActionIdToHexDirection(aid));
+    if ((dest.Row() < 0) || (dest.Column() < 0) ||
+        (dest.Row() >= int64_t(size_.RowCount())) ||
+        (dest.Column() >= int64_t(size_.ColumnCount())) ||
+        (cell_factory_->CellFeaturesFromCoordinates(dest).not_accessible_)) {
+      active_move_costs_[aid] = -1.0; // move not allowed
+    }
+  }
+
+  // FIXME update move costs to account for ZOC
+
+  // Iterate to find the minimum move cost. Actions that have a
+  // negative cost (inaccessible) remain negative.
+  bool changed = true;
+  while (changed) {
+    changed = false;
+
+    for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
+      // If 'aid' has a positive move-cost, then update the move-cost
+      // of all "neighbor" actions of 'aid' to be 'aid's move-cost
+      // plus the cost to move from 'aid' hex to "neighbor" hex.
+      if (active_move_costs_[aid] >= 0.0) {
+        HexDirection dir = ActionIdToHexDirection(aid);
+        for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
+          HexDirection ndir = HexDirectionConcatenate(dir, HexDirection(idx));
+          if (ndir != HexDirection::NONE) {
+            float ncost = active_move_costs_[aid] + dest_move_out_costs[aid][idx];
+            if (ncost < active_move_costs_[HexDirectionToActionId(ndir)]) {
+              assert(active_move_costs_[HexDirectionToActionId(ndir)] >= 0.0);
+              active_move_costs_[HexDirectionToActionId(ndir)] = ncost;
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Any actions that still have max cost are inaccessible.
+  for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
+    if (active_move_costs_[aid] == std::numeric_limits<float>::max()) {
+      active_move_costs_[aid] = -1.0;
     }
   }
 }
@@ -521,17 +602,10 @@ Board::UpdateValidActions()
 
   for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
     if (aid != ACTIONID_MOVE_END) {
-      // For now don't allow unit to move off of the board...
-      auto dir = ActionIdToHexDirection(aid);
-      assert(dir);
-      // FIXME move-cost must take into account in-bounds-ness because
-      // need to handle radius-2+ moves.
-      if (dir && move_factory_->IsInBoundsAdjacentHex(active_unit_->Position(), *dir)) {
-        const float cost = active_move_costs_[aid];
-        if ((cost >= 0.0) &&
-            (active_unit_->MoveFactorExpended() + cost) <= active_unit_->MoveFactor()) {
-          valid_action_ids_.push_back(aid);
-        }
+      const float cost = active_move_costs_[aid];
+      if ((cost >= 0.0) &&
+          (active_unit_->MoveFactorExpended() + cost) <= active_unit_->MoveFactor()) {
+        valid_action_ids_.push_back(aid);
       }
     }
   }

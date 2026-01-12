@@ -141,7 +141,7 @@ BoardCellFactory::BoardCellFactory(
       cf.edges_[size_t(be.dir_)] = be;
 
       // Initialize in cell on other side of edge.
-      auto other_coord = HexDirectionCoordinate(MatrixCoordinate(be.row_, be.column_), be.dir_);
+      auto other_coord = HexDirectionToPosition(MatrixCoordinate(be.row_, be.column_), be.dir_);
       if ((other_coord.Row() >= 0) && (other_coord.Column() >= 0) &&
           (other_coord.Row() < int64_t(board_row_cnt_)) &&
           (other_coord.Column() < int64_t(board_column_cnt_))) {
@@ -168,8 +168,8 @@ BoardCellFactory::CellFeaturesFromIndex(CellFeatureKind kind, size_t n) const
 const BoardCellFactory::CellFeatures&
 BoardCellFactory::CellFeaturesFromCoordinates(const MatrixCoordinate& pos) const
 {
-  assert((pos.Row() < int64_t(board_row_cnt_)) &&
-         (pos.Column() < int64_t(board_column_cnt_)));
+  assert((pos.Row() >= 0) && (pos.Row() < int64_t(board_row_cnt_)) &&
+         (pos.Column() >= 0) && (pos.Column() < int64_t(board_column_cnt_)));
   const size_t offset = (pos.Row() * board_column_cnt_) + pos.Column();
   return cell_features_[offset];
 }

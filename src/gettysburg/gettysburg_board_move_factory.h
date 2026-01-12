@@ -41,7 +41,8 @@ public:
   // direction (NONE is also included in the returned array and its
   // value is always 0.0). The returned array should be indexed by
   // HexDirection.
-  const std::array<float, 1 + HEX_RADIUS1_DIRECTION_COUNT>& MoveCost(const MatrixCoordinate& pos) const {
+  const std::array<float, 1 + HEX_RADIUS1_DIRECTION_COUNT>&
+  AdjacentHexMoveCost(const MatrixCoordinate& pos) const {
     return nodes_[(pos.Row() * column_cnt_) + pos.Column()].out_move_cost_; }
 
 private:

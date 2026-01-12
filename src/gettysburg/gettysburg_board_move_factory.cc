@@ -28,19 +28,19 @@ BoardMoveFactory::BoardMoveFactory(
       const MatrixCoordinate node_rc(br, bc);
 
       node.adjacent_idx_[size_t(HexDirection::NONE)] =
-        RCToIndex(HexDirectionCoordinate(node_rc, HexDirection::NONE));
+        RCToIndex(HexDirectionToPosition(node_rc, HexDirection::NONE));
       node.adjacent_idx_[size_t(HexDirection::UP)] =
-        RCToIndex(HexDirectionCoordinate(node_rc, HexDirection::UP));
+        RCToIndex(HexDirectionToPosition(node_rc, HexDirection::UP));
       node.adjacent_idx_[size_t(HexDirection::UR)] =
-        RCToIndex(HexDirectionCoordinate(node_rc, HexDirection::UR));
+        RCToIndex(HexDirectionToPosition(node_rc, HexDirection::UR));
       node.adjacent_idx_[size_t(HexDirection::DR)] =
-        RCToIndex(HexDirectionCoordinate(node_rc, HexDirection::DR));
+        RCToIndex(HexDirectionToPosition(node_rc, HexDirection::DR));
       node.adjacent_idx_[size_t(HexDirection::DN)] =
-        RCToIndex(HexDirectionCoordinate(node_rc, HexDirection::DN));
+        RCToIndex(HexDirectionToPosition(node_rc, HexDirection::DN));
       node.adjacent_idx_[size_t(HexDirection::DL)] =
-        RCToIndex(HexDirectionCoordinate(node_rc, HexDirection::DL));
+        RCToIndex(HexDirectionToPosition(node_rc, HexDirection::DL));
       node.adjacent_idx_[size_t(HexDirection::UL)] =
-        RCToIndex(HexDirectionCoordinate(node_rc, HexDirection::UL));
+        RCToIndex(HexDirectionToPosition(node_rc, HexDirection::UL));
 
       node.out_move_cost_[size_t(HexDirection::NONE)] = 0.0;
       node.out_move_cost_[size_t(HexDirection::UP)] =
@@ -80,7 +80,7 @@ float
 BoardMoveFactory::CalculateMoveCost(
   const MatrixCoordinate& pos, HexDirection dir) const
 {
-  MatrixCoordinate to_pos = HexDirectionCoordinate(pos, dir);
+  MatrixCoordinate to_pos = HexDirectionToPosition(pos, dir);
 
   // Hexes outside the bounds of the board are moving off the board.
   if ((to_pos.Row() < 0) || (to_pos.Row() >= int64_t(row_cnt_)) ||

@@ -149,18 +149,17 @@ void
 Unit::ApplyActionId(
   uint64_t aid, const std::array<float, MOVE_ACTIONID_COUNT>& move_cost)
 {
+  assert(move_cost[aid] >= 0.0);
+
   // If move is ended then show no move-factor remaining...
   if (aid == ACTIONID_MOVE_END) {
     move_factor_expended_ = move_factor_;
   }
   else {
     const auto dir = ActionIdToHexDirection(aid);
-    assert(dir);
-    if (dir) {
-      position_ = HexDirectionCoordinate(position_, *dir);
-      assert((position_.Row() >= 0) && (position_.Column() >= 0));
-      move_factor_expended_ += move_cost[aid];
-    }
+    position_ = HexDirectionToPosition(position_, dir);
+    assert((position_.Row() >= 0) && (position_.Column() >= 0));
+    move_factor_expended_ += move_cost[aid];
   }
 
   assert(move_factor_expended_ <= move_factor_);

@@ -155,6 +155,12 @@ private:
   // units.
   Unit* ActiveUnit();
 
+  // Return the unit-count for the opponent army of the active unit.
+  size_t OpponentUnitsCount() const {
+    return ((active_army_ == Unit::ArmyKind::UNION) ? confederate_units_count_ : union_units_count_); }
+  const std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& OpponentUnits() const {
+    return ((active_army_ == Unit::ArmyKind::UNION) ? confederate_units_ : union_units_); }
+
   // Return union or confederate UNITs at a given board position.
   std::vector<const Unit*> UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos) const;
   std::vector<Unit*> UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos);

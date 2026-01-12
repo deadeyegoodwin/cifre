@@ -2,7 +2,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <string>
 
 #include "cifre_hex.h"
@@ -23,15 +22,14 @@ static constexpr size_t TOTAL_ACTIONID_COUNT = MOVE_ACTIONID_COUNT;
 // corresponding to HexDirection::NONE.
 static constexpr uint64_t ACTIONID_MOVE_END = uint64_t(HexDirection::NONE);
 
-// Convert an action-id to the corresponding HexDirection.
-inline std::optional<HexDirection> ActionIdToHexDirection(uint64_t aid) {
-  return (aid >= MOVE_ACTIONID_COUNT) ?
-    std::nullopt : std::make_optional<HexDirection>(HexDirection(aid)); }
+// Convert an action-id to the corresponding HexDirection. Error if
+// action-id does not correspond to a HexDirection.
+inline HexDirection ActionIdToHexDirection(uint64_t aid) {
+  assert(aid < MOVE_ACTIONID_COUNT); return HexDirection(aid); }
 
 // Convert a HexDirection to the corresponding action-id.
-inline std::optional<uint64_t> HexDirectionToActionId(HexDirection dir) {
-  return (uint64_t(dir) >= MOVE_ACTIONID_COUNT) ?
-    std::nullopt : std::make_optional<uint64_t>(uint64_t(dir)); }
+inline uint64_t HexDirectionToActionId(HexDirection dir) {
+  assert(uint64_t(dir) < MOVE_ACTIONID_COUNT); return uint64_t(dir); }
 
 // Return string representation of an action-id.
 std::string ActionIdToString(uint64_t aid);
