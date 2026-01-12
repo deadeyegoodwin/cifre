@@ -441,24 +441,6 @@ Board::UpdateMoveCosts()
   // enough, and maybe even faster than an all-pairs-shortest-path
   // algorithm.
 
-  // For each move action, get the static terrain cost to move out of
-  // the destination hex represented by that move action.
-  // FIXME move to MoveFactory and pre-calc for each board position
-  std::array<
-    std::array<float, 1 + HEX_RADIUS1_DIRECTION_COUNT>, MOVE_ACTIONID_COUNT> dest_move_out_costs;
-  for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
-    const auto dir = ActionIdToHexDirection(aid);
-    const auto dest_pos = HexDirectionToPosition(active_unit_->Position(), dir);
-    if ((dest_pos.Row() < 0) || (dest_pos.Column() < 0) ||
-        (dest_pos.Row() >= int64_t(size_.RowCount())) ||
-        (dest_pos.Column() >= int64_t(size_.ColumnCount()))) {
-      // FIXME dest_pos is off board so initialize to something (off board perhaps)
-    }
-    else {
-      dest_move_out_costs[aid] = move_factory_->AdjacentHexMoveCost(dest_pos);
-    }
-  }
-
   // Initialize move-cost for each action-id to be maximum cost,
   // except for action MOVE-END (corresponding to HexDirection::NONE)
   // which has move-cost 0.0.
@@ -489,7 +471,7 @@ Board::UpdateMoveCosts()
     if ((dest.Row() < 0) || (dest.Column() < 0) ||
         (dest.Row() >= int64_t(size_.RowCount())) ||
         (dest.Column() >= int64_t(size_.ColumnCount())) ||
-        (cell_factory_->CellFeaturesFromCoordinates(dest).not_accessible_)) {
+        (cell_factory_->PositionToCellFeatures(dest).not_accessible_)) {
       active_move_costs_[aid] = -1.0; // move not allowed
     }
   }
@@ -508,11 +490,13 @@ Board::UpdateMoveCosts()
       // plus the cost to move from 'aid' hex to "neighbor" hex.
       if (active_move_costs_[aid] >= 0.0) {
         HexDirection dir = ActionIdToHexDirection(aid);
+        const auto& move_out_cost = move_factory_->OutMoveCost(active_unit_->Position(), dir);
+
         for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
           HexDirection ndir = HexDirectionConcatenate(dir, HexDirection(idx));
           if ((ndir != HexDirection::NONE) && IsActionIdForHexDirection(ndir)) {
-            uint64_t naid = HexDirectionToActionId(ndir);
-            float ncost = active_move_costs_[aid] + dest_move_out_costs[aid][idx];
+            const uint64_t naid = HexDirectionToActionId(ndir);
+            const float ncost = active_move_costs_[aid] + move_out_cost[idx];
             if (ncost < active_move_costs_[naid]) {
               assert(active_move_costs_[naid] >= 0.0);
               active_move_costs_[naid] = ncost;
@@ -537,11 +521,11 @@ Board::UpdateCapturedVictoryPoints()
 {
   // Is the active unit capturing a victory point?
   const auto& features =
-    cell_factory_->CellFeaturesFromCoordinates(active_unit_->Position());
+    cell_factory_->PositionToCellFeatures(active_unit_->Position());
   if (features.victory_points_ > 0.0) {
     for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
       const auto& cf =
-        cell_factory_->CellFeaturesFromIndex(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
+        cell_factory_->IndexToCellFeatures(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
       assert(cf.victory_points_ > 0.0);
       if ((features.row_ == cf.row_) && (features.column_ == cf.column_)) {
         assert(cf.victory_points_ == features.victory_points_);
@@ -578,7 +562,7 @@ Board::UpdateInputPlanes()
   for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
     if (captured_vps_[idx] >= 0) {
       const auto& features =
-        cell_factory_->CellFeaturesFromIndex(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
+        cell_factory_->IndexToCellFeatures(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
       assert(features.victory_points_ > 0.0);
 
       assert(VictoryPointAt(
@@ -641,7 +625,7 @@ Board::UpdateTerminalStatus()
     for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
       if (captured_vps_[idx] >= 0) {
         const auto& features =
-          cell_factory_->CellFeaturesFromIndex(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
+          cell_factory_->IndexToCellFeatures(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
         assert(features.victory_points_ > 0.0);
         assert(VictoryPointAt(
                  MatrixCoordinate(features.row_, features.column_)) == features.victory_points_);
@@ -775,7 +759,7 @@ Board::BoardHeader() const
       }
 
       const auto& features =
-        cell_factory_->CellFeaturesFromIndex(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
+        cell_factory_->IndexToCellFeatures(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
       assert(features.victory_points_ > 0.0);
       assert(VictoryPointAt(
                MatrixCoordinate(features.row_, features.column_)) == features.victory_points_);

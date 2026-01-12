@@ -105,7 +105,7 @@ public:
     bool rocky_hill_ {false};
     bool town_ {false};
     float victory_points_ {0.0};
-    std::array<EdgeFeatures, 1 + HEX_RADIUS1_DIRECTION_COUNT> edges_;
+    std::array<EdgeFeatures, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> edges_;
   };
 
   // The planes.
@@ -163,10 +163,10 @@ public:
 
   // Return the CellFeatures for the 'n'th cell for a given feature
   // 'kind'. 'n' must be less than FeaturesCount.
-  const CellFeatures& CellFeaturesFromIndex(CellFeatureKind kind, size_t n) const;
+  const CellFeatures& IndexToCellFeatures(CellFeatureKind kind, size_t n) const;
 
   // Return the CellFeatures for a given 'row' / 'column'.
-  const CellFeatures& CellFeaturesFromCoordinates(const MatrixCoordinate& pos) const;
+  const CellFeatures& PositionToCellFeatures(const MatrixCoordinate& pos) const;
 
   // Return the plane-set for a given board row and column.
   const FlattenedCells& PlaneSet(const CellsKey key);

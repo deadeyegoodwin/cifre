@@ -42,19 +42,11 @@ BoardMoveFactory::BoardMoveFactory(
       node.adjacent_idx_[size_t(HexDirection::UL)] =
         RCToIndex(HexDirectionToPosition(node_rc, HexDirection::UL));
 
-      node.out_move_cost_[size_t(HexDirection::NONE)] = 0.0;
-      node.out_move_cost_[size_t(HexDirection::UP)] =
-        CalculateMoveCost(node_rc, HexDirection::UP);
-      node.out_move_cost_[size_t(HexDirection::UR)] =
-        CalculateMoveCost(node_rc, HexDirection::UR);
-      node.out_move_cost_[size_t(HexDirection::DR)] =
-        CalculateMoveCost(node_rc, HexDirection::DR);
-      node.out_move_cost_[size_t(HexDirection::DN)] =
-        CalculateMoveCost(node_rc, HexDirection::DN);
-      node.out_move_cost_[size_t(HexDirection::DL)] =
-        CalculateMoveCost(node_rc, HexDirection::DL);
-      node.out_move_cost_[size_t(HexDirection::UL)] =
-        CalculateMoveCost(node_rc, HexDirection::UL);
+      for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
+        const auto dir = ActionIdToHexDirection(aid);
+        node.actionid_move_out_costs_[size_t(dir)] =
+          CalculateActionDestinationMoveCosts(HexDirectionToPosition(node_rc, dir));
+      }
     }
   }
 }
@@ -69,11 +61,39 @@ BoardMoveFactory::RCToIndex(const MatrixCoordinate& pr) const
   }
 
   // Also any cell marked as inaccessible in not adjacent.
-  if (cell_factory_->CellFeaturesFromCoordinates(pr).not_accessible_) {
+  if (cell_factory_->PositionToCellFeatures(pr).not_accessible_) {
     return NO_ADJACENT;
   }
 
   return (pr.Row() * column_cnt_) + pr.Column();
+}
+
+std::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>
+BoardMoveFactory::CalculateActionDestinationMoveCosts(const MatrixCoordinate& pos) const
+{
+  std::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> move_costs;
+  move_costs.fill(std::numeric_limits<float>::max());
+
+  // If 'pos' is off the board or is an inaccessible hex, then show
+  // all move-out costs for it to be maximum. That is, you can't move
+  // out of an inaccessible hex.
+  if ((pos.Row() < 0) || (pos.Row() >= int64_t(row_cnt_)) ||
+      (pos.Column() < 0) || (pos.Column() >= int64_t(column_cnt_))) {
+    return move_costs;
+  }
+
+  const auto& pos_features = cell_factory_->PositionToCellFeatures(pos);
+  if (pos_features.not_accessible_) {
+    return move_costs;
+  }
+
+  // Set the move cost out of 'pos' in each radius-1 direction.
+  move_costs[size_t(HexDirection::NONE)] = 0.0;
+  for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
+    move_costs[idx] = CalculateMoveCost(pos, HexDirection(idx));
+  }
+
+  return move_costs;
 }
 
 float
@@ -90,8 +110,8 @@ BoardMoveFactory::CalculateMoveCost(
 
   // Move cost is determined by the features of the 'to_pos' cell and
   // the features of the edge between 'pos' and 'to_pos'
-  const auto& to_pos_features = cell_factory_->CellFeaturesFromCoordinates(to_pos);
-  const auto& edge_features = cell_factory_->CellFeaturesFromCoordinates(pos).edges_[size_t(dir)];
+  const auto& to_pos_features = cell_factory_->PositionToCellFeatures(to_pos);
+  const auto& edge_features = cell_factory_->PositionToCellFeatures(pos).edges_[size_t(dir)];
 
   // If the edge contains a road or railroad, or if moving into a town
   // then the cost is always 0.5.

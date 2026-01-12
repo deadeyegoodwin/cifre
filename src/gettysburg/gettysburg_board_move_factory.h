@@ -36,16 +36,22 @@ public:
   // direction 'dir'. 'dir' must be one of the radius-1 directions or
   // NONE. The returned array should be indexed by HexDirection.
   bool IsInBoundsAdjacentHex(const MatrixCoordinate& pos, HexDirection dir) const {
-    assert((size_t(dir) >= 0) && (size_t(dir) < (1 + HEX_RADIUS1_DIRECTION_COUNT)));
+    assert((size_t(dir) >= 0) && (size_t(dir) <= HEX_RADIUS1_LAST_DIRECTION_IDX));
     return nodes_[(pos.Row() * column_cnt_) + pos.Column()].adjacent_idx_[size_t(dir)] != NO_ADJACENT; }
 
-  // Return the cost to move out of 'pos' in every radius-1 direction
-  // (NONE is also included in the returned array and its value is
-  // always 0.0). The returned array should be indexed by
-  // HexDirection. 'pos' must be a valid board position.
-  const std::array<float, 1 + HEX_RADIUS1_DIRECTION_COUNT>&
-  AdjacentHexMoveCost(const MatrixCoordinate& pos) const {
-    return nodes_[(pos.Row() * column_cnt_) + pos.Column()].out_move_cost_; }
+  // For board position 'pos', return the cost to move out of the hex
+  // that is at direction 'dir' from 'pos'. That is, determine hex D
+  // as 'pos' -> 'dir' -> D. Return the move cost of every radius-1
+  // direction out of D (NONE is also included in the returned array
+  // and its value is always 0.0). If D is off the board, then maximum
+  // cost is returned for every move cost. The returned array should
+  // be indexed by HexDirection. 'pos' must be a valid board position.
+  const std::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>&
+  OutMoveCost(const MatrixCoordinate& pos, HexDirection dir) const {
+    assert((size_t(dir) >= 0) && (size_t(dir) <= HEX_RADIUS1_LAST_DIRECTION_IDX));
+    return
+      nodes_[(pos.Row() * column_cnt_) + pos.Column()].
+      actionid_move_out_costs_[size_t(dir)]; }
 
 private:
   // Node represents a graph node. Edges are not represented
@@ -57,8 +63,9 @@ private:
   // board).
   //
   struct Node {
-    std::array<size_t, 1 + HEX_RADIUS1_DIRECTION_COUNT> adjacent_idx_ = {};
-    std::array<float, 1 + HEX_RADIUS1_DIRECTION_COUNT> out_move_cost_ = {};
+    std::array<size_t, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> adjacent_idx_ = {};
+    std::array<std::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>,
+               MOVE_ACTIONID_COUNT> actionid_move_out_costs_;
   };
 
 private:
@@ -66,6 +73,8 @@ private:
   BoardMoveFactory& operator=(const BoardMoveFactory&) = delete;
 
   size_t RCToIndex(const MatrixCoordinate& pr) const;
+  std::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>
+    CalculateActionDestinationMoveCosts(const MatrixCoordinate& pos) const;
   float CalculateMoveCost(const MatrixCoordinate& pos, HexDirection dir) const;
 
   const BoardCellFactory* cell_factory_;

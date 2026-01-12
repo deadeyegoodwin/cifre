@@ -158,7 +158,7 @@ BoardCellFactory::BoardCellFactory(
 }
 
 const BoardCellFactory::CellFeatures&
-BoardCellFactory::CellFeaturesFromIndex(CellFeatureKind kind, size_t n) const
+BoardCellFactory::IndexToCellFeatures(CellFeatureKind kind, size_t n) const
 {
   assert(n < CellFeaturesCount(kind));
   assert(cell_features_offsets_[size_t(kind)][n] < cell_features_.size());
@@ -166,7 +166,7 @@ BoardCellFactory::CellFeaturesFromIndex(CellFeatureKind kind, size_t n) const
 }
 
 const BoardCellFactory::CellFeatures&
-BoardCellFactory::CellFeaturesFromCoordinates(const MatrixCoordinate& pos) const
+BoardCellFactory::PositionToCellFeatures(const MatrixCoordinate& pos) const
 {
   assert((pos.Row() >= 0) && (pos.Row() < int64_t(board_row_cnt_)) &&
          (pos.Column() >= 0) && (pos.Column() < int64_t(board_column_cnt_)));
