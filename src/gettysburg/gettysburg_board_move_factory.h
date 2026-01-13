@@ -23,7 +23,13 @@ class BoardCellFactory;
 //
 class BoardMoveFactory {
 public:
-  static constexpr float MOVE_OFF_BOARD_COST = 1.0;
+  static constexpr float MOVE_CLEAR_COST = 1.0;
+  static constexpr float MOVE_FOREST_COST = 1.0;
+  static constexpr float MOVE_ROCKYHILL_COST = 1.0;
+  static constexpr float MOVE_STREAM_COST = 1.0;
+  static constexpr float MOVE_ROAD_RAILROAD_TOWN_COST = 0.5;
+  static constexpr float MOVE_ENEMY_ZOC_COST = 1.0;
+  static constexpr float MOVE_EXIT_BOARD_COST = 1.0;
 
   static constexpr size_t NO_ADJACENT = std::numeric_limits<size_t>::max();
 

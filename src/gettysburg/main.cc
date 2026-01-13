@@ -21,8 +21,9 @@
 namespace cifre { namespace gettysburg {
 
 static const cifre::MatrixSize MIN_GAME_SHAPE {5, 7};
-static const cifre::MatrixSize MAX_GAME_SHAPE {11, 21};
-static const cifre::MatrixSize DEFAULT_GAME_SHAPE {11, 21};
+static const cifre::MatrixSize MAX_GAME_SHAPE {
+  Board::MAX_BOARD_ROWS, Board::MAX_BOARD_COLUMNS};
+static const cifre::MatrixSize DEFAULT_GAME_SHAPE = MAX_GAME_SHAPE;
 static const size_t DEFAULT_MAX_TURNS_PER_GAME = 20;
 
 //

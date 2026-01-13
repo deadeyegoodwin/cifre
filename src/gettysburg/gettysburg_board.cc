@@ -424,6 +424,14 @@ Board::NextArmyUnit(
   return false;
 }
 
+cifre::array<cifre::array<Unit*, Board::MAX_BOARD_COLUMNS>, Board::MAX_BOARD_ROWS>
+Board::OpponentZOCPositions(
+  const MatrixCoordinate& pos, size_t unit_count,
+  const cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units) const
+{
+  return {};
+}
+
 void
 Board::UpdateMoveCosts()
 {
@@ -442,7 +450,7 @@ Board::UpdateMoveCosts()
   // algorithm.
 
   // Initialize move-cost for each action-id to be maximum cost,
-  // except for action MOVE-END (corresponding to HexDirection::NONE)
+  // except for action "end" (corresponding to HexDirection::NONE)
   // which has move-cost 0.0.
   active_move_costs_.fill(std::numeric_limits<float>::max());
   active_move_costs_[ACTIONID_MOVE_END] = 0.0;
@@ -450,7 +458,7 @@ Board::UpdateMoveCosts()
   // Set move-cost to -1 for actions that would move unit onto
   // inaccessible hex. The move-cost will remain -1 even as other move
   // costs are minimized below.
-  //
+
   // Cannot move onto an opponent unit so make inaccessible the
   // actions that move the active unit onto an opponent.
   const auto& opponent_units = OpponentUnits();
@@ -462,21 +470,66 @@ Board::UpdateMoveCosts()
     }
   }
 
-  for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
-    // For now don't allow active unit to move off of the board. Make
-    // inaccessible the actions that would move active unit off the
-    // board.
-    MatrixCoordinate dest =
-      HexDirectionToPosition(active_unit_->Position(), ActionIdToHexDirection(aid));
-    if ((dest.Row() < 0) || (dest.Column() < 0) ||
-        (dest.Row() >= int64_t(size_.RowCount())) ||
-        (dest.Column() >= int64_t(size_.ColumnCount())) ||
-        (cell_factory_->PositionToCellFeatures(dest).not_accessible_)) {
-      active_move_costs_[aid] = -1.0; // move not allowed
+  // Cannot move onto a friendly unit. Occupying the same hex as
+  // friendly unit is allowed at intermediate points in the move, but
+  // we don't allow that and instead rely on AZ learning how to avoid
+  // such "mid-turn" overlaps.
+  const auto& friendly_units = FriendlyUnits();
+  for (size_t idx = 0; idx < FriendlyUnitsCount(); ++idx) {
+    const HexDirection dir =
+      PositionToHexDirection(active_unit_->Position(), friendly_units[idx].Position());
+    if ((dir != HexDirection::NONE) && IsActionIdForHexDirection(dir)) {
+      active_move_costs_[size_t(dir)] = -1.0; // move not allowed
     }
   }
 
-  // FIXME update move costs to account for ZOC
+  for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
+    if (active_move_costs_[aid] >= 0.0) {
+      MatrixCoordinate dest =
+        HexDirectionToPosition(active_unit_->Position(), ActionIdToHexDirection(aid));
+
+      // For now don't allow active unit to move off of the
+      // board.
+      if ((dest.Row() < 0) || (dest.Column() < 0) ||
+          (dest.Row() >= int64_t(size_.RowCount())) ||
+          (dest.Column() >= int64_t(size_.ColumnCount()))) {
+        active_move_costs_[aid] = -1.0; // move not allowed
+      }
+      else {
+        const auto& dest_features = cell_factory_->PositionToCellFeatures(dest);
+
+        // Actions that move onto non-accessible parts of the board
+        // are not allowed.
+        if (dest_features.not_accessible_) {
+          active_move_costs_[aid] = -1.0; // move not allowed
+        }
+        // Artillery units cannot move onto hexes that are both forest
+        // and rocky hill.
+        else if ((active_unit_->Kind() == Unit::UnitKind::ARTILLERY) &&
+                 dest_features.forest_ && dest_features.rocky_hill_) {
+          active_move_costs_[aid] = -1.0; // move not allowed
+        }
+      }
+    }
+  }
+
+  // If the active unit is currently in an opponent ZOC, then may not
+  // move into another opponent ZOC.
+  const auto opponent_zoc_positions =
+    OpponentZOCPositions(active_unit_->Position(), OpponentUnitsCount(), OpponentUnits());
+  const bool in_opponent_zoc = (
+    opponent_zoc_positions[
+      active_unit_->Position().Row()][active_unit_->Position().Column()] != nullptr);
+  if (in_opponent_zoc) {
+    for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
+      if (active_move_costs_[HexDirectionToActionId(HexDirection(idx))] >= 0.0) {
+        MatrixCoordinate pzoc = HexDirectionToPosition(active_unit_->Position(), HexDirection(idx));
+        if (opponent_zoc_positions[pzoc.Row()][pzoc.Column()] != nullptr) {
+          active_move_costs_[HexDirectionToActionId(HexDirection(idx))] = -1.0;
+        }
+      }
+    }
+  }
 
   // Iterate to find the minimum move cost. Actions that have a
   // negative cost (inaccessible) remain negative.
@@ -488,8 +541,15 @@ Board::UpdateMoveCosts()
       // If 'aid' has a positive move-cost, then update the move-cost
       // of all "neighbor" actions of 'aid' to be 'aid's move-cost
       // plus the cost to move from 'aid' hex to "neighbor" hex.
-      if (active_move_costs_[aid] >= 0.0) {
+      if ((active_move_costs_[aid] >= 0.0) &&
+          (active_move_costs_[aid] != std::numeric_limits<float>::max())) {
         HexDirection dir = ActionIdToHexDirection(aid);
+
+        // If active unit is not currently in
+  // opponent ZOC, then moving into opponent ZOC incurs MOVE_ENEMY_ZOC_COST
+  // additional cost and cannot use roads, railroad or town reduced
+  // movement cost.
+
         const auto& move_out_cost = move_factory_->OutMoveCost(active_unit_->Position(), dir);
 
         for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {

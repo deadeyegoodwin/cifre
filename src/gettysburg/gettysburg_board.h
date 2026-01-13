@@ -36,6 +36,9 @@ public:
   static constexpr char UNION_CHAR = 'u';
   static constexpr char CONFEDERATE_CHAR = 'c';
 
+  static constexpr size_t MAX_BOARD_ROWS = 11;
+  static constexpr size_t MAX_BOARD_COLUMNS = 21;
+
 public:
   // Create board...
   Board(
@@ -156,11 +159,21 @@ private:
   // units.
   Unit* ActiveUnit();
 
+  // Return the unit-count for the friendly army of the active unit.
+  size_t FriendlyUnitsCount() const {
+    return ((active_army_ == Unit::ArmyKind::UNION) ? union_units_count_ : confederate_units_count_); }
+  const cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& FriendlyUnits() const {
+    return ((active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_); }
+
   // Return the unit-count for the opponent army of the active unit.
   size_t OpponentUnitsCount() const {
     return ((active_army_ == Unit::ArmyKind::UNION) ? confederate_units_count_ : union_units_count_); }
   const cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& OpponentUnits() const {
     return ((active_army_ == Unit::ArmyKind::UNION) ? confederate_units_ : union_units_); }
+
+  cifre::array<cifre::array<Unit*, MAX_BOARD_COLUMNS>, MAX_BOARD_ROWS> OpponentZOCPositions(
+    const MatrixCoordinate& pos, size_t unit_count,
+    const cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units) const;
 
   // Return union or confederate UNITs at a given board position.
   std::vector<const Unit*> UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos) const;

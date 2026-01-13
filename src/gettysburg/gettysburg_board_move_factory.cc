@@ -105,7 +105,7 @@ BoardMoveFactory::CalculateMoveCost(
   // Hexes outside the bounds of the board are moving off the board.
   if ((to_pos.Row() < 0) || (to_pos.Row() >= int64_t(row_cnt_)) ||
       (to_pos.Column() < 0) || (to_pos.Column() >= int64_t(column_cnt_))) {
-    return 1.0;
+    return MOVE_EXIT_BOARD_COST;
   }
 
   // Move cost is determined by the features of the 'to_pos' cell and
@@ -116,21 +116,20 @@ BoardMoveFactory::CalculateMoveCost(
   // If the edge contains a road or railroad, or if moving into a town
   // then the cost is always 0.5.
   if (to_pos_features.town_ || edge_features.road_ || edge_features.railroad_) {
-    return 0.5;
+    return MOVE_ROAD_RAILROAD_TOWN_COST;
   }
 
-  // Moving off the board cost 1 MF.
+  // Moving onto an inaccessible part of the board.
   if (to_pos_features.not_accessible_) {
-    return 1.0;
+    return MOVE_EXIT_BOARD_COST;
   }
 
-  // Otherwise move cost is 1.0, +1 for forest, +1 for rocky-hill, +1 for stream
-  // crossing.
+  // Otherwise move cost base cost plus terrain modifiers.
   return
-    1.0 +
-    (to_pos_features.forest_ ? 1 : 0) +
-    (to_pos_features.rocky_hill_ ? 1 : 0) +
-    (edge_features.stream_ ? 1 : 0);
+    MOVE_CLEAR_COST +
+    (to_pos_features.forest_ ? MOVE_FOREST_COST : 0) +
+    (to_pos_features.rocky_hill_ ? MOVE_ROCKYHILL_COST : 0) +
+    (edge_features.stream_ ? MOVE_STREAM_COST : 0);
 }
 
 }} // namespace cifre::gettysburg
