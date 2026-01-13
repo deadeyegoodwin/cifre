@@ -220,22 +220,14 @@ Board::StringToAction(const std::string& str) const
 
   common::ToLower(posstr);
 
-  // 'end' indicates the move NONE action and ends the units movement
-  // for the turn
-  if (posstr == "end") {
-    return Action(Action::ActionKind::ACTIONID, ACTIONID_MOVE_END);
-  }
-
   // Try parsing as a HexDirection. If success then use corresponding
-  // move action-id. Don't allow NONE as that is indicated by using
-  // "end".
+  // move action-id. NONE indicates "end" action and ends the units
+  // movement for the turn.
   auto cdir = StringToHexDirection(posstr);
   if (cdir && IsActionIdForHexDirection(*cdir)) {
     auto aid = HexDirectionToActionId(*cdir);
     assert(aid < MOVE_ACTIONID_COUNT);
-    if (aid != ACTIONID_MOVE_END) {
-      return Action(Action::ActionKind::ACTIONID, aid);
-    }
+    return Action(Action::ActionKind::ACTIONID, aid);
   }
 
   return Action(Action::ActionKind::INVALID);
@@ -688,15 +680,6 @@ Board::UpdateValidActions()
       }
     }
   }
-
-//  std::cerr
-//    << "\np" << active_player_id_
-//    << "[" << active_unit_->Row() << "," << active_unit_->Column()
-//    << "] valid actions: ";
-//  for (auto vid : valid_action_ids_) {
-//    std::cerr << vid << ", ";
-//  }
-//  std::cerr << std::endl;
 }
 
 void
