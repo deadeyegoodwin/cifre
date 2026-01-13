@@ -42,11 +42,8 @@ BoardMoveFactory::BoardMoveFactory(
       node.adjacent_idx_[size_t(HexDirection::UL)] =
         RCToIndex(HexDirectionToPosition(node_rc, HexDirection::UL));
 
-      for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
-        const auto dir = ActionIdToHexDirection(aid);
-        node.actionid_move_out_costs_[size_t(dir)] =
-          CalculateActionDestinationMoveCosts(HexDirectionToPosition(node_rc, dir));
-      }
+      node.adj_move_costs_ = CalculatePositionMoveCosts(node_rc, false /* zoc */);
+      node.adj_zoc_move_costs_ = CalculatePositionMoveCosts(node_rc, true /* zoc */);
     }
   }
 }
@@ -69,19 +66,17 @@ BoardMoveFactory::RCToIndex(const MatrixCoordinate& pr) const
 }
 
 cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>
-BoardMoveFactory::CalculateActionDestinationMoveCosts(const MatrixCoordinate& pos) const
+BoardMoveFactory::CalculatePositionMoveCosts(const MatrixCoordinate& pos, bool zoc) const
 {
+  assert((pos.Row() >= 0) && (pos.Row() < int64_t(row_cnt_)) &&
+         (pos.Column() >= 0) && (pos.Column() < int64_t(column_cnt_)));
+
   cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> move_costs;
   move_costs.fill(std::numeric_limits<float>::max());
 
-  // If 'pos' is off the board or is an inaccessible hex, then show
-  // all move-out costs for it to be maximum. That is, you can't move
-  // out of an inaccessible hex.
-  if ((pos.Row() < 0) || (pos.Row() >= int64_t(row_cnt_)) ||
-      (pos.Column() < 0) || (pos.Column() >= int64_t(column_cnt_))) {
-    return move_costs;
-  }
-
+  // If 'pos' is an inaccessible hex, then show all adjacent move
+  // costs for it to be maximum. That is, you can't move out of an
+  // inaccessible hex.
   const auto& pos_features = cell_factory_->PositionToCellFeatures(pos);
   if (pos_features.not_accessible_) {
     return move_costs;
@@ -90,7 +85,7 @@ BoardMoveFactory::CalculateActionDestinationMoveCosts(const MatrixCoordinate& po
   // Set the move cost out of 'pos' in each radius-1 direction.
   move_costs[size_t(HexDirection::NONE)] = 0.0;
   for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
-    move_costs[idx] = CalculateMoveCost(pos, HexDirection(idx));
+    move_costs[idx] = CalculateMoveCost(pos, HexDirection(idx), zoc);
   }
 
   return move_costs;
@@ -98,7 +93,7 @@ BoardMoveFactory::CalculateActionDestinationMoveCosts(const MatrixCoordinate& po
 
 float
 BoardMoveFactory::CalculateMoveCost(
-  const MatrixCoordinate& pos, HexDirection dir) const
+  const MatrixCoordinate& pos, HexDirection dir, bool zoc) const
 {
   MatrixCoordinate to_pos = HexDirectionToPosition(pos, dir);
 
@@ -113,18 +108,18 @@ BoardMoveFactory::CalculateMoveCost(
   const auto& to_pos_features = cell_factory_->PositionToCellFeatures(to_pos);
   const auto& edge_features = cell_factory_->PositionToCellFeatures(pos).edges_[size_t(dir)];
 
-  // If the edge contains a road or railroad, or if moving into a town
-  // then the cost is always 0.5.
-  if (to_pos_features.town_ || edge_features.road_ || edge_features.railroad_) {
-    return MOVE_ROAD_RAILROAD_TOWN_COST;
-  }
-
   // Moving onto an inaccessible part of the board.
   if (to_pos_features.not_accessible_) {
     return MOVE_EXIT_BOARD_COST;
   }
 
-  // Otherwise move cost base cost plus terrain modifiers.
+  // If the edge contains a road or railroad, or if moving into a town
+  // then the cost is always 0.5, as long as not moving into or out-of ZOC.
+  if (!zoc && (to_pos_features.town_ || edge_features.road_ || edge_features.railroad_)) {
+    return MOVE_ROAD_RAILROAD_TOWN_COST;
+  }
+
+  // Otherwise move cost is the base cost plus terrain modifiers.
   return
     MOVE_CLEAR_COST +
     (to_pos_features.forest_ ? MOVE_FOREST_COST : 0) +

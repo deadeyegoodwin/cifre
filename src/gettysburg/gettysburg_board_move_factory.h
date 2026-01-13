@@ -41,24 +41,30 @@ public:
 
   // Return true if there is an in-bounds hex adjacent to 'pos' in
   // direction 'dir'. 'dir' must be one of the radius-1 directions or
-  // NONE. The returned array should be indexed by HexDirection.
+  // NONE. 'pos' must be a valid board position.
   bool IsInBoundsAdjacentHex(const MatrixCoordinate& pos, HexDirection dir) const {
     assert((size_t(dir) >= 0) && (size_t(dir) <= HEX_RADIUS1_LAST_DIRECTION_IDX));
     return nodes_[(pos.Row() * column_cnt_) + pos.Column()].adjacent_idx_[size_t(dir)] != NO_ADJACENT; }
 
   // For board position 'pos', return the cost to move out of the hex
-  // that is at direction 'dir' from 'pos'. That is, determine hex D
-  // as 'pos' -> 'dir' -> D. Return the move cost of every radius-1
-  // direction out of D (NONE is also included in the returned array
-  // and its value is always 0.0). If D is off the board, then maximum
-  // cost is returned for every move cost. The returned array should
-  // be indexed by HexDirection. 'pos' must be a valid board position.
+  // in every radius-1 direction, assuming neither 'pos' or the
+  // adjacent hex is in enemy ZOC (NONE is also included in the
+  // returned array and its value is always 0.0). If a direction moves
+  // off the board then maximum cost is returned for that direction.
+  // 'pos' must be a valid board position.
   const cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>&
-  OutMoveCost(const MatrixCoordinate& pos, HexDirection dir) const {
-    assert((size_t(dir) >= 0) && (size_t(dir) <= HEX_RADIUS1_LAST_DIRECTION_IDX));
-    return
-      nodes_[(pos.Row() * column_cnt_) + pos.Column()].
-      actionid_move_out_costs_[size_t(dir)]; }
+  AdjacentMoveCost(const MatrixCoordinate& pos) const {
+    return nodes_[(pos.Row() * column_cnt_) + pos.Column()].adj_move_costs_; }
+
+  // For board position 'pos', return the cost to move out of the hex
+  // in every radius-1 direction, assuming either 'pos' or the
+  // adjacent hex is in enemy ZOC (NONE is also included in the
+  // returned array and its value is always 0.0). If a direction moves
+  // off the board then maximum cost is returned for that direction.
+  // 'pos' must be a valid board position.
+  const cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>&
+  AdjacentZOCMoveCost(const MatrixCoordinate& pos) const {
+    return nodes_[(pos.Row() * column_cnt_) + pos.Column()].adj_zoc_move_costs_; }
 
 private:
   // Node represents a graph node. Edges are not represented
@@ -70,9 +76,9 @@ private:
   // board).
   //
   struct Node {
-    cifre::array<size_t, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> adjacent_idx_ = {};
-    cifre::array<cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>,
-                 MOVE_ACTIONID_COUNT> actionid_move_out_costs_;
+    cifre::array<size_t, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> adjacent_idx_;
+    cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> adj_move_costs_;
+    cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> adj_zoc_move_costs_;
   };
 
 private:
@@ -80,9 +86,10 @@ private:
   BoardMoveFactory& operator=(const BoardMoveFactory&) = delete;
 
   size_t RCToIndex(const MatrixCoordinate& pr) const;
-  cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>
-    CalculateActionDestinationMoveCosts(const MatrixCoordinate& pos) const;
-  float CalculateMoveCost(const MatrixCoordinate& pos, HexDirection dir) const;
+  cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> CalculatePositionMoveCosts(
+    const MatrixCoordinate& pos, bool zoc) const;
+  float CalculateMoveCost(
+    const MatrixCoordinate& pos, HexDirection dir, bool zoc) const;
 
   const BoardCellFactory* cell_factory_;
   const OOB::Scenario scenario_;

@@ -455,6 +455,14 @@ Board::UpdateMoveCosts()
   active_move_costs_.fill(std::numeric_limits<float>::max());
   active_move_costs_[ACTIONID_MOVE_END] = 0.0;
 
+  // Position of the hex corresponding to each action. May indicate
+  // positions that are off the board.
+  cifre::array<MatrixCoordinate, MOVE_ACTIONID_COUNT> aid_poses;
+  for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
+    aid_poses[aid] =
+      HexDirectionToPosition(active_unit_->Position(), ActionIdToHexDirection(aid));
+  }
+
   // Set move-cost to -1 for actions that would move unit onto
   // inaccessible hex. The move-cost will remain -1 even as other move
   // costs are minimized below.
@@ -485,11 +493,9 @@ Board::UpdateMoveCosts()
 
   for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
     if (active_move_costs_[aid] >= 0.0) {
-      MatrixCoordinate dest =
-        HexDirectionToPosition(active_unit_->Position(), ActionIdToHexDirection(aid));
+      const MatrixCoordinate dest = aid_poses[aid];
 
-      // For now don't allow active unit to move off of the
-      // board.
+      // Don't allow action that move unit off board.
       if ((dest.Row() < 0) || (dest.Column() < 0) ||
           (dest.Row() >= int64_t(size_.RowCount())) ||
           (dest.Column() >= int64_t(size_.ColumnCount()))) {
@@ -498,8 +504,8 @@ Board::UpdateMoveCosts()
       else {
         const auto& dest_features = cell_factory_->PositionToCellFeatures(dest);
 
-        // Actions that move onto non-accessible parts of the board
-        // are not allowed.
+        // Don't allow action that move unit to non-accessible parts
+        // of the board (e.g. cutouts).
         if (dest_features.not_accessible_) {
           active_move_costs_[aid] = -1.0; // move not allowed
         }
@@ -513,23 +519,9 @@ Board::UpdateMoveCosts()
     }
   }
 
-  // If the active unit is currently in an opponent ZOC, then may not
-  // move into another opponent ZOC.
+  // Determine which board positions are in an opponent ZOC.
   const auto opponent_zoc_positions =
     OpponentZOCPositions(active_unit_->Position(), OpponentUnitsCount(), OpponentUnits());
-  const bool in_opponent_zoc = (
-    opponent_zoc_positions[
-      active_unit_->Position().Row()][active_unit_->Position().Column()] != nullptr);
-  if (in_opponent_zoc) {
-    for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
-      if (active_move_costs_[HexDirectionToActionId(HexDirection(idx))] >= 0.0) {
-        MatrixCoordinate pzoc = HexDirectionToPosition(active_unit_->Position(), HexDirection(idx));
-        if (opponent_zoc_positions[pzoc.Row()][pzoc.Column()] != nullptr) {
-          active_move_costs_[HexDirectionToActionId(HexDirection(idx))] = -1.0;
-        }
-      }
-    }
-  }
 
   // Iterate to find the minimum move cost. Actions that have a
   // negative cost (inaccessible) remain negative.
@@ -538,29 +530,63 @@ Board::UpdateMoveCosts()
     changed = false;
 
     for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
-      // If 'aid' has a positive move-cost, then update the move-cost
-      // of all "neighbor" actions of 'aid' to be 'aid's move-cost
-      // plus the cost to move from 'aid' hex to "neighbor" hex.
+      // If 'aid' has move-cost that indicates there is some path from
+      // the unit to the 'aid' destination hex, then update the
+      // move-cost of all hexes adjacent to the 'aid' destination hex
+      // to be 'aid's move-cost plus the cost to move from 'aid' hex
+      // to action-id corresponding to the adjacent hex. Effectively
+      // this propagates move-cost path length.
       if ((active_move_costs_[aid] >= 0.0) &&
           (active_move_costs_[aid] != std::numeric_limits<float>::max())) {
         HexDirection dir = ActionIdToHexDirection(aid);
+        MatrixCoordinate aid_pos = aid_poses[aid];
+        assert((aid_pos.Row() >= 0) && (aid_pos.Column() >= 0) &&
+               (aid_pos.Row() < int64_t(size_.RowCount())) &&
+               (aid_pos.Column() < int64_t(size_.ColumnCount())));
 
-        // If active unit is not currently in
-  // opponent ZOC, then moving into opponent ZOC incurs MOVE_ENEMY_ZOC_COST
-  // additional cost and cannot use roads, railroad or town reduced
-  // movement cost.
+        const auto& move_cost = move_factory_->AdjacentMoveCost(aid_pos);
+        const auto& zoc_move_cost = move_factory_->AdjacentZOCMoveCost(aid_pos);
 
-        const auto& move_out_cost = move_factory_->OutMoveCost(active_unit_->Position(), dir);
+        const bool aid_in_zoc = (
+          opponent_zoc_positions[aid_pos.Row()][aid_pos.Column()] != nullptr);
 
         for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
           HexDirection ndir = HexDirectionConcatenate(dir, HexDirection(idx));
           if ((ndir != HexDirection::NONE) && IsActionIdForHexDirection(ndir)) {
             const uint64_t naid = HexDirectionToActionId(ndir);
-            const float ncost = active_move_costs_[aid] + move_out_cost[idx];
-            if (ncost < active_move_costs_[naid]) {
-              assert(active_move_costs_[naid] >= 0.0);
-              active_move_costs_[naid] = ncost;
-              changed = true;
+            if (active_move_costs_[naid] >= 0.0) {
+              const MatrixCoordinate adj_pos = HexDirectionToPosition(aid_pos, HexDirection(idx));
+              const bool adj_in_zoc = (
+                opponent_zoc_positions[adj_pos.Row()][adj_pos.Column()] != nullptr);
+
+              float ncost = active_move_costs_[aid];
+
+              if (aid_in_zoc || adj_in_zoc) {
+                // If destination hex corresponding to action is in
+                // opponent ZOC, then can't move into adjacent hex also
+                // in ZOC. Use max cost for this to indicate that this
+                // particular path to 'adj_pos' is not allowed but there
+                // could be other paths.
+                if (aid_in_zoc && adj_in_zoc) {
+                  ncost = std::numeric_limits<float>::max();
+                }
+                // Otherwise either moving into or out-of ZOC which
+                // means that need to use ZOC move cost instead of
+                // normal move cost.
+                else {
+                  ncost += BoardMoveFactory::MOVE_ENEMY_ZOC_COST + zoc_move_cost[idx];
+                }
+              }
+              else {
+                // Use normal move cost...
+                ncost += move_cost[idx];
+              }
+
+              if (ncost < active_move_costs_[naid]) {
+                assert(active_move_costs_[naid] >= 0.0);
+                active_move_costs_[naid] = ncost;
+                changed = true;
+              }
             }
           }
         }
