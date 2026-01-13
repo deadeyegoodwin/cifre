@@ -1,4 +1,4 @@
-// Copyright 2025, David Goodwin. All rights reserved.
+// Copyright 2026, David Goodwin. All rights reserved.
 
 #include "common_error.h"
 #include "common_util.h"

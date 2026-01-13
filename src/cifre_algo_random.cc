@@ -1,4 +1,4 @@
-// Copyright 2025, David Goodwin. All rights reserved.
+// Copyright 2026, David Goodwin. All rights reserved.
 
 #include "cifre_algo_random.h"
 #include "common_error.h"
