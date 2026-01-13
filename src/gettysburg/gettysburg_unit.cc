@@ -147,7 +147,7 @@ Unit::AddToBoard(Board* board) const
 
 void
 Unit::ApplyActionId(
-  uint64_t aid, const std::array<float, MOVE_ACTIONID_COUNT>& move_cost)
+  uint64_t aid, const cifre::array<float, MOVE_ACTIONID_COUNT>& move_cost)
 {
   assert(move_cost[aid] >= 0.0);
 

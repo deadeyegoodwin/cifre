@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "cifre_std.h"
 #include "gettysburg_oob.h"
 
 namespace cifre { namespace gettysburg {
@@ -46,7 +47,7 @@ public:
   // and its value is always 0.0). If D is off the board, then maximum
   // cost is returned for every move cost. The returned array should
   // be indexed by HexDirection. 'pos' must be a valid board position.
-  const std::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>&
+  const cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>&
   OutMoveCost(const MatrixCoordinate& pos, HexDirection dir) const {
     assert((size_t(dir) >= 0) && (size_t(dir) <= HEX_RADIUS1_LAST_DIRECTION_IDX));
     return
@@ -63,9 +64,9 @@ private:
   // board).
   //
   struct Node {
-    std::array<size_t, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> adjacent_idx_ = {};
-    std::array<std::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>,
-               MOVE_ACTIONID_COUNT> actionid_move_out_costs_;
+    cifre::array<size_t, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> adjacent_idx_ = {};
+    cifre::array<cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>,
+                 MOVE_ACTIONID_COUNT> actionid_move_out_costs_;
   };
 
 private:
@@ -73,7 +74,7 @@ private:
   BoardMoveFactory& operator=(const BoardMoveFactory&) = delete;
 
   size_t RCToIndex(const MatrixCoordinate& pr) const;
-  std::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>
+  cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>
     CalculateActionDestinationMoveCosts(const MatrixCoordinate& pos) const;
   float CalculateMoveCost(const MatrixCoordinate& pos, HexDirection dir) const;
 

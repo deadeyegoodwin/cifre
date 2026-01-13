@@ -12,6 +12,7 @@
 #include "cifre_hex.h"
 #include "cifre_player.h"
 #include "cifre_state.h"
+#include "cifre_std.h"
 #include "cifre_vec.h"
 #include "common_util.h"
 
@@ -169,7 +170,7 @@ protected:
   const MatrixSize size_;
 
   // The players. The player's index in this vector is the player ID.
-  std::array<cifre::Player*, PLAYER_COUNT> players_;
+  cifre::array<cifre::Player*, PLAYER_COUNT> players_;
 
   // ID of the currently active player.
   size_t active_player_id_;

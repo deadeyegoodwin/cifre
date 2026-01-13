@@ -1,9 +1,9 @@
 // Copyright 2026, David Goodwin. All rights reserved.
 
-#include <array>
 #include <string>
 
 #include "cifre_hex.h"
+#include "cifre_std.h"
 #include "common_error.h"
 #include "common_util.h"
 
@@ -133,7 +133,7 @@ constexpr MC operator-(const MC& lhs, const MC& rhs) {
 }
 
 static constexpr MC epos(HEX_MAX_RADIUS * 4, HEX_MAX_RADIUS * 4);
-static constexpr std::array<MC, HEX_TOTAL_DIRECTION_COUNT> even_column_delta = {
+static constexpr cifre::array<MC, HEX_TOTAL_DIRECTION_COUNT> even_column_delta = {
   MC(0, 0), // NONE
   // Radius 1
   epos.DirectionDelta(HexDirection::UP) - epos,
@@ -158,7 +158,7 @@ static constexpr std::array<MC, HEX_TOTAL_DIRECTION_COUNT> even_column_delta = {
 };
 
 static constexpr MC opos(HEX_MAX_RADIUS * 4, (HEX_MAX_RADIUS * 4) + 1);
-static constexpr std::array<MC, HEX_TOTAL_DIRECTION_COUNT> odd_column_delta = {
+static constexpr cifre::array<MC, HEX_TOTAL_DIRECTION_COUNT> odd_column_delta = {
   MC(0, 0), // NONE
   // Radius 1
   opos.DirectionDelta(HexDirection::UP) - opos,
@@ -210,8 +210,8 @@ static struct Startup {
   static constexpr int64_t delta_offset_ = HEX_MAX_RADIUS;
   static constexpr int64_t delta_size_ = 1 + (HEX_MAX_RADIUS * 2);
 
-  std::array<std::array<HexDirection, delta_size_>, delta_size_> even_delta_to_hex_dir_;
-  std::array<std::array<HexDirection, delta_size_>, delta_size_> odd_delta_to_hex_dir_;
+  cifre::array<cifre::array<HexDirection, delta_size_>, delta_size_> even_delta_to_hex_dir_;
+  cifre::array<cifre::array<HexDirection, delta_size_>, delta_size_> odd_delta_to_hex_dir_;
 } sui;
 
 } // namespace

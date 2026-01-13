@@ -68,10 +68,10 @@ BoardMoveFactory::RCToIndex(const MatrixCoordinate& pr) const
   return (pr.Row() * column_cnt_) + pr.Column();
 }
 
-std::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>
+cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>
 BoardMoveFactory::CalculateActionDestinationMoveCosts(const MatrixCoordinate& pos) const
 {
-  std::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> move_costs;
+  cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> move_costs;
   move_costs.fill(std::numeric_limits<float>::max());
 
   // If 'pos' is off the board or is an inaccessible hex, then show

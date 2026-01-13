@@ -359,7 +359,7 @@ Board::Update(uint64_t action_id)
   // turn).
   const size_t active_units_count =
     (active_army_ == Unit::ArmyKind::UNION) ? union_units_count_ : confederate_units_count_;
-  std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& active_units =
+  cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& active_units =
     (active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_;
 
   if (!NextArmyUnit(active_units_count, active_units)) {
@@ -395,7 +395,7 @@ Board::Update(uint64_t action_id)
 
 bool
 Board::NextArmyUnit(
-  size_t units_count, std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units)
+  size_t units_count, cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units)
 {
   assert(units_count > 0);
 
@@ -457,7 +457,7 @@ Board::UpdateMoveCosts()
   for (size_t idx = 0; idx < OpponentUnitsCount(); ++idx) {
     const HexDirection dir =
       PositionToHexDirection(active_unit_->Position(), opponent_units[idx].Position());
-    if (dir != HexDirection::NONE) {
+    if ((dir != HexDirection::NONE) && IsActionIdForHexDirection(dir)) {
       active_move_costs_[size_t(dir)] = -1.0; // move not allowed
     }
   }

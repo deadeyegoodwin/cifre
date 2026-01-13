@@ -9,6 +9,7 @@
 
 #include "cifre_action.h"
 #include "cifre_boardhex.h"
+#include "cifre_std.h"
 #include "gettysburg_board_cell_factory.h"
 #include "gettysburg_board_move_factory.h"
 #include "gettysburg_oob.h"
@@ -158,7 +159,7 @@ private:
   // Return the unit-count for the opponent army of the active unit.
   size_t OpponentUnitsCount() const {
     return ((active_army_ == Unit::ArmyKind::UNION) ? confederate_units_count_ : union_units_count_); }
-  const std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& OpponentUnits() const {
+  const cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& OpponentUnits() const {
     return ((active_army_ == Unit::ArmyKind::UNION) ? confederate_units_ : union_units_); }
 
   // Return union or confederate UNITs at a given board position.
@@ -181,7 +182,7 @@ private:
   void UpdateValidActions();
   void ReinforceUnits();
   bool NextArmyUnit(
-    size_t units_count, std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units);
+    size_t units_count, cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units);
 
   std::vector<std::string> SmallBoardCell(const MatrixCoordinate& pos) const;
   std::vector<std::string> LargeBoardCell(bool verbose, const MatrixCoordinate& pos) const;
@@ -206,7 +207,7 @@ private:
 
   // Cost to move in each direction for the active unit. A negative
   // cost indicates that movement in that direction is not possible.
-  std::array<float, MOVE_ACTIONID_COUNT> active_move_costs_;
+  cifre::array<float, MOVE_ACTIONID_COUNT> active_move_costs_;
 
   // Integer representing the game turn.
   size_t turn_;
@@ -216,13 +217,13 @@ private:
   // BoardCellFactory::Features(VICTORY_POINT, n). A negative value
   // indicates no army owns the victory point, a positive value should
   // be cast to Unit::ArmyKind to determine army.
-  std::array<int32_t, BoardCellFactory::MAX_VICTORY_POINT_HEX_COUNT> captured_vps_;
+  cifre::array<int32_t, BoardCellFactory::MAX_VICTORY_POINT_HEX_COUNT> captured_vps_;
   size_t captured_vps_count_;
 
   // Union and confederate units.
   size_t union_units_count_, confederate_units_count_;
-  std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT> union_units_;
-  std::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT> confederate_units_;
+  cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT> union_units_;
+  cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT> confederate_units_;
 
   // 'cells_' is simply a type-casted pointer into 'cells_flattened_'.
   FlattenedCells cells_flattened_;

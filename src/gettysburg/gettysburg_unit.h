@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "cifre_boardhex.h"
+#include "cifre_std.h"
 #include "gettysburg_action.h"
 
 namespace cifre { namespace gettysburg {
@@ -73,7 +74,7 @@ public:
 
   // Update unit based on action-id.
   void ApplyActionId(
-    uint64_t aid, const std::array<float, MOVE_ACTIONID_COUNT>& move_cost);
+    uint64_t aid, const cifre::array<float, MOVE_ACTIONID_COUNT>& move_cost);
 
   // Update 'board' to remove this unit.
   void RemoveFromBoard(Board* board) const;

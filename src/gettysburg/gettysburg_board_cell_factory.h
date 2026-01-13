@@ -10,6 +10,7 @@
 #include <mutex>
 
 #include "cifre_boardhex.h"
+#include "cifre_std.h"
 #include "gettysburg_board_cell_data.h"
 #include "gettysburg_oob.h"
 
@@ -105,7 +106,7 @@ public:
     bool rocky_hill_ {false};
     bool town_ {false};
     float victory_points_ {0.0};
-    std::array<EdgeFeatures, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> edges_;
+    cifre::array<EdgeFeatures, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> edges_;
   };
 
   // The planes.
@@ -200,7 +201,7 @@ private:
   std::vector<CellFeatures> cell_features_;
 
     // For each feature kind, a vector of offsets into cell_features_.
-  std::array<std::vector<size_t>, CELL_FEATURE_COUNT> cell_features_offsets_;
+  cifre::array<std::vector<size_t>, CELL_FEATURE_COUNT> cell_features_offsets_;
 };
 
 }} // namespace cifre::gettysburg
