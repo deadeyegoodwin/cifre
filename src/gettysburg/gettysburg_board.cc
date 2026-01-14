@@ -957,7 +957,7 @@ Board::LargeBoardTerrainString(const MatrixCoordinate& pos) const
     str[0] = ((features.forest_) ? 'f' : '_');
     str[1] = ((features.hill_) ? 'h' : '_');
     str[2] = ((features.rocky_hill_) ? 'r' : '_');
-    str[3] = ((features.town_) ? 'r' : '_');
+    str[3] = ((features.town_) ? 't' : '_');
   }
 
   return str;

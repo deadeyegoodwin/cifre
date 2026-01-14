@@ -496,7 +496,7 @@ static std::vector<BoardEdgeData> board_edge_data {
   {  4,  17, DR, true  },
   {  6,  17, UR, true  },
   {  7,  17, UR, true  },
-  {  7,  17, DL, false, true  },
+  {  7,  17, DR, false, true  },
   {  7,  17, DN, false, true  },
   {  9,  17, DR, true,  false, true  },
   // column 18 adjacent

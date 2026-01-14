@@ -115,7 +115,7 @@ BoardCellFactory::BoardCellFactory(
       if ((scenario_ != OOB::Scenario::SMALL) && (bd.victory_points_ > 0.0)) {
         cell_features_offsets_[size_t(CellFeatureKind::VICTORY_POINT)].push_back(offset);
         assert(cell_features_offsets_[
-                 size_t(CellFeatureKind::VICTORY_POINT)].size() < MAX_VICTORY_POINT_HEX_COUNT);
+                 size_t(CellFeatureKind::VICTORY_POINT)].size() <= MAX_VICTORY_POINT_HEX_COUNT);
       }
     }
   }
@@ -127,7 +127,7 @@ BoardCellFactory::BoardCellFactory(
     cell_features_[offset].victory_points_ = 1.0;
     cell_features_offsets_[size_t(CellFeatureKind::VICTORY_POINT)].push_back(offset);
     assert(cell_features_offsets_[
-             size_t(CellFeatureKind::VICTORY_POINT)].size() < MAX_VICTORY_POINT_HEX_COUNT);
+             size_t(CellFeatureKind::VICTORY_POINT)].size() <= MAX_VICTORY_POINT_HEX_COUNT);
   }
 
   // Go through board edge data and initialize edge features.
