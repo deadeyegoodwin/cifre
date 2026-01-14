@@ -386,12 +386,32 @@ Board::NextArmyUnit(
   return false;
 }
 
-cifre::array<cifre::array<Unit*, Board::MAX_BOARD_COLUMNS>, Board::MAX_BOARD_ROWS>
+cifre::array<cifre::array<bool, Board::MAX_BOARD_COLUMNS>, Board::MAX_BOARD_ROWS>
 Board::OpponentZOCPositions(
   const MatrixCoordinate& pos, size_t unit_count,
   const cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units) const
 {
-  return {};
+  cifre::array<cifre::array<
+    bool, Board::MAX_BOARD_COLUMNS>, Board::MAX_BOARD_ROWS> zocs;
+
+  for (size_t r = 0; r < size_.RowCount(); ++r) {
+    zocs[r].fill(false);
+  }
+
+  // For each 'units' show all adjacent hexes as in ZOC.
+  for (size_t uidx = 0; uidx < unit_count; ++uidx) {
+    const Unit& unit = units[uidx];
+    for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
+      const MatrixCoordinate pos = HexDirectionToPosition(unit.Position(), HexDirection(idx));
+      if ((pos.Row() >= 0) && (pos.Column() >= 0) &&
+          (pos.Row() < int64_t(size_.RowCount())) &&
+          (pos.Column() < int64_t(size_.ColumnCount()))) {
+        zocs[pos.Row()][pos.Column()] = true;
+      }
+    }
+  }
+
+  return zocs;
 }
 
 void
@@ -509,8 +529,7 @@ Board::UpdateMoveCosts()
         const auto& move_cost = move_factory_->AdjacentMoveCost(aid_pos);
         const auto& zoc_move_cost = move_factory_->AdjacentZOCMoveCost(aid_pos);
 
-        const bool aid_in_zoc = (
-          opponent_zoc_positions[aid_pos.Row()][aid_pos.Column()] != nullptr);
+        const bool aid_in_zoc = opponent_zoc_positions[aid_pos.Row()][aid_pos.Column()];
 
         for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
           HexDirection ndir = HexDirectionConcatenate(dir, HexDirection(idx));
@@ -518,8 +537,8 @@ Board::UpdateMoveCosts()
             const uint64_t naid = HexDirectionToActionId(ndir);
             if (active_move_costs_[naid] >= 0.0) {
               const MatrixCoordinate adj_pos = HexDirectionToPosition(aid_pos, HexDirection(idx));
-              const bool adj_in_zoc = (
-                opponent_zoc_positions[adj_pos.Row()][adj_pos.Column()] != nullptr);
+              const bool adj_in_zoc =
+                opponent_zoc_positions[adj_pos.Row()][adj_pos.Column()];
 
               float ncost = active_move_costs_[aid];
 
