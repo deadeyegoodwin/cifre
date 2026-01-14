@@ -256,8 +256,6 @@ Board::ActiveUnit()
 std::vector<const Unit*>
 Board::UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos) const
 {
-  // NOTE: same code as non-const version of UnitsAt().
-
   std::vector<const Unit*> units;
   switch (kind) {
   case Unit::ArmyKind::UNION:
@@ -271,34 +269,6 @@ Board::UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos) const
   case Unit::ArmyKind::CONFEDERATE:
     for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
       const Unit* u = &confederate_units_[idx];
-      if (u->Position() == pos) {
-        units.push_back(u);
-      }
-    }
-    break;
-  }
-
-  return units;
-}
-
-std::vector<Unit*>
-Board::UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos)
-{
-  // NOTE: same code as const version of UnitsAt().
-
-  std::vector<Unit*> units;
-  switch (kind) {
-  case Unit::ArmyKind::UNION:
-    for (size_t idx = 0; idx < union_units_count_; ++idx) {
-      Unit* u = &union_units_[idx];
-      if (u->Position() == pos) {
-        units.push_back(u);
-      }
-    }
-    break;
-  case Unit::ArmyKind::CONFEDERATE:
-    for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
-      Unit* u = &confederate_units_[idx];
       if (u->Position() == pos) {
         units.push_back(u);
       }
@@ -643,8 +613,9 @@ Board::UpdateInputPlanes()
         cell_factory_->IndexToCellFeatures(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
       assert(features.victory_points_ > 0.0);
 
-      assert(VictoryPointAt(
-               MatrixCoordinate(features.row_, features.column_)) == features.victory_points_);
+      assert(BoardCellValueAt(
+               MatrixCoordinate(features.row_, features.column_),
+               BoardCellFactory::PLANE_IDX_VICTORY_POINT) == features.victory_points_);
       assert(UnionVictoryPointAt(
                MatrixCoordinate(features.row_, features.column_)) == 0.0);
       assert(ConfederateVictoryPointAt(
@@ -696,8 +667,9 @@ Board::UpdateTerminalStatus()
         const auto& features =
           cell_factory_->IndexToCellFeatures(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
         assert(features.victory_points_ > 0.0);
-        assert(VictoryPointAt(
-                 MatrixCoordinate(features.row_, features.column_)) == features.victory_points_);
+        assert(BoardCellValueAt(
+                 MatrixCoordinate(features.row_, features.column_),
+                 BoardCellFactory::PLANE_IDX_VICTORY_POINT) == features.victory_points_);
 
         const Unit::ArmyKind army = Unit::ArmyKind(captured_vps_[idx]);
         switch (army) {
@@ -830,8 +802,9 @@ Board::BoardHeader() const
       const auto& features =
         cell_factory_->IndexToCellFeatures(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
       assert(features.victory_points_ > 0.0);
-      assert(VictoryPointAt(
-               MatrixCoordinate(features.row_, features.column_)) == features.victory_points_);
+      assert(BoardCellValueAt(
+               MatrixCoordinate(features.row_, features.column_),
+               BoardCellFactory::PLANE_IDX_VICTORY_POINT) == features.victory_points_);
 
       const Unit::ArmyKind army = Unit::ArmyKind(captured_vps_[idx]);
       sstr
@@ -924,20 +897,22 @@ Board::SmallBoardTerrainString(const MatrixCoordinate& pos) const
   std::string str("__");
 
   if (!cells_flattened_.empty()) {
-    const bool forest = (ForestAt(pos) == BoardCellFactory::CELL_ACTIVE);
-    const bool hill = (HillAt(pos) == BoardCellFactory::CELL_ACTIVE);
-    const float vp = VictoryPointAt(pos);
+    const auto& features = cell_factory_->PositionToCellFeatures(pos);
 
-    if (forest && hill) {
+    if (features.forest_ && features.hill_) {
       str[0] = 'b';
     }
-    else if (forest) {
+    else if (features.forest_) {
       str[0] = 'f';
     }
-    else if (hill) {
+    else if (features.rocky_hill_) {
+      str[0] = 'r';
+    }
+    else if (features.hill_) {
       str[0] = 'h';
     }
 
+    const float vp = features.victory_points_;
     if (vp > 0) {
       if (vp == std::floor(vp)) {
         std::string vps = std::to_string(uint64_t(std::floor(vp)));
@@ -958,22 +933,12 @@ Board::LargeBoardTerrainString(const MatrixCoordinate& pos) const
   std::string str("____");
 
   if (!cells_flattened_.empty()) {
-    const bool forest = (ForestAt(pos) == BoardCellFactory::CELL_ACTIVE);
-    const bool hill = (HillAt(pos) == BoardCellFactory::CELL_ACTIVE);
-    const float vp = VictoryPointAt(pos);
+    const auto& features = cell_factory_->PositionToCellFeatures(pos);
 
-    str[0] = ((forest) ? 'f' : '_');
-    str[1] = ((hill) ? 'h' : '_');
-
-    if (vp > 0) {
-      if (vp == std::floor(vp)) {
-        std::string vps = std::to_string(uint64_t(std::floor(vp)));
-        str[3] = (vps.size() == 1) ? vps[0] : '?';
-      }
-      else {
-        str[3] = '?';
-      }
-    }
+    str[0] = ((features.forest_) ? 'f' : '_');
+    str[1] = ((features.hill_) ? 'h' : '_');
+    str[2] = ((features.rocky_hill_) ? 'r' : '_');
+    str[3] = ((features.town_) ? 'r' : '_');
   }
 
   return str;
@@ -989,7 +954,9 @@ Board::LargeBoardVictoryPointString(const MatrixCoordinate& pos) const
     assert((uvp == 0.0) || (cvp == 0.0));
 
     str[4] = ((uvp > 0.0) ? UNION_CHAR : (cvp > 0.0) ? CONFEDERATE_CHAR : ' ');
-    const float vp = std::max(uvp, cvp);
+
+    const auto& features = cell_factory_->PositionToCellFeatures(pos);
+    const float vp = features.victory_points_;
     if (vp > 0.0) {
       if (vp == std::floor(vp)) {
         std::string vps = std::to_string(uint64_t(std::floor(vp)));
@@ -1000,6 +967,7 @@ Board::LargeBoardVictoryPointString(const MatrixCoordinate& pos) const
       }
     }
   }
+
   return str;
 }
 

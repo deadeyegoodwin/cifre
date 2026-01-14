@@ -127,16 +127,6 @@ public:
   float ConfederateVictoryPointAt(const MatrixCoordinate& pos) const {
     return BoardCellValueAt(pos, BoardCellFactory::PLANE_IDX_CONFEDERATE_VP); }
 
-  void SetVictoryPointAt(float value, const MatrixCoordinate& pos) {
-    SetBoardCellValueAt(value, pos, BoardCellFactory::PLANE_IDX_VICTORY_POINT); }
-  float VictoryPointAt(const MatrixCoordinate& pos) const {
-    return BoardCellValueAt(pos, BoardCellFactory::PLANE_IDX_VICTORY_POINT); }
-
-  float ForestAt(const MatrixCoordinate& pos) const {
-    return BoardCellValueAt(pos, BoardCellFactory::PLANE_IDX_FOREST); }
-  float HillAt(const MatrixCoordinate& pos) const {
-    return BoardCellValueAt(pos, BoardCellFactory::PLANE_IDX_HILL); }
-
 private:
   // Don't allow default copy constructor or assignment to force the
   // version below that requires an arena. Don't allow move assignment
@@ -177,15 +167,9 @@ private:
 
   // Return union or confederate UNITs at a given board position.
   std::vector<const Unit*> UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos) const;
-  std::vector<Unit*> UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos);
-
   std::vector<const Unit*> UnionAt(const MatrixCoordinate& pos) const {
     return UnitsAt(Unit::ArmyKind::UNION, pos); }
-  std::vector<Unit*> UnionAt(const MatrixCoordinate& pos) {
-    return UnitsAt(Unit::ArmyKind::UNION, pos); }
   std::vector<const Unit*> ConfederateAt(const MatrixCoordinate& pos) const {
-    return UnitsAt(Unit::ArmyKind::CONFEDERATE, pos); }
-  std::vector<Unit*> ConfederateAt(const MatrixCoordinate& pos) {
     return UnitsAt(Unit::ArmyKind::CONFEDERATE, pos); }
 
   void UpdateInputPlanes();
