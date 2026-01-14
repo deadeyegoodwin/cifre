@@ -39,6 +39,8 @@ public:
   static constexpr size_t MAX_BOARD_ROWS = 11;
   static constexpr size_t MAX_BOARD_COLUMNS = 21;
 
+  static constexpr size_t BOARD_CELL_CONTENT_VERSION_COUNT = 1;
+
 public:
   // Create board...
   Board(
@@ -77,8 +79,6 @@ public:
   // See cifre::BoardHex
   std::string BoardHeader() const override;
   std::string BoardTrailer() const override;
-  std::vector<std::string> BoardCell(
-    DisplayKind kind, const MatrixCoordinate& pos) const override;
 
 public:
   // Return the value of the plane cell at the given row, column, and
@@ -181,12 +181,16 @@ private:
   bool NextArmyUnit(
     size_t units_count, cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units);
 
-  std::vector<std::string> SmallBoardCell(const MatrixCoordinate& pos) const;
-  std::vector<std::string> LargeBoardCell(bool verbose, const MatrixCoordinate& pos) const;
-  std::string BoardUnitString(const MatrixCoordinate& pos) const;
-  std::string SmallBoardTerrainString(const MatrixCoordinate& pos) const;
-  std::string LargeBoardTerrainString(const MatrixCoordinate& pos) const;
-  std::string LargeBoardVictoryPointString(const MatrixCoordinate& pos) const;
+  // See cifre::BoardHex
+  SmallBoardCellContent PositionToSmallCellContent(
+    uint32_t display_version, const MatrixCoordinate& pos) const override;
+  LargeBoardCellContent PositionToLargeCellContent(
+    uint32_t display_version, const MatrixCoordinate& pos) const override;
+
+  cifre::array<ColorChar, 2> PositionToUnitContent(const MatrixCoordinate& pos) const;
+  cifre::array<ColorChar, 2> PositionToSmallTerrainContent(const MatrixCoordinate& pos) const;
+  cifre::array<ColorChar, 4> PositionToLargeTerrainContent(const MatrixCoordinate& pos) const;
+  cifre::array<ColorChar, 2> PositionToVictoryPointContent(const MatrixCoordinate& pos) const;
 
   BoardCellFactory* cell_factory_;
   BoardCellFactory::CellsKey cells_flattened_factory_key_;

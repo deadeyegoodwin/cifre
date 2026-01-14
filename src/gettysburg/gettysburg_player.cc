@@ -30,7 +30,7 @@ HumanPlayer::Usage() const
   sstr << "'q' : quit\n";
   sstr << "'s' : show board\n";
   sstr << "'t' : toggle board size\n";
-  sstr << "'v' : toggle verbose board\n";
+  sstr << "'v' : toggle board version\n";
   return sstr.str();
 }
 
@@ -83,24 +83,22 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
       break;
 
     case Action::ActionKind::CUSTOM_0: // toggle board display size
-      if (board.Display() == Board::DisplayKind::SMALL) {
-        board.SetDisplay(Board::DisplayKind::LARGE);
+      if (board.DisplayKind() == Board::BoardDisplayKind::SMALL) {
+        board.SetDisplay(Board::BoardDisplayKind::LARGE, board.DisplayVersion());
       }
       else {
-        board.SetDisplay(Board::DisplayKind::SMALL);
+        board.SetDisplay(Board::BoardDisplayKind::SMALL, board.DisplayVersion());
       }
       LOG_GAME(*logger_, board.ToString());
       break;
 
-    case Action::ActionKind::CUSTOM_1: // toggle verbose board display
-      if (board.Display() == Board::DisplayKind::LARGE) {
-        board.SetDisplay(Board::DisplayKind::LARGE_VERBOSE);
-      }
-      else if (board.Display() == Board::DisplayKind::LARGE_VERBOSE) {
-        board.SetDisplay(Board::DisplayKind::LARGE);
-      }
+    case Action::ActionKind::CUSTOM_1: { // toggle board display version
+      const uint32_t nv =
+        (board.DisplayVersion() + 1) % Board::BOARD_CELL_CONTENT_VERSION_COUNT;
+      board.SetDisplay(board.DisplayKind(), nv);
       LOG_GAME(*logger_, board.ToString());
-     break;
+      break;
+    }
 
     case Action::ActionKind::CUSTOM_2:
     case Action::ActionKind::CUSTOM_3:

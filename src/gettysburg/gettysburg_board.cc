@@ -747,58 +747,6 @@ Board::ReinforceUnits()
   }
 }
 
-namespace {
-
-enum class ANSIFGColor {
-  DEFAULT        = 0,
-  BLACK          = 30,
-  RED            = 31,
-  GREEN          = 32,
-  YELLOW         = 33,
-  BLUE           = 34,
-  MAGENTA        = 35,
-  CYAN           = 36,
-  WHITE          = 37,
-  BRIGHT_BLACK   = 90,
-  BRIGHT_RED     = 91,
-  BRIGHT_GREEN   = 92,
-  BRIGHT_YELLOW  = 93,
-  BRIGHT_BLUE    = 94,
-  BRIGHT_MAGENTA = 95,
-  BRIGHT_CYAN    = 96,
-  BRIGHT_WHITE   = 97
-};
-
-enum class ANSIBGColor {
-  DEFAULT        = 0,
-  BLACK          = 40,
-  RED            = 41,
-  GREEN          = 42,
-  YELLOW         = 43,
-  BLUE           = 44,
-  MAGENTA        = 45,
-  CYAN           = 46,
-  WHITE          = 47,
-  BRIGHT_BLACK   = 100,
-  BRIGHT_RED     = 101,
-  BRIGHT_GREEN   = 102,
-  BRIGHT_YELLOW  = 103,
-  BRIGHT_BLUE    = 104,
-  BRIGHT_MAGENTA = 105,
-  BRIGHT_CYAN    = 106,
-  BRIGHT_WHITE   = 107
-};
-
-const std::string
-PrintColor(ANSIFGColor fg, ANSIBGColor bg)
-{
-  return
-    std::string("\033[") + std::to_string(uint32_t(fg)) + ";" +
-    std::to_string(uint32_t(bg)) + "m";
-}
-
-} // namespace
-
 std::string
 Board::BoardHeader() const
 {
@@ -842,152 +790,176 @@ Board::BoardTrailer() const
   return "";
 }
 
-std::vector<std::string>
-Board::BoardCell(BoardHex::DisplayKind kind, const MatrixCoordinate& pos) const
+BoardHex::SmallBoardCellContent
+Board::PositionToSmallCellContent(
+  uint32_t display_version, const MatrixCoordinate& pos) const
 {
-  switch (kind) {
-  case DisplayKind::SMALL:
-    return SmallBoardCell(pos);
-  case DisplayKind::LARGE:
-    return LargeBoardCell(false /* verbose */, pos);
-  case DisplayKind::LARGE_VERBOSE:
-    return LargeBoardCell(true /* verbose */, pos);
+  SmallBoardCellContent content;
+  const auto unit_content = PositionToUnitContent(pos);
+  const auto terrain_content = PositionToSmallTerrainContent(pos);
+
+  content[0] = {
+    ColorChar(' '), ColorChar('_'), ColorChar('_'), ColorChar(' ') };
+  content[1] = {
+    ColorChar('/'), unit_content[0], unit_content[1], ColorChar('\\') };
+  content[2] = {
+    ColorChar('\\'), terrain_content[0], terrain_content[1], ColorChar('/') };
+  content[3] = {
+    ColorChar(' '), ColorChar('_'), ColorChar('_'), ColorChar(' ') };
+
+  return content;
+}
+
+BoardHex::LargeBoardCellContent
+Board::PositionToLargeCellContent(
+  uint32_t display_version, const MatrixCoordinate& pos) const
+{
+  LargeBoardCellContent content;
+  const auto unit_content = PositionToUnitContent(pos);
+  const auto vp_content = PositionToVictoryPointContent(pos);
+  const auto terrain_content = PositionToLargeTerrainContent(pos);
+
+  content[0] = {
+    ColorChar(' '), ColorChar(' '),
+    ColorChar('_'), ColorChar('_'), ColorChar('_'), ColorChar('_'),
+    ColorChar(' '), ColorChar(' ') };
+  content[1] = {
+    ColorChar(' '), ColorChar('/'),
+    unit_content[0], unit_content[1], ColorChar(' '), ColorChar(' '),
+    ColorChar('\\'), ColorChar(' ') };
+  content[2] = {
+    ColorChar('/'),
+    ColorChar(' '), ColorChar(' '), ColorChar(' '),
+    ColorChar(' '), ColorChar(' '), ColorChar(' '),
+    ColorChar('\\') };
+  content[3] = {
+    ColorChar('\\'),
+    ColorChar(' '), ColorChar(' '), ColorChar(' '),
+    ColorChar(' '), vp_content[0], vp_content[1],
+    ColorChar('/') };
+  content[4] = {
+    ColorChar(' '), ColorChar('\\'),
+    terrain_content[0], terrain_content[1], terrain_content[2], terrain_content[3],
+    ColorChar('/'), ColorChar(' ') };
+  content[5] = {
+    ColorChar(' '), ColorChar(' '),
+    ColorChar('_'), ColorChar('_'), ColorChar('_'), ColorChar('_'),
+    ColorChar(' '), ColorChar(' ') };
+
+  return content;
+}
+
+// Return 2-character representing the unit(s) in the hex.
+cifre::array<ColorChar, 2>
+Board::PositionToUnitContent(const MatrixCoordinate& pos) const
+{
+  cifre::array<ColorChar, 2> chars { ColorChar(' '), ColorChar(' ') };
+
+  const bool active_at =
+    ((active_unit_ != nullptr) && (active_unit_->Position() == pos));
+  const size_t uc = UnionAt(pos).size();
+  if (uc > 0) {
+    chars[0] =
+      ColorChar(UNION_CHAR, (active_at) ? FGColor::WHITE : FGColor::BLUE,
+                (active_at) ? BGColor::BLUE : BGColor::BLACK);
+    chars[1] =
+      ColorChar((uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' '),
+                FGColor::BLUE, BGColor::BLACK);
   }
 
-  return {}; // unreachable
-}
-
-std::vector<std::string>
-Board::SmallBoardCell(const MatrixCoordinate& pos) const
-{
-  return { BoardUnitString(pos), SmallBoardTerrainString(pos) };
-}
-
-std::vector<std::string>
-Board::LargeBoardCell(bool verbose, const MatrixCoordinate& pos) const
-{
-  return {
-    BoardUnitString(pos) + "  ",
-    "      ",
-    LargeBoardVictoryPointString(pos),
-    LargeBoardTerrainString(pos) };
-}
-
-// Return 2-character string representing the unit(s) in the hex.
-std::string
-Board::BoardUnitString(const MatrixCoordinate& pos) const
-{
-  if (!cells_flattened_.empty()) {
-    const bool active_at =
-      ((active_unit_!= nullptr) && (active_unit_->Position() == pos));
-    const size_t uc = UnionAt(pos).size();
-    if (uc > 0) {
-      std::string str =
-        ((!active_at) ?
-         PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK) :
-         PrintColor(ANSIFGColor::WHITE, ANSIBGColor::BLUE));
-      str += UNION_CHAR;
-      str += PrintColor(ANSIFGColor::BLUE, ANSIBGColor::BLACK);
-      str += (uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' ');
-      str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
-      return str;
-    }
-
-    const size_t cc = ConfederateAt(pos).size();
-    if (cc > 0) {
-      std::string str =
-        ((!active_at) ?
-         PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK) :
-         PrintColor(ANSIFGColor::WHITE, ANSIBGColor::YELLOW));
-      str += CONFEDERATE_CHAR;
-      str += PrintColor(ANSIFGColor::YELLOW, ANSIBGColor::BLACK);
-      str += (cc >= 10) ? '*' :  ((cc > 1) ? ('0' + cc) : ' ');
-      str += PrintColor(ANSIFGColor::DEFAULT, ANSIBGColor::DEFAULT);
-      return str;
-    }
+  const size_t cc = ConfederateAt(pos).size();
+  if (cc > 0) {
+    assert(uc == 0);
+    chars[0] =
+      ColorChar(CONFEDERATE_CHAR, (active_at) ? FGColor::WHITE : FGColor::YELLOW,
+                (active_at) ? BGColor::YELLOW : BGColor::BLACK);
+    chars[1] =
+      ColorChar((cc >= 10) ? '*' : ((cc > 1) ? ('0' + cc) : ' '),
+                FGColor::YELLOW, BGColor::BLACK);
   }
 
-  return "  ";
+  return chars;
 }
 
-std::string
-Board::SmallBoardTerrainString(const MatrixCoordinate& pos) const
+cifre::array<ColorChar, 2>
+Board::PositionToSmallTerrainContent(const MatrixCoordinate& pos) const
 {
-  std::string str("__");
+  cifre::array<ColorChar, 2> chars { ColorChar(' '), ColorChar(' ') };
 
-  if (!cells_flattened_.empty()) {
-    const auto& features = cell_factory_->PositionToCellFeatures(pos);
-
-    if (features.forest_ && features.hill_) {
-      str[0] = 'b';
-    }
-    else if (features.forest_) {
-      str[0] = 'f';
-    }
-    else if (features.rocky_hill_) {
-      str[0] = 'r';
-    }
-    else if (features.hill_) {
-      str[0] = 'h';
-    }
-
-    const float vp = features.victory_points_;
-    if (vp > 0) {
-      if (vp == std::floor(vp)) {
-        std::string vps = std::to_string(uint64_t(std::floor(vp)));
-        str[1] = (vps.size() == 1) ? vps[0] : '?';
-      }
-      else {
-        str[1] = '?';
-      }
-    }
+  const auto& features = cell_factory_->PositionToCellFeatures(pos);
+  if (features.forest_ && features.hill_) {
+    chars[0] = ColorChar('b');
+  }
+  else if (features.forest_ && features.rocky_hill_) {
+    chars[0] = ColorChar('B');
+  }
+  else if (features.forest_) {
+    chars[0] = ColorChar('f');
+  }
+  else if (features.rocky_hill_) {
+    chars[0] = ColorChar('r');
+  }
+  else if (features.hill_) {
+    chars[0] = ColorChar('h');
+  }
+  else if (features.town_) {
+    chars[0] = ColorChar('t');
   }
 
-  return str;
-}
-
-std::string
-Board::LargeBoardTerrainString(const MatrixCoordinate& pos) const
-{
-  std::string str("____");
-
-  if (!cells_flattened_.empty()) {
-    const auto& features = cell_factory_->PositionToCellFeatures(pos);
-
-    str[0] = ((features.forest_) ? 'f' : '_');
-    str[1] = ((features.hill_) ? 'h' : '_');
-    str[2] = ((features.rocky_hill_) ? 'r' : '_');
-    str[3] = ((features.town_) ? 't' : '_');
-  }
-
-  return str;
-}
-
-std::string
-Board::LargeBoardVictoryPointString(const MatrixCoordinate& pos) const
-{
-  std::string str = "      ";
-  if (!cells_flattened_.empty()) {
-    const float uvp = UnionVictoryPointAt(pos);
-    const float cvp = ConfederateVictoryPointAt(pos);
-    assert((uvp == 0.0) || (cvp == 0.0));
-
-    str[4] = ((uvp > 0.0) ? UNION_CHAR : (cvp > 0.0) ? CONFEDERATE_CHAR : ' ');
-
-    const auto& features = cell_factory_->PositionToCellFeatures(pos);
-    const float vp = features.victory_points_;
-    if (vp > 0.0) {
-      if (vp == std::floor(vp)) {
-        std::string vps = std::to_string(uint64_t(std::floor(vp)));
-        str[5] = (vps.size() == 1) ? vps[0] : '?';
-      }
-      else {
-        str[5] = '?';
-      }
+  const float vp = features.victory_points_;
+  if (vp > 0) {
+    if (vp == std::floor(vp)) {
+      std::string vps = std::to_string(uint64_t(std::floor(vp)));
+      chars[1] = ColorChar((vps.size() == 1) ? vps[0] : '?');
+    }
+    else {
+      chars[1] = ColorChar('?');
     }
   }
 
-  return str;
+  return chars;
+}
+
+cifre::array<ColorChar, 4>
+Board::PositionToLargeTerrainContent(const MatrixCoordinate& pos) const
+{
+  cifre::array<ColorChar, 4> chars {
+    ColorChar(' '), ColorChar(' '), ColorChar(' '), ColorChar(' ') };
+
+  const auto& features = cell_factory_->PositionToCellFeatures(pos);
+
+  chars[0] = ColorChar((features.forest_) ? 'f' : '_');
+  chars[1] = ColorChar((features.hill_) ? 'h' : '_');
+  chars[2] = ColorChar((features.rocky_hill_) ? 'r' : '_');
+  chars[3] = ColorChar((features.town_) ? 't' : '_');
+
+  return chars;
+}
+
+cifre::array<ColorChar, 2>
+Board::PositionToVictoryPointContent(const MatrixCoordinate& pos) const
+{
+  cifre::array<ColorChar, 2> chars { ColorChar(' '), ColorChar(' ') };
+
+  const float uvp = UnionVictoryPointAt(pos);
+  const float cvp = ConfederateVictoryPointAt(pos);
+  assert((uvp == 0.0) || (cvp == 0.0));
+
+  chars[0] = ColorChar((uvp > 0.0) ? UNION_CHAR : (cvp > 0.0) ? CONFEDERATE_CHAR : ' ');
+
+  const auto& features = cell_factory_->PositionToCellFeatures(pos);
+  const float vp = features.victory_points_;
+  if (vp > 0.0) {
+    if (vp == std::floor(vp)) {
+      std::string vps = std::to_string(uint64_t(std::floor(vp)));
+      chars[1] = ColorChar((vps.size() == 1) ? vps[0] : '?');
+    }
+    else {
+      chars[1] = ColorChar('?');
+    }
+  }
+
+  return chars;
 }
 
 }} // namespace cifre::gettysburg

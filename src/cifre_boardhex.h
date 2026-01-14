@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "cifre_action.h"
+#include "cifre_display.h"
 #include "cifre_hex.h"
 #include "cifre_player.h"
 #include "cifre_state.h"
@@ -26,9 +27,9 @@ namespace cifre {
 //
 // Provides a console representation of the board and methods to
 // convert text commands to/from actions. The console representation
-// relies on the derived class to provide the "interior" content
-// representation of a hex based on the values for that hex across all
-// planes.
+// relies on the derived class to provide the edge and "interior"
+// content representation of a hex based on the values for that hex
+// across all planes.
 //
 // Acts as a cifre::State with the triton representation being a
 // C-order flattening of a 3D space composed of a configurable number
@@ -62,10 +63,9 @@ public:
   static constexpr size_t PLAYER_COUNT = 2;
 
   // Ways that the board can be display.
-  enum class DisplayKind {
-    SMALL,          // Small hexes with minimal content
+  enum class BoardDisplayKind {
+    SMALL,          // Small hexes
     LARGE,          // Large hexes
-    LARGE_VERBOSE   // Large hexes with additional debug-level content
   };
 
 public:
@@ -113,9 +113,14 @@ public:
   // See cifre::State.
   virtual bool IsValidAction(const Action& action) const override;
 
-  // Get or set the way the board is displayed.
-  DisplayKind Display() const { return display_kind_; }
-  void SetDisplay(DisplayKind d) const { display_kind_ = d; }
+  // Get or set the way the board is displayed. Board display is
+  // controlled by a BoardDisplayKind and a game-specific display
+  // version which is an integer used to indicate a "version" of the
+  // display. It is up to the game to manage display kind and version.
+  BoardDisplayKind DisplayKind() const { return display_kind_; }
+  uint32_t DisplayVersion() const { return display_version_; }
+  void SetDisplay(BoardDisplayKind kind, uint32_t ver = 0) const {
+    display_kind_ = kind; display_version_ = ver; }
 
   // Return the ID of the opponent player. There must be exactly two
   // players, so the opponent ID is the opposite of active player ID.
@@ -132,18 +137,6 @@ public:
   virtual std::string BoardHeader() const;
   virtual std::string BoardTrailer() const;
 
-  // Return a set of strings that give the content for a given
-  // cell. Default behavior is to show the row and column index in the
-  // cell. 'kind' indicates the kind of content to return.
-  //
-  //   SMALL: Return two, two-character strings that give the upper and lower
-  //          content of a small hex
-  //   LARGE: Return four strings of lengths 4, 6, 6, and 4 that give
-  //          the top to bottom content of a large hex
-  //   LARGE_VERBOSE: Same as LARGE but return verbose content
-  virtual std::vector<std::string> BoardCell(
-    DisplayKind kind, const MatrixCoordinate& pos) const;
-
 protected:
   // Don't allow default copy constructor or assignment to force the
   // version above that requires an arena. Don't allow move assignment
@@ -155,13 +148,63 @@ protected:
   BoardHex& operator=(const BoardHex&) = delete;
   BoardHex& operator=(BoardHex&&) = delete;
 
-  std::string SmallBoard() const;
-  std::string LargeBoard() const;
+  // Board display. The following defines and methods return a
+  // 2-dimensional array of char/color pairs that describe the
+  // appearance of a board hex. The returned values describe both the
+  // edges and the interior content of a cell.
+  //
+  // Small cells require a 4x4 array of char/color pairs, as follows:
+  //
+  //  --  ; unused, up-edge(2x), unused
+  // /  \ ; up-left-edge, interior(x2), up-right-edge
+  // \  / ; down-left-edge, interior(x2), down-right-edge
+  //  --  ; unused, down-edge(x2), unused
+  //
+  // Note that the default BoardHex::ToString() draws the small hex so
+  // that the lower-interior and down-edge representation overlap. The
+  // default ToString() function will use whichever description is
+  // non-' '. If both are non-' ' then will use the interior cell
+  // description.
+  //
+  // Large cells require a 6x8 array of char/color pairs, as follows:
+  //
+  //   ----   ; unused (x2), up-edge (x4), unused(x2)
+  //  /    \  ; unused, up-left-edge, interior(x4), up-right-edge, unused
+  // /      \ ; up-left-edge, interior(x6), up-right-edge
+  // \      / ; down-left-edge, interior(x6), down-right-edge
+  //  \    /  ; unused, down-left-edge, interior(x4), down-right-edge, unused
+  //   ----   ; unused (x2), down-edge (x4), unused(x2)
 
-  // Display kind is mutable so that we can change it even in a const
-  // State object. It is not part of the state seen by the algorithms
-  // or hashing so it is ok to have it mutable.
-  mutable DisplayKind display_kind_;
+
+  // Note that the default BoardHex::ToString() draws the large hex so
+  // that the lower-interior and down-edge representation overlap. The
+  // default ToString() function will use whichever description is
+  // non-' '. If both are non-' ' then will use the interior cell
+  // description.
+  static constexpr size_t SMALL_BOARD_CELL_CONTENT_HEIGHT = 4;
+  static constexpr size_t SMALL_BOARD_CELL_CONTENT_WIDTH = 4;
+  static constexpr size_t LARGE_BOARD_CELL_CONTENT_HEIGHT = 6;
+  static constexpr size_t LARGE_BOARD_CELL_CONTENT_WIDTH = 8;
+  using SmallBoardCellContent =
+    cifre::array<cifre::array<ColorChar, SMALL_BOARD_CELL_CONTENT_WIDTH>,
+                 SMALL_BOARD_CELL_CONTENT_HEIGHT>;
+  using LargeBoardCellContent =
+    cifre::array<cifre::array<ColorChar, LARGE_BOARD_CELL_CONTENT_WIDTH>,
+                 LARGE_BOARD_CELL_CONTENT_HEIGHT>;
+
+  virtual SmallBoardCellContent PositionToSmallCellContent(
+    uint32_t display_version, const MatrixCoordinate& pos) const;
+  virtual LargeBoardCellContent PositionToLargeCellContent(
+    uint32_t display_version, const MatrixCoordinate& pos) const;
+
+  std::string SmallBoardToString() const;
+  std::string LargeBoardToString() const;
+
+  // Display kind and version are mutable so that we can change it
+  // even in a const State object. It is not part of the state seen by
+  // the algorithms or hashing so it is ok to have it mutable.
+  mutable BoardDisplayKind display_kind_;
+  mutable uint32_t display_version_;
 
   // Number of planes.
   const size_t plane_cnt_;

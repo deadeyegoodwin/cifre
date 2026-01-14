@@ -176,6 +176,7 @@ add_library(
   src/cifre_algo_random.cc
   src/cifre_board2d.cc
   src/cifre_boardhex.cc
+  src/cifre_display.cc
   src/cifre_game.cc
   src/cifre_hex.cc
   src/cifre_player.cc

@@ -19,7 +19,7 @@ BoardHex::BoardHex(
   const size_t plane_cnt, const cifre::MatrixSize& size,
   const std::vector<Player*>& players, size_t starting_player_id,
   std::pmr::memory_resource* arena) :
-  display_kind_(DisplayKind::SMALL), plane_cnt_(plane_cnt), size_(size),
+  display_kind_(BoardDisplayKind::SMALL), plane_cnt_(plane_cnt), size_(size),
   active_player_id_(starting_player_id),
   terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL),
   valid_action_ids_(arena)
@@ -76,18 +76,15 @@ std::string
 BoardHex::ToString() const
 {
   switch (display_kind_) {
-  case DisplayKind::SMALL:
-    return SmallBoard();
-  case DisplayKind::LARGE:
-  case DisplayKind::LARGE_VERBOSE:
-    return LargeBoard();
+  case BoardDisplayKind::SMALL:  return SmallBoardToString();
+  case BoardDisplayKind::LARGE:  return LargeBoardToString();
   }
 
   return "";  // not reached
 }
 
 std::string
-BoardHex::SmallBoard() const
+BoardHex::SmallBoardToString() const
 {
   std::stringstream sstr;
 
@@ -104,12 +101,10 @@ BoardHex::SmallBoard() const
 
   // Top of first row of hex cells.
   for (size_t col_idx = 0; col_idx < size_.ColumnCount(); col_idx += 2) {
-    if (col_idx == 0) {
-      sstr << " __";
-    }
-    else {
-      sstr << "    __";
-    }
+    const auto content = PositionToSmallCellContent(
+      display_version_, MatrixCoordinate(0, col_idx));
+    sstr << ((col_idx == 0) ? " " : "    ");
+    sstr << ColorCharsToString(content[0][1], content[0][2]);
   }
   sstr << "\n";
 
@@ -117,30 +112,44 @@ BoardHex::SmallBoard() const
   for (size_t row_idx = 0; row_idx < size_.RowCount(); ++row_idx) {
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
-        sstr << "/" << BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx))[0] << "\\";
+        const auto content = PositionToSmallCellContent(
+          display_version_, MatrixCoordinate(row_idx, col_idx));
+        sstr << ColorCharsToString(content[1]);
       }
       else if (row_idx > 0) {
-        sstr << BoardCell(display_kind_, MatrixCoordinate(row_idx - 1, col_idx))[1];
+        auto content = PositionToSmallCellContent(
+          display_version_, MatrixCoordinate(row_idx - 1, col_idx));
+        sstr
+          << ColorCharsToString(
+            content[2][1].Overlay(content[3][1]), content[2][2].Overlay(content[3][2]));
       }
       else {
-        sstr << "__";
+        const auto content = PositionToSmallCellContent(
+          display_version_, MatrixCoordinate(row_idx, col_idx));
+        sstr << ColorCharsToString(content[0][1], content[0][2]);
       }
     }
     if ((row_idx != 0) && ((size_.ColumnCount() % 2) == 0)) {
-      sstr << "/";
+      const auto content = PositionToSmallCellContent(
+        display_version_, MatrixCoordinate(row_idx - 1, size_.ColumnCount() - 1));
+      sstr << ColorCharsToString(content[2][3]);
     }
     sstr << "\n";
 
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+      auto content = PositionToSmallCellContent(
+        display_version_, MatrixCoordinate(row_idx, col_idx));
       if ((col_idx % 2) == 0) {
-        sstr << "\\" << BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx))[1] << "/";
+        sstr
+          << ColorCharsToString(content[2][0], content[2][1].Overlay(content[3][1]),
+                                content[2][2].Overlay(content[3][2]), content[2][3]);
       }
       else {
-        sstr << BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx))[0];
+        sstr << ColorCharsToString(content[1][1], content[1][2]);
+        if (((size_.ColumnCount() % 2) == 0) && (col_idx == (size_.ColumnCount() - 1))) {
+          sstr << ColorCharsToString(content[1][3]);
+        }
       }
-    }
-    if ((size_.ColumnCount() % 2) == 0) {
-      sstr << "\\";
     }
     sstr << "\n";
   }
@@ -148,9 +157,12 @@ BoardHex::SmallBoard() const
   // Lower half of last row.
   sstr << " ";
   for (size_t col_idx = 1; col_idx < size_.ColumnCount(); col_idx += 2) {
-    sstr << "  \\" <<
-      BoardCell(
-        display_kind_, MatrixCoordinate(size_.RowCount() - 1, col_idx))[1] << "/";
+    auto content = PositionToSmallCellContent(
+      display_version_, MatrixCoordinate(size_.RowCount() - 1, col_idx));
+    sstr
+      << "  "
+      << ColorCharsToString(content[2][0], content[2][1].Overlay(content[3][1]),
+                            content[2][2].Overlay(content[3][2]), content[2][3]);
   }
   sstr << "\n";
 
@@ -160,7 +172,7 @@ BoardHex::SmallBoard() const
 }
 
 std::string
-BoardHex::LargeBoard() const
+BoardHex::LargeBoardToString() const
 {
   std::stringstream sstr;
 
@@ -169,21 +181,19 @@ BoardHex::LargeBoard() const
   // Like the small board but bigger hexes so can show more
   // information...
   //   ____        ____
-  //  /    \      /    \    -> str 0
-  // /      \____/      \   -> str 1
-  // \      /    \      /   -> str 2
-  //  \____/      \____/    -> str 3
+  //  /    \      /    \    -> loc 0
+  // /      \____/      \   -> loc 1
+  // \      /    \      /   -> loc 2
+  //  \____/      \____/    -> loc 3
   //       \      /
   //        \____/
 
   // Top of first row of hex cells.
   for (size_t col_idx = 0; col_idx < size_.ColumnCount(); col_idx += 2) {
-    if (col_idx == 0) {
-      sstr << "  ____";
-    }
-    else {
-      sstr << "        ____";
-    }
+    const auto content = PositionToLargeCellContent(
+      display_version_, MatrixCoordinate(0, col_idx));
+    sstr << ((col_idx == 0) ? "  " : "        ");
+    sstr << ColorCharsToString(content[0][2], content[0][3], content[0][4], content[0][5]);
   }
   sstr << "\n";
 
@@ -192,71 +202,107 @@ BoardHex::LargeBoard() const
     // Loc 0...
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
+        const auto content = PositionToLargeCellContent(
+          display_version_, MatrixCoordinate(row_idx, col_idx));
         if (col_idx == 0) {
           sstr << " ";
         }
-        sstr << "/" << BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx))[0] << "\\";
-
+        sstr
+          << ColorCharsToString(content[1][1], content[1][2], content[1][3],
+                                content[1][4], content[1][5], content[1][6]);
       }
       else if (row_idx > 0) {
-        sstr << BoardCell(display_kind_, MatrixCoordinate(row_idx - 1, col_idx))[2];
+        const auto content = PositionToLargeCellContent(
+          display_version_, MatrixCoordinate(row_idx - 1, col_idx));
+        sstr
+          << ColorCharsToString(content[3][1], content[3][2], content[3][3],
+                                content[3][4], content[3][5], content[3][6]);
       }
       else {
         sstr << "      ";
       }
     }
     if ((row_idx != 0) && ((size_.ColumnCount() % 2) == 0)) {
-      sstr << "/";
+      const auto content = PositionToLargeCellContent(
+        display_version_, MatrixCoordinate(row_idx, size_.ColumnCount() - 1));
+      sstr << ColorCharsToString(content[3][7]);
     }
     sstr << "\n";
 
     // Loc 1...
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
-        sstr << "/" << BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx))[1] << "\\";
+        const auto content = PositionToLargeCellContent(
+          display_version_, MatrixCoordinate(row_idx, col_idx));
+        sstr << ColorCharsToString(
+          content[2][0], content[2][1], content[2][2], content[2][3],
+          content[2][4], content[2][5], content[2][6], content[2][7]);
       }
       else if (row_idx > 0) {
-        sstr << BoardCell(display_kind_, MatrixCoordinate(row_idx - 1, col_idx))[3];
+        auto content = PositionToLargeCellContent(
+          display_version_, MatrixCoordinate(row_idx - 1, col_idx));
+        sstr << ColorCharsToString(
+          content[4][2].Overlay(content[5][2]), content[4][3].Overlay(content[5][3]),
+          content[4][4].Overlay(content[5][4]), content[4][5].Overlay(content[5][5]));
       }
       else {
-        sstr << "____";
+        const auto content = PositionToLargeCellContent(
+          display_version_, MatrixCoordinate(row_idx, col_idx));
+        sstr << ColorCharsToString(
+          content[0][2], content[0][3], content[0][4], content[0][5]);
       }
     }
     if ((row_idx != 0) && ((size_.ColumnCount() % 2) == 0)) {
-      sstr << "/";
+      const auto content = PositionToLargeCellContent(
+        display_version_, MatrixCoordinate(row_idx, size_.ColumnCount() - 1));
+      sstr << ColorCharsToString(content[4][6]);
     }
     sstr << "\n";
 
     // Loc 2...
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
-      auto cstr = BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx));
+      const auto content = PositionToLargeCellContent(
+        display_version_, MatrixCoordinate(row_idx, col_idx));
       if ((col_idx % 2) == 0) {
-        sstr << "\\" << cstr[2] << "/";
+        sstr << ColorCharsToString(
+          content[3][0], content[3][1], content[3][2], content[3][3],
+          content[3][4], content[3][5], content[3][6], content[3][7]);
       }
       else {
-        sstr << cstr[0];
+        sstr << ColorCharsToString(
+          content[1][2], content[1][3], content[1][4], content[1][5]);
       }
     }
     if ((size_.ColumnCount() % 2) == 0) {
-      sstr << "\\";
+      const auto content = PositionToLargeCellContent(
+        display_version_, MatrixCoordinate(row_idx, size_.ColumnCount() - 1));
+      sstr << ColorCharsToString(content[1][6]);
     }
     sstr << "\n";
 
     // Loc 3...
     for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
-      auto cstr = BoardCell(display_kind_, MatrixCoordinate(row_idx, col_idx));
+      auto content = PositionToLargeCellContent(
+        display_version_, MatrixCoordinate(row_idx, col_idx));
       if ((col_idx % 2) == 0) {
         if (col_idx == 0) {
           sstr << " ";
         }
-        sstr << "\\" << cstr[3] << "/";
+        sstr << ColorCharsToString(
+          content[4][1], content[4][2].Overlay(content[5][2]),
+          content[4][3].Overlay(content[5][3]), content[4][4].Overlay(content[5][4]),
+          content[4][5].Overlay(content[5][5]), content[4][6]);
       }
       else {
-        sstr << cstr[1];
+        sstr << ColorCharsToString(
+          content[2][1], content[2][2], content[2][3],
+          content[2][4], content[2][5], content[2][6]);
       }
     }
     if ((size_.ColumnCount() % 2) == 0) {
-      sstr << "\\";
+      const auto content = PositionToLargeCellContent(
+        display_version_, MatrixCoordinate(row_idx, size_.ColumnCount() - 1));
+      sstr << ColorCharsToString(content[2][7]);
     }
     sstr << "\n";
   }
@@ -264,15 +310,24 @@ BoardHex::LargeBoard() const
   // Lower half of last row.
   sstr << "  ";
   for (size_t col_idx = 1; col_idx < size_.ColumnCount(); col_idx += 2) {
+    const auto content = PositionToLargeCellContent(
+      display_version_, MatrixCoordinate(size_.RowCount() - 1, col_idx));
     sstr
-      << "    \\"
-      << BoardCell(display_kind_, MatrixCoordinate(size_.RowCount() - 1, col_idx))[2] << "/";
+      << "    "
+      << ColorCharsToString(
+        content[3][0], content[3][1], content[3][2], content[3][3],
+        content[3][4], content[3][5], content[3][6], content[3][7]);
   }
   sstr << "\n ";
   for (size_t col_idx = 1; col_idx < size_.ColumnCount(); col_idx += 2) {
+    auto content = PositionToLargeCellContent(
+      display_version_, MatrixCoordinate(size_.RowCount() - 1, col_idx));
     sstr
-      << "      \\"
-      << BoardCell(display_kind_, MatrixCoordinate(size_.RowCount() - 1, col_idx))[3] << "/";
+      << "      "
+      << ColorCharsToString(
+        content[4][1], content[4][2].Overlay(content[5][2]),
+        content[4][3].Overlay(content[5][3]), content[4][4].Overlay(content[5][4]),
+        content[4][5].Overlay(content[5][5]), content[4][6]);
   }
   sstr << "\n";
 
@@ -293,20 +348,77 @@ BoardHex::BoardTrailer() const
   return "";
 }
 
-std::vector<std::string>
-BoardHex::BoardCell(DisplayKind kind, const MatrixCoordinate& pos) const
+BoardHex::SmallBoardCellContent
+BoardHex::PositionToSmallCellContent(
+  uint32_t display_version, const MatrixCoordinate& pos) const
 {
-  std::string upper = std::to_string(pos.Row());
-  if (upper.size() == 1) {
-    upper += " ";
+  const std::string row_str = std::to_string(pos.Row());
+  const std::string col_str = std::to_string(pos.Column());
+
+  SmallBoardCellContent content;
+
+  content[0] = {
+    ColorChar(' '), ColorChar('_'), ColorChar('_'), ColorChar(' ') };
+  content[1] = {
+    ColorChar('/'), ColorChar(row_str[0]),
+    ColorChar((row_str.size() == 1) ? ' ' : row_str[1]), ColorChar('\\') };
+  if (col_str.size() == 1) {
+    content[2] = {
+      ColorChar('\\'), ColorChar(' '), ColorChar(col_str[0]), ColorChar('/') };
+  }
+  else {
+    content[2] =
+      { ColorChar('\\'), ColorChar(col_str[0]), ColorChar(col_str[1]),
+        ColorChar('/') };
   }
 
-  std::string lower = std::to_string(pos.Column());
-  if (lower.size() == 1) {
-    lower = "_" + lower;
-  }
+  content[3] = {
+    ColorChar(' '), ColorChar('_'), ColorChar('_'), ColorChar(' ') };
 
-  return { upper, lower };
+  return content;
+}
+
+BoardHex::LargeBoardCellContent
+BoardHex::PositionToLargeCellContent(
+  uint32_t display_version, const MatrixCoordinate& pos) const
+{
+  const std::string row_str = std::to_string(pos.Row());
+  const std::string col_str = std::to_string(pos.Column());
+
+  LargeBoardCellContent content;
+
+  content[0] = {
+    ColorChar(' '), ColorChar(' '),
+    ColorChar('_'), ColorChar('_'), ColorChar('_'), ColorChar('_'),
+    ColorChar(' '), ColorChar(' ') };
+  content[1] = {
+    ColorChar(' '), ColorChar('/'),
+    ColorChar(' '), ColorChar(' '), ColorChar(' '), ColorChar(' '),
+    ColorChar('\\'), ColorChar(' ') };
+  content[2] = {
+    ColorChar('/'), ColorChar(' '), ColorChar(' '),
+    ColorChar(row_str[0]), ColorChar((row_str.size() == 1) ? ' ' : row_str[1]),
+    ColorChar(' '), ColorChar(' '), ColorChar('\\') };
+  if (col_str.size() == 1) {
+    content[3] = {
+      ColorChar('\\'), ColorChar(' '), ColorChar(' '), ColorChar(' '),
+      ColorChar(col_str[0]), ColorChar(' '), ColorChar(' '), ColorChar('/') };
+  }
+  else {
+    content[3] = {
+      ColorChar('\\'), ColorChar(' '), ColorChar(' '), ColorChar(' '),
+      ColorChar(col_str[0]), ColorChar(col_str[1]), ColorChar(' '), ColorChar('/') };
+  }
+  content[4] = {
+    ColorChar(' '), ColorChar('\\'),
+    ColorChar(' '), ColorChar(' '), ColorChar(' '), ColorChar(' '),
+    ColorChar('/'), ColorChar(' ') };
+  content[5] = {
+    ColorChar(' '), ColorChar(' '),
+    ColorChar('_'), ColorChar('_'), ColorChar('_'), ColorChar('_'),
+    ColorChar(' '), ColorChar(' ') };
+
+  return content;
 }
 
 } // namespace cifre
