@@ -88,8 +88,6 @@ BoardHex::SmallBoardToString() const
 {
   std::stringstream sstr;
 
-  sstr << BoardHeader() << "\n";
-
   //  __    __    __    __
   // /0 \__/0 \__/0 \__/0 \_
   // \_0/0 \_2/0 \_4/0 \_6/
@@ -164,9 +162,6 @@ BoardHex::SmallBoardToString() const
       << ColorCharsToString(content[2][0], content[2][1].Overlay(content[3][1]),
                             content[2][2].Overlay(content[3][2]), content[2][3]);
   }
-  sstr << "\n";
-
-  sstr << BoardTrailer();
 
   return sstr.str();
 }
@@ -175,8 +170,6 @@ std::string
 BoardHex::LargeBoardToString() const
 {
   std::stringstream sstr;
-
-  sstr << BoardHeader() << "\n";
 
   // Like the small board but bigger hexes so can show more
   // information...
@@ -329,23 +322,8 @@ BoardHex::LargeBoardToString() const
         content[4][3].Overlay(content[5][3]), content[4][4].Overlay(content[5][4]),
         content[4][5].Overlay(content[5][5]), content[4][6]);
   }
-  sstr << "\n";
-
-  sstr << BoardTrailer();
 
   return sstr.str();
-}
-
-std::string
-BoardHex::BoardHeader() const
-{
-  return "";
-}
-
-std::string
-BoardHex::BoardTrailer() const
-{
-  return "";
 }
 
 BoardHex::SmallBoardCellContent

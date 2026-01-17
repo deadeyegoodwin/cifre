@@ -748,7 +748,7 @@ Board::ReinforceUnits()
 }
 
 std::string
-Board::BoardHeader() const
+Board::ToString() const
 {
   std::stringstream sstr;
 
@@ -781,13 +781,9 @@ Board::BoardHeader() const
     }
   }
 
-  return sstr.str();
-}
+  sstr << "\n" << BoardHex::ToString();
 
-std::string
-Board::BoardTrailer() const
-{
-  return "";
+  return sstr.str();
 }
 
 BoardHex::SmallBoardCellContent

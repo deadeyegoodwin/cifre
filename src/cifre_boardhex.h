@@ -132,11 +132,6 @@ public:
   // See cifre::State.
   virtual std::string ToString() const override;
 
-  // Return the header and trailer to display before / after when
-  // displaying the board.
-  virtual std::string BoardHeader() const;
-  virtual std::string BoardTrailer() const;
-
 protected:
   // Don't allow default copy constructor or assignment to force the
   // version above that requires an arena. Don't allow move assignment

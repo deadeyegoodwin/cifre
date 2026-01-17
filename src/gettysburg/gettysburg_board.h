@@ -76,9 +76,8 @@ public:
     return cells_flattened_;
   }
 
-  // See cifre::BoardHex
-  std::string BoardHeader() const override;
-  std::string BoardTrailer() const override;
+  // See cifre::State.
+  std::string ToString() const override;
 
 public:
   // Return the value of the plane cell at the given row, column, and
