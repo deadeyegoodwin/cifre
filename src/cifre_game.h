@@ -272,6 +272,8 @@ private:
   size_t game_count_;
   size_t starting_player_idx_;
   std::string report_filename_;
+
+  bool train_;
   std::string train_dir_;
 
   // Ordered player settings so that player_settings_[0] is the

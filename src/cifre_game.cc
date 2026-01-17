@@ -212,8 +212,8 @@ PlayOneTask::Invoke()
   catch (const std::exception& ex) {
     // Game was aborted due to an internal error. Propagate this error
     // to the main thread so game playing can continue.
-    LOG_GAME(*logger_, std::string("game aborted: ") + ex.what());
-    LOG_GAME(*logger_, state->ToString());
+    logger_->Write(std::string("game aborted: ") + ex.what());
+    logger_->Write(state->ToString());
     result_ = GameResult::ABORT;
   }
 
@@ -301,7 +301,7 @@ Game::Usage() const
 //
 Game::Game() :
   initialized_(false), parallel_(8), triton_cache_size_(64),
-  game_count_(1), starting_player_idx_(0)
+  game_count_(1), starting_player_idx_(0), train_(false)
 {
   game_options_ = {
     {BuiltInOptionId::OPTION_HELP, "help", GameOption::ArgNone, "Print usage"},
@@ -408,7 +408,6 @@ void
 Game::Parse(int argc, char **argv)
 {
   std::string log_filename = "stdout";
-  bool train = false;
 
   // Default players to human.
   PlayerSettings splayer1("human", 0);
@@ -480,7 +479,7 @@ Game::Parse(int argc, char **argv)
       logger_->Enable(Logger::Kind::TRITON_CLIENT);
       break;
     case BuiltInOptionId::OPTION_TRAIN:
-      train = true;
+      train_ = true;
       break;
     case BuiltInOptionId::OPTION_TRAIN_DIR:
       train_dir_ = optarg;
@@ -513,11 +512,11 @@ Game::Parse(int argc, char **argv)
   // Set default alphazero values based on --train and if
   // two-alphazero players are playing each other.
   splayer1.alphazero_settings_ =
-    DefaultAlphaZeroSettings(train /* training */,
+    DefaultAlphaZeroSettings(train_ /* training */,
                              (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) &&
                              (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO));
   splayer2.alphazero_settings_ =
-    DefaultAlphaZeroSettings(train /* training */,
+    DefaultAlphaZeroSettings(train_ /* training */,
                              (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO) &&
                              (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO));
 
@@ -607,8 +606,8 @@ Game::Parse(int argc, char **argv)
     }
   }
 
-  if (!train && ((splayer1.kind_ == PlayerSettings::Kind::HUMAN) ||
-                 (splayer2.kind_ == PlayerSettings::Kind::HUMAN))) {
+  if (!train_ && ((splayer1.kind_ == PlayerSettings::Kind::HUMAN) ||
+                  (splayer2.kind_ == PlayerSettings::Kind::HUMAN))) {
     GameCheckTrueMsg(logger_->IsEnabled(Logger::Kind::GAME),
                      "--quiet cannot be specified if there is a human player");
   }
@@ -621,10 +620,10 @@ Game::Parse(int argc, char **argv)
 
   // If training, then 'train_dir_' must exist and --player1 must be
   // specified as alphazero.
-  GameCheckTrueMsg(!train || std::filesystem::is_directory(train_dir_),
+  GameCheckTrueMsg(!train_ || std::filesystem::is_directory(train_dir_),
                    "--train-dir must be an existing directory");
-  GameCheckTrueMsg(!train || (splayer1.cmdline_specified_ &&
-                              (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO)),
+  GameCheckTrueMsg(!train_ || (splayer1.cmdline_specified_ &&
+                               (splayer1.kind_ == PlayerSettings::Kind::ALPHAZERO)),
                    "--train requires --player1=alphazero");
 
   // Alphazero initialization if required.
@@ -676,7 +675,7 @@ Game::Parse(int argc, char **argv)
 
     // If training and --player2 is not specified, then initialize
     // player1 and player2 settings for self-play.
-    if (train && !splayer2.cmdline_specified_) {
+    if (train_ && !splayer2.cmdline_specified_) {
       splayer2 = splayer1;
       splayer2.cmdline_specified_ = false;
       splayer2.id_ = 1;
@@ -685,7 +684,7 @@ Game::Parse(int argc, char **argv)
     }
 
     // Create shared object for collecting alphazero training samples.
-    if (train) {
+    if (train_) {
       alphazero_train_samples_ =
         std::make_unique<AlphaZeroTrainingSamples>(
           logger_, AlphaZeroTrainingSamples::AggregateKind::AVERAGE,
@@ -873,9 +872,16 @@ Game::Play()
       }
     }
 
-    LOG_PROGRESS(*logger_, "");
-
     // End of all games output...
+    LOG_PROGRESS(*logger_, "\n==== " + std::to_string(game_count_) + " game" +
+                 ((game_count_ == 1) ? " " : "s "));
+    LOG_PROGRESS(*logger_, "  " + std::to_string(games_completed) + " completed");
+    LOG_PROGRESS(*logger_, "  " + std::to_string(games_quit) + " quit");
+    LOG_PROGRESS(*logger_, "  " + std::to_string(games_abort) + " aborted");
+
+    THROWIF(train_ && ((games_quit > 0) || (games_abort > 0)),
+            "unexpected quit and/or aborted games while training");
+
     LOG_GAME(*logger_, "==== " + std::to_string(games_completed) + " game" +
              ((games_completed == 1) ? " " : "s ") + "completed");
     if (games_completed > 0) {
