@@ -186,6 +186,11 @@ private:
   LargeBoardCellContent PositionToLargeCellContent(
     uint32_t display_version, const MatrixCoordinate& pos) const override;
 
+  static constexpr FGColor STREAM_FG_COLOR = FGColor::BRIGHT_BLUE;
+  static constexpr BGColor STREAM_BG_COLOR = BGColor::BLACK;
+
+  cifre::array<ColorChar, HEX_RADIUS1_LAST_DIRECTION_IDX + 1> PositionToEdgeContent(
+    const MatrixCoordinate& pos) const;
   cifre::array<ColorChar, 2> PositionToUnitContent(const MatrixCoordinate& pos) const;
   cifre::array<ColorChar, 2> PositionToSmallTerrainContent(const MatrixCoordinate& pos) const;
   cifre::array<ColorChar, 4> PositionToLargeTerrainContent(const MatrixCoordinate& pos) const;

@@ -75,7 +75,7 @@ public:
   // Overlay 'other' onto 'this' if possible. 'this' has priority so
   // 'this' will not be changed if overlaying is not possible.
   ColorChar& Overlay(const ColorChar& other) {
-    if (std::get<0>(*this) == ' ') { std::get<0>(*this) = std::get<0>(other); }
+    if (std::get<0>(*this) == ' ') { *this = other; }
     return *this;
   }
 

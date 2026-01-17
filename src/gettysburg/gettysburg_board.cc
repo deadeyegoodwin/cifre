@@ -793,15 +793,20 @@ Board::PositionToSmallCellContent(
   SmallBoardCellContent content;
   const auto unit_content = PositionToUnitContent(pos);
   const auto terrain_content = PositionToSmallTerrainContent(pos);
+  const auto edge_content = PositionToEdgeContent(pos);
 
   content[0] = {
-    ColorChar(' '), ColorChar('_'), ColorChar('_'), ColorChar(' ') };
+    ColorChar(' '), edge_content[size_t(HexDirection::UP)],
+    edge_content[size_t(HexDirection::UP)], ColorChar(' ') };
   content[1] = {
-    ColorChar('/'), unit_content[0], unit_content[1], ColorChar('\\') };
+    edge_content[size_t(HexDirection::UL)], unit_content[0],
+    unit_content[1], edge_content[size_t(HexDirection::UR)] };
   content[2] = {
-    ColorChar('\\'), terrain_content[0], terrain_content[1], ColorChar('/') };
+    edge_content[size_t(HexDirection::DL)], terrain_content[0],
+    terrain_content[1], edge_content[size_t(HexDirection::DR)] };
   content[3] = {
-    ColorChar(' '), ColorChar('_'), ColorChar('_'), ColorChar(' ') };
+    ColorChar(' '), edge_content[size_t(HexDirection::DN)],
+    edge_content[size_t(HexDirection::DN)], ColorChar(' ') };
 
   return content;
 }
@@ -815,34 +820,65 @@ Board::PositionToLargeCellContent(
   const auto vp_content = PositionToVictoryPointContent(pos);
   const auto terrain_content = PositionToLargeTerrainContent(pos);
 
+  const auto edge_content = PositionToEdgeContent(pos);
+  const auto& up_content = edge_content[size_t(HexDirection::UP)];
+  const auto& ur_content = edge_content[size_t(HexDirection::UR)];
+  const auto& dr_content = edge_content[size_t(HexDirection::DR)];
+  const auto& dn_content = edge_content[size_t(HexDirection::DN)];
+  const auto& dl_content = edge_content[size_t(HexDirection::DL)];
+  const auto& ul_content = edge_content[size_t(HexDirection::UL)];
+
   content[0] = {
     ColorChar(' '), ColorChar(' '),
-    ColorChar('_'), ColorChar('_'), ColorChar('_'), ColorChar('_'),
+    up_content, up_content, up_content, up_content,
     ColorChar(' '), ColorChar(' ') };
   content[1] = {
-    ColorChar(' '), ColorChar('/'),
+    ColorChar(' '), ul_content,
     unit_content[0], unit_content[1], ColorChar(' '), ColorChar(' '),
-    ColorChar('\\'), ColorChar(' ') };
+    ur_content, ColorChar(' ') };
   content[2] = {
-    ColorChar('/'),
+    ul_content,
     ColorChar(' '), ColorChar(' '), ColorChar(' '),
     ColorChar(' '), ColorChar(' '), ColorChar(' '),
-    ColorChar('\\') };
+    ur_content };
   content[3] = {
-    ColorChar('\\'),
+    dl_content,
     ColorChar(' '), ColorChar(' '), ColorChar(' '),
     ColorChar(' '), vp_content[0], vp_content[1],
-    ColorChar('/') };
+    dr_content };
   content[4] = {
-    ColorChar(' '), ColorChar('\\'),
+    ColorChar(' '), dl_content,
     terrain_content[0], terrain_content[1], terrain_content[2], terrain_content[3],
-    ColorChar('/'), ColorChar(' ') };
+    dr_content, ColorChar(' ') };
   content[5] = {
     ColorChar(' '), ColorChar(' '),
-    ColorChar('_'), ColorChar('_'), ColorChar('_'), ColorChar('_'),
+    dn_content, dn_content, dn_content, dn_content,
     ColorChar(' '), ColorChar(' ') };
 
   return content;
+}
+
+cifre::array<ColorChar, HEX_RADIUS1_LAST_DIRECTION_IDX + 1>
+Board::PositionToEdgeContent(const MatrixCoordinate& pos) const
+{
+  static constexpr cifre::array<char, HEX_RADIUS1_LAST_DIRECTION_IDX + 1>
+    edge_char { ' ', '_', '\\', '/', '_', '\\', '/' };
+
+  cifre::array<ColorChar, HEX_RADIUS1_LAST_DIRECTION_IDX + 1> edges;
+
+  const auto& features = cell_factory_->PositionToCellFeatures(pos);
+
+  for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
+    const auto& edge_features = features.edges_[idx];
+    if (edge_features.stream_) {
+      edges[idx] = ColorChar(edge_char[idx], STREAM_FG_COLOR, STREAM_BG_COLOR);
+    }
+    else {
+      edges[idx] = ColorChar(edge_char[idx]);
+    }
+  }
+
+  return edges;
 }
 
 // Return 2-character representing the unit(s) in the hex.
@@ -924,10 +960,10 @@ Board::PositionToLargeTerrainContent(const MatrixCoordinate& pos) const
 
   const auto& features = cell_factory_->PositionToCellFeatures(pos);
 
-  chars[0] = ColorChar((features.forest_) ? 'f' : '_');
-  chars[1] = ColorChar((features.hill_) ? 'h' : '_');
-  chars[2] = ColorChar((features.rocky_hill_) ? 'r' : '_');
-  chars[3] = ColorChar((features.town_) ? 't' : '_');
+  chars[0] = ColorChar((features.forest_) ? 'f' : ' ');
+  chars[1] = ColorChar((features.hill_) ? 'h' : ' ');
+  chars[2] = ColorChar((features.rocky_hill_) ? 'r' : ' ');
+  chars[3] = ColorChar((features.town_) ? 't' : ' ');
 
   return chars;
 }
