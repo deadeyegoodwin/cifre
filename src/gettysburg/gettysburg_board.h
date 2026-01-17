@@ -186,8 +186,19 @@ private:
   LargeBoardCellContent PositionToLargeCellContent(
     uint32_t display_version, const MatrixCoordinate& pos) const override;
 
+  static constexpr FGColor FOREST_FG_COLOR = FGColor::GREEN;
+  static constexpr BGColor FOREST_BG_COLOR = BGColor::BLACK;
+  static constexpr FGColor HILL_FG_COLOR = FGColor::YELLOW;
+  static constexpr BGColor HILL_BG_COLOR = BGColor::BLACK;
+  static constexpr FGColor ROCKY_HILL_FG_COLOR = FGColor::RED;
+  static constexpr BGColor ROCKY_HILL_BG_COLOR = BGColor::BLACK;
+  static constexpr FGColor TOWN_FG_COLOR = FGColor::WHITE;
+  static constexpr BGColor TOWN_BG_COLOR = BGColor::BLACK;
+  static constexpr FGColor VP_FG_COLOR = FGColor::WHITE;
+  static constexpr BGColor VP_BG_COLOR = BGColor::BLACK;
   static constexpr FGColor STREAM_FG_COLOR = FGColor::BRIGHT_BLUE;
   static constexpr BGColor STREAM_BG_COLOR = BGColor::BLACK;
+  static constexpr ColorChar INACCESSIBLE = { ' ' };
 
   cifre::array<ColorChar, HEX_RADIUS1_LAST_DIRECTION_IDX + 1> PositionToEdgeContent(
     const MatrixCoordinate& pos) const;

@@ -81,7 +81,10 @@ public:
     bool road_ {false};
     bool stream_ {false};
     bool railroad_ {false};
-  };
+
+    // Edge is inaccessible if cell on either side is inaccessible
+    bool not_accessible_ {false};
+};
 
   // Kinds of cell features.
   enum class CellFeatureKind { NO_ACCESS, FOREST, HILL, ROCKY_HILL, TOWN, VICTORY_POINT };

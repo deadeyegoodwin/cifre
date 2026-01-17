@@ -795,15 +795,21 @@ Board::PositionToSmallCellContent(
   const auto terrain_content = PositionToSmallTerrainContent(pos);
   const auto edge_content = PositionToEdgeContent(pos);
 
+  const auto& features = cell_factory_->PositionToCellFeatures(pos);
+
   content[0] = {
     ColorChar(' '), edge_content[size_t(HexDirection::UP)],
     edge_content[size_t(HexDirection::UP)], ColorChar(' ') };
   content[1] = {
-    edge_content[size_t(HexDirection::UL)], unit_content[0],
-    unit_content[1], edge_content[size_t(HexDirection::UR)] };
+    edge_content[size_t(HexDirection::UL)],
+    (features.not_accessible_) ? INACCESSIBLE : unit_content[0],
+    (features.not_accessible_) ? INACCESSIBLE : unit_content[1],
+    edge_content[size_t(HexDirection::UR)] };
   content[2] = {
-    edge_content[size_t(HexDirection::DL)], terrain_content[0],
-    terrain_content[1], edge_content[size_t(HexDirection::DR)] };
+    edge_content[size_t(HexDirection::DL)],
+    (features.not_accessible_) ? INACCESSIBLE : terrain_content[0],
+    (features.not_accessible_) ? INACCESSIBLE : terrain_content[1],
+    edge_content[size_t(HexDirection::DR)] };
   content[3] = {
     ColorChar(' '), edge_content[size_t(HexDirection::DN)],
     edge_content[size_t(HexDirection::DN)], ColorChar(' ') };
@@ -828,27 +834,43 @@ Board::PositionToLargeCellContent(
   const auto& dl_content = edge_content[size_t(HexDirection::DL)];
   const auto& ul_content = edge_content[size_t(HexDirection::UL)];
 
+  const auto& features = cell_factory_->PositionToCellFeatures(pos);
+
   content[0] = {
     ColorChar(' '), ColorChar(' '),
     up_content, up_content, up_content, up_content,
     ColorChar(' '), ColorChar(' ') };
   content[1] = {
     ColorChar(' '), ul_content,
-    unit_content[0], unit_content[1], ColorChar(' '), ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE : unit_content[0],
+    (features.not_accessible_) ? INACCESSIBLE : unit_content[1],
+    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
     ur_content, ColorChar(' ') };
   content[2] = {
     ul_content,
-    ColorChar(' '), ColorChar(' '), ColorChar(' '),
-    ColorChar(' '), ColorChar(' '), ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
     ur_content };
   content[3] = {
     dl_content,
-    ColorChar(' '), ColorChar(' '), ColorChar(' '),
-    ColorChar(' '), vp_content[0], vp_content[1],
+    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE : vp_content[0],
+    (features.not_accessible_) ? INACCESSIBLE : vp_content[1],
     dr_content };
   content[4] = {
     ColorChar(' '), dl_content,
-    terrain_content[0], terrain_content[1], terrain_content[2], terrain_content[3],
+    (features.not_accessible_) ? INACCESSIBLE : terrain_content[0],
+    (features.not_accessible_) ? INACCESSIBLE : terrain_content[1],
+    (features.not_accessible_) ? INACCESSIBLE : terrain_content[2],
+    (features.not_accessible_) ? INACCESSIBLE : terrain_content[3],
     dr_content, ColorChar(' ') };
   content[5] = {
     ColorChar(' '), ColorChar(' '),
@@ -870,7 +892,10 @@ Board::PositionToEdgeContent(const MatrixCoordinate& pos) const
 
   for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
     const auto& edge_features = features.edges_[idx];
-    if (edge_features.stream_) {
+    if (edge_features.not_accessible_) {
+      edges[idx] = INACCESSIBLE;
+    }
+    else if (edge_features.stream_) {
       edges[idx] = ColorChar(edge_char[idx], STREAM_FG_COLOR, STREAM_BG_COLOR);
     }
     else {
@@ -920,32 +945,32 @@ Board::PositionToSmallTerrainContent(const MatrixCoordinate& pos) const
 
   const auto& features = cell_factory_->PositionToCellFeatures(pos);
   if (features.forest_ && features.hill_) {
-    chars[0] = ColorChar('b');
+    chars[0] = ColorChar('f', HILL_FG_COLOR, HILL_BG_COLOR);
   }
   else if (features.forest_ && features.rocky_hill_) {
-    chars[0] = ColorChar('B');
+    chars[0] = ColorChar('f', ROCKY_HILL_FG_COLOR, ROCKY_HILL_BG_COLOR);
   }
   else if (features.forest_) {
-    chars[0] = ColorChar('f');
+    chars[0] = ColorChar('f', FOREST_FG_COLOR, FOREST_BG_COLOR);
   }
   else if (features.rocky_hill_) {
-    chars[0] = ColorChar('r');
+    chars[0] = ColorChar('r', ROCKY_HILL_FG_COLOR, ROCKY_HILL_BG_COLOR);
   }
   else if (features.hill_) {
-    chars[0] = ColorChar('h');
+    chars[0] = ColorChar('h', HILL_FG_COLOR, HILL_BG_COLOR);
   }
   else if (features.town_) {
-    chars[0] = ColorChar('t');
+    chars[0] = ColorChar('t', TOWN_FG_COLOR, TOWN_BG_COLOR);
   }
 
   const float vp = features.victory_points_;
   if (vp > 0) {
     if (vp == std::floor(vp)) {
       std::string vps = std::to_string(uint64_t(std::floor(vp)));
-      chars[1] = ColorChar((vps.size() == 1) ? vps[0] : '?');
+      chars[1] = ColorChar((vps.size() == 1) ? vps[0] : '?', VP_FG_COLOR, VP_BG_COLOR);
     }
     else {
-      chars[1] = ColorChar('?');
+      chars[1] = ColorChar('?', VP_FG_COLOR, VP_BG_COLOR);
     }
   }
 
@@ -960,10 +985,18 @@ Board::PositionToLargeTerrainContent(const MatrixCoordinate& pos) const
 
   const auto& features = cell_factory_->PositionToCellFeatures(pos);
 
-  chars[0] = ColorChar((features.forest_) ? 'f' : ' ');
-  chars[1] = ColorChar((features.hill_) ? 'h' : ' ');
-  chars[2] = ColorChar((features.rocky_hill_) ? 'r' : ' ');
-  chars[3] = ColorChar((features.town_) ? 't' : ' ');
+  if (features.forest_) {
+    chars[0] = ColorChar('f', FOREST_FG_COLOR, FOREST_BG_COLOR);
+  }
+  if (features.hill_) {
+    chars[1] = ColorChar('h', HILL_FG_COLOR, HILL_BG_COLOR);
+  }
+  if (features.rocky_hill_) {
+    chars[2] = ColorChar('r', ROCKY_HILL_FG_COLOR, ROCKY_HILL_BG_COLOR);
+  }
+  if (features.town_) {
+    chars[3] = ColorChar('t', TOWN_FG_COLOR, TOWN_BG_COLOR);
+  }
 
   return chars;
 }
@@ -984,10 +1017,10 @@ Board::PositionToVictoryPointContent(const MatrixCoordinate& pos) const
   if (vp > 0.0) {
     if (vp == std::floor(vp)) {
       std::string vps = std::to_string(uint64_t(std::floor(vp)));
-      chars[1] = ColorChar((vps.size() == 1) ? vps[0] : '?');
+      chars[1] = ColorChar((vps.size() == 1) ? vps[0] : '?', VP_FG_COLOR, VP_BG_COLOR);
     }
     else {
-      chars[1] = ColorChar('?');
+      chars[1] = ColorChar('?', VP_FG_COLOR, VP_BG_COLOR);
     }
   }
 

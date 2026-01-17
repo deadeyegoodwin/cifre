@@ -64,8 +64,8 @@ enum class BGColor {
 // colors for that character.
 class ColorChar : public std::tuple<char, FGColor, BGColor> {
 public:
-  ColorChar() : ColorChar(' ') { }
-  ColorChar(char ch, FGColor fg = FGColor::DEFAULT, BGColor bg = BGColor::DEFAULT) :
+  constexpr ColorChar() : ColorChar(' ') { }
+  constexpr ColorChar(char ch, FGColor fg = FGColor::DEFAULT, BGColor bg = BGColor::DEFAULT) :
     std::tuple<char, FGColor, BGColor>(ch, fg, bg) { }
 
   char Char() const { return std::get<0>(*this); }
@@ -74,10 +74,7 @@ public:
 
   // Overlay 'other' onto 'this' if possible. 'this' has priority so
   // 'this' will not be changed if overlaying is not possible.
-  ColorChar& Overlay(const ColorChar& other) {
-    if (std::get<0>(*this) == ' ') { *this = other; }
-    return *this;
-  }
+  ColorChar& Overlay(const ColorChar& other);
 
   std::string ToString() const {
     return

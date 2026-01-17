@@ -155,6 +155,35 @@ BoardCellFactory::BoardCellFactory(
       }
     }
   }
+
+  // Go through all cells and mark inaccessible board edges as those
+  // that are adjacent to inaccessible cells on both sides.
+  for (size_t br = 0; br < board_row_cnt_; ++br) {
+    for (size_t bc = 0; bc < board_column_cnt_; ++bc) {
+      const size_t offset = (br * board_column_cnt_) + bc;
+      auto& cf = cell_features_[offset];
+      if (cf.not_accessible_) {
+        for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
+          auto other_pos = HexDirectionToPosition(MatrixCoordinate(br, bc), HexDirection(idx));
+          if ((other_pos.Row() >= 0) && (other_pos.Column() >= 0) &&
+              (other_pos.Row() < int64_t(board_row_cnt_)) &&
+              (other_pos.Column() < int64_t(board_column_cnt_))) {
+            const size_t other_offset = (other_pos.Row() * board_column_cnt_) + other_pos.Column();
+            auto& ocf = cell_features_[other_offset];
+            if (ocf.not_accessible_) {
+              std::cerr << "inaccessible\n";
+              HexDirection other_dir = HexOppositeDirection(HexDirection(idx));
+              cf.edges_[size_t(idx)].not_accessible_ = true;
+              ocf.edges_[size_t(other_dir)].not_accessible_ = true;
+            }
+          }
+          else {
+            cf.edges_[size_t(idx)].not_accessible_ = true;
+          }
+        }
+      }
+    }
+  }
 }
 
 const BoardCellFactory::CellFeatures&
