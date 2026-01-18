@@ -33,9 +33,6 @@ namespace cifre { namespace gettysburg {
 //
 class Board : public cifre::BoardHex {
 public:
-  static constexpr char UNION_CHAR = 'u';
-  static constexpr char CONFEDERATE_CHAR = 'c';
-
   static constexpr size_t MAX_BOARD_ROWS = 11;
   static constexpr size_t MAX_BOARD_COLUMNS = 21;
 
@@ -78,6 +75,10 @@ public:
 
   // See cifre::State.
   std::string ToString() const override;
+
+  // Return the ColorChar for union and confederate units.
+  static const ColorChar& UnionChar() { return UNION_CHAR; }
+  static const ColorChar& ConfederateChar() { return CONFEDERATE_CHAR; }
 
 public:
   // Return the value of the plane cell at the given row, column, and
@@ -186,9 +187,18 @@ private:
   LargeBoardCellContent PositionToLargeCellContent(
     uint32_t display_version, const MatrixCoordinate& pos) const override;
 
+  static constexpr FGColor UNION_FG_COLOR = FGColor::BLUE;
+  static constexpr BGColor UNION_BG_COLOR = BGColor::BLACK;
+  static constexpr FGColor UNION_ACTIVE_FG_COLOR = FGColor::WHITE;
+  static constexpr BGColor UNION_ACTIVE_BG_COLOR = BGColor::BLUE;
+  static constexpr FGColor CONFEDERATE_FG_COLOR = FGColor::YELLOW;
+  static constexpr BGColor CONFEDERATE_BG_COLOR = BGColor::BLACK;
+  static constexpr FGColor CONFEDERATE_ACTIVE_FG_COLOR = FGColor::WHITE;
+  static constexpr BGColor CONFEDERATE_ACTIVE_BG_COLOR = BGColor::YELLOW;
+
   static constexpr FGColor FOREST_FG_COLOR = FGColor::GREEN;
   static constexpr BGColor FOREST_BG_COLOR = BGColor::BLACK;
-  static constexpr FGColor HILL_FG_COLOR = FGColor::YELLOW;
+  static constexpr FGColor HILL_FG_COLOR = FGColor::MAGENTA;
   static constexpr BGColor HILL_BG_COLOR = BGColor::BLACK;
   static constexpr FGColor ROCKY_HILL_FG_COLOR = FGColor::RED;
   static constexpr BGColor ROCKY_HILL_BG_COLOR = BGColor::BLACK;
@@ -198,7 +208,16 @@ private:
   static constexpr BGColor VP_BG_COLOR = BGColor::BLACK;
   static constexpr FGColor STREAM_FG_COLOR = FGColor::BRIGHT_BLUE;
   static constexpr BGColor STREAM_BG_COLOR = BGColor::BLACK;
-  static constexpr ColorChar INACCESSIBLE = { ' ' };
+
+  static constexpr ColorChar INACCESSIBLE_CHAR = { ' ' };
+  static constexpr ColorChar UNION_CHAR_ACTIVE = {
+    'u', UNION_ACTIVE_FG_COLOR, UNION_ACTIVE_BG_COLOR };
+  static constexpr ColorChar UNION_CHAR = {
+    'u', UNION_FG_COLOR, UNION_BG_COLOR };
+  static constexpr ColorChar CONFEDERATE_CHAR = {
+    'c', CONFEDERATE_FG_COLOR, CONFEDERATE_BG_COLOR };
+  static constexpr ColorChar CONFEDERATE_CHAR_ACTIVE = {
+    'c', CONFEDERATE_ACTIVE_FG_COLOR, CONFEDERATE_ACTIVE_BG_COLOR };
 
   cifre::array<ColorChar, HEX_RADIUS1_LAST_DIRECTION_IDX + 1> PositionToEdgeContent(
     const MatrixCoordinate& pos) const;

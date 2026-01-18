@@ -802,13 +802,13 @@ Board::PositionToSmallCellContent(
     edge_content[size_t(HexDirection::UP)], ColorChar(' ') };
   content[1] = {
     edge_content[size_t(HexDirection::UL)],
-    (features.not_accessible_) ? INACCESSIBLE : unit_content[0],
-    (features.not_accessible_) ? INACCESSIBLE : unit_content[1],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : unit_content[0],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : unit_content[1],
     edge_content[size_t(HexDirection::UR)] };
   content[2] = {
     edge_content[size_t(HexDirection::DL)],
-    (features.not_accessible_) ? INACCESSIBLE : terrain_content[0],
-    (features.not_accessible_) ? INACCESSIBLE : terrain_content[1],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : terrain_content[0],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : terrain_content[1],
     edge_content[size_t(HexDirection::DR)] };
   content[3] = {
     ColorChar(' '), edge_content[size_t(HexDirection::DN)],
@@ -842,35 +842,35 @@ Board::PositionToLargeCellContent(
     ColorChar(' '), ColorChar(' ') };
   content[1] = {
     ColorChar(' '), ul_content,
-    (features.not_accessible_) ? INACCESSIBLE : unit_content[0],
-    (features.not_accessible_) ? INACCESSIBLE : unit_content[1],
-    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
-    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : unit_content[0],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : unit_content[1],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
     ur_content, ColorChar(' ') };
   content[2] = {
     ul_content,
-    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
-    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
-    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
-    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
-    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
-    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
     ur_content };
   content[3] = {
     dl_content,
-    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
-    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
-    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
-    (features.not_accessible_) ? INACCESSIBLE : ColorChar(' '),
-    (features.not_accessible_) ? INACCESSIBLE : vp_content[0],
-    (features.not_accessible_) ? INACCESSIBLE : vp_content[1],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : vp_content[0],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : vp_content[1],
     dr_content };
   content[4] = {
     ColorChar(' '), dl_content,
-    (features.not_accessible_) ? INACCESSIBLE : terrain_content[0],
-    (features.not_accessible_) ? INACCESSIBLE : terrain_content[1],
-    (features.not_accessible_) ? INACCESSIBLE : terrain_content[2],
-    (features.not_accessible_) ? INACCESSIBLE : terrain_content[3],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : terrain_content[0],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : terrain_content[1],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : terrain_content[2],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : terrain_content[3],
     dr_content, ColorChar(' ') };
   content[5] = {
     ColorChar(' '), ColorChar(' '),
@@ -893,7 +893,7 @@ Board::PositionToEdgeContent(const MatrixCoordinate& pos) const
   for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
     const auto& edge_features = features.edges_[idx];
     if (edge_features.not_accessible_) {
-      edges[idx] = INACCESSIBLE;
+      edges[idx] = INACCESSIBLE_CHAR;
     }
     else if (edge_features.stream_) {
       edges[idx] = ColorChar(edge_char[idx], STREAM_FG_COLOR, STREAM_BG_COLOR);
@@ -916,23 +916,19 @@ Board::PositionToUnitContent(const MatrixCoordinate& pos) const
     ((active_unit_ != nullptr) && (active_unit_->Position() == pos));
   const size_t uc = UnionAt(pos).size();
   if (uc > 0) {
-    chars[0] =
-      ColorChar(UNION_CHAR, (active_at) ? FGColor::WHITE : FGColor::BLUE,
-                (active_at) ? BGColor::BLUE : BGColor::BLACK);
+    chars[0] = (active_at) ? UNION_CHAR_ACTIVE : UNION_CHAR;
     chars[1] =
       ColorChar((uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' '),
-                FGColor::BLUE, BGColor::BLACK);
+                UNION_FG_COLOR, UNION_BG_COLOR);
   }
 
   const size_t cc = ConfederateAt(pos).size();
   if (cc > 0) {
     assert(uc == 0);
-    chars[0] =
-      ColorChar(CONFEDERATE_CHAR, (active_at) ? FGColor::WHITE : FGColor::YELLOW,
-                (active_at) ? BGColor::YELLOW : BGColor::BLACK);
+    chars[0] = (active_at) ? CONFEDERATE_CHAR_ACTIVE : CONFEDERATE_CHAR;
     chars[1] =
-      ColorChar((cc >= 10) ? '*' : ((cc > 1) ? ('0' + cc) : ' '),
-                FGColor::YELLOW, BGColor::BLACK);
+      ColorChar((uc >= 10) ? '*' : ((uc > 1) ? ('0' + uc) : ' '),
+                CONFEDERATE_FG_COLOR, CONFEDERATE_BG_COLOR);
   }
 
   return chars;

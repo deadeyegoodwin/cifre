@@ -210,8 +210,8 @@ Gettysburg::CreateInitialState(
   const std::vector<Player*>& players, size_t starting_player_idx) const
 {
   // Player 0 is 'c' (confederate) and player 1 is 'u' (union).
-  players[0]->SetChar(Board::CONFEDERATE_CHAR);
-  players[1]->SetChar(Board::UNION_CHAR);
+  players[0]->SetChar(Board::ConfederateChar().Char());
+  players[1]->SetChar(Board::UnionChar().Char());
 
   // 'starting_player_id' is ignored because gettysburg must start
   // with confederates.
