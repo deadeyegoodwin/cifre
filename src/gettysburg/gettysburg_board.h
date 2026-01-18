@@ -222,9 +222,9 @@ private:
   cifre::array<ColorChar, HEX_RADIUS1_LAST_DIRECTION_IDX + 1> PositionToEdgeContent(
     const MatrixCoordinate& pos) const;
   cifre::array<ColorChar, 2> PositionToUnitContent(const MatrixCoordinate& pos) const;
-  cifre::array<ColorChar, 2> PositionToSmallTerrainContent(const MatrixCoordinate& pos) const;
+  ColorChar PositionToSmallTerrainContent(const MatrixCoordinate& pos) const;
   cifre::array<ColorChar, 4> PositionToLargeTerrainContent(const MatrixCoordinate& pos) const;
-  cifre::array<ColorChar, 2> PositionToVictoryPointContent(const MatrixCoordinate& pos) const;
+  ColorChar PositionToVictoryPointContent(const MatrixCoordinate& pos) const;
 
   BoardCellFactory* cell_factory_;
   BoardCellFactory::CellsKey cells_flattened_factory_key_;
