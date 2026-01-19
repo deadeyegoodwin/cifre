@@ -20,6 +20,7 @@ class Logger : protected common::StreamLogger {
 public:
   // Types of logging available.
   enum class Kind {
+    DEBUG,
     INVOKE,
     PROGRESS,
     SUMMARY,
@@ -35,6 +36,7 @@ public:
 
   static std::string KindToString(const Kind kind) {
     switch (kind) {
+    case Kind::DEBUG: return "DEBUG";
     case Kind::INVOKE: return "INVOKE";
     case Kind::PROGRESS: return "PROGRESS";
     case Kind::SUMMARY: return "SUMMARY";
@@ -95,6 +97,15 @@ protected:
 // indent (I) and endline (E) to be specified. The non _IE versions
 // use indent=0 and enline=true.
 //
+#define LOG_DEBUG(L, M) LOG_DEBUG_IE(L, M, 0, true)
+#define LOG_DEBUG_IE(L, M, I, E)                                        \
+  do {                                                                  \
+    cifre::Logger& logger__ = (L);                                      \
+    if (logger__.IsEnabled(cifre::Logger::Kind::DEBUG)) {               \
+      logger__.Write(M, I, E);                                          \
+    }                                                                   \
+  } while (false)
+
 #define LOG_INVOKE(L, M) LOG_INVOKE_IE(L, M, 0, true)
 #define LOG_INVOKE_IE(L, M, I, E)                                       \
   do {                                                                  \

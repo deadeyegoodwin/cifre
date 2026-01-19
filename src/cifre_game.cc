@@ -313,6 +313,8 @@ Game::Game() :
     {BuiltInOptionId::OPTION_LOG_FILE, "log-file", GameOption::ArgStr,
      "File for logging. 'stdout' and 'stderr' are allowed. By default "
      "logging is sent to stdout."},
+    {BuiltInOptionId::OPTION_LOG_DEBUG, "log-debug", GameOption::ArgNone,
+     "Enable debug logging."},
     {BuiltInOptionId::OPTION_LOG_INVOKE, "log-invoke", GameOption::ArgNone,
      "Enable invocation logging. Shows how game was invoked and the game version. "
      "This is enabled by default."},
@@ -457,6 +459,9 @@ Game::Parse(int argc, char **argv)
     case BuiltInOptionId::OPTION_VERBOSE:
       logger_->EnableAll();
       break;
+    case BuiltInOptionId::OPTION_LOG_DEBUG:
+      logger_->Enable(Logger::Kind::DEBUG);
+      break;
     case BuiltInOptionId::OPTION_LOG_INVOKE:
       logger_->Enable(Logger::Kind::INVOKE);
       break;
@@ -529,6 +534,7 @@ Game::Parse(int argc, char **argv)
     case BuiltInOptionId::OPTION_HELP:
     case BuiltInOptionId::OPTION_QUIET:
     case BuiltInOptionId::OPTION_VERBOSE:
+    case BuiltInOptionId::OPTION_LOG_DEBUG:
     case BuiltInOptionId::OPTION_LOG_INVOKE:
     case BuiltInOptionId::OPTION_LOG_PROGRESS:
     case BuiltInOptionId::OPTION_LOG_SUMMARY:
