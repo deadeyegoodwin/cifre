@@ -45,6 +45,9 @@ static constexpr size_t HEX_RADIUS2_DIRECTION_COUNT =
 
 static constexpr size_t HEX_TOTAL_DIRECTION_COUNT =
   1 + HEX_RADIUS1_DIRECTION_COUNT + HEX_RADIUS2_DIRECTION_COUNT;
+static constexpr size_t HEX_RADIUS_TO_DIRECTION_COUNT(size_t r) {
+  return((r == 0) ? 1 : ((r == 1) ? HEX_RADIUS1_DIRECTION_COUNT : HEX_RADIUS2_DIRECTION_COUNT));
+}
 
 // Return the string representation of a hex direction.
 std::string HexDirectionToString(const HexDirection dir);

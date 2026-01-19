@@ -45,21 +45,20 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
   THROWIF(board.ValidActionIds().empty(),
           "player '" + name_ + "' has no valid action to choose from");
 
-  if (logger_->IsEnabled(cifre::Logger::Kind::GAME)) {
-    LOG_GAME_IE(*logger_, "Game actions: ", 0 /* indent */, false /* endline */);
-    bool first = true;
-    for (auto vid : board.ValidActionIds()) {
-      LOG_GAME_IE(
-        *logger_,
-        ((first) ? "" : ", ") + board.ActionToString(Action(Action::ActionKind::ACTIONID, vid)),
-        0 /* indent */, false /* endline */);
-      first = false;
-    }
-    LOG_GAME(*logger_, "");
-  }
-
   while (true) {
-    LOG_GAME_IE(*logger_, Name()  + " (" + Char() + "): ", 0 /* indent */, false /* endline */);
+    if (logger_->IsEnabled(cifre::Logger::Kind::GAME)) {
+      LOG_GAME_IE(*logger_, "Game actions: ", 0 /* indent */, false /* endline */);
+      bool first = true;
+      for (auto vid : board.ValidActionIds()) {
+        LOG_GAME_IE(
+          *logger_,
+          ((first) ? "" : ", ") + board.ActionToString(Action(Action::ActionKind::ACTIONID, vid)),
+          0 /* indent */, false /* endline */);
+        first = false;
+      }
+      LOG_GAME_IE(
+        *logger_, "\n" + Name()  + " (" + Char() + "): ", 0 /* indent */, false /* endline */);
+    }
 
     std::string line;
     std::getline(std::cin, line);
