@@ -827,6 +827,7 @@ Board::PositionToLargeCellContent(
   const auto unit_content = PositionToUnitContent(pos);
   const auto terrain_content = PositionToLargeTerrainContent(pos);
   const auto vp_content = PositionToVictoryPointContent(pos);
+  const auto movecost_content = PositionToMoveCostContent(pos);
 
   const auto edge_content = PositionToEdgeContent(pos);
   const auto& up_content = edge_content[size_t(HexDirection::UP)];
@@ -860,9 +861,9 @@ Board::PositionToLargeCellContent(
     ur_content };
   content[3] = {
     dl_content,
-    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
-    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
-    (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : movecost_content[0],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : movecost_content[1],
+    (features.not_accessible_) ? INACCESSIBLE_CHAR : movecost_content[2],
     (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
     (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
     (features.not_accessible_) ? INACCESSIBLE_CHAR : vp_content,
@@ -994,19 +995,60 @@ Board::PositionToVictoryPointContent(const MatrixCoordinate& pos) const
   ColorChar chars(' ');
 
   const float uvp = UnionVictoryPointAt(pos);
-  assert((uvp == 0.0) || (ConfederateVictoryPointAt(pos) == 0.0));
+  const float cvp = ConfederateVictoryPointAt(pos);
+  assert((uvp == 0.0) || (cvp == 0.0));
 
   const auto& features = cell_factory_->PositionToCellFeatures(pos);
   const float vp = features.victory_points_;
   if (vp > 0.0) {
     if (vp == std::floor(vp)) {
       std::string vps = std::to_string(uint64_t(std::floor(vp)));
-      chars =
-        ColorChar((vps.size() == 1) ? vps[0] : '?').Overlay(
-          (uvp > 0.0) ? UNION_CHAR : CONFEDERATE_CHAR);
+      chars = ColorChar((vps.size() == 1) ? vps[0] : '?');
     }
     else {
-      chars = ColorChar('?').Overlay((uvp > 0.0) ? UNION_CHAR : CONFEDERATE_CHAR);
+      chars = ColorChar('?');
+    }
+  }
+
+  if (uvp > 0.0) {
+    chars.Overlay(UNION_CHAR);
+  }
+  else if (cvp > 0.0) {
+    chars.Overlay(CONFEDERATE_CHAR);
+  }
+
+  return chars;
+}
+
+cifre::array<ColorChar, 3>
+Board::PositionToMoveCostContent(const MatrixCoordinate& pos) const
+{
+  cifre::array<ColorChar, 3> chars { ColorChar(' '), ColorChar(' '), ColorChar(' ') };
+
+  for (uint64_t aid : valid_action_ids_) {
+    const HexDirection dir = ActionIdToHexDirection(aid);
+    if (dir != HexDirection::NONE) {
+      const MatrixCoordinate dir_pos = HexDirectionToPosition(active_unit_->Position(), dir);
+      if (dir_pos == pos) {
+        std::string cstr = RealToMinimalString(active_move_costs_[aid]);
+        if (cstr.size() <= 3) {
+          assert(!cstr.empty());
+          chars[0] = ColorChar(cstr[0], MOVECOST_FG_COLOR, MOVECOST_BG_COLOR);
+          if (cstr.size() >= 2) {
+            chars[1] = ColorChar(cstr[1], MOVECOST_FG_COLOR, MOVECOST_BG_COLOR);
+          }
+          if (cstr.size() >= 3) {
+            chars[2] = ColorChar(cstr[2], MOVECOST_FG_COLOR, MOVECOST_BG_COLOR);
+          }
+        }
+        else {
+          chars[0] = ColorChar(cstr[0], MOVECOST_FG_COLOR, MOVECOST_BG_COLOR);
+          chars[1] = ColorChar(cstr[1], MOVECOST_FG_COLOR, MOVECOST_BG_COLOR);
+          chars[2] = ColorChar('+', MOVECOST_FG_COLOR, MOVECOST_BG_COLOR);
+        }
+
+        break;
+      }
     }
   }
 

@@ -1,5 +1,7 @@
 // Copyright 2026, David Goodwin. All rights reserved.
 
+#include <charconv> // Required header for std::to_chars
+
 #include "cifre_display.h"
 
 namespace cifre {
@@ -18,6 +20,19 @@ ColorChar::Overlay(const ColorChar& other)
   }
 
   return *this;
+}
+
+std::string
+RealToMinimalString(double f)
+{
+  cifre::array<char, 64> buf;
+
+  auto [ptr, err] = std::to_chars(buf.data(), buf.data() + buf.size(), f);
+  if (err == std::errc{}) {
+    return std::string(buf.data(), ptr);
+  }
+
+  return { };
 }
 
 void

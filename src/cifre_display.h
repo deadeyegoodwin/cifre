@@ -84,6 +84,10 @@ public:
       std::to_string(uint32_t(BGColor::DEFAULT)) + "m"; }
 };
 
+// Return the string representation of real number 'f' that requires
+// the minimum number of characters. Return empty string if error.
+std::string RealToMinimalString(double f);
+
 // Return std::string for concatenation of ColorChars.
 template<typename... Args>
 std::string ColorCharsToString(const ColorChar& c, Args... args) {

@@ -206,6 +206,8 @@ private:
   static constexpr BGColor TOWN_BG_COLOR = BGColor::BLACK;
   static constexpr FGColor VP_FG_COLOR = FGColor::WHITE;
   static constexpr BGColor VP_BG_COLOR = BGColor::BLACK;
+  static constexpr FGColor MOVECOST_FG_COLOR = FGColor::WHITE;
+  static constexpr BGColor MOVECOST_BG_COLOR = BGColor::BLACK;
   static constexpr FGColor STREAM_FG_COLOR = FGColor::BRIGHT_BLUE;
   static constexpr BGColor STREAM_BG_COLOR = BGColor::BLACK;
 
@@ -225,6 +227,7 @@ private:
   ColorChar PositionToSmallTerrainContent(const MatrixCoordinate& pos) const;
   cifre::array<ColorChar, 4> PositionToLargeTerrainContent(const MatrixCoordinate& pos) const;
   ColorChar PositionToVictoryPointContent(const MatrixCoordinate& pos) const;
+  cifre::array<ColorChar, 3> PositionToMoveCostContent(const MatrixCoordinate& pos) const;
 
   BoardCellFactory* cell_factory_;
   BoardCellFactory::CellsKey cells_flattened_factory_key_;
