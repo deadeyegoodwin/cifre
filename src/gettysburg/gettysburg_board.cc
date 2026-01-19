@@ -254,26 +254,30 @@ Board::ActiveUnit()
 }
 
 std::vector<const Unit*>
-Board::UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos) const
+Board::UnionAt(const MatrixCoordinate& pos) const
 {
   std::vector<const Unit*> units;
-  switch (kind) {
-  case Unit::ArmyKind::UNION:
-    for (size_t idx = 0; idx < union_units_count_; ++idx) {
-      const Unit* u = &union_units_[idx];
-      if (u->Position() == pos) {
-        units.push_back(u);
-      }
+
+  for (size_t idx = 0; idx < union_units_count_; ++idx) {
+    const Unit* u = &union_units_[idx];
+    if (u->Position() == pos) {
+      units.push_back(u);
     }
-    break;
-  case Unit::ArmyKind::CONFEDERATE:
-    for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
-      const Unit* u = &confederate_units_[idx];
-      if (u->Position() == pos) {
-        units.push_back(u);
-      }
+  }
+
+  return units;
+}
+
+std::vector<const Unit*>
+Board::ConfederateAt(const MatrixCoordinate& pos) const
+{
+  std::vector<const Unit*> units;
+
+  for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
+    const Unit* u = &confederate_units_[idx];
+    if (u->Position() == pos) {
+      units.push_back(u);
     }
-    break;
   }
 
   return units;
@@ -1031,13 +1035,30 @@ Board::PositionToVictoryPointContent(const MatrixCoordinate& pos) const
 {
   ColorChar chars(' ');
 
-  const float uvp = UnionVictoryPointAt(pos);
-  const float cvp = ConfederateVictoryPointAt(pos);
-  assert((uvp == 0.0) || (cvp == 0.0));
+  float cvp = 0.0, uvp = 0.0;
 
   const auto& features = cell_factory_->PositionToCellFeatures(pos);
   const float vp = features.victory_points_;
   if (vp > 0.0) {
+    for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
+      if (captured_vps_[idx] >= 0) {
+        const auto& captured_features =
+          cell_factory_->IndexToCellFeatures(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
+        if ((pos.Row() == int64_t(captured_features.row_)) &&
+            (pos.Column() == int64_t(captured_features.column_))) {
+          const Unit::ArmyKind army = Unit::ArmyKind(captured_vps_[idx]);
+          switch (army) {
+          case Unit::ArmyKind::UNION:
+            uvp = vp;
+            break;
+          case Unit::ArmyKind::CONFEDERATE:
+            cvp = vp;
+            break;
+          }
+        }
+      }
+    }
+
     if (vp == std::floor(vp)) {
       std::string vps = std::to_string(uint64_t(std::floor(vp)));
       chars = ColorChar((vps.size() == 1) ? vps[0] : '?');

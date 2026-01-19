@@ -171,7 +171,6 @@ BoardCellFactory::BoardCellFactory(
             const size_t other_offset = (other_pos.Row() * board_column_cnt_) + other_pos.Column();
             auto& ocf = cell_features_[other_offset];
             if (ocf.not_accessible_) {
-              std::cerr << "inaccessible\n";
               HexDirection other_dir = HexOppositeDirection(HexDirection(idx));
               cf.edges_[size_t(idx)].not_accessible_ = true;
               ocf.edges_[size_t(other_dir)].not_accessible_ = true;

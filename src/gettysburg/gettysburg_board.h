@@ -166,11 +166,8 @@ private:
     const cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units) const;
 
   // Return union or confederate UNITs at a given board position.
-  std::vector<const Unit*> UnitsAt(Unit::ArmyKind kind, const MatrixCoordinate& pos) const;
-  std::vector<const Unit*> UnionAt(const MatrixCoordinate& pos) const {
-    return UnitsAt(Unit::ArmyKind::UNION, pos); }
-  std::vector<const Unit*> ConfederateAt(const MatrixCoordinate& pos) const {
-    return UnitsAt(Unit::ArmyKind::CONFEDERATE, pos); }
+  std::vector<const Unit*> UnionAt(const MatrixCoordinate& pos) const;
+  std::vector<const Unit*> ConfederateAt(const MatrixCoordinate& pos) const;
 
   void UpdateInputPlanes();
   void UpdateMoveCosts();
