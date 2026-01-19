@@ -210,6 +210,8 @@ private:
   static constexpr BGColor MOVECOST_BG_COLOR = BGColor::BLACK;
   static constexpr FGColor STREAM_FG_COLOR = FGColor::BRIGHT_BLUE;
   static constexpr BGColor STREAM_BG_COLOR = BGColor::BLACK;
+  static constexpr FGColor ROAD_FG_COLOR = FGColor::RED;
+  static constexpr BGColor ROAD_BG_COLOR = BGColor::BLACK;
 
   static constexpr ColorChar INACCESSIBLE_CHAR = { ' ' };
   static constexpr ColorChar UNION_CHAR_ACTIVE = {
@@ -221,7 +223,9 @@ private:
   static constexpr ColorChar CONFEDERATE_CHAR_ACTIVE = {
     'c', CONFEDERATE_ACTIVE_FG_COLOR, CONFEDERATE_ACTIVE_BG_COLOR };
 
-  cifre::array<ColorChar, HEX_RADIUS1_LAST_DIRECTION_IDX + 1> PositionToEdgeContent(
+  cifre::array<ColorChar, HEX_RADIUS1_LAST_DIRECTION_IDX + 1> PositionToStreamEdgeContent(
+    const MatrixCoordinate& pos) const;
+  cifre::array<ColorChar, HEX_RADIUS1_LAST_DIRECTION_IDX + 1> PositionToRoadEdgeContent(
     const MatrixCoordinate& pos) const;
   cifre::array<ColorChar, 2> PositionToUnitContent(const MatrixCoordinate& pos) const;
   ColorChar PositionToSmallTerrainContent(const MatrixCoordinate& pos) const;

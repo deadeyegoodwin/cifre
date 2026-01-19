@@ -795,26 +795,26 @@ Board::PositionToSmallCellContent(
   const auto terrain_content = PositionToSmallTerrainContent(pos);
   const auto vp_content = PositionToVictoryPointContent(pos);
 
-  const auto edge_content = PositionToEdgeContent(pos);
+  const auto stream_content = PositionToStreamEdgeContent(pos);
 
   const auto& features = cell_factory_->PositionToCellFeatures(pos);
 
   content[0] = {
-    ColorChar(' '), edge_content[size_t(HexDirection::UP)],
-    edge_content[size_t(HexDirection::UP)], ColorChar(' ') };
+    ColorChar(' '), stream_content[size_t(HexDirection::UP)],
+    stream_content[size_t(HexDirection::UP)], ColorChar(' ') };
   content[1] = {
-    edge_content[size_t(HexDirection::UL)],
+    stream_content[size_t(HexDirection::UL)],
     (features.not_accessible_) ? INACCESSIBLE_CHAR : unit_content[0],
     (features.not_accessible_) ? INACCESSIBLE_CHAR : unit_content[1],
-    edge_content[size_t(HexDirection::UR)] };
+    stream_content[size_t(HexDirection::UR)] };
   content[2] = {
-    edge_content[size_t(HexDirection::DL)],
+    stream_content[size_t(HexDirection::DL)],
     (features.not_accessible_) ? INACCESSIBLE_CHAR : terrain_content,
     (features.not_accessible_) ? INACCESSIBLE_CHAR : vp_content,
-    edge_content[size_t(HexDirection::DR)] };
+    stream_content[size_t(HexDirection::DR)] };
   content[3] = {
-    ColorChar(' '), edge_content[size_t(HexDirection::DN)],
-    edge_content[size_t(HexDirection::DN)], ColorChar(' ') };
+    ColorChar(' '), stream_content[size_t(HexDirection::DN)],
+    stream_content[size_t(HexDirection::DN)], ColorChar(' ') };
 
   return content;
 }
@@ -829,62 +829,72 @@ Board::PositionToLargeCellContent(
   const auto vp_content = PositionToVictoryPointContent(pos);
   const auto movecost_content = PositionToMoveCostContent(pos);
 
-  const auto edge_content = PositionToEdgeContent(pos);
-  const auto& up_content = edge_content[size_t(HexDirection::UP)];
-  const auto& ur_content = edge_content[size_t(HexDirection::UR)];
-  const auto& dr_content = edge_content[size_t(HexDirection::DR)];
-  const auto& dn_content = edge_content[size_t(HexDirection::DN)];
-  const auto& dl_content = edge_content[size_t(HexDirection::DL)];
-  const auto& ul_content = edge_content[size_t(HexDirection::UL)];
+  const auto stream_content = PositionToStreamEdgeContent(pos);
+  const auto& up_stream_content = stream_content[size_t(HexDirection::UP)];
+  const auto& ur_stream_content = stream_content[size_t(HexDirection::UR)];
+  const auto& dr_stream_content = stream_content[size_t(HexDirection::DR)];
+  const auto& dn_stream_content = stream_content[size_t(HexDirection::DN)];
+  const auto& dl_stream_content = stream_content[size_t(HexDirection::DL)];
+  const auto& ul_stream_content = stream_content[size_t(HexDirection::UL)];
+
+  auto road_content = PositionToRoadEdgeContent(pos);
+  auto& up_road_content = road_content[size_t(HexDirection::UP)];
+  auto& ur_road_content = road_content[size_t(HexDirection::UR)];
+  auto& dr_road_content = road_content[size_t(HexDirection::DR)];
+  auto& dn_road_content = road_content[size_t(HexDirection::DN)];
+  auto& dl_road_content = road_content[size_t(HexDirection::DL)];
+  auto& ul_road_content = road_content[size_t(HexDirection::UL)];
 
   const auto& features = cell_factory_->PositionToCellFeatures(pos);
 
   content[0] = {
     ColorChar(' '), ColorChar(' '),
-    up_content, up_content, up_content, up_content,
+    up_stream_content, up_stream_content,
+    up_road_content.Overlay(up_stream_content), up_stream_content,
     ColorChar(' '), ColorChar(' ') };
   content[1] = {
-    ColorChar(' '), ul_content,
+    ColorChar(' '), ul_stream_content,
     (features.not_accessible_) ? INACCESSIBLE_CHAR : unit_content[0],
     (features.not_accessible_) ? INACCESSIBLE_CHAR : unit_content[1],
     (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
     (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
-    ur_content, ColorChar(' ') };
+    ur_road_content.Overlay(ur_stream_content), ColorChar(' ') };
   content[2] = {
-    ul_content,
+    ul_road_content.Overlay(ul_stream_content),
     (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
     (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
     (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
     (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
     (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
     (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
-    ur_content };
+    ur_stream_content };
   content[3] = {
-    dl_content,
+    dl_road_content.Overlay(dl_stream_content),
     (features.not_accessible_) ? INACCESSIBLE_CHAR : movecost_content[0],
     (features.not_accessible_) ? INACCESSIBLE_CHAR : movecost_content[1],
     (features.not_accessible_) ? INACCESSIBLE_CHAR : movecost_content[2],
     (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
     (features.not_accessible_) ? INACCESSIBLE_CHAR : ColorChar(' '),
     (features.not_accessible_) ? INACCESSIBLE_CHAR : vp_content,
-    dr_content };
+    dr_stream_content };
   content[4] = {
-    ColorChar(' '), dl_content,
+    ColorChar(' '), dl_stream_content,
     (features.not_accessible_) ? INACCESSIBLE_CHAR : terrain_content[0],
     (features.not_accessible_) ? INACCESSIBLE_CHAR : terrain_content[1],
     (features.not_accessible_) ? INACCESSIBLE_CHAR : terrain_content[2],
     (features.not_accessible_) ? INACCESSIBLE_CHAR : terrain_content[3],
-    dr_content, ColorChar(' ') };
+    dr_road_content.Overlay(dr_stream_content), ColorChar(' ') };
   content[5] = {
     ColorChar(' '), ColorChar(' '),
-    dn_content, dn_content, dn_content, dn_content,
+    dn_stream_content, dn_stream_content, dn_stream_content,
+    dn_road_content.Overlay(dn_stream_content),
     ColorChar(' '), ColorChar(' ') };
 
   return content;
 }
 
 cifre::array<ColorChar, HEX_RADIUS1_LAST_DIRECTION_IDX + 1>
-Board::PositionToEdgeContent(const MatrixCoordinate& pos) const
+Board::PositionToStreamEdgeContent(const MatrixCoordinate& pos) const
 {
   static constexpr cifre::array<char, HEX_RADIUS1_LAST_DIRECTION_IDX + 1>
     edge_char { ' ', '_', '\\', '/', '_', '\\', '/' };
@@ -900,6 +910,33 @@ Board::PositionToEdgeContent(const MatrixCoordinate& pos) const
     }
     else if (edge_features.stream_) {
       edges[idx] = ColorChar(edge_char[idx], STREAM_FG_COLOR, STREAM_BG_COLOR);
+    }
+    else {
+      edges[idx] = ColorChar(edge_char[idx]);
+    }
+  }
+
+  return edges;
+}
+
+// Road, railroad and town are all handled here...
+cifre::array<ColorChar, HEX_RADIUS1_LAST_DIRECTION_IDX + 1>
+Board::PositionToRoadEdgeContent(const MatrixCoordinate& pos) const
+{
+  static constexpr cifre::array<char, HEX_RADIUS1_LAST_DIRECTION_IDX + 1>
+    edge_char { ' ', '_', '\\', '/', '_', '\\', '/' };
+
+  cifre::array<ColorChar, HEX_RADIUS1_LAST_DIRECTION_IDX + 1> edges;
+
+  const auto& features = cell_factory_->PositionToCellFeatures(pos);
+
+  for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
+    const auto& edge_features = features.edges_[idx];
+    if (edge_features.not_accessible_) {
+      edges[idx] = INACCESSIBLE_CHAR;
+    }
+    else if (features.town_ || edge_features.road_ || edge_features.railroad_) {
+      edges[idx] = ColorChar(edge_char[idx], ROAD_FG_COLOR, ROAD_BG_COLOR);
     }
     else {
       edges[idx] = ColorChar(edge_char[idx]);
