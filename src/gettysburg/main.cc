@@ -71,20 +71,24 @@ public:
 private:
   GameOption::OptionId OPTION_GAME_SHAPE;
   GameOption::OptionId OPTION_MAX_TURNS_PER_GAME;
+  GameOption::OptionId OPTION_LARGE_BOARD;
 
   OOB::Scenario scenario_;
   cifre::MatrixSize game_shape_;
   cifre::MatrixSize plane_shape_;
+  BoardHex::BoardDisplayKind starting_display_kind_;
   std::unique_ptr<BoardCellFactory> cell_factory_;
   std::unique_ptr<BoardMoveFactory> move_factory_;
 };
 
 Gettysburg::Gettysburg() :
-  cifre::Game(), game_shape_(DEFAULT_GAME_SHAPE), plane_shape_(DEFAULT_GAME_SHAPE)
+  cifre::Game(), game_shape_(DEFAULT_GAME_SHAPE), plane_shape_(DEFAULT_GAME_SHAPE),
+  starting_display_kind_(BoardHex::BoardDisplayKind::SMALL)
 {
   cifre::GameOption::OptionId custom_id = cifre::Game::FirstCustomOptionId;
   OPTION_GAME_SHAPE = custom_id++;
   OPTION_MAX_TURNS_PER_GAME = custom_id++;
+  OPTION_LARGE_BOARD = custom_id++;
 
   // Set game-dependent options that are declared in cifre::Game
   max_turns_per_game_ = DEFAULT_MAX_TURNS_PER_GAME;
@@ -122,7 +126,9 @@ Gettysburg::CustomGameOptions() const
      "as '--game-shape=N,M'. "
      "Default is '--game-shape=" + DEFAULT_GAME_SHAPE.ToString() + "'."},
     {OPTION_MAX_TURNS_PER_GAME, "max-turns-per-game", GameOption::ArgInt,
-     "Maximum number of turns allowed per game."}};
+     "Maximum number of turns allowed per game."},
+    {OPTION_LARGE_BOARD, "large-board", GameOption::ArgNone,
+     "Display large board by default."}};
 
   return custom;
 }
@@ -142,6 +148,9 @@ Gettysburg::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
   }
   else if (opt.Id() == OPTION_MAX_TURNS_PER_GAME) {
     max_turns_per_game_ = cifre::GameOption::ParseUnsigned(opt, arg_str, 1 /* min */);
+  }
+  else if (opt.Id() == OPTION_LARGE_BOARD) {
+    starting_display_kind_ = BoardHex::BoardDisplayKind::LARGE;
   }
   else {
     return false;
@@ -215,12 +224,12 @@ Gettysburg::CreateInitialState(
 
   // 'starting_player_id' is ignored because gettysburg must start
   // with confederates.
-  return StateUniquePtr(
-    new Board(
-      cell_factory_.get(), move_factory_.get(),
-      scenario_, game_shape_, plane_shape_, players,
-      std::pmr::new_delete_resource()),
-    StateDeleterNewDelete<Board>());
+  auto board = new Board(
+    cell_factory_.get(), move_factory_.get(),
+    scenario_, game_shape_, plane_shape_, players,
+    std::pmr::new_delete_resource());
+  board->SetDisplay(starting_display_kind_);
+  return StateUniquePtr(board, StateDeleterNewDelete<Board>());
 }
 
 void

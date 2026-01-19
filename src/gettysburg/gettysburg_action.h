@@ -14,7 +14,8 @@ namespace cifre { namespace gettysburg {
 // HexDirection. Thus move action-ids start at 0.
 //
 static constexpr size_t MOVE_ACTIONID_RADIUS = 2;
-static constexpr size_t MOVE_ACTIONID_COUNT = HEX_RADIUS_TO_DIRECTION_COUNT(MOVE_ACTIONID_RADIUS);
+static constexpr size_t MOVE_ACTIONID_COUNT =
+  HEX_RADIUS_TO_TOTAL_DIRECTION_COUNT(MOVE_ACTIONID_RADIUS);
 static constexpr size_t TOTAL_ACTIONID_COUNT = MOVE_ACTIONID_COUNT;
 
 // Action-id corresponding to MOVE-END action. This is the action-id

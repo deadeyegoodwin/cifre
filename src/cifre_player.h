@@ -32,6 +32,9 @@ public:
   // Return the player's name.
   const std::string& Name() const { return name_; }
 
+  // Return the player's logger.
+  const std::shared_ptr<Logger>& PlayerLogger() const { return logger_; }
+
   // Set or return the one character representation of the player.
   void SetChar(char ch) { ch_ = ch; }
   char Char() const { return ch_; }

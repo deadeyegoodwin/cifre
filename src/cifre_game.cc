@@ -309,7 +309,7 @@ Game::Game() :
     {BuiltInOptionId::OPTION_QUIET, "quiet", GameOption::ArgNone,
      "Disable all logging."},
     {BuiltInOptionId::OPTION_VERBOSE, "verbose", GameOption::ArgNone,
-     "Enable verbose logging."},
+     "Enable all logging, except for --log-debug."},
     {BuiltInOptionId::OPTION_LOG_FILE, "log-file", GameOption::ArgStr,
      "File for logging. 'stdout' and 'stderr' are allowed. By default "
      "logging is sent to stdout."},
@@ -456,9 +456,14 @@ Game::Parse(int argc, char **argv)
     case BuiltInOptionId::OPTION_QUIET:
       logger_->DisableAll();
       break;
-    case BuiltInOptionId::OPTION_VERBOSE:
+    case BuiltInOptionId::OPTION_VERBOSE: {
+      const bool debug_enabled = logger_->IsEnabled(Logger::Kind::DEBUG);
       logger_->EnableAll();
+      if (!debug_enabled) {
+        logger_->Disable(Logger::Kind::DEBUG);
+      }
       break;
+    }
     case BuiltInOptionId::OPTION_LOG_DEBUG:
       logger_->Enable(Logger::Kind::DEBUG);
       break;
@@ -606,8 +611,9 @@ Game::Parse(int argc, char **argv)
       break;
     default:
       // Must be a custom option... allow derived game to process...
-      GameCheckTrueMsg(ParseCustomOption(game_option, optarg),
-                       "unrecognized option " + game_option.FlagWithDash());
+      GameCheckTrueMsg(
+        ParseCustomOption(game_option, std::string((optarg == nullptr) ? "" : optarg)),
+        "unrecognized option " + game_option.FlagWithDash());
       break;
     }
   }

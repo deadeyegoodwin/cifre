@@ -532,35 +532,46 @@ Board::UpdateMoveCosts()
 
         const auto& move_cost = move_factory_->AdjacentMoveCost(aid_pos);
         const auto& zoc_move_cost = move_factory_->AdjacentZOCMoveCost(aid_pos);
-
         const bool aid_in_zoc = opponent_zoc_positions[aid_pos.Row()][aid_pos.Column()];
+
+        LOG_DEBUG(
+          *ActivePlayer()->PlayerLogger(),
+          HexDirectionToString(dir) + "[" + aid_pos.ToString() + "], move-cost " +
+          ((active_move_costs_[aid] == std::numeric_limits<float>::max()) ?
+           "max" : std::to_string(active_move_costs_[aid])));
 
         for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
           HexDirection ndir = HexDirectionConcatenate(dir, HexDirection(idx));
           if ((ndir != HexDirection::NONE) && IsActionIdForHexDirection(ndir)) {
             const uint64_t naid = HexDirectionToActionId(ndir);
+            const MatrixCoordinate npos = aid_poses[naid];
+
+            LOG_DEBUG_IE(
+              *ActivePlayer()->PlayerLogger(),
+              "  " + HexDirectionToString(ndir) + " [" + npos.ToString() +
+              "], current move-cost " +
+              ((active_move_costs_[naid] == std::numeric_limits<float>::max()) ?
+               "max" : std::to_string(active_move_costs_[naid])),
+              0 /* indent */, false /* endline */);
+
             if (active_move_costs_[naid] >= 0.0) {
-              const MatrixCoordinate adj_pos = HexDirectionToPosition(aid_pos, HexDirection(idx));
-              const bool adj_in_zoc =
-                opponent_zoc_positions[adj_pos.Row()][adj_pos.Column()];
+              const bool naid_in_zoc = opponent_zoc_positions[npos.Row()][npos.Column()];
 
               float ncost = active_move_costs_[aid];
 
-              if (aid_in_zoc || adj_in_zoc) {
-                // If destination hex corresponding to action is in
-                // opponent ZOC, then can't move into adjacent hex also
-                // in ZOC. Use max cost for this to indicate that this
-                // particular path to 'adj_pos' is not allowed but there
-                // could be other paths.
-                if (aid_in_zoc && adj_in_zoc) {
-                  ncost = std::numeric_limits<float>::max();
-                }
-                // Otherwise either moving into or out-of ZOC which
-                // means that need to use ZOC move cost instead of
-                // normal move cost.
-                else {
-                  ncost += BoardMoveFactory::MOVE_ENEMY_ZOC_COST + zoc_move_cost[idx];
-                }
+              // If destination hex corresponding to action is in
+              // opponent ZOC, then can't move into adjacent hex also
+              // in ZOC. Use max cost for this to indicate that this
+              // particular path to 'adj_pos' is not allowed but there
+              // could be other paths.
+              if (aid_in_zoc && naid_in_zoc) {
+                ncost = std::numeric_limits<float>::max();
+              }
+              // Moving into ZOC need to use ZOC move cost instead of
+              // normal move cost. FIXME moving into ZOC must also end
+              // movement.
+              else if (!aid_in_zoc && naid_in_zoc) {
+                ncost += BoardMoveFactory::MOVE_ENEMY_ZOC_COST + zoc_move_cost[idx];
               }
               else {
                 // Use normal move cost...
@@ -568,11 +579,17 @@ Board::UpdateMoveCosts()
               }
 
               if (ncost < active_move_costs_[naid]) {
+                LOG_DEBUG_IE(
+                  *ActivePlayer()->PlayerLogger(),
+                  ", update move-cost to " + std::to_string(ncost),
+                  0 /* indent */, false /* endline */);
                 assert(active_move_costs_[naid] >= 0.0);
                 active_move_costs_[naid] = ncost;
                 changed = true;
               }
             }
+
+            LOG_DEBUG(*ActivePlayer()->PlayerLogger(), "");
           }
         }
       }

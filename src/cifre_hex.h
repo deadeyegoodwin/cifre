@@ -35,19 +35,18 @@ static constexpr size_t HEX_MAX_RADIUS = 2;
 
 static constexpr size_t HEX_RADIUS1_FIRST_DIRECTION_IDX = size_t(HexDirection::UP);
 static constexpr size_t HEX_RADIUS1_LAST_DIRECTION_IDX = size_t(HexDirection::UL);
-static constexpr size_t HEX_RADIUS1_DIRECTION_COUNT =
-  (HEX_RADIUS1_LAST_DIRECTION_IDX - HEX_RADIUS1_FIRST_DIRECTION_IDX + 1);
 
 static constexpr size_t HEX_RADIUS2_FIRST_DIRECTION_IDX = size_t(HexDirection::UP_UP);
 static constexpr size_t HEX_RADIUS2_LAST_DIRECTION_IDX = size_t(HexDirection::DR_DR);
-static constexpr size_t HEX_RADIUS2_DIRECTION_COUNT =
-  (HEX_RADIUS2_LAST_DIRECTION_IDX - HEX_RADIUS2_FIRST_DIRECTION_IDX + 1);
+
+static constexpr size_t HEX_RADIUS_TO_TOTAL_DIRECTION_COUNT(size_t r) {
+  return((r == 0) ? 1 :
+         ((r == 1) ?
+          (HEX_RADIUS1_LAST_DIRECTION_IDX + 1) :
+          (HEX_RADIUS2_LAST_DIRECTION_IDX + 1))); }
 
 static constexpr size_t HEX_TOTAL_DIRECTION_COUNT =
-  1 + HEX_RADIUS1_DIRECTION_COUNT + HEX_RADIUS2_DIRECTION_COUNT;
-static constexpr size_t HEX_RADIUS_TO_DIRECTION_COUNT(size_t r) {
-  return((r == 0) ? 1 : ((r == 1) ? HEX_RADIUS1_DIRECTION_COUNT : HEX_RADIUS2_DIRECTION_COUNT));
-}
+  HEX_RADIUS_TO_TOTAL_DIRECTION_COUNT(HEX_MAX_RADIUS);
 
 // Return the string representation of a hex direction.
 std::string HexDirectionToString(const HexDirection dir);

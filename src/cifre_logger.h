@@ -76,7 +76,7 @@ public:
   void DisableAll() { std::fill(kinds_.begin(), kinds_.end(), false); }
 
   // Log a message.
-  void Write(const std::string& msg, size_t indent=0, bool endline=true) {
+  void Write(const std::string& msg, size_t indent = 0, bool endline = true) {
     Log(msg, indent, endline); }
 
   // Return string representation of the logger.
@@ -97,6 +97,10 @@ protected:
 // indent (I) and endline (E) to be specified. The non _IE versions
 // use indent=0 and enline=true.
 //
+#ifdef NDEBUG
+#define LOG_DEBUG(L, M) do { } while(false)
+#define LOG_DEBUG_IE(L, M, I, E) do { } while(false)
+#else
 #define LOG_DEBUG(L, M) LOG_DEBUG_IE(L, M, 0, true)
 #define LOG_DEBUG_IE(L, M, I, E)                                        \
   do {                                                                  \
@@ -105,6 +109,7 @@ protected:
       logger__.Write(M, I, E);                                          \
     }                                                                   \
   } while (false)
+#endif
 
 #define LOG_INVOKE(L, M) LOG_INVOKE_IE(L, M, 0, true)
 #define LOG_INVOKE_IE(L, M, I, E)                                       \
