@@ -26,6 +26,9 @@ public:
     const std::shared_ptr<Logger>& logger, size_t id, const std::string& name);
   virtual ~Player() = default;
 
+  // Return the player's kind.
+  virtual Kind PlayerKind() const { return Kind::UNKNOWN; }
+
   // Return the player's ID.
   size_t Id() const { return id_; }
 
@@ -81,6 +84,9 @@ public:
   AlgoPlayer(
     const std::shared_ptr<Logger>& logger,
     size_t id, const std::string& name, const std::shared_ptr<cifre::Algo>& algo);
+
+  // See cifre::Player
+  Kind PlayerKind() const override { return Kind::ALGO; }
 
   // See Player::NextAction().
   Action NextAction(const State& state, size_t max_game_sideturns_remaining) const override;

@@ -68,7 +68,8 @@ Board::Board(const Board& other, std::pmr::memory_resource* arena) :
   scenario_(other.scenario_), plane_shape_(other.plane_shape_),
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
-  active_move_costs_(other.active_move_costs_), turn_(other.turn_),
+  active_move_costs_(other.active_move_costs_), active_end_turn_(other.active_end_turn_),
+  turn_(other.turn_),
   captured_vps_(other.captured_vps_), // copy entire array (but only first captured_vps_count_ used)
   captured_vps_count_(other.captured_vps_count_),
   union_units_count_(other.union_units_count_),
@@ -110,8 +111,8 @@ Board::Hash() const
   //
   // 'active_army_' and 'active_unit_idx_' indicate which unit is the
   // active unit (and thereby its position on the board) and so don't
-  // need 'active_unit_', 'active_first_row_', 'active_first_column_'
-  // and 'active_move_costs_'.
+  // need 'active_unit_', 'active_first_row_', 'active_first_column_',
+  // 'active_move_costs_' and 'active_end_turn_'.
 
   // FIXME likely need to include 'turn_' in the cell state (turn
   // plane?) and then would need to add it to the hash. For now it is
@@ -148,8 +149,8 @@ Board::Equal(const State* other) const
   //
   // 'active_army_' and 'active_unit_idx_' indicate which unit is the
   // active unit (and thereby its position on the board) and so don't
-  // need 'active_unit_', 'active_first_row_', 'active_first_column_'
-  // and 'active_move_costs_'.
+  // need 'active_unit_', 'active_first_row_', 'active_first_column_',
+  // 'active_move_costs_' and 'active_end_turn_'.
 
   // FIXME likely need to include turn_ in the cell state (turn
   // plane?) and then would need to add it to the hash. For now it is
@@ -441,6 +442,11 @@ Board::UpdateMoveCosts()
   active_move_costs_.fill(std::numeric_limits<float>::max());
   active_move_costs_[ACTIONID_MOVE_END] = 0.0;
 
+  // Initialize "end-of-turn" to false for all actions. Move actions
+  // that end the units turn (even if move-factor remains) are marked
+  // as true during iteration below.
+  active_end_turn_.fill(false);
+
   // Position of the hex corresponding to each action. May indicate
   // positions that are off the board.
   cifre::array<MatrixCoordinate, MOVE_ACTIONID_COUNT> aid_poses;
@@ -481,7 +487,7 @@ Board::UpdateMoveCosts()
     if (active_move_costs_[aid] >= 0.0) {
       const MatrixCoordinate dest = aid_poses[aid];
 
-      // Don't allow action that move unit off board.
+      // Don't allow actions that move unit off board.
       if ((dest.Row() < 0) || (dest.Column() < 0) ||
           (dest.Row() >= int64_t(size_.RowCount())) ||
           (dest.Column() >= int64_t(size_.ColumnCount()))) {
@@ -490,7 +496,7 @@ Board::UpdateMoveCosts()
       else {
         const auto& dest_features = cell_factory_->PositionToCellFeatures(dest);
 
-        // Don't allow action that move unit to non-accessible parts
+        // Don't allow actions that move unit to non-accessible parts
         // of the board (e.g. cutouts).
         if (dest_features.not_accessible_) {
           active_move_costs_[aid] = -1.0; // move not allowed
@@ -516,13 +522,15 @@ Board::UpdateMoveCosts()
     changed = false;
 
     for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
-      // If 'aid' has move-cost that indicates there is some path from
-      // the unit to the 'aid' destination hex, then update the
+      // If 'aid' has move-cost then that indicates there is some path
+      // from the unit to the 'aid' destination hex, then update the
       // move-cost of all hexes adjacent to the 'aid' destination hex
       // to be 'aid's move-cost plus the cost to move from 'aid' hex
-      // to action-id corresponding to the adjacent hex. Effectively
-      // this propagates move-cost path length.
-      if ((active_move_costs_[aid] >= 0.0) &&
+      // to action-id corresponding to the adjacent hex (as long as
+      // 'aid' is not a turn-ending action). Effectively this
+      // propagates move-cost path length.
+      if (!active_end_turn_[aid] &&
+          (active_move_costs_[aid] >= 0.0) &&
           (active_move_costs_[aid] != std::numeric_limits<float>::max())) {
         HexDirection dir = ActionIdToHexDirection(aid);
         MatrixCoordinate aid_pos = aid_poses[aid];
@@ -568,10 +576,11 @@ Board::UpdateMoveCosts()
                 ncost = std::numeric_limits<float>::max();
               }
               // Moving into ZOC need to use ZOC move cost instead of
-              // normal move cost. FIXME moving into ZOC must also end
-              // movement.
+              // normal move cost. This move action also ends the
+              // units turn.
               else if (!aid_in_zoc && naid_in_zoc) {
                 ncost += BoardMoveFactory::MOVE_ENEMY_ZOC_COST + zoc_move_cost[idx];
+                active_end_turn_[naid] = true;
               }
               else {
                 // Use normal move cost...
@@ -587,6 +596,12 @@ Board::UpdateMoveCosts()
                 active_move_costs_[naid] = ncost;
                 changed = true;
               }
+
+              if (active_end_turn_[naid]) {
+                LOG_DEBUG_IE(
+                  *ActivePlayer()->PlayerLogger(), ", ends turn",
+                  0 /* indent */, false /* endline */);
+              }
             }
 
             LOG_DEBUG(*ActivePlayer()->PlayerLogger(), "");
@@ -600,6 +615,20 @@ Board::UpdateMoveCosts()
   for (uint64_t aid = 0; aid < MOVE_ACTIONID_COUNT; ++aid) {
     if (active_move_costs_[aid] == std::numeric_limits<float>::max()) {
       active_move_costs_[aid] = -1.0;
+    }
+  }
+
+  // For non-human players, any actions that are not to the outer
+  // radius of allowed moves are marked as turn-ending. This is
+  // because we want to limit algorithmic players to the minimum
+  // number of intra-turn steps to complete their movement (for algos
+  // that require training this eliminates redundant move combinations
+  // that result in the same final destination).
+  //
+  // FIXME allow movement onto victory point to not end turn.
+  if (ActivePlayer()->PlayerKind() != Player::Kind::HUMAN) {
+    for (uint64_t aid = MOVE_ACTIONID_FIRST_INNER; aid <= MOVE_ACTIONID_LAST_INNER; ++aid) {
+      active_end_turn_[aid] = true;
     }
   }
 }

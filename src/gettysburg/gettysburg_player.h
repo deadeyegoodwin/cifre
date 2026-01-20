@@ -22,6 +22,9 @@ public:
   HumanPlayer(const std::shared_ptr<Logger>& logger,
               size_t id, const std::string& name);
 
+  // See cifre::Player
+  Kind PlayerKind() const override { return Kind::HUMAN; }
+
   // See cifre::Player::NextAction().
   Action NextAction(const cifre::State& board, size_t max_game_turns_remaining) const override;
 

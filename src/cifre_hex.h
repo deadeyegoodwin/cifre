@@ -49,11 +49,32 @@ static constexpr size_t HEX_RADIUS2_LAST_DIRECTION_IDX = size_t(HexDirection::DR
 static constexpr size_t HEX_RADIUS3_FIRST_DIRECTION_IDX = size_t(HexDirection::UP_UP_UP);
 static constexpr size_t HEX_RADIUS3_LAST_DIRECTION_IDX = size_t(HexDirection::DR_DR_DN);
 
+// Directions are split into "inner" and "outer". Outer directions are
+// those from radius 'r'. Inner directions are NONE plus those from
+// raidus < 'r'.
+static constexpr size_t HEX_RADIUS_TO_FIRST_INNER_DIRECTION_IDX(size_t r) {
+  assert((r > 0) && (r <= HEX_MAX_RADIUS)); return(0); }
+static constexpr size_t HEX_RADIUS_TO_LAST_INNER_DIRECTION_IDX(size_t r) {
+  assert((r > 0) && (r <= HEX_MAX_RADIUS));
+  return((r == 1) ? 0 :
+         ((r == 2) ? HEX_RADIUS1_LAST_DIRECTION_IDX :
+          HEX_RADIUS2_LAST_DIRECTION_IDX)); }
+static constexpr size_t HEX_RADIUS_TO_FIRST_OUTER_DIRECTION_IDX(size_t r) {
+  assert((r > 0) && (r <= HEX_MAX_RADIUS));
+  return((r == 1) ? HEX_RADIUS1_FIRST_DIRECTION_IDX :
+         ((r == 2) ? HEX_RADIUS2_FIRST_DIRECTION_IDX :
+          HEX_RADIUS3_FIRST_DIRECTION_IDX)); }
+static constexpr size_t HEX_RADIUS_TO_LAST_OUTER_DIRECTION_IDX(size_t r) {
+  assert((r > 0) && (r <= HEX_MAX_RADIUS));
+  return((r == 1) ? HEX_RADIUS1_LAST_DIRECTION_IDX :
+         ((r == 2) ? HEX_RADIUS2_LAST_DIRECTION_IDX :
+          HEX_RADIUS3_LAST_DIRECTION_IDX)); }
+
 static constexpr size_t HEX_RADIUS_TO_TOTAL_DIRECTION_COUNT(size_t r) {
-  return((r == 0) ? 1 :
-         ((r == 1) ? (HEX_RADIUS1_LAST_DIRECTION_IDX + 1) :
-          ((r == 2) ? (HEX_RADIUS2_LAST_DIRECTION_IDX + 1) :
-           (HEX_RADIUS3_LAST_DIRECTION_IDX + 1)))); }
+  assert((r > 0) && (r <= HEX_MAX_RADIUS));
+  return((r == 1) ? (HEX_RADIUS1_LAST_DIRECTION_IDX + 1) :
+         ((r == 2) ? (HEX_RADIUS2_LAST_DIRECTION_IDX + 1) :
+          (HEX_RADIUS3_LAST_DIRECTION_IDX + 1))); }
 
 static constexpr size_t HEX_TOTAL_DIRECTION_COUNT =
   HEX_RADIUS_TO_TOTAL_DIRECTION_COUNT(HEX_MAX_RADIUS);

@@ -244,9 +244,12 @@ private:
   size_t active_first_row_;
   size_t active_first_column_;
 
-  // Cost to move in each direction for the active unit. A negative
-  // cost indicates that movement in that direction is not possible.
+  // Cost for each move action for the active unit. A negative cost
+  // indicates that move action is not possible.
   cifre::array<float, MOVE_ACTIONID_COUNT> active_move_costs_;
+
+  // True if performing the move action ends the turn for active unit.
+  cifre::array<bool, MOVE_ACTIONID_COUNT> active_end_turn_;
 
   // Integer representing the game turn.
   size_t turn_;

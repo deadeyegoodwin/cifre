@@ -16,6 +16,17 @@ namespace cifre { namespace gettysburg {
 static constexpr size_t MOVE_ACTIONID_RADIUS = 3;
 static constexpr size_t MOVE_ACTIONID_COUNT =
   HEX_RADIUS_TO_TOTAL_DIRECTION_COUNT(MOVE_ACTIONID_RADIUS);
+
+static constexpr uint64_t MOVE_ACTIONID_FIRST_INNER =
+  uint64_t(HEX_RADIUS_TO_FIRST_INNER_DIRECTION_IDX(MOVE_ACTIONID_RADIUS));
+static constexpr uint64_t MOVE_ACTIONID_LAST_INNER =
+  uint64_t(HEX_RADIUS_TO_LAST_INNER_DIRECTION_IDX(MOVE_ACTIONID_RADIUS));
+
+static constexpr uint64_t MOVE_ACTIONID_FIRST_OUTER =
+  uint64_t(HEX_RADIUS_TO_FIRST_OUTER_DIRECTION_IDX(MOVE_ACTIONID_RADIUS));
+static constexpr uint64_t MOVE_ACTIONID_LAST_OUTER =
+  uint64_t(HEX_RADIUS_TO_LAST_OUTER_DIRECTION_IDX(MOVE_ACTIONID_RADIUS));
+
 static constexpr size_t TOTAL_ACTIONID_COUNT = MOVE_ACTIONID_COUNT;
 
 // Action-id corresponding to MOVE-END action. This is the action-id
