@@ -278,7 +278,7 @@ def main():
             'num_rows' : nnet_shape[0],
             'num_cols' : nnet_shape[1],
             'num_residual_blocks' : 2,
-            'num_actions' : 7, # FIXME
+            'num_actions' : 37, # FIXME
             'num_channels' : 128 }
         nnet = CifreResidualConvNNet(nnet_args)
     else:

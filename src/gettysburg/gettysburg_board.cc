@@ -985,7 +985,7 @@ Board::PositionToUnitContent(const MatrixCoordinate& pos) const
 
   const size_t cc = ConfederateAt(pos).size();
   if (cc > 0) {
-    assert(cc == 0);
+    assert(uc == 0);
     chars[0] = (active_at) ? CONFEDERATE_CHAR_ACTIVE : CONFEDERATE_CHAR;
     chars[1] =
       ColorChar((cc >= 10) ? '*' : ((cc > 1) ? ('0' + cc) : ' '),

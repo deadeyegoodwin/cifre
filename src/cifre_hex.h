@@ -28,10 +28,17 @@ enum class HexDirection {
   UL_UL, UL_DL,
   UR_UR, UR_DR,
   DL_DL,
-  DR_DR
+  DR_DR,
+  // Radius 3 (18)
+  UP_UP_UP, UP_UP_UL, UP_UP_UR,
+  DN_DN_DN, DN_DN_DL, DN_DN_DR,
+  UL_UL_UL, UL_UL_DL, UL_UL_UP,
+  UR_UR_UR, UR_UR_DR, UR_UR_UP,
+  DL_DL_DL, DL_DL_UL, DL_DL_DN,
+  DR_DR_DR, DR_DR_UR, DR_DR_DN
 };
 
-static constexpr size_t HEX_MAX_RADIUS = 2;
+static constexpr size_t HEX_MAX_RADIUS = 3;
 
 static constexpr size_t HEX_RADIUS1_FIRST_DIRECTION_IDX = size_t(HexDirection::UP);
 static constexpr size_t HEX_RADIUS1_LAST_DIRECTION_IDX = size_t(HexDirection::UL);
@@ -39,11 +46,14 @@ static constexpr size_t HEX_RADIUS1_LAST_DIRECTION_IDX = size_t(HexDirection::UL
 static constexpr size_t HEX_RADIUS2_FIRST_DIRECTION_IDX = size_t(HexDirection::UP_UP);
 static constexpr size_t HEX_RADIUS2_LAST_DIRECTION_IDX = size_t(HexDirection::DR_DR);
 
+static constexpr size_t HEX_RADIUS3_FIRST_DIRECTION_IDX = size_t(HexDirection::UP_UP_UP);
+static constexpr size_t HEX_RADIUS3_LAST_DIRECTION_IDX = size_t(HexDirection::DR_DR_DN);
+
 static constexpr size_t HEX_RADIUS_TO_TOTAL_DIRECTION_COUNT(size_t r) {
   return((r == 0) ? 1 :
-         ((r == 1) ?
-          (HEX_RADIUS1_LAST_DIRECTION_IDX + 1) :
-          (HEX_RADIUS2_LAST_DIRECTION_IDX + 1))); }
+         ((r == 1) ? (HEX_RADIUS1_LAST_DIRECTION_IDX + 1) :
+          ((r == 2) ? (HEX_RADIUS2_LAST_DIRECTION_IDX + 1) :
+           (HEX_RADIUS3_LAST_DIRECTION_IDX + 1)))); }
 
 static constexpr size_t HEX_TOTAL_DIRECTION_COUNT =
   HEX_RADIUS_TO_TOTAL_DIRECTION_COUNT(HEX_MAX_RADIUS);

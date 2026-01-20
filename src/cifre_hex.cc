@@ -34,6 +34,25 @@ HexDirectionToString(const HexDirection dir)
   case HexDirection::UR_DR: return "UR-DR";
   case HexDirection::DL_DL: return "DL-DL";
   case HexDirection::DR_DR: return "DR-DR";
+  // Radius 3
+  case HexDirection::UP_UP_UP: return "UP-UP-UP";
+  case HexDirection::UP_UP_UL: return "UP-UP-UL";
+  case HexDirection::UP_UP_UR: return "UP-UP-UR";
+  case HexDirection::DN_DN_DN: return "DN-DN-DN";
+  case HexDirection::DN_DN_DL: return "DN-DN-DL";
+  case HexDirection::DN_DN_DR: return "DN-DN-DR";
+  case HexDirection::UL_UL_UL: return "UL-UL-UL";
+  case HexDirection::UL_UL_DL: return "UL-UL-DL";
+  case HexDirection::UL_UL_UP: return "UL-UL-UP";
+  case HexDirection::UR_UR_UR: return "UR-UR-UR";
+  case HexDirection::UR_UR_DR: return "UR-UR-DR";
+  case HexDirection::UR_UR_UP: return "UR-UR-UP";
+  case HexDirection::DL_DL_DL: return "DL-DL-DL";
+  case HexDirection::DL_DL_UL: return "DL-DL-UL";
+  case HexDirection::DL_DL_DN: return "DL-DL-DN";
+  case HexDirection::DR_DR_DR: return "DR-DR-DR";
+  case HexDirection::DR_DR_UR: return "DR-DR-UR";
+  case HexDirection::DR_DR_DN: return "DR-DR-DN";
   }
 
   return "<none>"; // unreachable
@@ -80,6 +99,25 @@ HexOppositeDirection(const HexDirection dir)
   case HexDirection::UR_DR: return HexDirection::UL_DL;
   case HexDirection::DL_DL: return HexDirection::UR_UR;
   case HexDirection::DR_DR: return HexDirection::UL_UL;
+  // Radius 3
+  case HexDirection::UP_UP_UP: return HexDirection::DN_DN_DN;
+  case HexDirection::UP_UP_UL: return HexDirection::DN_DN_DR;
+  case HexDirection::UP_UP_UR: return HexDirection::DN_DN_DL;
+  case HexDirection::DN_DN_DN: return HexDirection::UP_UP_UP;
+  case HexDirection::DN_DN_DL: return HexDirection::UP_UP_UR;
+  case HexDirection::DN_DN_DR: return HexDirection::UP_UP_UL;
+  case HexDirection::UL_UL_UL: return HexDirection::DR_DR_DR;
+  case HexDirection::UL_UL_DL: return HexDirection::DR_DR_UR;
+  case HexDirection::UL_UL_UP: return HexDirection::DR_DR_DN;
+  case HexDirection::UR_UR_UR: return HexDirection::DL_DL_DL;
+  case HexDirection::UR_UR_DR: return HexDirection::DL_DL_UL;
+  case HexDirection::UR_UR_UP: return HexDirection::DL_DL_DN;
+  case HexDirection::DL_DL_DL: return HexDirection::UR_UR_UR;
+  case HexDirection::DL_DL_UL: return HexDirection::UR_UR_DR;
+  case HexDirection::DL_DL_DN: return HexDirection::UR_UR_UP;
+  case HexDirection::DR_DR_DR: return HexDirection::UL_UL_UL;
+  case HexDirection::DR_DR_UR: return HexDirection::UL_UL_DL;
+  case HexDirection::DR_DR_DN: return HexDirection::UL_UL_UP;
   }
 
   return HexDirection::NONE; // unreachable
@@ -154,7 +192,44 @@ static constexpr cifre::array<MC, HEX_TOTAL_DIRECTION_COUNT> even_column_delta =
   epos.DirectionDelta(HexDirection::UR).DirectionDelta(HexDirection::UR) - epos,
   epos.DirectionDelta(HexDirection::UR).DirectionDelta(HexDirection::DR) - epos,
   epos.DirectionDelta(HexDirection::DL).DirectionDelta(HexDirection::DL) - epos,
-  epos.DirectionDelta(HexDirection::DR).DirectionDelta(HexDirection::DR) - epos
+  epos.DirectionDelta(HexDirection::DR).DirectionDelta(HexDirection::DR) - epos,
+  // Radius 3
+  epos.DirectionDelta(HexDirection::UP).
+    DirectionDelta(HexDirection::UP).DirectionDelta(HexDirection::UP) - epos,
+  epos.DirectionDelta(HexDirection::UP).
+    DirectionDelta(HexDirection::UP).DirectionDelta(HexDirection::UL) - epos,
+  epos.DirectionDelta(HexDirection::UP).
+    DirectionDelta(HexDirection::UP).DirectionDelta(HexDirection::UR) - epos,
+  epos.DirectionDelta(HexDirection::DN).
+    DirectionDelta(HexDirection::DN).DirectionDelta(HexDirection::DN) - epos,
+  epos.DirectionDelta(HexDirection::DN).
+    DirectionDelta(HexDirection::DN).DirectionDelta(HexDirection::DL) - epos,
+  epos.DirectionDelta(HexDirection::DN).
+    DirectionDelta(HexDirection::DN).DirectionDelta(HexDirection::DR) - epos,
+  epos.DirectionDelta(HexDirection::UL).
+    DirectionDelta(HexDirection::UL).DirectionDelta(HexDirection::UL) - epos,
+  epos.DirectionDelta(HexDirection::UL).
+    DirectionDelta(HexDirection::UL).DirectionDelta(HexDirection::DL) - epos,
+  epos.DirectionDelta(HexDirection::UL).
+    DirectionDelta(HexDirection::UL).DirectionDelta(HexDirection::UP) - epos,
+  epos.DirectionDelta(HexDirection::UR).
+    DirectionDelta(HexDirection::UR).DirectionDelta(HexDirection::UR) - epos,
+  epos.DirectionDelta(HexDirection::UR).
+    DirectionDelta(HexDirection::UR).DirectionDelta(HexDirection::DR) - epos,
+  epos.DirectionDelta(HexDirection::UR).
+    DirectionDelta(HexDirection::UR).DirectionDelta(HexDirection::UP) - epos,
+  epos.DirectionDelta(HexDirection::DL).
+    DirectionDelta(HexDirection::DL).DirectionDelta(HexDirection::DL) - epos,
+  epos.DirectionDelta(HexDirection::DL).
+    DirectionDelta(HexDirection::DL).DirectionDelta(HexDirection::UL) - epos,
+  epos.DirectionDelta(HexDirection::DL).
+    DirectionDelta(HexDirection::DL).DirectionDelta(HexDirection::DN) - epos,
+  epos.DirectionDelta(HexDirection::DR).
+    DirectionDelta(HexDirection::DR).DirectionDelta(HexDirection::DR) - epos,
+  epos.DirectionDelta(HexDirection::DR).
+    DirectionDelta(HexDirection::DR).DirectionDelta(HexDirection::UR) - epos,
+  epos.DirectionDelta(HexDirection::DR).
+    DirectionDelta(HexDirection::DR).DirectionDelta(HexDirection::DN) - epos
 };
 
 static constexpr MC opos(HEX_MAX_RADIUS * 4, (HEX_MAX_RADIUS * 4) + 1);
@@ -179,7 +254,44 @@ static constexpr cifre::array<MC, HEX_TOTAL_DIRECTION_COUNT> odd_column_delta = 
   opos.DirectionDelta(HexDirection::UR).DirectionDelta(HexDirection::UR) - opos,
   opos.DirectionDelta(HexDirection::UR).DirectionDelta(HexDirection::DR) - opos,
   opos.DirectionDelta(HexDirection::DL).DirectionDelta(HexDirection::DL) - opos,
-  opos.DirectionDelta(HexDirection::DR).DirectionDelta(HexDirection::DR) - opos
+  opos.DirectionDelta(HexDirection::DR).DirectionDelta(HexDirection::DR) - opos,
+  // Radius 3
+  opos.DirectionDelta(HexDirection::UP).
+    DirectionDelta(HexDirection::UP).DirectionDelta(HexDirection::UP) - opos,
+  opos.DirectionDelta(HexDirection::UP).
+    DirectionDelta(HexDirection::UP).DirectionDelta(HexDirection::UL) - opos,
+  opos.DirectionDelta(HexDirection::UP).
+    DirectionDelta(HexDirection::UP).DirectionDelta(HexDirection::UR) - opos,
+  opos.DirectionDelta(HexDirection::DN).
+    DirectionDelta(HexDirection::DN).DirectionDelta(HexDirection::DN) - opos,
+  opos.DirectionDelta(HexDirection::DN).
+    DirectionDelta(HexDirection::DN).DirectionDelta(HexDirection::DL) - opos,
+  opos.DirectionDelta(HexDirection::DN).
+    DirectionDelta(HexDirection::DN).DirectionDelta(HexDirection::DR) - opos,
+  opos.DirectionDelta(HexDirection::UL).
+    DirectionDelta(HexDirection::UL).DirectionDelta(HexDirection::UL) - opos,
+  opos.DirectionDelta(HexDirection::UL).
+    DirectionDelta(HexDirection::UL).DirectionDelta(HexDirection::DL) - opos,
+  opos.DirectionDelta(HexDirection::UL).
+    DirectionDelta(HexDirection::UL).DirectionDelta(HexDirection::UP) - opos,
+  opos.DirectionDelta(HexDirection::UR).
+    DirectionDelta(HexDirection::UR).DirectionDelta(HexDirection::UR) - opos,
+  opos.DirectionDelta(HexDirection::UR).
+    DirectionDelta(HexDirection::UR).DirectionDelta(HexDirection::DR) - opos,
+  opos.DirectionDelta(HexDirection::UR).
+    DirectionDelta(HexDirection::UR).DirectionDelta(HexDirection::UP) - opos,
+  opos.DirectionDelta(HexDirection::DL).
+    DirectionDelta(HexDirection::DL).DirectionDelta(HexDirection::DL) - opos,
+  opos.DirectionDelta(HexDirection::DL).
+    DirectionDelta(HexDirection::DL).DirectionDelta(HexDirection::UL) - opos,
+  opos.DirectionDelta(HexDirection::DL).
+    DirectionDelta(HexDirection::DL).DirectionDelta(HexDirection::DN) - opos,
+  opos.DirectionDelta(HexDirection::DR).
+    DirectionDelta(HexDirection::DR).DirectionDelta(HexDirection::DR) - opos,
+  opos.DirectionDelta(HexDirection::DR).
+    DirectionDelta(HexDirection::DR).DirectionDelta(HexDirection::UR) - opos,
+  opos.DirectionDelta(HexDirection::DR).
+    DirectionDelta(HexDirection::DR).DirectionDelta(HexDirection::DN) - opos
 };
 
 //
@@ -204,6 +316,9 @@ static struct Startup {
       assert((omc.row_ >= 0) && (omc.row_ < delta_size_) &&
              (omc.col_ >= 0) && (omc.col_ < delta_size_));
       odd_delta_to_hex_dir_[omc.row_][omc.col_] = HexDirection(dir);
+
+      assert(
+        HexDirection(dir) == HexOppositeDirection(HexOppositeDirection(HexDirection(dir))));
     }
   }
 
