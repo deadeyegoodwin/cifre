@@ -74,7 +74,8 @@ public:
 
   // Update unit based on action-id.
   void ApplyActionId(
-    uint64_t aid, const cifre::array<float, MOVE_ACTIONID_COUNT>& move_cost);
+    uint64_t aid, const cifre::array<float, MOVE_ACTIONID_COUNT>& move_cost,
+    const cifre::array<bool, MOVE_ACTIONID_COUNT>& end_turn);
 
   // Update 'board' to remove this unit.
   void RemoveFromBoard(Board* board) const;

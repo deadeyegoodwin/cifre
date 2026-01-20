@@ -147,19 +147,21 @@ Unit::AddToBoard(Board* board) const
 
 void
 Unit::ApplyActionId(
-  uint64_t aid, const cifre::array<float, MOVE_ACTIONID_COUNT>& move_cost)
+  uint64_t aid, const cifre::array<float, MOVE_ACTIONID_COUNT>& move_cost,
+  const cifre::array<bool, MOVE_ACTIONID_COUNT>& end_turn)
 {
   assert(move_cost[aid] >= 0.0);
 
-  // If move is ended then show no move-factor remaining...
-  if (aid == ACTIONID_MOVE_END) {
-    move_factor_expended_ = move_factor_;
-  }
-  else {
+  if (aid != ACTIONID_MOVE_END) {
     const auto dir = ActionIdToHexDirection(aid);
     position_ = HexDirectionToPosition(position_, dir);
     assert((position_.Row() >= 0) && (position_.Column() >= 0));
     move_factor_expended_ += move_cost[aid];
+  }
+
+  // If move is ended then show no move-factor remaining...
+  if ((aid == ACTIONID_MOVE_END) || end_turn[aid]) {
+    move_factor_expended_ = move_factor_;
   }
 
   assert(move_factor_expended_ <= move_factor_);

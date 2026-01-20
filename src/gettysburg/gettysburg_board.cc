@@ -317,13 +317,13 @@ Board::CopyAndUpdate(uint64_t action_id, std::pmr::memory_resource* arena) const
 void
 Board::Update(uint64_t action_id)
 {
-  active_unit_->ApplyActionId(action_id, active_move_costs_);
+  active_unit_->ApplyActionId(action_id, active_move_costs_, active_end_turn_);
 
   UpdateCapturedVictoryPoints();
 
-  // Change active to the next unit. If all units of a player have
-  // completed movement then move to next player (and potentially next
-  // turn).
+  // Update active unit and change to next unit if active unit's
+  // movement is completed. If all units of a player have completed
+  // movement then move to next player (and potentially next turn).
   const size_t active_units_count =
     (active_army_ == Unit::ArmyKind::UNION) ? union_units_count_ : confederate_units_count_;
   cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& active_units =
@@ -366,12 +366,10 @@ Board::NextArmyUnit(
 {
   assert(units_count > 0);
 
-  // Check every unit in 'units' to see if they can become the active
-  // unit. A unit can become active if it has enough move-factor
-  // remaining to perform a movement.
-  const size_t curr_idx = active_unit_idx_;
-  for (size_t idx = 0; idx < units_count; ++idx) {
-    active_unit_idx_ = (curr_idx + idx + 1) % units_count;
+  // Find the "next" unit in the current army to become the active
+  // unit. The current active unit can remain the active unit if it
+  // has valid movement actions...
+  for (; active_unit_idx_ < units_count; ++active_unit_idx_) {
     active_unit_ = &units[active_unit_idx_];
 
     if (active_unit_->MoveFactorRemaining() > 0.0) {
@@ -380,14 +378,13 @@ Board::NextArmyUnit(
       if ((valid_action_ids_.size() > 1) ||
           ((valid_action_ids_.size() == 1) &&
            (valid_action_ids_[0] != ACTIONID_MOVE_END))) {
-        // Return true indicating now have next active unit in the
-        // same army.
+        // Return true indicating active army did not change.
         return true;
       }
     }
   }
 
-  // Return false indicating *no* next unit available in the army.
+  // Return false indicating need to change active army.
   return false;
 }
 
