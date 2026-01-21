@@ -293,7 +293,8 @@ AlphaZeroAlgo::SearchTree(
           "alpha-zero unable to find action ID with max QU\n" + node->ToString(settings_.cpuct_));
   LOG_ALGO_IE(
     *logger_,
-    ' ' + std::to_string(*best_action_id) + "(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')',
+    ' ' + node->NodeState().ActionToString(Action(Action::ActionKind::ACTIONID, *best_action_id)) +
+    "(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')',
     0 /* indent */, false /* endline */);
 
   bool next_created = false;

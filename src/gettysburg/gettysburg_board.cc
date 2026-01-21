@@ -375,9 +375,16 @@ Board::NextArmyUnit(
     if (active_unit_->MoveFactorRemaining() > 0.0) {
       UpdateMoveCosts();
       UpdateValidActions();
+
+      // Use 'active_unit_' if it has some move actions available, or
+      // if it hasn't yet attempted any moves. It could be that
+      // 'active_unit_' is completely unable to move this turn, but we
+      // still want it to explicitly issue the NONE move action in
+      // that case.
       if ((valid_action_ids_.size() > 1) ||
           ((valid_action_ids_.size() == 1) &&
-           (valid_action_ids_[0] != ACTIONID_MOVE_END))) {
+           (valid_action_ids_[0] != ACTIONID_MOVE_END)) ||
+          (active_unit_->MoveFactorRemaining() == active_unit_->MoveFactor())) {
         // Return true indicating active army did not change.
         return true;
       }
