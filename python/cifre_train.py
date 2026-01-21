@@ -291,27 +291,30 @@ def main():
     # Set parallelism for cifre game execution based on the number of cpu cores.
     game_parallel = (multiprocessing.cpu_count() * 2) if (FLAGS.game_parallel is None) else FLAGS.game_parallel
 
+    # Create the initial "random" model and the directory where
+    # generated training samples are collected for it.
+    model_name = 'initial'
+    manager.save_triton_repository(LOG, FLAGS.model_kind, model_name)
+
+    samples_dir = pathlib.Path(FLAGS.train_dir) / model_name
+    if os.path.exists(samples_dir):
+        shutil.rmtree(samples_dir)
+    os.makedirs(samples_dir)
+
     # Keep track of the trained model that gives the best
-    # results. After each iteration, the just trained model competes
-    # against the current best to see if it is better.
+    # results. After each iteration, if comparing trained models, the
+    # just trained model competes against the current best to see which
+    # it better.
     best_model_name = None
     best_model_cpt_dir = None
 
     for iter in range(FLAGS.iteration_count):
-        model_name = f'iter{iter}'
-        manager.save_triton_repository(LOG, FLAGS.model_kind, model_name)
-
-        train_dir = pathlib.Path(FLAGS.train_dir) / model_name
-        if os.path.exists(train_dir):
-            shutil.rmtree(train_dir)
-        os.makedirs(train_dir)
-
         # Launch cifre executable to collect training data.
         game_cmd = [
             f'../build/install/bin/{FLAGS.game}',
             '--triton-cache-size', str(FLAGS.triton_cache_size),
             '--parallel', str(game_parallel),
-            '--train', '--train-dir', train_dir,
+            '--train', '--train-dir', samples_dir,
             '--game-shape', argify_shape(game_shape, ','),
             f'--game-count={FLAGS.game_count}',
             filter_specified('--max-turns-per-game', FLAGS.max_turns_per_game),
@@ -334,82 +337,95 @@ def main():
         cret = process.poll()
         LOG.fail_if(cret != 0, f'cifre return code is {cret}')
 
-        # Dataset
-        dataset = CifreDataset(LOG, train_dir)
-
+        # Train 'model_name' using the collected training samples.
+        dataset = CifreDataset(LOG, samples_dir)
         train_args = {
             'num_epochs' : FLAGS.epoch_count,
             'batch_size' : train_batch_size,
             'lr' : FLAGS.train_lr }
         manager.train(train_args, dataset)
-        manager.save_checkpoint(train_dir, 'cpt.pth.tar', create_folder=False, overwrite=True)
+
+        # Save the newly trained model under a new name based on the
+        # iteration. Save both a checkpoint of the model and a triton
+        # version.
+        model_name = f'iter{iter}'
+        manager.save_triton_repository(LOG, FLAGS.model_kind, model_name)
+
+        samples_dir = pathlib.Path(FLAGS.train_dir) / model_name
+        if os.path.exists(samples_dir):
+            shutil.rmtree(samples_dir)
+        os.makedirs(samples_dir)
+        manager.save_checkpoint(samples_dir, 'cpt.pth.tar', create_folder=False, overwrite=True)
 
         # If comparing against current best model then play with each
-        # player getting a chance to be player1. Otherwise just use
-        # the new model.
-        if ((FLAGS.cmp_game_threshold == 0) or (best_model_name is None)):
-            best_model_name = model_name
-            best_model_cpt_dir = train_dir
-        else:
-            LOG.log(f'==== Compare {model_name} to {best_model_name} ====')
-            game_count = model_winner_count = best_model_winner_count = draw_count = 0
-
-            # Give each player a chance to go first...
-            for starting_idx in [0, 1]:
-                report_file = train_dir / f'cmp{starting_idx}.json'
-                player1_name = model_name if starting_idx == 0 else best_model_name
-                player2_name = best_model_name if starting_idx == 0 else model_name
-
-                cmp_cmd = [
-                    f'../build/install/bin/{FLAGS.game}',
-                    '--report-file', report_file,
-                    '--triton-cache-size', str(FLAGS.triton_cache_size),
-                    '--parallel', str(game_parallel),
-                    '--game-shape', argify_shape(game_shape, ','),
-                    f'--game-count={FLAGS.cmp_game_count}',
-                    filter_specified('--max-turns-per-game', FLAGS.max_turns_per_game),
-                    '--player1=alphazero', '--name', player1_name, '--alphazero-model', player1_name,
-                    '--player2=alphazero', '--name', player2_name, '--alphazero-model', player2_name ]
-                if FLAGS.verbose:
-                    cmp_cmd.append('--verbose')
-                else:
-                    cmp_cmd.extend(['--quiet', '--log-invoke', '--log-summary']);
-
-                process = subprocess.Popen(
-                    cmp_cmd, bufsize=0, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                while process.poll() is None:
-                    print(process.stdout.read(1), end='')
-                print(process.stdout.read(), end='')
-                process.stdout.close()
-                cret = process.poll()
-                LOG.fail_if(cret != 0, f'cifre return code is {cret}')
-
-                # Read and aggregate comparison results
-                with report_file.open('r', encoding ='utf-8') as f:
-                    j = json.load(f)
-                    LOG.log(f"{player1_name} starting {j['game-results']['count']} games: "
-                            f"{player1_name} {j['game-results']['player1']}, "
-                            f"{player2_name} {j['game-results']['player2']}, "
-                            f"draw {j['game-results']['draw']}")
-                    game_count += j['game-results']['count']
-                    model_winner_count += j['game-results']['player1' if starting_idx == 0 else 'player2']
-                    best_model_winner_count += j['game-results']['player2' if starting_idx == 0 else 'player1']
-                    draw_count += j['game-results']['draw']
-
-            LOG.log(f'total {game_count} games: {model_name} {model_winner_count}, '
-                    f'{best_model_name} {best_model_winner_count}, draw {draw_count}')
-            model_winner_percentage = 100.0 * model_winner_count / game_count;
-            LOG.log(f'  {model_name} win percentage {model_winner_percentage}%, '
-                    f'threshold win percentage {FLAGS.cmp_game_threshold}%')
-            if model_winner_percentage >= FLAGS.cmp_game_threshold:
-                LOG.log(f'best model now {model_name}', flush=True)
+        # model getting a chance to be player1.
+        if FLAGS.cmp_game_threshold > 0:
+            if best_model_name is None:
                 best_model_name = model_name
-                best_model_cpt_dir = train_dir
+                best_model_cpt_dir = samples_dir
             else:
-                LOG.log(f'keeping best model {best_model_name}', flush=True)
-                manager.load_checkpoint(best_model_cpt_dir, 'cpt.pth.tar')
+                LOG.log(f'==== Compare {model_name} to {best_model_name} ====')
+                game_count = model_winner_count = best_model_winner_count = draw_count = 0
 
-    LOG.log(f'==== Training complete, best model {best_model_name} ====')
+                # Give each player a chance to go first...
+                for starting_idx in [0, 1]:
+                    report_file = samples_dir / f'cmp{starting_idx}.json'
+                    player1_name = model_name if starting_idx == 0 else best_model_name
+                    player2_name = best_model_name if starting_idx == 0 else model_name
+
+                    cmp_cmd = [
+                        f'../build/install/bin/{FLAGS.game}',
+                        '--report-file', report_file,
+                        '--triton-cache-size', str(FLAGS.triton_cache_size),
+                        '--parallel', str(game_parallel),
+                        '--game-shape', argify_shape(game_shape, ','),
+                        f'--game-count={FLAGS.cmp_game_count}',
+                        filter_specified('--max-turns-per-game', FLAGS.max_turns_per_game),
+                        '--player1=alphazero', '--name', player1_name, '--alphazero-model', player1_name,
+                        '--player2=alphazero', '--name', player2_name, '--alphazero-model', player2_name ]
+                    if FLAGS.verbose:
+                        cmp_cmd.append('--verbose')
+                    else:
+                        cmp_cmd.extend(['--quiet', '--log-invoke', '--log-summary']);
+
+                    process = subprocess.Popen(
+                        cmp_cmd, bufsize=0, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    while process.poll() is None:
+                        print(process.stdout.read(1), end='')
+                    print(process.stdout.read(), end='')
+                    process.stdout.close()
+                    cret = process.poll()
+                    LOG.fail_if(cret != 0, f'cifre return code is {cret}')
+
+                    # Read and aggregate comparison results
+                    with report_file.open('r', encoding ='utf-8') as f:
+                        j = json.load(f)
+                        LOG.log(f"{player1_name} starting {j['game-results']['count']} games: "
+                                f"{player1_name} {j['game-results']['player1']}, "
+                                f"{player2_name} {j['game-results']['player2']}, "
+                                f"draw {j['game-results']['draw']}")
+                        game_count += j['game-results']['count']
+                        model_winner_count += j['game-results']['player1' if starting_idx == 0 else 'player2']
+                        best_model_winner_count += j['game-results']['player2' if starting_idx == 0 else 'player1']
+                        draw_count += j['game-results']['draw']
+
+                LOG.log(f'total {game_count} games: {model_name} {model_winner_count}, '
+                        f'{best_model_name} {best_model_winner_count}, draw {draw_count}')
+                model_winner_percentage = 100.0 * model_winner_count / game_count;
+                LOG.log(f'  {model_name} win percentage {model_winner_percentage}%, '
+                        f'threshold win percentage {FLAGS.cmp_game_threshold}%')
+                if model_winner_percentage >= FLAGS.cmp_game_threshold:
+                    LOG.log(f'best model now {model_name}', flush=True)
+                    best_model_name = model_name
+                    best_model_cpt_dir = samples_dir
+                else:
+                    LOG.log(f'keeping best model {best_model_name}', flush=True)
+                    manager.load_checkpoint(best_model_cpt_dir, 'cpt.pth.tar')
+
+    if FLAGS.cmp_game_threshold > 0:
+        LOG.log(f'==== Training complete, best model {best_model_name} ====')
+    else:
+        LOG.log(f'==== Training complete, final model {model_name} ====')
 
 if __name__ == '__main__':
     main()
