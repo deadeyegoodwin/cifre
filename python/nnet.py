@@ -152,7 +152,7 @@ class CifreNNetManager(object):
         self._optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self._epoch = checkpoint['epoch']
 
-    def save_triton_repository(self, LOG, model_kind, model_name, model_version=1):
+    def save_triton_repository(self, LOG, output_dir, model_kind, model_name, model_version=1):
         """
         Save nnet as a 'model_kind' model called 'model_name'.
         """
@@ -229,11 +229,16 @@ class CifreNNetManager(object):
                 f'--maxShapes=board:{max_batch}' ]
 
             LOG.log(f'\n==== Convert to TensorRT ====')
+            TENSORRT_LOG_LEN = 610  # based on observation
             process = subprocess.Popen(
-                tensorrt_cmd, bufsize=0, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            while process.poll() is None:
-                print(process.stdout.read(1), end='', flush=True)
-            print(process.stdout.read(), end='')
+                tensorrt_cmd, bufsize=1, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            with open(pathlib.Path(output_dir) / 'tensorrt.log', "w") as f:
+                with tqdm(total=TENSORRT_LOG_LEN, desc='Converting ONNX', disable=self._log.debug()) as progress:
+                    while process.poll() is None:
+                        f.write(process.stdout.readline())
+                        progress.update(1)
+                    f.write(process.stdout.readline())
+                    progress.n = TENSORRT_LOG_LEN
             process.stdout.close()
             cret = process.poll()
             LOG.fail_if(cret != 0, f'TensorRT conversion return code is {cret}')

@@ -294,12 +294,12 @@ def main():
     # Create the initial "random" model and the directory where
     # generated training samples are collected for it.
     model_name = 'initial'
-    manager.save_triton_repository(LOG, FLAGS.model_kind, model_name)
-
     samples_dir = pathlib.Path(FLAGS.train_dir) / model_name
     if os.path.exists(samples_dir):
         shutil.rmtree(samples_dir)
     os.makedirs(samples_dir)
+
+    manager.save_triton_repository(LOG, samples_dir, FLAGS.model_kind, model_name)
 
     # Keep track of the trained model that gives the best
     # results. After each iteration, if comparing trained models, the
@@ -349,12 +349,12 @@ def main():
         # iteration. Save both a checkpoint of the model and a triton
         # version.
         model_name = f'iter{iter}'
-        manager.save_triton_repository(LOG, FLAGS.model_kind, model_name)
-
         samples_dir = pathlib.Path(FLAGS.train_dir) / model_name
         if os.path.exists(samples_dir):
             shutil.rmtree(samples_dir)
         os.makedirs(samples_dir)
+
+        manager.save_triton_repository(LOG, samples_dir, FLAGS.model_kind, model_name)
         manager.save_checkpoint(samples_dir, 'cpt.pth.tar', create_folder=False, overwrite=True)
 
         # If comparing against current best model then play with each
