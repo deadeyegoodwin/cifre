@@ -19,83 +19,9 @@ Unit::Unit(const std::string& name, ArmyKind army_kind, UnitKind unit_kind,
            float combat_factor, float move_factor, const MatrixCoordinate& position) :
   name_(name), army_kind_(army_kind), unit_kind_(unit_kind),
   combat_factor_(combat_factor), move_factor_(move_factor),
-  plane_idx_(UnitPlane(army_kind, unit_kind, combat_factor, move_factor)),
+  move_plane_idx_(MoveFactorToMovePlaneIndex(move_factor)),
   move_factor_expended_(0.0), position_(position)
 {
-}
-
-size_t
-Unit::UnitPlane(
-  ArmyKind army_kind, UnitKind unit_kind, float combat_factor, float move_factor) const
-{
-  switch (army_kind) {
-  case ArmyKind::UNION: {
-    switch (unit_kind) {
-    case UnitKind::HEADQUARTERS:
-      return BoardCellFactory::PLANE_IDX_UNION_HEADQUARTERS;
-    case UnitKind::INFANTRY:
-      if (move_factor == 5) {
-        if (combat_factor == 1) return BoardCellFactory::PLANE_IDX_UNION_INFANTRY_1_5;
-        if (combat_factor == 2) return BoardCellFactory::PLANE_IDX_UNION_INFANTRY_2_5;
-        if (combat_factor == 3) return BoardCellFactory::PLANE_IDX_UNION_INFANTRY_3_5;
-        if (combat_factor == 4) return BoardCellFactory::PLANE_IDX_UNION_INFANTRY_4_5;
-      }
-      break;
-    case UnitKind::CAVALRY:
-      if (move_factor == 7) {
-        if (combat_factor == 1) return BoardCellFactory::PLANE_IDX_UNION_CAVALRY_1_7;
-        if (combat_factor == 2) return BoardCellFactory::PLANE_IDX_UNION_CAVALRY_2_7;
-      }
-      break;
-    case UnitKind::ARTILLERY:
-    case UnitKind::HORSE_ARTILLERY:
-      if (move_factor == 5) {
-        if (combat_factor == 1) return BoardCellFactory::PLANE_IDX_UNION_ARTILLERY_1_5;
-        if (combat_factor == 2) return BoardCellFactory::PLANE_IDX_UNION_ARTILLERY_2_5;
-      }
-      else if (move_factor == 7) {
-        if (combat_factor == 1) return BoardCellFactory::PLANE_IDX_UNION_ARTILLERY_1_7;
-        if (combat_factor == 2) return BoardCellFactory::PLANE_IDX_UNION_ARTILLERY_2_7;
-      }
-      break;
-    }
-    break;
-  }
-
-  case ArmyKind::CONFEDERATE: {
-    switch (unit_kind) {
-    case UnitKind::HEADQUARTERS:
-      return BoardCellFactory::PLANE_IDX_CONFEDERATE_HEADQUARTERS;
-    case UnitKind::INFANTRY:
-      if (move_factor == 5) {
-        if (combat_factor == 2) return BoardCellFactory::PLANE_IDX_CONFEDERATE_INFANTRY_2_5;
-        if (combat_factor == 3) return BoardCellFactory::PLANE_IDX_CONFEDERATE_INFANTRY_3_5;
-        if (combat_factor == 4) return BoardCellFactory::PLANE_IDX_CONFEDERATE_INFANTRY_4_5;
-        if (combat_factor == 5) return BoardCellFactory::PLANE_IDX_CONFEDERATE_INFANTRY_5_5;
-        if (combat_factor == 6) return BoardCellFactory::PLANE_IDX_CONFEDERATE_INFANTRY_6_5;
-      }
-      break;
-    case UnitKind::CAVALRY:
-      if (move_factor == 7) {
-        if (combat_factor == 1) return BoardCellFactory::PLANE_IDX_CONFEDERATE_CAVALRY_1_7;
-      }
-      break;
-    case UnitKind::ARTILLERY:
-    case UnitKind::HORSE_ARTILLERY:
-      if (move_factor == 5) {
-        if (combat_factor == 1) return BoardCellFactory::PLANE_IDX_CONFEDERATE_ARTILLERY_1_5;
-        if (combat_factor == 2) return BoardCellFactory::PLANE_IDX_CONFEDERATE_ARTILLERY_2_5;
-      }
-      else if (move_factor == 7) {
-        if (combat_factor == 1) return BoardCellFactory::PLANE_IDX_CONFEDERATE_ARTILLERY_1_7;
-      }
-      break;
-    }
-    break;
-  }}
-
-  THROW("failed to find plane for unit");
-  return 0; // not reached
 }
 
 size_t
@@ -104,15 +30,16 @@ Unit::Hash() const
   constexpr uint64_t mulp = 2654435789;
   uint64_t hash = 104395301;
 
-  // Don't hash 'name_', it is just descriptive...
-  //
-  // Don't hash 'army_kind_, 'unit_kind_', 'combat_factor_' or
-  // 'move_factor_' as they are redundant with 'plane_idx_'.
+  // Don't hash 'name_', it is just descriptive. Don't hash
+  // 'move_plane_idx_', it is redundant with 'move_factor_'.
 
-  hash += (plane_idx_ * mulp) ^ (hash >> 23);
+  hash += ((uint64_t(army_kind_) + 1) * mulp) ^ (hash >> 23);
+  hash += ((uint64_t(unit_kind_) + 1) * mulp) ^ (hash >> 23);
+  hash += (uint64_t(combat_factor_ * 100000.0) * mulp) ^ (hash >> 23);
+  hash += (uint64_t(move_factor_ * 100000.0) * mulp) ^ (hash >> 23);
   hash += (uint64_t(move_factor_expended_ * 100000.0) * mulp) ^ (hash >> 23);
-  hash += (position_.Row() * mulp) ^ (hash >> 23);
-  hash += (position_.Column() * mulp) ^ (hash >> 23);
+  hash += ((position_.Row() + 1) * mulp) ^ (hash >> 23);
+  hash += ((position_.Column() + 1) * mulp) ^ (hash >> 23);
 
   return hash ^ (hash << 37);
 }
@@ -120,29 +47,32 @@ Unit::Hash() const
 bool
 Unit::Equal(const Unit& other) const
 {
-  // Don't compare 'name_', it is just descriptive...
-  //
-  // Don't compare 'army_kind_, 'unit_kind_', 'combat_factor_' or
-  // 'move_factor_' as they are redundant with 'plane_idx_'.
+  // Don't compare 'name_', it is just descriptive. Don't compare
+  // 'move_plane_idx_', it is redundant with 'move_factor_'.
 
-  return ((plane_idx_ == other.plane_idx_) &&
+  return ((army_kind_ == other.army_kind_) &&
+          (unit_kind_ == other.unit_kind_) &&
+          (combat_factor_ == other.combat_factor_) &&
+          (move_factor_ == other.move_factor_) &&
           (move_factor_expended_ == other.move_factor_expended_) &&
           (position_ == other.position_));
 }
 
-void
-Unit::RemoveFromBoard(Board* board) const
+size_t
+Unit::MoveFactorToMovePlaneIndex(float move_factor) const
 {
-  float v = board->BoardCellValueAt(position_, plane_idx_);
-  assert(v >= 1.0);
-  board->SetBoardCellValueAt(v - 1.0, position_, plane_idx_);
-}
+  if (move_factor == 5.0) {
+    return BoardCellFactory::PLANE_IDX_MOVE_5;
+  }
+  else if (move_factor == 7.0) {
+    return BoardCellFactory::PLANE_IDX_MOVE_7;
+  }
+  else if (move_factor == 10.0) {
+    return BoardCellFactory::PLANE_IDX_MOVE_10;
+  }
 
-void
-Unit::AddToBoard(Board* board) const
-{
-  float v = board->BoardCellValueAt(position_, plane_idx_);
-  board->SetBoardCellValueAt(v + 1.0, position_, plane_idx_);
+  THROW("unexpected move-factor");
+  return BoardCellFactory::PLANE_IDX_MOVE_0; // unreachable
 }
 
 void

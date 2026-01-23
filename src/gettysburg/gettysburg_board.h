@@ -240,6 +240,7 @@ private:
   cifre::array<ColorChar, 4> PositionToLargeTerrainContent(const MatrixCoordinate& pos) const;
   ColorChar PositionToVictoryPointContent(const MatrixCoordinate& pos) const;
   cifre::array<ColorChar, 3> PositionToMoveCostContent(const MatrixCoordinate& pos) const;
+  ColorChar VictoryPointToColorChar(float vp) const;
 
   BoardCellFactory* cell_factory_;
   BoardCellFactory::CellsKey cells_flattened_factory_key_;

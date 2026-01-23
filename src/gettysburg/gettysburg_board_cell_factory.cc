@@ -52,8 +52,11 @@ BoardCellFactory::BoardCellFactory(
           if (bd.forest_) {
             flat[offset + PLANE_IDX_FOREST] = CELL_ACTIVE;
           }
-          if (bd.hill_ || bd.rocky_hill_) {
+          if (bd.hill_) {
             flat[offset + PLANE_IDX_HILL] = CELL_ACTIVE;
+          }
+          if (bd.rocky_hill_) {
+            flat[offset + PLANE_IDX_ROCKY_HILL] = CELL_ACTIVE;
           }
 
           // For small scenario we just have a single victory point

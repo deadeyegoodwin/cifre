@@ -130,9 +130,9 @@ Gettysburg::CustomGameOptions() const
      "Default is '--game-shape=" + DEFAULT_GAME_SHAPE.ToString() + "'."},
     {OPTION_MAX_TURNS_PER_GAME, "max-turns-per-game", GameOption::ArgInt,
      "Maximum number of turns allowed per game."},
-    {OPTION_DISPLAY_LARGE_BOARD, "display-large-board", GameOption::ArgNone,
+    {OPTION_DISPLAY_LARGE_BOARD, "display-board-large", GameOption::ArgNone,
      "Display large board by default."},
-    {OPTION_DISPLAY_VERSION, "display-version-board", GameOption::ArgInt,
+    {OPTION_DISPLAY_VERSION, "display-board-version", GameOption::ArgInt,
      "Display board using specified display version by default."}};
 
   return custom;

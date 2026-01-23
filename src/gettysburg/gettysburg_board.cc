@@ -673,10 +673,24 @@ Board::UpdateInputPlanes()
 
   // Update planes as required for all units.
   for (size_t idx = 0; idx < union_units_count_; ++idx) {
-    union_units_[idx].AddToBoard(this);
+    const auto& pos = union_units_[idx].Position();
+    const auto midx = union_units_[idx].MovePlaneIndex();
+    assert(BoardCellValueAt(
+             pos, BoardCellFactory::PLANE_IDX_CONFEDERATE) == BoardCellFactory::CELL_EMPTY);
+    SetBoardCellValueAt(
+      BoardCellFactory::CELL_ACTIVE, pos, BoardCellFactory::PLANE_IDX_UNION);
+    SetBoardCellValueAt(
+      BoardCellFactory::CELL_ACTIVE, pos, midx);
   }
   for (size_t idx = 0; idx < confederate_units_count_; ++idx) {
-    confederate_units_[idx].AddToBoard(this);
+    const auto& pos = confederate_units_[idx].Position();
+    const auto midx = confederate_units_[idx].MovePlaneIndex();
+    assert(BoardCellValueAt(
+             pos, BoardCellFactory::PLANE_IDX_UNION) == BoardCellFactory::CELL_EMPTY);
+    SetBoardCellValueAt(
+      BoardCellFactory::CELL_ACTIVE, pos, BoardCellFactory::PLANE_IDX_CONFEDERATE);
+    SetBoardCellValueAt(
+      BoardCellFactory::CELL_ACTIVE, pos, midx);
   }
 
   // Update planes to show captured victory points.
@@ -981,37 +995,57 @@ Board::PositionToLargeCellPlaneSetContent(const MatrixCoordinate& pos) const
     ColorChar('_'), ColorChar('_'), ColorChar('_'), ColorChar('_'),
     ColorChar(' '), ColorChar(' ') };
 
-  // Top-row is the terrain properties of the plane-set cell and
-  // 'pos'.
+  // Terrain properties of the plane-set cell at 'pos'.
   content[1] = {
     ColorChar(' '), ColorChar('/'),
     ((PlaneCellValueAt(
         pos, BoardCellFactory::PLANE_IDX_FOREST) == BoardCellFactory::CELL_EMPTY) ?
-     ColorChar(' ') :  ColorChar('f', FOREST_FG_COLOR, FOREST_BG_COLOR)),
+     ColorChar(' ') : ColorChar('f', FOREST_FG_COLOR, FOREST_BG_COLOR)),
     ((PlaneCellValueAt(
         pos, BoardCellFactory::PLANE_IDX_HILL) == BoardCellFactory::CELL_EMPTY) ?
-     ColorChar(' ') :  ColorChar('h', HILL_FG_COLOR, HILL_BG_COLOR)),
-    ColorChar(' '), // no rocky-hill plane
-//    ((PlaneCellValueAt(
-//        pos, BoardCellFactory::PLANE_IDX_ROCKY_HILL) == BoardCellFactory::CELL_EMPTY) ?
-//     ColorChar(' ') :  ColorChar('r', ROCKY_HILL_FG_COLOR, ROCKY_HILL_BG_COLOR)),
+     ColorChar(' ') : ColorChar('h', HILL_FG_COLOR, HILL_BG_COLOR)),
+    ((PlaneCellValueAt(
+        pos, BoardCellFactory::PLANE_IDX_ROCKY_HILL) == BoardCellFactory::CELL_EMPTY) ?
+     ColorChar(' ') : ColorChar('r', ROCKY_HILL_FG_COLOR, ROCKY_HILL_BG_COLOR)),
     ColorChar(' '), // no town plane
     ColorChar('\\'), ColorChar(' ') };
 
+  // Army move properties of the plane-set cell at 'pos'.
   content[2] = {
-    ColorChar('/'), ColorChar(' '),
-    ColorChar(' '),
-    ColorChar(' '),
-    ColorChar(' '),
-    ColorChar(' '), ColorChar(' '), ColorChar('\\') };
+    ColorChar('/'),
+    ((PlaneCellValueAt(
+        pos, BoardCellFactory::PLANE_IDX_UNION) == BoardCellFactory::CELL_EMPTY) ?
+     ColorChar(' ') : UNION_CHAR),
+    ((PlaneCellValueAt(
+        pos, BoardCellFactory::PLANE_IDX_CONFEDERATE) == BoardCellFactory::CELL_EMPTY) ?
+     ColorChar(' ') : CONFEDERATE_CHAR),
+    ((PlaneCellValueAt(
+        pos, BoardCellFactory::PLANE_IDX_MOVE_0) == BoardCellFactory::CELL_EMPTY) ?
+     ColorChar(' ') : ColorChar('0')),
+    ((PlaneCellValueAt(
+        pos, BoardCellFactory::PLANE_IDX_MOVE_5) == BoardCellFactory::CELL_EMPTY) ?
+     ColorChar(' ') : ColorChar('5')),
+    ((PlaneCellValueAt(
+        pos, BoardCellFactory::PLANE_IDX_MOVE_7) == BoardCellFactory::CELL_EMPTY) ?
+     ColorChar(' ') : ColorChar('7')),
+    ((PlaneCellValueAt(
+        pos, BoardCellFactory::PLANE_IDX_MOVE_10) == BoardCellFactory::CELL_EMPTY) ?
+     ColorChar(' ') : ColorChar('a')),
+    ColorChar('\\') };
+
+  // Victory-point properties of the plane-set cell at 'pos'.
+  float vp = PlaneCellValueAt(pos, BoardCellFactory::PLANE_IDX_VICTORY_POINT);
+  float union_vp = PlaneCellValueAt(pos, BoardCellFactory::PLANE_IDX_UNION_VP);
+  float confederate_vp = PlaneCellValueAt(pos, BoardCellFactory::PLANE_IDX_CONFEDERATE_VP);
   content[3] = {
-    ColorChar('\\'),
-    ColorChar(' '),
-    ColorChar(' '),
-    ColorChar(' '),
-    ColorChar(' '),
-    ColorChar(' '),
-    ColorChar(' '), ColorChar('/') };
+    ColorChar('\\'), ColorChar(' '),
+    ((vp == 0.0) ? ColorChar(' ') : VictoryPointToColorChar(vp)),
+    ((union_vp == 0.0) ?
+     ColorChar(' ') : VictoryPointToColorChar(union_vp).Overlay(UNION_CHAR)),
+    ((confederate_vp == 0.0) ?
+     ColorChar(' ') : VictoryPointToColorChar(confederate_vp).Overlay(CONFEDERATE_CHAR)),
+    ColorChar(' '), ColorChar(' '), ColorChar('/') };
+
   content[4] = {
     ColorChar(' '), ColorChar('\\'),
     ColorChar('_'), ColorChar('_'), ColorChar('_'), ColorChar('_'),
@@ -1187,13 +1221,7 @@ Board::PositionToVictoryPointContent(const MatrixCoordinate& pos) const
       }
     }
 
-    if (vp == std::floor(vp)) {
-      std::string vps = std::to_string(uint64_t(std::floor(vp)));
-      chars = ColorChar((vps.size() == 1) ? vps[0] : '?');
-    }
-    else {
-      chars = ColorChar('?');
-    }
+    chars = VictoryPointToColorChar(vp);
   }
 
   if (uvp > 0.0) {
@@ -1204,6 +1232,19 @@ Board::PositionToVictoryPointContent(const MatrixCoordinate& pos) const
   }
 
   return chars;
+}
+
+ColorChar
+Board::VictoryPointToColorChar(float vp) const
+{
+  if (vp == std::floor(vp)) {
+    std::string vps = std::to_string(uint64_t(std::floor(vp)));
+    if (vps.size() == 1) {
+      return ColorChar(vps[0]);
+    }
+  }
+
+  return ColorChar('?');
 }
 
 cifre::array<ColorChar, 3>

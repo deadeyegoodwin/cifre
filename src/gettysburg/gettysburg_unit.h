@@ -5,13 +5,10 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "cifre_boardhex.h"
 #include "cifre_std.h"
 #include "gettysburg_action.h"
 
 namespace cifre { namespace gettysburg {
-
-class Board;
 
 //
 // Unit
@@ -67,6 +64,8 @@ public:
   float MoveFactor() const { return move_factor_; }
   const MatrixCoordinate& Position() const { return position_; }
 
+  size_t MovePlaneIndex() const { return move_plane_idx_; }
+
   float MoveFactorExpended() const { return move_factor_expended_; }
   float MoveFactorRemaining() const {
     return move_factor_ - move_factor_expended_; }
@@ -77,27 +76,19 @@ public:
     uint64_t aid, const cifre::array<float, MOVE_ACTIONID_COUNT>& move_cost,
     const cifre::array<bool, MOVE_ACTIONID_COUNT>& end_turn);
 
-  // Update 'board' to remove this unit.
-  void RemoveFromBoard(Board* board) const;
-
-  // Update 'board' to reflect current status of this unit.
-  void AddToBoard(Board* board) const;
-
   // Return string representation of the unit.
   std::string ToString() const;
 
 private:
-  size_t UnitPlane(
-    ArmyKind army_kind, UnitKind unit_kind,
-    float combat_factor, float move_factor) const;
+  size_t MoveFactorToMovePlaneIndex(float move_factor) const;
 
   std::string name_;
   ArmyKind army_kind_;
   UnitKind unit_kind_;
   float combat_factor_;
   float move_factor_;
-  size_t plane_idx_;
 
+  size_t move_plane_idx_;
   float move_factor_expended_;
   MatrixCoordinate position_;
 };
