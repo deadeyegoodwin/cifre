@@ -317,19 +317,27 @@ Board::CopyAndUpdate(uint64_t action_id, std::pmr::memory_resource* arena) const
 void
 Board::Update(uint64_t action_id)
 {
+  // Move the currently active unit based on 'action_id' and update
+  // any newly captured victory points.
   active_unit_->ApplyActionId(action_id, active_move_costs_, active_end_turn_);
-
   UpdateCapturedVictoryPoints();
 
-  // Update active unit and change to next unit if active unit's
-  // movement is completed. If all units of a player have completed
-  // movement then move to next player (and potentially next turn).
-  const size_t active_units_count =
-    (active_army_ == Unit::ArmyKind::UNION) ? union_units_count_ : confederate_units_count_;
-  cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& active_units =
-    (active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_;
+  // Find the new active unit for this board. Could be the same as the
+  // current active unit, another unit in the same army, or a unit in
+  // opponent army.
+  while (turn_ <= OOB::LastTurn(scenario_)) {
+    // Update active unit and change to next unit if active unit's
+    // movement is completed. If all units of an army have completed
+    // movement then move to next army (and potentially next turn).
+    auto active_units_count = FriendlyUnitsCount(active_army_);
+    auto& active_units = MutableFriendlyUnits(active_army_);
 
-  if (!NextArmyUnit(active_units_count, active_units)) {
+    if (NextArmyUnit(active_units_count, active_units)) {
+      break;
+    }
+
+    // No more units to consider in the current active army.
+
     // Reset move-factor-remaining for all units of the current army.
     for (size_t idx = 0; idx < active_units_count; ++idx) {
       active_units[idx].ResetMoveFactorRemaining();
@@ -347,12 +355,6 @@ Board::Update(uint64_t action_id)
       turn_ += 1;
       ReinforceUnits();
     }
-
-    if (!NextArmyUnit(
-          (active_army_ == Unit::ArmyKind::UNION) ? union_units_count_ : confederate_units_count_,
-          (active_army_ == Unit::ArmyKind::UNION) ? union_units_ : confederate_units_)) {
-      THROW("at least one army should contain moveable units");
-    }
   }
 
   // Update input planes and terminal status for the new active unit.
@@ -364,8 +366,6 @@ bool
 Board::NextArmyUnit(
   size_t units_count, cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units)
 {
-  assert(units_count > 0);
-
   // Find the "next" unit in the current army to become the active
   // unit. The current active unit can remain the active unit if it
   // has valid movement actions...
@@ -393,34 +393,6 @@ Board::NextArmyUnit(
 
   // Return false indicating need to change active army.
   return false;
-}
-
-cifre::array<cifre::array<bool, Board::MAX_BOARD_COLUMNS>, Board::MAX_BOARD_ROWS>
-Board::OpponentZOCPositions(
-  const MatrixCoordinate& pos, size_t unit_count,
-  const cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units) const
-{
-  cifre::array<cifre::array<
-    bool, Board::MAX_BOARD_COLUMNS>, Board::MAX_BOARD_ROWS> zocs;
-
-  for (size_t r = 0; r < size_.RowCount(); ++r) {
-    zocs[r].fill(false);
-  }
-
-  // For each 'units' show all adjacent hexes as in ZOC.
-  for (size_t uidx = 0; uidx < unit_count; ++uidx) {
-    const Unit& unit = units[uidx];
-    for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
-      const MatrixCoordinate pos = HexDirectionToPosition(unit.Position(), HexDirection(idx));
-      if ((pos.Row() >= 0) && (pos.Column() >= 0) &&
-          (pos.Row() < int64_t(size_.RowCount())) &&
-          (pos.Column() < int64_t(size_.ColumnCount()))) {
-        zocs[pos.Row()][pos.Column()] = true;
-      }
-    }
-  }
-
-  return zocs;
 }
 
 void
@@ -465,8 +437,8 @@ Board::UpdateMoveCosts()
 
   // Cannot move onto an opponent unit so make inaccessible the
   // actions that move the active unit onto an opponent.
-  const auto& opponent_units = OpponentUnits();
-  for (size_t idx = 0; idx < OpponentUnitsCount(); ++idx) {
+  const auto& opponent_units = OpponentUnits(active_army_);
+  for (size_t idx = 0; idx < OpponentUnitsCount(active_army_); ++idx) {
     const HexDirection dir =
       PositionToHexDirection(active_unit_->Position(), opponent_units[idx].Position());
     if ((dir != HexDirection::NONE) && IsActionIdForHexDirection(dir)) {
@@ -478,8 +450,8 @@ Board::UpdateMoveCosts()
   // friendly unit is allowed at intermediate points in the move, but
   // we don't allow that and instead rely on AZ learning how to avoid
   // such "mid-turn" overlaps.
-  const auto& friendly_units = FriendlyUnits();
-  for (size_t idx = 0; idx < FriendlyUnitsCount(); ++idx) {
+  const auto& friendly_units = FriendlyUnits(active_army_);
+  for (size_t idx = 0; idx < FriendlyUnitsCount(active_army_); ++idx) {
     const HexDirection dir =
       PositionToHexDirection(active_unit_->Position(), friendly_units[idx].Position());
     if ((dir != HexDirection::NONE) && IsActionIdForHexDirection(dir)) {
@@ -517,7 +489,7 @@ Board::UpdateMoveCosts()
 
   // Determine which board positions are in an opponent ZOC.
   const auto opponent_zoc_positions =
-    OpponentZOCPositions(active_unit_->Position(), OpponentUnitsCount(), OpponentUnits());
+    OpponentZOCPositions(OpponentUnitsCount(active_army_), OpponentUnits(active_army_));
 
   // Iterate to find the minimum move cost. Actions that have a
   // negative cost (inaccessible) remain negative.
@@ -635,6 +607,35 @@ Board::UpdateMoveCosts()
       active_end_turn_[aid] = true;
     }
   }
+}
+
+cifre::array<cifre::array<bool, Board::MAX_BOARD_COLUMNS>, Board::MAX_BOARD_ROWS>
+Board::OpponentZOCPositions(
+  size_t unit_count, const cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units) const
+{
+  cifre::array<cifre::array<
+    bool, Board::MAX_BOARD_COLUMNS>, Board::MAX_BOARD_ROWS> zocs;
+
+  for (size_t r = 0; r < size_.RowCount(); ++r) {
+    zocs[r].fill(false);
+  }
+
+  // For each unit in 'units' show all adjacent hexes (and the unit's
+  // position itself) as in ZOC.
+  for (size_t uidx = 0; uidx < unit_count; ++uidx) {
+    const Unit& unit = units[uidx];
+    zocs[unit.Position().Row()][unit.Position().Column()] = true;
+    for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
+      const MatrixCoordinate pos = HexDirectionToPosition(unit.Position(), HexDirection(idx));
+      if ((pos.Row() >= 0) && (pos.Column() >= 0) &&
+          (pos.Row() < int64_t(size_.RowCount())) &&
+          (pos.Column() < int64_t(size_.ColumnCount()))) {
+        zocs[pos.Row()][pos.Column()] = true;
+      }
+    }
+  }
+
+  return zocs;
 }
 
 void
@@ -801,7 +802,18 @@ Board::ReinforceUnits()
     if ((u.Position().Row() < int64_t(size_.RowCount())) &&
         (u.Position().Column() < int64_t(size_.ColumnCount()))) {
       assert(union_units_count_ < OOB::MAX_UNITS_PER_ARMY_COUNT);
-      union_units_[union_units_count_++] = u;
+
+      // If the reinforcement hex is occupied by an enemy unit or ZOC
+      // then defer the unit until a later turn.
+      const auto opponent_zoc_positions =
+        OpponentZOCPositions(OpponentUnitsCount(u.Army()), OpponentUnits(u.Army()));
+      if (opponent_zoc_positions[u.Position().Row()][u.Position().Column()]) {
+        // FIXME
+        LOG_GAME(*ActivePlayer()->PlayerLogger(), "defer " + u.Name());
+      }
+      else {
+        union_units_[union_units_count_++] = u;
+      }
     }
   }
 
@@ -810,7 +822,18 @@ Board::ReinforceUnits()
     if ((u.Position().Row() < int64_t(size_.RowCount())) &&
         (u.Position().Column() < int64_t(size_.ColumnCount()))) {
       assert(confederate_units_count_ < OOB::MAX_UNITS_PER_ARMY_COUNT);
-      confederate_units_[confederate_units_count_++] = u;
+
+      // If the reinforcement hex is occupied by an enemy unit or ZOC
+      // then defer the unit until a later turn.
+      const auto opponent_zoc_positions =
+        OpponentZOCPositions(OpponentUnitsCount(u.Army()), OpponentUnits(u.Army()));
+      if (opponent_zoc_positions[u.Position().Row()][u.Position().Column()]) {
+        // FIXME
+        LOG_GAME(*ActivePlayer()->PlayerLogger(), "defer " + u.Name());
+      }
+      else {
+        confederate_units_[confederate_units_count_++] = u;
+      }
     }
   }
 }
