@@ -233,7 +233,8 @@ class CifreNNetManager(object):
             process = subprocess.Popen(
                 tensorrt_cmd, bufsize=1, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             with open(pathlib.Path(output_dir) / 'tensorrt.log', "w") as f:
-                with tqdm(total=TENSORRT_LOG_LEN, desc='Converting ONNX', disable=self._log.debug()) as progress:
+                with tqdm(total=TENSORRT_LOG_LEN, desc='Converting ONNX',
+                          bar_format="{l_bar}{bar}|", disable=self._log.debug()) as progress:
                     while process.poll() is None:
                         f.write(process.stdout.readline())
                         progress.update(1)
