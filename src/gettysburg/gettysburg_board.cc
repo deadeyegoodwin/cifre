@@ -840,6 +840,20 @@ Board::ToString() const
   return sstr.str();
 }
 
+const MatrixSize&
+Board::DisplaySize(BoardDisplayKind display_kind, uint32_t display_version) const
+{
+  // Small board always shows just the board cells. Large board can
+  // show the board cells or the entire plane-set depending on
+  // version.
+  if ((display_kind == BoardHex::BoardDisplayKind::SMALL) ||
+      (display_version == uint32_t(Board::BoardDisplayVersion::DEFAULT))) {
+    return size_;
+  }
+
+  return plane_shape_;
+}
+
 BoardHex::SmallBoardCellContent
 Board::PositionToSmallCellContent(
   uint32_t display_version, const MatrixCoordinate& pos) const
@@ -876,6 +890,16 @@ Board::PositionToSmallCellContent(
 BoardHex::LargeBoardCellContent
 Board::PositionToLargeCellContent(
   uint32_t display_version, const MatrixCoordinate& pos) const
+{
+  if (display_version == uint32_t(BoardDisplayVersion::PLANE_SET)) {
+    return PositionToLargeCellPlaneSetContent(pos);
+  }
+
+  return PositionToLargeCellDefaultContent(pos);
+}
+
+BoardHex::LargeBoardCellContent
+Board::PositionToLargeCellDefaultContent(const MatrixCoordinate& pos) const
 {
   LargeBoardCellContent content;
   const auto unit_content = PositionToUnitContent(pos);
@@ -942,6 +966,60 @@ Board::PositionToLargeCellContent(
     ColorChar(' '), ColorChar(' '),
     dn_stream_content, dn_stream_content, dn_stream_content,
     dn_road_content.Overlay(dn_stream_content),
+    ColorChar(' '), ColorChar(' ') };
+
+  return content;
+}
+
+BoardHex::LargeBoardCellContent
+Board::PositionToLargeCellPlaneSetContent(const MatrixCoordinate& pos) const
+{
+  LargeBoardCellContent content;
+
+  content[0] = {
+    ColorChar(' '), ColorChar(' '),
+    ColorChar('_'), ColorChar('_'), ColorChar('_'), ColorChar('_'),
+    ColorChar(' '), ColorChar(' ') };
+
+  // Top-row is the terrain properties of the plane-set cell and
+  // 'pos'.
+  content[1] = {
+    ColorChar(' '), ColorChar('/'),
+    ((PlaneCellValueAt(
+        pos, BoardCellFactory::PLANE_IDX_FOREST) == BoardCellFactory::CELL_EMPTY) ?
+     ColorChar(' ') :  ColorChar('f', FOREST_FG_COLOR, FOREST_BG_COLOR)),
+    ((PlaneCellValueAt(
+        pos, BoardCellFactory::PLANE_IDX_HILL) == BoardCellFactory::CELL_EMPTY) ?
+     ColorChar(' ') :  ColorChar('h', HILL_FG_COLOR, HILL_BG_COLOR)),
+    ColorChar(' '), // no rocky-hill plane
+//    ((PlaneCellValueAt(
+//        pos, BoardCellFactory::PLANE_IDX_ROCKY_HILL) == BoardCellFactory::CELL_EMPTY) ?
+//     ColorChar(' ') :  ColorChar('r', ROCKY_HILL_FG_COLOR, ROCKY_HILL_BG_COLOR)),
+    ColorChar(' '), // no town plane
+    ColorChar('\\'), ColorChar(' ') };
+
+  content[2] = {
+    ColorChar('/'), ColorChar(' '),
+    ColorChar(' '),
+    ColorChar(' '),
+    ColorChar(' '),
+    ColorChar(' '), ColorChar(' '), ColorChar('\\') };
+  content[3] = {
+    ColorChar('\\'),
+    ColorChar(' '),
+    ColorChar(' '),
+    ColorChar(' '),
+    ColorChar(' '),
+    ColorChar(' '),
+    ColorChar(' '), ColorChar('/') };
+  content[4] = {
+    ColorChar(' '), ColorChar('\\'),
+    ColorChar('_'), ColorChar('_'), ColorChar('_'), ColorChar('_'),
+    ColorChar('/'), ColorChar(' ') };
+
+  content[5] = {
+    ColorChar(' '), ColorChar(' '),
+    ColorChar('_'), ColorChar('_'), ColorChar('_'), ColorChar('_'),
     ColorChar(' '), ColorChar(' ') };
 
   return content;

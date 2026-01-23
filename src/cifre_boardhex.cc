@@ -19,8 +19,8 @@ BoardHex::BoardHex(
   const size_t plane_cnt, const cifre::MatrixSize& size,
   const std::vector<Player*>& players, size_t starting_player_id,
   std::pmr::memory_resource* arena) :
-  display_kind_(BoardDisplayKind::SMALL), plane_cnt_(plane_cnt), size_(size),
-  active_player_id_(starting_player_id),
+  display_kind_(BoardDisplayKind::SMALL), display_version_(0),
+  plane_cnt_(plane_cnt), size_(size), active_player_id_(starting_player_id),
   terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL),
   valid_action_ids_(arena)
 {
@@ -41,8 +41,8 @@ BoardHex::BoardHex(
 }
 
 BoardHex::BoardHex(const BoardHex& other, std::pmr::memory_resource* arena) :
-  display_kind_(other.display_kind_), plane_cnt_(other.plane_cnt_),
-  size_(other.size_), players_(other.players_),
+  display_kind_(other.display_kind_), display_version_(other.display_version_),
+  plane_cnt_(other.plane_cnt_), size_(other.size_), players_(other.players_),
   active_player_id_(other.active_player_id_), terminal_status_(other.terminal_status_),
   valid_action_ids_(other.valid_action_ids_.begin(), other.valid_action_ids_.end(), arena)
 {

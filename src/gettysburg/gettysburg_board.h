@@ -38,9 +38,10 @@ public:
 
   // Two versions of board display. Version 0 is the default and shows
   // game information on both small and large displays. Version 1
-  // shows contents of cell-planes when showing large display, same as
-  // version 0 for small display.
+  // shows contents of all plane-set cells when showing large display,
+  // same as version 0 for small display.
   static constexpr size_t BOARD_DISPLAY_VERSION_COUNT = 2;
+  enum class BoardDisplayVersion { DEFAULT = 0, PLANE_SET = 1 };
 
 public:
   // Create board...
@@ -183,10 +184,16 @@ private:
     size_t units_count, cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units);
 
   // See cifre::BoardHex
+  const MatrixSize& DisplaySize(
+    BoardDisplayKind display_kind, uint32_t display_version) const override;
   SmallBoardCellContent PositionToSmallCellContent(
     uint32_t display_version, const MatrixCoordinate& pos) const override;
   LargeBoardCellContent PositionToLargeCellContent(
     uint32_t display_version, const MatrixCoordinate& pos) const override;
+  LargeBoardCellContent PositionToLargeCellDefaultContent(
+    const MatrixCoordinate& pos) const;
+  LargeBoardCellContent PositionToLargeCellPlaneSetContent(
+    const MatrixCoordinate& pos) const;
 
   static constexpr FGColor UNION_FG_COLOR = FGColor::BLUE;
   static constexpr BGColor UNION_BG_COLOR = BGColor::BLACK;
