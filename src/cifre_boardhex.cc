@@ -97,8 +97,10 @@ BoardHex::SmallBoardToString() const
   // \_0/2 \_2/2 \_4/2 \_6/
   // /  \_1/  \_3/  \_5/  \_
 
+  const auto& dsize = DisplaySize(display_kind_, display_version_);
+
   // Top of first row of hex cells.
-  for (size_t col_idx = 0; col_idx < size_.ColumnCount(); col_idx += 2) {
+  for (size_t col_idx = 0; col_idx < dsize.ColumnCount(); col_idx += 2) {
     const auto content = PositionToSmallCellContent(
       display_version_, MatrixCoordinate(0, col_idx));
     sstr << ((col_idx == 0) ? " " : "    ");
@@ -107,8 +109,8 @@ BoardHex::SmallBoardToString() const
   sstr << "\n";
 
   // Rows...
-  for (size_t row_idx = 0; row_idx < size_.RowCount(); ++row_idx) {
-    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+  for (size_t row_idx = 0; row_idx < dsize.RowCount(); ++row_idx) {
+    for (size_t col_idx = 0; col_idx < dsize.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
         const auto content = PositionToSmallCellContent(
           display_version_, MatrixCoordinate(row_idx, col_idx));
@@ -127,14 +129,14 @@ BoardHex::SmallBoardToString() const
         sstr << ColorCharsToString(content[0][1], content[0][2]);
       }
     }
-    if ((row_idx != 0) && ((size_.ColumnCount() % 2) == 0)) {
+    if ((row_idx != 0) && ((dsize.ColumnCount() % 2) == 0)) {
       const auto content = PositionToSmallCellContent(
-        display_version_, MatrixCoordinate(row_idx - 1, size_.ColumnCount() - 1));
+        display_version_, MatrixCoordinate(row_idx - 1, dsize.ColumnCount() - 1));
       sstr << ColorCharsToString(content[2][3]);
     }
     sstr << "\n";
 
-    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+    for (size_t col_idx = 0; col_idx < dsize.ColumnCount(); ++col_idx) {
       auto content = PositionToSmallCellContent(
         display_version_, MatrixCoordinate(row_idx, col_idx));
       if ((col_idx % 2) == 0) {
@@ -144,7 +146,7 @@ BoardHex::SmallBoardToString() const
       }
       else {
         sstr << ColorCharsToString(content[1][1], content[1][2]);
-        if (((size_.ColumnCount() % 2) == 0) && (col_idx == (size_.ColumnCount() - 1))) {
+        if (((dsize.ColumnCount() % 2) == 0) && (col_idx == (dsize.ColumnCount() - 1))) {
           sstr << ColorCharsToString(content[1][3]);
         }
       }
@@ -154,9 +156,9 @@ BoardHex::SmallBoardToString() const
 
   // Lower half of last row.
   sstr << " ";
-  for (size_t col_idx = 1; col_idx < size_.ColumnCount(); col_idx += 2) {
+  for (size_t col_idx = 1; col_idx < dsize.ColumnCount(); col_idx += 2) {
     auto content = PositionToSmallCellContent(
-      display_version_, MatrixCoordinate(size_.RowCount() - 1, col_idx));
+      display_version_, MatrixCoordinate(dsize.RowCount() - 1, col_idx));
     sstr
       << "  "
       << ColorCharsToString(content[2][0], content[2][1].Overlay(content[3][1]),
@@ -181,8 +183,10 @@ BoardHex::LargeBoardToString() const
   //       \      /
   //        \____/
 
+  const auto& dsize = DisplaySize(display_kind_, display_version_);
+
   // Top of first row of hex cells.
-  for (size_t col_idx = 0; col_idx < size_.ColumnCount(); col_idx += 2) {
+  for (size_t col_idx = 0; col_idx < dsize.ColumnCount(); col_idx += 2) {
     const auto content = PositionToLargeCellContent(
       display_version_, MatrixCoordinate(0, col_idx));
     sstr << ((col_idx == 0) ? "  " : "        ");
@@ -191,9 +195,9 @@ BoardHex::LargeBoardToString() const
   sstr << "\n";
 
   // Rows...
-  for (size_t row_idx = 0; row_idx < size_.RowCount(); ++row_idx) {
+  for (size_t row_idx = 0; row_idx < dsize.RowCount(); ++row_idx) {
     // Loc 0...
-    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+    for (size_t col_idx = 0; col_idx < dsize.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
         const auto content = PositionToLargeCellContent(
           display_version_, MatrixCoordinate(row_idx, col_idx));
@@ -215,15 +219,15 @@ BoardHex::LargeBoardToString() const
         sstr << "      ";
       }
     }
-    if ((row_idx != 0) && ((size_.ColumnCount() % 2) == 0)) {
+    if ((row_idx != 0) && ((dsize.ColumnCount() % 2) == 0)) {
       const auto content = PositionToLargeCellContent(
-        display_version_, MatrixCoordinate(row_idx, size_.ColumnCount() - 1));
+        display_version_, MatrixCoordinate(row_idx, dsize.ColumnCount() - 1));
       sstr << ColorCharsToString(content[3][7]);
     }
     sstr << "\n";
 
     // Loc 1...
-    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+    for (size_t col_idx = 0; col_idx < dsize.ColumnCount(); ++col_idx) {
       if ((col_idx % 2) == 0) {
         const auto content = PositionToLargeCellContent(
           display_version_, MatrixCoordinate(row_idx, col_idx));
@@ -245,15 +249,15 @@ BoardHex::LargeBoardToString() const
           content[0][2], content[0][3], content[0][4], content[0][5]);
       }
     }
-    if ((row_idx != 0) && ((size_.ColumnCount() % 2) == 0)) {
+    if ((row_idx != 0) && ((dsize.ColumnCount() % 2) == 0)) {
       const auto content = PositionToLargeCellContent(
-        display_version_, MatrixCoordinate(row_idx, size_.ColumnCount() - 1));
+        display_version_, MatrixCoordinate(row_idx, dsize.ColumnCount() - 1));
       sstr << ColorCharsToString(content[4][6]);
     }
     sstr << "\n";
 
     // Loc 2...
-    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+    for (size_t col_idx = 0; col_idx < dsize.ColumnCount(); ++col_idx) {
       const auto content = PositionToLargeCellContent(
         display_version_, MatrixCoordinate(row_idx, col_idx));
       if ((col_idx % 2) == 0) {
@@ -266,15 +270,15 @@ BoardHex::LargeBoardToString() const
           content[1][2], content[1][3], content[1][4], content[1][5]);
       }
     }
-    if ((size_.ColumnCount() % 2) == 0) {
+    if ((dsize.ColumnCount() % 2) == 0) {
       const auto content = PositionToLargeCellContent(
-        display_version_, MatrixCoordinate(row_idx, size_.ColumnCount() - 1));
+        display_version_, MatrixCoordinate(row_idx, dsize.ColumnCount() - 1));
       sstr << ColorCharsToString(content[1][6]);
     }
     sstr << "\n";
 
     // Loc 3...
-    for (size_t col_idx = 0; col_idx < size_.ColumnCount(); ++col_idx) {
+    for (size_t col_idx = 0; col_idx < dsize.ColumnCount(); ++col_idx) {
       auto content = PositionToLargeCellContent(
         display_version_, MatrixCoordinate(row_idx, col_idx));
       if ((col_idx % 2) == 0) {
@@ -292,9 +296,9 @@ BoardHex::LargeBoardToString() const
           content[2][4], content[2][5], content[2][6]);
       }
     }
-    if ((size_.ColumnCount() % 2) == 0) {
+    if ((dsize.ColumnCount() % 2) == 0) {
       const auto content = PositionToLargeCellContent(
-        display_version_, MatrixCoordinate(row_idx, size_.ColumnCount() - 1));
+        display_version_, MatrixCoordinate(row_idx, dsize.ColumnCount() - 1));
       sstr << ColorCharsToString(content[2][7]);
     }
     sstr << "\n";
@@ -302,9 +306,9 @@ BoardHex::LargeBoardToString() const
 
   // Lower half of last row.
   sstr << "  ";
-  for (size_t col_idx = 1; col_idx < size_.ColumnCount(); col_idx += 2) {
+  for (size_t col_idx = 1; col_idx < dsize.ColumnCount(); col_idx += 2) {
     const auto content = PositionToLargeCellContent(
-      display_version_, MatrixCoordinate(size_.RowCount() - 1, col_idx));
+      display_version_, MatrixCoordinate(dsize.RowCount() - 1, col_idx));
     sstr
       << "    "
       << ColorCharsToString(
@@ -312,9 +316,9 @@ BoardHex::LargeBoardToString() const
         content[3][4], content[3][5], content[3][6], content[3][7]);
   }
   sstr << "\n ";
-  for (size_t col_idx = 1; col_idx < size_.ColumnCount(); col_idx += 2) {
+  for (size_t col_idx = 1; col_idx < dsize.ColumnCount(); col_idx += 2) {
     auto content = PositionToLargeCellContent(
-      display_version_, MatrixCoordinate(size_.RowCount() - 1, col_idx));
+      display_version_, MatrixCoordinate(dsize.RowCount() - 1, col_idx));
     sstr
       << "      "
       << ColorCharsToString(

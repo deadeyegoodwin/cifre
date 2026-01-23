@@ -36,7 +36,11 @@ public:
   static constexpr size_t MAX_BOARD_ROWS = 11;
   static constexpr size_t MAX_BOARD_COLUMNS = 21;
 
-  static constexpr size_t BOARD_CELL_CONTENT_VERSION_COUNT = 1;
+  // Two versions of board display. Version 0 is the default and shows
+  // game information on both small and large displays. Version 1
+  // shows contents of cell-planes when showing large display, same as
+  // version 0 for small display.
+  static constexpr size_t BOARD_DISPLAY_VERSION_COUNT = 2;
 
 public:
   // Create board...

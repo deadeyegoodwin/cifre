@@ -93,7 +93,7 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
 
     case Action::ActionKind::CUSTOM_1: { // toggle board display version
       const uint32_t nv =
-        (board.DisplayVersion() + 1) % Board::BOARD_CELL_CONTENT_VERSION_COUNT;
+        (board.DisplayVersion() + 1) % Board::BOARD_DISPLAY_VERSION_COUNT;
       board.SetDisplay(board.DisplayKind(), nv);
       LOG_GAME(*logger_, board.ToString());
       break;

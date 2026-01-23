@@ -143,6 +143,14 @@ protected:
   BoardHex& operator=(const BoardHex&) = delete;
   BoardHex& operator=(BoardHex&&) = delete;
 
+  // Return the size of board that should be display by ToString(). By
+  // default this is the board size, but derived classes may have
+  // addition cell content beyond the bounds of the board itself and
+  // so can override.
+  virtual const MatrixSize& DisplaySize(
+    BoardDisplayKind display_kind, uint32_t display_version) const {
+    return size_; }
+
   // Board display. The following defines and methods return a
   // 2-dimensional array of char/color pairs that describe the
   // appearance of a board hex. The returned values describe both the
