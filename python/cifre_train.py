@@ -32,6 +32,16 @@ def parse_existing_dir(arg):
         raise FileExistsError(f"{arg} exists and is not a directory")
     return arg
 
+def parse_existing_file(arg):
+    """
+    Parse 'arg'ument as a non-directory file path that must already exist.
+    """
+    if not os.path.exists(arg):
+        raise FileNotFoundError(f"{arg} does not exist")
+    elif os.path.isdir(arg):
+        raise FileExistsError(f"{arg} exists but is a directory")
+    return arg
+
 def parse_shape(arg):
     """
     Parse 'arg'ument as a shape in format 'x, y, z, ...' and return
@@ -203,6 +213,12 @@ def main():
               'becomes the new best model without playing any comparison matches.'))
 
     parser.add_argument(
+        '--initial-model-checkpoint',
+        type=parse_existing_file,
+        required=False,
+        help=('Checkpoint for the initial model. If not specified, an uninitialized ' +
+              'initial model is used.')),
+    parser.add_argument(
         '--repo-dir',
         type=parse_existing_dir,
         required=True,
@@ -291,13 +307,18 @@ def main():
     # Set parallelism for cifre game execution based on the number of cpu cores.
     game_parallel = (multiprocessing.cpu_count() * 2) if (FLAGS.game_parallel is None) else FLAGS.game_parallel
 
-    # Create the initial "random" model and the directory where
+    # Create the initial model. Use checkpoint if one is specified
+    # otherwise use "random" model. Also initialize directory where
     # generated training samples are collected for it.
     model_name = 'initial'
     samples_dir = pathlib.Path(FLAGS.train_dir) / model_name
     if os.path.exists(samples_dir):
         shutil.rmtree(samples_dir)
     os.makedirs(samples_dir)
+
+    if FLAGS.initial_model_checkpoint:
+        cpt_dir, cpt_basename = os.path.split(FLAGS.initial_model_checkpoint)
+        manager.load_checkpoint(cpt_dir, cpt_basename)
 
     manager.save_triton_repository(LOG, samples_dir, FLAGS.model_kind, model_name)
 

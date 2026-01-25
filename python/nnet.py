@@ -26,6 +26,7 @@ class CifreNNetManager(object):
         self._nnet_input_shape = nnet_input_shape
         self._nnet_max_batch_size = nnet_max_batch_size
         self._repodir = repodir
+        self._optimizer = torch.optim.Adam(self._nnet.parameters())
         self._epoch = 0
         self._use_cuda = torch.cuda.is_available()
         if self._use_cuda:
@@ -44,8 +45,10 @@ class CifreNNetManager(object):
         dataloader = DataLoader(
             dataset, batch_size=train_args['batch_size'], drop_last=True, shuffle=True)
 
-        self._optimizer = torch.optim.Adam(self._nnet.parameters(), lr=train_args['lr'])
         scaler = torch.cuda.amp.GradScaler(enabled=True)
+
+        for param_group in self._optimizer.param_groups:
+            param_group['lr'] = train_args['lr']
 
         for _ in range(train_args['num_epochs']):
             print('Epoch ' + str(self._epoch))
