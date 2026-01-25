@@ -300,7 +300,7 @@ Game::Usage() const
 // Game
 //
 Game::Game() :
-  initialized_(false), parallel_(8), triton_cache_size_(64),
+  initialized_(false), parallel_(8), cache_size_(64),
   game_count_(1), starting_player_idx_(0), train_(false)
 {
   game_options_ = {
@@ -343,8 +343,8 @@ Game::Game() :
 
     {BuiltInOptionId::OPTION_PARALLEL, "parallel", GameOption::ArgInt,
      "Number of games to play in parallel. Default is 8."},
-    {BuiltInOptionId::OPTION_TRITON_CACHE_SIZE, "triton-cache-size", GameOption::ArgInt,
-     "Maximum size of Triton cache for each model, in kilo-entries. "
+    {BuiltInOptionId::OPTION_CACHE_SIZE, "cache-size", GameOption::ArgInt,
+     "Maximum size of inference cache for each model, in kilo-entries. "
      "Set to zero to disable caching. Default is 64, meaning each model will have "
      "a cache of up to 64,000 entries."},
 
@@ -560,8 +560,8 @@ Game::Parse(int argc, char **argv)
     case BuiltInOptionId::OPTION_PARALLEL:
       parallel_ = GameOption::ParseUnsigned(game_option, optarg, 1 /* min */);
       break;
-    case BuiltInOptionId::OPTION_TRITON_CACHE_SIZE:
-      triton_cache_size_ = 1000 * GameOption::ParseUnsigned(game_option, optarg, 0 /* min */);
+    case BuiltInOptionId::OPTION_CACHE_SIZE:
+      cache_size_ = 1000 * GameOption::ParseUnsigned(game_option, optarg, 0 /* min */);
       break;
 
     case BuiltInOptionId::OPTION_GAME_COUNT:
@@ -667,7 +667,7 @@ Game::Parse(int argc, char **argv)
 
       GameCheckTrueMsg(
         triton_server_->LoadModel(
-          splayer1.alphazero_settings_.model_name_, triton_cache_size_),
+          splayer1.alphazero_settings_.model_name_, cache_size_),
         "failed to load player1 model '" + splayer1.alphazero_settings_.model_name_ + "'");
     }
     if (splayer2.kind_ == PlayerSettings::Kind::ALPHAZERO) {
@@ -681,7 +681,7 @@ Game::Parse(int argc, char **argv)
 
       GameCheckTrueMsg(
         triton_server_->LoadModel(
-          splayer2.alphazero_settings_.model_name_, triton_cache_size_),
+          splayer2.alphazero_settings_.model_name_, cache_size_),
         "failed to load player2 model '" + splayer2.alphazero_settings_.model_name_ + "'");
     }
 

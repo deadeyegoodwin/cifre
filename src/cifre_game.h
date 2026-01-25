@@ -208,7 +208,7 @@ public:
     OPTION_TRAIN_DIR,
 
     OPTION_PARALLEL,
-    OPTION_TRITON_CACHE_SIZE,
+    OPTION_CACHE_SIZE,
 
     OPTION_GAME_COUNT,
 
@@ -269,7 +269,7 @@ private:
 
   // Game independent settings
   size_t parallel_;
-  size_t triton_cache_size_;
+  size_t cache_size_;
   size_t game_count_;
   size_t starting_player_idx_;
   std::string report_filename_;

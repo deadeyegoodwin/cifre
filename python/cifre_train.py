@@ -129,11 +129,11 @@ def main():
         help=('When playing the --game-count games, the number of games to play ' +
               'in parallel.'))
     parser.add_argument(
-        '--triton-cache-size',
+        '--cache-size',
         type=parse_nonnegative_int,
         default=64,
         required=False,
-        help=('Maximum size of Triton cache for each model, in kilo-entries. ' +
+        help=('Maximum size of inference cache for each model, in kilo-entries. ' +
               'Set to zero to disable caching. Default is 64, meaning each model ' +
               'will have a cache of up to 64,000 entries.'))
     parser.add_argument(
@@ -312,7 +312,7 @@ def main():
         # Launch cifre executable to collect training data.
         game_cmd = [
             f'../build/install/bin/{FLAGS.game}',
-            '--triton-cache-size', str(FLAGS.triton_cache_size),
+            '--cache-size', str(FLAGS.cache_size),
             '--parallel', str(game_parallel),
             '--train', '--train-dir', samples_dir,
             '--game-shape', argify_shape(game_shape, ','),
@@ -376,7 +376,7 @@ def main():
                     cmp_cmd = [
                         f'../build/install/bin/{FLAGS.game}',
                         '--report-file', report_file,
-                        '--triton-cache-size', str(FLAGS.triton_cache_size),
+                        '--cache-size', str(FLAGS.cache_size),
                         '--parallel', str(game_parallel),
                         '--game-shape', argify_shape(game_shape, ','),
                         f'--game-count={FLAGS.cmp_game_count}',
