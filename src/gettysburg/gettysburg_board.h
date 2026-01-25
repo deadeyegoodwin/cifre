@@ -170,6 +170,7 @@ private:
   cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& MutableOpponentUnits(Unit::ArmyKind army) {
     return ((army == Unit::ArmyKind::UNION) ? confederate_units_ : union_units_); }
 
+  cifre::array<cifre::array<bool, MAX_BOARD_COLUMNS>, MAX_BOARD_ROWS> VictoryPointPositions() const;
   cifre::array<cifre::array<bool, MAX_BOARD_COLUMNS>, MAX_BOARD_ROWS> OpponentZOCPositions(
     size_t unit_count, const cifre::array<Unit, OOB::MAX_UNITS_PER_ARMY_COUNT>& units) const;
 

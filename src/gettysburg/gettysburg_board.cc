@@ -601,12 +601,41 @@ Board::UpdateMoveCosts()
   // that require training this eliminates redundant move combinations
   // that result in the same final destination).
   //
-  // FIXME allow movement onto victory point to not end turn.
+  // An exception is for actions that land on a victory-point. We want
+  // to allow those so that can learn to capture the VP and then
+  // continue moving.
   if (ActivePlayer()->PlayerKind() != Player::Kind::HUMAN) {
+    const auto victory_point_positions = VictoryPointPositions();
     for (uint64_t aid = MOVE_ACTIONID_FIRST_INNER; aid <= MOVE_ACTIONID_LAST_INNER; ++aid) {
-      active_end_turn_[aid] = true;
+      const MatrixCoordinate aid_pos = aid_poses[aid];
+      if (!victory_point_positions[aid_pos.Row()][aid_pos.Column()]) {
+        active_end_turn_[aid] = true;
+      }
     }
   }
+}
+
+
+cifre::array<cifre::array<bool, Board::MAX_BOARD_COLUMNS>, Board::MAX_BOARD_ROWS>
+Board::VictoryPointPositions() const
+{
+  cifre::array<cifre::array<
+    bool, Board::MAX_BOARD_COLUMNS>, Board::MAX_BOARD_ROWS> vps;
+
+  for (size_t r = 0; r < size_.RowCount(); ++r) {
+    vps[r].fill(false);
+  }
+
+  for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
+    if (captured_vps_[idx] >= 0) {
+      const auto& features =
+        cell_factory_->IndexToCellFeatures(BoardCellFactory::CellFeatureKind::VICTORY_POINT, idx);
+      assert(features.victory_points_ > 0.0);
+      vps[features.row_][features.column_] = true;
+    }
+  }
+
+  return vps;
 }
 
 cifre::array<cifre::array<bool, Board::MAX_BOARD_COLUMNS>, Board::MAX_BOARD_ROWS>
