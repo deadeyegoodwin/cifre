@@ -26,6 +26,7 @@ public:
     SUMMARY,
     GAME,
     ALGO,
+    ALGO_DETAIL,
     TRITON,
     TRITON_CLIENT,    // verbose logging from triton client
 
@@ -42,6 +43,7 @@ public:
     case Kind::SUMMARY: return "SUMMARY";
     case Kind::GAME: return "GAME";
     case Kind::ALGO: return "ALGO";
+    case Kind::ALGO_DETAIL: return "ALGO-DETAIL";
     case Kind::TRITON: return "TRITON";
     case Kind::TRITON_CLIENT: return "TRITON_CLIENT";
     case Kind::LAST: return "LAST";
@@ -143,6 +145,15 @@ protected:
   do {                                                                  \
     cifre::Logger& logger__ = (L);                                      \
     if (logger__.IsEnabled(cifre::Logger::Kind::ALGO)) {                \
+      logger__.Write(M, I, E);                                          \
+    }                                                                   \
+  } while (false)
+
+#define LOG_ALGO_DETAIL(L, M) LOG_ALGO_DETAIL_IE(L, M, 0, true)
+#define LOG_ALGO_DETAIL_IE(L, M, I, E)                                  \
+  do {                                                                  \
+    cifre::Logger& logger__ = (L);                                      \
+    if (logger__.IsEnabled(cifre::Logger::Kind::ALGO_DETAIL)) {         \
       logger__.Write(M, I, E);                                          \
     }                                                                   \
   } while (false)

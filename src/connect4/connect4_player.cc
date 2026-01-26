@@ -15,12 +15,6 @@ namespace cifre { namespace connect4 {
 //
 // HumanPlayer
 //
-HumanPlayer::HumanPlayer(const std::shared_ptr<Logger>& logger,
-                         size_t id, const std::string& name) :
-  cifre::Player(logger, id, name)
-{
-}
-
 std::string
 HumanPlayer::Usage() const
 {
@@ -29,12 +23,13 @@ HumanPlayer::Usage() const
   sstr << "'h' : help\n";
   sstr << "'q' : quit\n";
   sstr << "'s' : show board\n";
+  sstr << "'z' : suggest action with alphazero\n";
   sstr << "'<column>' : the column identifier";
   return sstr.str();
 }
 
 Action
-HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaining) const
+HumanPlayer::NextAction(const cifre::State& state, size_t max_game_sideturns_remaining) const
 {
   const Board& board = dynamic_cast<const Board&>(state);
 
@@ -65,6 +60,15 @@ HumanPlayer::NextAction(const cifre::State& state, size_t max_game_turns_remaini
 
     case Action::ActionKind::SHOW_STATE:
       LOG_GAME(*logger_, board.ToString());
+      break;
+
+    case Action::ActionKind::QUERY_ALPHAZERO:
+      if (algo_ == nullptr) {
+        LOG_GAME(*logger_, "no alphazero model specified, use --alphazero-model");
+      }
+      else {
+        AlphaZeroQuery(state, max_game_sideturns_remaining);
+      }
       break;
 
     case Action::ActionKind::CUSTOM_0:

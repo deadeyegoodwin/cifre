@@ -118,8 +118,8 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   auto node_itr = FindOrCreateNode(state.Copy(&nextactionid_arena_));
   auto& node = node_itr->second;
 
-  LOG_ALGO(*logger_, "\nalphazero: starting node");
-  LOG_ALGO_IE(
+  LOG_ALGO_DETAIL(*logger_, "\nalphazero: starting node");
+  LOG_ALGO_DETAIL_IE(
     *logger_, node.ToString(settings_.cpuct_), 2 /* indent */, true /* endline */);
 
   // Update the tree by performing searches starting from 'node'.
@@ -137,16 +137,16 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
       dirichlet_samples_idx_ = (dirichlet_samples_idx_ + 1) % dirichlet_samples_.size();
     }
 
-    LOG_ALGO_IE(
+    LOG_ALGO_DETAIL_IE(
       *logger_,
       "search " + std::to_string(idx+1) + '/' + std::to_string(settings_.search_count_) + ':',
       0 /* indent */, false /* endline */);
     auto [v, tnode] = SearchTree(
       &node, settings_.max_search_depth_, max_game_sideturns_remaining, dirichlet);
-    LOG_ALGO_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
+    LOG_ALGO_DETAIL_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
     if (tnode != nullptr) {
-      LOG_ALGO_IE(*logger_, tnode->ToString(settings_.cpuct_),
-                  2 /* indent */, true /* endline */);
+      LOG_ALGO_DETAIL_IE(*logger_, tnode->ToString(settings_.cpuct_),
+                         2 /* indent */, true /* endline */);
     }
   }
 
@@ -243,7 +243,7 @@ AlphaZeroAlgo::SearchTree(
   // If 'node' is a terminal node then show that it was visited and
   // return its value.
   if (node->IsTerminal()) {
-    LOG_ALGO_IE(
+    LOG_ALGO_DETAIL_IE(
       *logger_, " terminal(p" + std::to_string(node->NodeState().ActivePlayerId()) +
       ") >>" + std::to_string(node->Value()) + ">> " + std::to_string(node->Value()),
       0 /* indent */, false /* endline */);
@@ -265,7 +265,7 @@ AlphaZeroAlgo::SearchTree(
   // counts so if we are not going to visit a child we don't want to
   // update the node count.
   if (game_depth_remaining == 0) {
-    LOG_ALGO_IE(
+    LOG_ALGO_DETAIL_IE(
       *logger_, " game-depth(p" + std::to_string(node->NodeState().ActivePlayerId()) +
       ") >>" + std::to_string(DRAW_VALUE) + ">> " + std::to_string(node->Value()),
       0 /* indent */, false /* endline */);
@@ -273,7 +273,7 @@ AlphaZeroAlgo::SearchTree(
     return std::make_pair(DRAW_VALUE, node);
   }
   if (search_depth_remaining == 0) {
-    LOG_ALGO_IE(
+    LOG_ALGO_DETAIL_IE(
       *logger_, " search-depth(p" + std::to_string(node->NodeState().ActivePlayerId()) +
       ") >>" + std::to_string(node->Value()) + ">> " + std::to_string(node->Value()),
       0 /* indent */, false /* endline */);
@@ -291,7 +291,7 @@ AlphaZeroAlgo::SearchTree(
   statistics_.cycle_avoided_count_ += cycle_avoided_cnt;
   THROWIF(!best_action_id,
           "alpha-zero unable to find action ID with max QU\n" + node->ToString(settings_.cpuct_));
-  LOG_ALGO_IE(
+  LOG_ALGO_DETAIL_IE(
     *logger_,
     ' ' + node->NodeState().ActionToString(Action(Action::ActionKind::ACTIONID, *best_action_id)) +
     "(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')',
@@ -329,7 +329,7 @@ AlphaZeroAlgo::SearchTree(
   AlphaZeroNode* tnode = nullptr;
   if (next_created) {
     v = next->Value();
-    LOG_ALGO_IE(
+    LOG_ALGO_DETAIL_IE(
       *logger_, " new >>" + std::to_string(v) + ">> " + std::to_string(next->Value()),
       0 /* indent */, false /* endline */);
   }
@@ -347,7 +347,7 @@ AlphaZeroAlgo::SearchTree(
   // invert 'v'.
   if (node->NodeState().ActivePlayerId() != next->NodeState().ActivePlayerId()) {
     v = -v;
-    LOG_ALGO_IE(
+    LOG_ALGO_DETAIL_IE(
       *logger_, " >>" + std::to_string(v) + ">>", 0 /* indent */, false /* endline */);
   }
 
@@ -355,7 +355,7 @@ AlphaZeroAlgo::SearchTree(
   // for the node on the way down the tree, so need to take that into
   // account when updating the value.
   node->SetValue(((node->Value() * (node->VisitCount() - 1)) + v) / node->VisitCount());
-  LOG_ALGO_IE(
+  LOG_ALGO_DETAIL_IE(
     *logger_, " " + std::to_string(node->Value()), 0 /* indent */, false /* endline */);
 
   return std::make_pair(v, tnode);
@@ -676,6 +676,24 @@ AlphaZeroNode::ToString(float cpuct) const
       first = false;
     }
     sstr << "]\n";
+  }
+
+  std::vector<uint64_t> sorted_aids(
+    state_->ValidActionIds().begin(), state_->ValidActionIds().end());
+  std::stable_sort(
+    sorted_aids.begin(), sorted_aids.end(),
+    [&v = children_visit_counts_](size_t a, size_t b) { return v[a] > v[b]; });
+
+  sstr << "      action  child value/visits        pi\n";
+  for (uint64_t aid : sorted_aids) {
+    const AlphaZeroNode* child = children_[aid];
+    if (child != nullptr) {
+      sstr
+        << std::setw(12) << state_->ActionToString(Action(Action::ActionKind::ACTIONID, aid))
+        << std::setw(13) << std::to_string(child->value_) << '/'
+        << std::setw(6) << children_visit_counts_[aid]
+        << std::setw(9) << std::setprecision(4) << (pi[aid] * 100.0) << "%\n";
+    }
   }
 
   sstr << "  state:\n";

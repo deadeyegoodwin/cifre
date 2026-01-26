@@ -153,8 +153,7 @@ Connect4::CreatePlayer(
   case Player::Kind::UNKNOWN:
     break;
   case Player::Kind::HUMAN:
-    assert(algo == nullptr);
-    return new HumanPlayer(logger_, id, name);
+    return new HumanPlayer(logger_, id, name, algo);
   case Player::Kind::ALGO:
     assert(algo != nullptr);
     return new cifre::AlgoPlayer(logger_, id, name, algo);

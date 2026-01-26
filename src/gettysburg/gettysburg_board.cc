@@ -212,6 +212,7 @@ Board::StringToAction(const std::string& str) const
     case '?': return Action(Action::ActionKind::HELP);
     case 'q': return Action(Action::ActionKind::QUIT);
     case 's': return Action(Action::ActionKind::SHOW_STATE);
+    case 'z': return Action(Action::ActionKind::QUERY_ALPHAZERO);
     case 't': return Action(Action::ActionKind::CUSTOM_0);
     case 'v': return Action(Action::ActionKind::CUSTOM_1);
     default:

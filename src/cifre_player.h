@@ -75,6 +75,29 @@ protected:
 };
 
 //
+// HumanPlayer
+//
+// A player controlled by a human. Individual games must derive from
+// this class to implement their human player logic.
+//
+class HumanPlayer : public Player {
+public:
+  HumanPlayer(
+    const std::shared_ptr<Logger>& logger,
+    size_t id, const std::string& name, const std::shared_ptr<cifre::Algo>& algo);
+
+  // See cifre::Player
+  Kind PlayerKind() const override { return Kind::HUMAN; }
+
+protected:
+  // If 'algo_' is alphazero, then use it to analyze 'state' and log
+  // information about its action decision.
+  void AlphaZeroQuery(const State& state, size_t max_game_sideturns_remaining) const;
+
+  std::shared_ptr<cifre::Algo> algo_;
+};
+
+//
 // AlgoPlayer
 //
 // A player controlled by a cifre::Algo.

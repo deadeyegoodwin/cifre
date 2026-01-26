@@ -173,7 +173,7 @@ Gettysburg::DefaultAlphaZeroSettings(bool training, bool az_vs_az) const
   cifre::AlphaZeroSettings settings;
   settings.training_ = training;
 
-  settings.search_count_ = 200;
+  settings.search_count_ = 800;
   settings.max_search_depth_ = 128;
   settings.cpuct_ = 10.0;
 
@@ -212,8 +212,7 @@ Gettysburg::CreatePlayer(
   case Player::Kind::UNKNOWN:
     break;
   case Player::Kind::HUMAN:
-    assert(algo == nullptr);
-    return new HumanPlayer(logger_, id, name);
+    return new HumanPlayer(logger_, id, name, algo);
   case Player::Kind::ALGO:
     assert(algo != nullptr);
     return new cifre::AlgoPlayer(logger_, id, name, algo);

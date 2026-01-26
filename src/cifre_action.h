@@ -15,7 +15,7 @@ namespace cifre {
 class Action {
 public:
   enum class ActionKind {
-    INVALID, HELP, QUIT, SHOW_STATE,
+    INVALID, HELP, QUIT, SHOW_STATE, QUERY_ALPHAZERO,
     CUSTOM_0, CUSTOM_1, CUSTOM_2, CUSTOM_3,
     ACTIONID };
 

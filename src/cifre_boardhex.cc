@@ -58,6 +58,7 @@ BoardHex::IsValidAction(const Action& action) const
   case Action::ActionKind::HELP:
   case Action::ActionKind::QUIT:
   case Action::ActionKind::SHOW_STATE:
+  case Action::ActionKind::QUERY_ALPHAZERO:
   case Action::ActionKind::CUSTOM_0:
   case Action::ActionKind::CUSTOM_1:
   case Action::ActionKind::CUSTOM_2:

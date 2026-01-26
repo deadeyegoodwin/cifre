@@ -21,6 +21,8 @@ Action::ToString() const
     return "QUIT";
   case ActionKind::SHOW_STATE:
     return "SHOW-STATE";
+  case Action::ActionKind::QUERY_ALPHAZERO:
+    return "QUERY-ALPHAZERO";
   case Action::ActionKind::CUSTOM_0:
     return "CUSTOM-0";
   case Action::ActionKind::CUSTOM_1:

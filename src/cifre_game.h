@@ -97,8 +97,9 @@ private:
 struct PlayerSettings {
   enum class Kind { UNKNOWN, HUMAN, RANDOM, ALPHAZERO };
 
-  PlayerSettings(const std::string& kind_str, size_t id) :
-    kind_(StringToKind(kind_str)), id_(id), name_(DefaultName()) { }
+  PlayerSettings(const std::string& kind_str, size_t id, bool raz) :
+    kind_(StringToKind(kind_str)), id_(id), name_(DefaultName()),
+    requires_alphazero_(raz) { }
 
   static Kind StringToKind(const std::string& str) {
     if (str == "human") { return Kind::HUMAN; }
@@ -137,6 +138,7 @@ struct PlayerSettings {
   size_t id_;
   std::string name_;
   bool starting_ {false};
+  bool requires_alphazero_;
   AlphaZeroSettings alphazero_settings_;
 };
 
@@ -200,6 +202,7 @@ public:
     OPTION_LOG_SUMMARY,
     OPTION_LOG_GAME,
     OPTION_LOG_ALGO,
+    OPTION_LOG_ALGO_DETAIL,
     OPTION_LOG_TRITON,
     OPTION_LOG_TRITON_CLIENT,
     OPTION_REPORT_FILE,

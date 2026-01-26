@@ -356,6 +356,9 @@ public:
     const std::shared_ptr<Logger>& logger, std::unique_ptr<TritonModel> triton_model,
     const AlphaZeroSettings& settings);
 
+  // This object allows its logger to be dynamically modified.
+  std::shared_ptr<Logger>& MutableLogger() { return logger_; }
+
   // Return the statistics for this alphazero.
   const AlphaZeroStatistics& Statistics() const { return statistics_; }
 
