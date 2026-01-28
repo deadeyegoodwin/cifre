@@ -406,7 +406,7 @@ private:
   // the search (could be an actual terminal node or just the last
   // visited node before game or search depth was reached).
   std::pair<float, AlphaZeroNode*> SearchTree(
-    AlphaZeroNode* node, const size_t search_depth_remaining,
+    AlphaZeroNode* node, const size_t depth, const size_t search_depth_remaining,
     const size_t game_depth_remaining, const std::vector<double>* dirichlet);
 
   // Generate Dirichlet distribution.

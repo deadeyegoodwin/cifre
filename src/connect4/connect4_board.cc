@@ -85,14 +85,11 @@ Board::Update(uint64_t action_id)
 
   THROWIF(!found, "player " + ActivePlayer()->Name() + " cannot play in full column");
 
-  // Check terminal status and if not at terminal then advance to next
-  // active player.
+  // Must switch active player so that the board player state is
+  // correct when determining terminal status. Otherwise a winning
+  // position will be incorrectly attributed.
+  SwitchActivePlayer();
   UpdateTerminalStatus();
-  if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
-    // Switch board state to represent the "other" player. This also
-    // calls UpdateValidActions() to get updated actions.
-    SwitchActivePlayer();
-  }
 }
 
 void
@@ -158,12 +155,6 @@ Board::UpdateTerminalStatus()
 
       last_cv = cv;
     }
-  }
-
-  if (empty_count == 0) {
-    terminal_status_ =
-      cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
-    return;
   }
 
   // Check each column for 4 in-a-row.
@@ -234,6 +225,12 @@ Board::UpdateTerminalStatus()
         }
       }
     }
+  }
+
+  if (empty_count == 0) {
+    terminal_status_ =
+      cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
+    return;
   }
 
   // Otherwise make sure the terminal status is NON_TERMINAL.

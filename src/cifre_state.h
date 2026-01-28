@@ -24,6 +24,15 @@ class StateTerminalStatus {
 public:
   enum class TerminalKind { NON_TERMINAL, WINNER, DRAW };
 
+  static std::string TerminalKindToString(const TerminalKind kind) {
+    switch (kind) {
+    case TerminalKind::NON_TERMINAL: return "non-terminal";
+    case TerminalKind::WINNER: return "winner";
+    case TerminalKind::DRAW: return "draw";
+    }
+    return "<none>"; // unreachable
+  }
+
   StateTerminalStatus(TerminalKind kind) : kind_(kind) {
     assert(kind_ != TerminalKind::WINNER); }
   StateTerminalStatus(TerminalKind kind, size_t winner_id) : kind_(kind), winner_id_(winner_id) {
@@ -36,6 +45,11 @@ public:
   // Kind::WINNER.
   size_t WinnerId() const {
     assert(kind_ == TerminalKind::WINNER); return winner_id_; }
+
+  // Return string representation of the terminal status
+  std::string ToString() const {
+    return(TerminalKindToString(kind_) +
+           ((kind_ == TerminalKind::WINNER) ? ("(p" + std::to_string(winner_id_) + ")") : "")); }
 
 private:
   TerminalKind kind_;

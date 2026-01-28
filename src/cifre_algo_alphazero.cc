@@ -142,7 +142,7 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
       "search " + std::to_string(idx+1) + '/' + std::to_string(settings_.search_count_) + ':',
       0 /* indent */, false /* endline */);
     auto [v, tnode] = SearchTree(
-      &node, settings_.max_search_depth_, max_game_sideturns_remaining, dirichlet);
+      &node, 0 /* depth */, settings_.max_search_depth_, max_game_sideturns_remaining, dirichlet);
     LOG_ALGO_DETAIL_IE(*logger_, "\n", 0 /* indent */, false /* endline */);
     if (tnode != nullptr) {
       LOG_ALGO_DETAIL_IE(*logger_, tnode->ToString(settings_.cpuct_),
@@ -237,15 +237,17 @@ AlphaZeroAlgo::FindOrCreateNode(StateUniqueConstPtr state, bool* created)
 
 std::pair<float, AlphaZeroNode*>
 AlphaZeroAlgo::SearchTree(
-  AlphaZeroNode* node, const size_t search_depth_remaining,
+  AlphaZeroNode* node, const size_t depth, const size_t search_depth_remaining,
   const size_t game_depth_remaining, const std::vector<double>* dirichlet)
 {
   // If 'node' is a terminal node then show that it was visited and
   // return its value.
   if (node->IsTerminal()) {
     LOG_ALGO_DETAIL_IE(
-      *logger_, " terminal(p" + std::to_string(node->NodeState().ActivePlayerId()) +
-      ") >>" + std::to_string(node->Value()) + ">> " + std::to_string(node->Value()),
+      *logger_, " " + std::to_string(depth + 1) + "[terminal(p" +
+      std::to_string(node->NodeState().ActivePlayerId()) + "), value " +
+      std::to_string(node->Value()) + ", " +
+      node->NodeState().TerminalStatus().ToString() + "] >>",
       0 /* indent */, false /* endline */);
     statistics_.search_endby_terminal_count_++;
     node->IncrementVisitCount();
@@ -266,16 +268,20 @@ AlphaZeroAlgo::SearchTree(
   // update the node count.
   if (game_depth_remaining == 0) {
     LOG_ALGO_DETAIL_IE(
-      *logger_, " game-depth(p" + std::to_string(node->NodeState().ActivePlayerId()) +
-      ") >>" + std::to_string(DRAW_VALUE) + ">> " + std::to_string(node->Value()),
+      *logger_, " " + std::to_string(depth + 1) + "[game-depth(p" +
+      std::to_string(node->NodeState().ActivePlayerId()) + "), value " +
+      std::to_string(node->Value()) + ", " +
+      node->NodeState().TerminalStatus().ToString() + "] >>",
       0 /* indent */, false /* endline */);
     statistics_.search_endby_game_depth_count_++;
     return std::make_pair(DRAW_VALUE, node);
   }
   if (search_depth_remaining == 0) {
     LOG_ALGO_DETAIL_IE(
-      *logger_, " search-depth(p" + std::to_string(node->NodeState().ActivePlayerId()) +
-      ") >>" + std::to_string(node->Value()) + ">> " + std::to_string(node->Value()),
+      *logger_, " " + std::to_string(depth + 1) + "[search-depth(p" +
+      std::to_string(node->NodeState().ActivePlayerId()) + "), value " +
+      std::to_string(node->Value()) + ", " +
+      node->NodeState().TerminalStatus().ToString() + "] >>",
       0 /* indent */, false /* endline */);
     statistics_.search_endby_search_depth_count_++;
     return std::make_pair(node->Value(), node);
@@ -293,8 +299,9 @@ AlphaZeroAlgo::SearchTree(
           "alpha-zero unable to find action ID with max QU\n" + node->ToString(settings_.cpuct_));
   LOG_ALGO_DETAIL_IE(
     *logger_,
-    ' ' + node->NodeState().ActionToString(Action(Action::ActionKind::ACTIONID, *best_action_id)) +
-    "(p" + std::to_string(node->NodeState().ActivePlayerId()) + ')',
+    " " + std::to_string(depth) + "[" +
+    node->NodeState().ActionToString(Action(Action::ActionKind::ACTIONID, *best_action_id)) +
+    "(p" + std::to_string(node->NodeState().ActivePlayerId()) + ")]",
     0 /* indent */, false /* endline */);
 
   bool next_created = false;
@@ -322,15 +329,15 @@ AlphaZeroAlgo::SearchTree(
   node->IncrementChildVisitCount(*best_action_id);
 
   // If next node to be visited was just created, then instead of
-  // visiting it we simply set 'v' to its value. Dirichlet is only
-  // used on the root node of a search, so set to nullptr for
-  // subsequent nodes.
+  // visiting it we simply set 'v' to its value.
   float v = 0.0;
   AlphaZeroNode* tnode = nullptr;
   if (next_created) {
     v = next->Value();
     LOG_ALGO_DETAIL_IE(
-      *logger_, " new >>" + std::to_string(v) + ">> " + std::to_string(next->Value()),
+      *logger_, " " + std::to_string(depth + 1) + "[new node(p" +
+      std::to_string(next->NodeState().ActivePlayerId()) + "), value " +
+      std::to_string(v) + ", " + next->NodeState().TerminalStatus().ToString() + "] >>",
       0 /* indent */, false /* endline */);
   }
   else {
@@ -339,25 +346,36 @@ AlphaZeroAlgo::SearchTree(
     const size_t gdr = game_depth_remaining -
       (node->NodeState().ActivePlayerId() == next->NodeState().ActivePlayerId() ? 0 : 1);
 
+    // Dirichlet is only used on the root node of a search, so set to
+    // nullptr for subsequent nodes.
     std::tie(v, tnode) = SearchTree(
-      next, search_depth_remaining - 1, gdr, nullptr /* dirichlet */);
+      next, depth + 1, search_depth_remaining - 1, gdr, nullptr /* dirichlet */);
   }
 
-  // If 'next' has a different active player than 'node', then need to
-  // invert 'v'.
+  // At this point, 'v' is the value of the visited 'next' child. If
+  // 'next' has a different active player than 'node', then need to
+  // invert 'v' before applying it to 'node'.
   if (node->NodeState().ActivePlayerId() != next->NodeState().ActivePlayerId()) {
     v = -v;
-    LOG_ALGO_DETAIL_IE(
-      *logger_, " >>" + std::to_string(v) + ">>", 0 /* indent */, false /* endline */);
   }
 
   // Update 'node's value, we have already incremented the visit count
   // for the node on the way down the tree, so need to take that into
   // account when updating the value.
+  const float old_value = node->Value();
   node->SetValue(((node->Value() * (node->VisitCount() - 1)) + v) / node->VisitCount());
-  LOG_ALGO_DETAIL_IE(
-    *logger_, " " + std::to_string(node->Value()), 0 /* indent */, false /* endline */);
 
+  LOG_ALGO_DETAIL_IE(
+    *logger_,
+    " " + std::to_string(depth) + "[" +
+    "(p" + std::to_string(node->NodeState().ActivePlayerId()) +
+    "), child value " + std::to_string(v) +
+    ", value " + std::to_string(old_value) + " -> " + std::to_string(node->Value()) + "]",
+    0 /* indent */, false /* endline */);
+
+  // Note that we propagate the value of the expanded node all the way
+  // up the search tree, note the new value of 'node' calculated
+  // above.
   return std::make_pair(v, tnode);
 }
 
@@ -626,7 +644,8 @@ AlphaZeroNode::ToString(float cpuct) const
   sstr
     << "  generation: " << generation_
     << ", active player ID: " << state_->ActivePlayerId()
-    << ", visit count: " << visit_count_ << ", value: " << value_ << '\n';
+    << ", visit count: " << visit_count_ << ", value: " << value_
+    << ", terminal: " << state_->TerminalStatus().ToString() << '\n';
 
   sstr << "  child value/visits: [";
   bool first = true;
@@ -641,7 +660,7 @@ AlphaZeroNode::ToString(float cpuct) const
   sstr << "]\n";
 
   const auto& pi = result_->Pi();
-  sstr << "  pi: [";
+  sstr << "  z: " << std::setprecision(5) << result_->V() << ", pi: [";
   first = true;
   for (size_t idx = 0; idx < state_->TotalActionIdCount(); ++idx) {
     sstr << ((first) ? "" : ", ") << pi[idx];
@@ -684,15 +703,17 @@ AlphaZeroNode::ToString(float cpuct) const
     sorted_aids.begin(), sorted_aids.end(),
     [&v = children_visit_counts_](size_t a, size_t b) { return v[a] > v[b]; });
 
-  sstr << "      action  child value/visits        pi\n";
-  for (uint64_t aid : sorted_aids) {
-    const AlphaZeroNode* child = children_[aid];
-    if (child != nullptr) {
-      sstr
-        << std::setw(12) << state_->ActionToString(Action(Action::ActionKind::ACTIONID, aid))
-        << std::setw(13) << std::to_string(child->value_) << '/'
-        << std::setw(6) << children_visit_counts_[aid]
-        << std::setw(9) << std::setprecision(4) << (pi[aid] * 100.0) << "%\n";
+  if (!sorted_aids.empty()) {
+    sstr << "      action  child value/visits        pi\n";
+    for (uint64_t aid : sorted_aids) {
+      const AlphaZeroNode* child = children_[aid];
+      if (child != nullptr) {
+        sstr
+          << std::setw(12) << state_->ActionToString(Action(Action::ActionKind::ACTIONID, aid))
+          << std::setw(13) << std::to_string(child->value_) << '/'
+          << std::setw(6) << children_visit_counts_[aid]
+          << std::setw(9) << std::setprecision(4) << (pi[aid] * 100.0) << "%\n";
+      }
     }
   }
 
