@@ -160,7 +160,7 @@ Board::UpdateTerminalStatus()
   // Check each column for 4 in-a-row.
   for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
     size_t adj_count = 0;
-    size_t last_cv = CELL_EMPTY;
+    float last_cv = CELL_EMPTY;
     for (size_t ridx = 0; ridx < size_.RowCount(); ++ridx) {
       const float cv = CellValueAt(ridx, cidx);
       if (cv == CELL_EMPTY) {
