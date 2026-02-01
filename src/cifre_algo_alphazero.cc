@@ -631,7 +631,8 @@ AlphaZeroNode::ValidateVisitCounts() const
   }
 
   if ((visit_count_ == 0) || (visit_count_ != (1 + total_child_visit_count))) {
-    THROW("invalid node and children visit counts\n" + ToString());
+    THROW("invalid node and children visit counts, total child visit count " +
+          std::to_string(total_child_visit_count) + "\n" + ToString());
   }
 }
 
@@ -703,17 +704,19 @@ AlphaZeroNode::ToString(float cpuct) const
     sorted_aids.begin(), sorted_aids.end(),
     [&v = children_visit_counts_](size_t a, size_t b) { return v[a] > v[b]; });
 
-  if (!sorted_aids.empty()) {
-    sstr << "      action  child value/visits        pi\n";
-    for (uint64_t aid : sorted_aids) {
-      const AlphaZeroNode* child = children_[aid];
-      if (child != nullptr) {
-        sstr
-          << std::setw(12) << state_->ActionToString(Action(Action::ActionKind::ACTIONID, aid))
-          << std::setw(13) << std::to_string(child->value_) << '/'
-          << std::setw(6) << children_visit_counts_[aid]
-          << std::setw(9) << std::setprecision(4) << (pi[aid] * 100.0) << "%\n";
+  first = true;
+  for (uint64_t aid : sorted_aids) {
+    const AlphaZeroNode* child = children_[aid];
+    if (child != nullptr) {
+      if (first) {
+        sstr << "      action  child value/visits        pi\n";
+        first = false;
       }
+      sstr
+        << std::setw(12) << state_->ActionToString(Action(Action::ActionKind::ACTIONID, aid))
+        << std::setw(13) << std::to_string(child->value_) << '/'
+        << std::setw(6) << children_visit_counts_[aid]
+        << std::setw(9) << std::setprecision(4) << (pi[aid] * 100.0) << "%\n";
     }
   }
 
