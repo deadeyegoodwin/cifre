@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <memory_resource>
 #include <vector>
 
@@ -186,6 +187,14 @@ public:
 
   // Return string representation of the state.
   virtual std::string ToString() const = 0;
+
+protected:
+  // Utility message to validate that a vector of action IDs are
+  // unique. Returns true if unique, false if not unique. If 'dup_str'
+  // is non-null returns string representation of the duplicate action
+  // IDs.
+  bool ValidateUniqueActionIds(
+    const std::pmr::vector<uint64_t>& vaids, std::string* dup_str = nullptr) const;
 };
 
 //

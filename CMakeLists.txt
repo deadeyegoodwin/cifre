@@ -180,6 +180,7 @@ add_library(
   src/cifre_game.cc
   src/cifre_hex.cc
   src/cifre_player.cc
+  src/cifre_state.cc
   src/cifre_triton.cc
   src/cifre_vec.cc
 )

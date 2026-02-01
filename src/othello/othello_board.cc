@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include <set>
 #include <string>
 
 #include "othello_board.h"
@@ -120,29 +121,29 @@ Board::Update(uint64_t action_id)
     assert(total_outflank_count > 0);
   }
 
-  // Check terminal status and if not at terminal then advance to next
-  // active player.
+  // Must switch active player before determining terminal
+  // status. Otherwise a winning position will be incorrectly
+  // attributed.
+
+  // Switch board state to represent the "other" player. This also
+  // calls UpdateValidActions() to get updated actions and also set
+  // 'active_do_nothing_'. 'opponent_do_nothing_' becomes what is
+  // currently 'active_do_nothing_'.
+  opponent_do_nothing_ = active_do_nothing_;
+  SwitchActivePlayer();
+
   UpdateTerminalStatus();
-  if (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL) {
-    // Switch board state to represent the "other" player. This also
-    // calls UpdateValidActions() to get updated actions and also set
-    // 'active_do_nothing_'. 'opponent_do_nothing_' becomes what is
-    // currently 'active_do_nothing_'.
-    opponent_do_nothing_ = active_do_nothing_;
-    SwitchActivePlayer();
-  }
 }
 
 void
 Board::UpdateValidActions()
 {
-  valid_action_ids_.clear();
-
   // An action is valid if it represents occupying an empty cell that
   // outflanks one or more opponents. From each active player cell, A,
   // that has an opponent neighbor, check cells in that direction and
   // if an empty cell, E, is encountered before an active cell,
   // then can play in cell E.
+  std::pmr::set<uint64_t> valid_set(valid_action_ids_.get_allocator().resource());
   for (size_t ridx = 0; ridx < size_.RowCount(); ++ridx) {
     for (size_t cidx = 0; cidx < size_.ColumnCount(); ++cidx) {
       if (CellValueAt(ridx, cidx) == CELL_ACTIVE_PLAYER) {
@@ -170,7 +171,7 @@ Board::UpdateValidActions()
                 }
                 else if (cv == CELL_EMPTY) {
                   const size_t cell_idx = (sridx * size_.ColumnCount()) + scidx;
-                  valid_action_ids_.push_back(cell_idx);
+                  valid_set.insert(cell_idx);
                   break; // outflank
                 }
 
@@ -183,12 +184,25 @@ Board::UpdateValidActions()
     }
   }
 
+  valid_action_ids_.clear();
+  for (auto aid : valid_set) {
+    valid_action_ids_.push_back(aid);
+  }
+
   // If unable to find any cell where a move can be made, then must
   // "do nothing".
   active_do_nothing_ = valid_action_ids_.empty();
   if (active_do_nothing_) {
     valid_action_ids_.push_back(do_nothing_action_id_);
   }
+
+#ifndef NDEBUG
+  {
+    std::string dups;
+    THROWIF(!ValidateUniqueActionIds(valid_action_ids_, &dups),
+            "duplicate valid action IDs: " + dups);
+  }
+#endif
 }
 
 void

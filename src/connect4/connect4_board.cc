@@ -103,6 +103,14 @@ Board::UpdateValidActions()
       valid_action_ids_.push_back(cidx);
     }
   }
+
+#ifndef NDEBUG
+  {
+    std::string dups;
+    THROWIF(!ValidateUniqueActionIds(valid_action_ids_, &dups),
+            "duplicate valid action IDs: " + dups);
+  }
+#endif
 }
 
 void

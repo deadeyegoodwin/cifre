@@ -769,6 +769,14 @@ Board::UpdateValidActions()
       }
     }
   }
+
+#ifndef NDEBUG
+  {
+    std::string dups;
+    THROWIF(!ValidateUniqueActionIds(valid_action_ids_, &dups),
+            "duplicate valid action IDs: " + dups);
+  }
+#endif
 }
 
 void
