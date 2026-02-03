@@ -12,19 +12,18 @@ namespace cifre { namespace gettysburg {
 // BoardMoveFactory
 //
 BoardMoveFactory::BoardMoveFactory(
-  const BoardCellFactory* cell_factory,
-  const OOB::Scenario scenario, size_t row_cnt, size_t column_cnt) :
-  cell_factory_(cell_factory), scenario_(scenario),
-  row_cnt_(row_cnt), column_cnt_(column_cnt)
+  const BoardCellFactory* cell_factory, const OOB::Scenario scenario,
+  cifre::MatrixSize board_size) :
+  cell_factory_(cell_factory), scenario_(scenario), board_size_(board_size)
 {
-  nodes_.resize(row_cnt_ * column_cnt_);
+  nodes_.resize(board_size_.ElementCount());
 
   // For each node, initialize the adjacent indices and move costs.
   // We ignore the cutouts in the full board, those are handled by the
   // CellFactory marking those hexes as inaccessible.
-  for (size_t br = 0; br < row_cnt_; ++br) {
-    for (size_t bc = 0; bc < column_cnt_; ++bc) {
-      Node& node = nodes_[(br * column_cnt_) + bc];
+  for (size_t br = 0; br < board_size_.RowCount(); ++br) {
+    for (size_t bc = 0; bc < board_size_.ColumnCount(); ++bc) {
+      Node& node = nodes_[(br * board_size_.ColumnCount()) + bc];
       const MatrixCoordinate node_rc(br, bc);
 
       node.adjacent_idx_[size_t(HexDirection::NONE)] =
@@ -52,8 +51,8 @@ size_t
 BoardMoveFactory::RCToIndex(const MatrixCoordinate& pr) const
 {
   // Hexes outside the bounds of the board are not adjacent.
-  if ((pr.Row() < 0) || (pr.Row() >= int64_t(row_cnt_)) ||
-      (pr.Column() < 0) || (pr.Column() >= int64_t(column_cnt_))) {
+  if ((pr.Row() < 0) || (pr.Row() >= int64_t(board_size_.RowCount())) ||
+      (pr.Column() < 0) || (pr.Column() >= int64_t(board_size_.ColumnCount()))) {
     return NO_ADJACENT;
   }
 
@@ -62,14 +61,14 @@ BoardMoveFactory::RCToIndex(const MatrixCoordinate& pr) const
     return NO_ADJACENT;
   }
 
-  return (pr.Row() * column_cnt_) + pr.Column();
+  return (pr.Row() * board_size_.ColumnCount()) + pr.Column();
 }
 
 cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>
 BoardMoveFactory::CalculatePositionMoveCosts(const MatrixCoordinate& pos, bool zoc) const
 {
-  assert((pos.Row() >= 0) && (pos.Row() < int64_t(row_cnt_)) &&
-         (pos.Column() >= 0) && (pos.Column() < int64_t(column_cnt_)));
+  assert((pos.Row() >= 0) && (pos.Row() < int64_t(board_size_.RowCount())) &&
+         (pos.Column() >= 0) && (pos.Column() < int64_t(board_size_.ColumnCount())));
 
   cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX> move_costs;
   move_costs.fill(std::numeric_limits<float>::max());
@@ -98,8 +97,8 @@ BoardMoveFactory::CalculateMoveCost(
   MatrixCoordinate to_pos = HexDirectionToPosition(pos, dir);
 
   // Hexes outside the bounds of the board are moving off the board.
-  if ((to_pos.Row() < 0) || (to_pos.Row() >= int64_t(row_cnt_)) ||
-      (to_pos.Column() < 0) || (to_pos.Column() >= int64_t(column_cnt_))) {
+  if ((to_pos.Row() < 0) || (to_pos.Row() >= int64_t(board_size_.RowCount())) ||
+      (to_pos.Column() < 0) || (to_pos.Column() >= int64_t(board_size_.ColumnCount()))) {
     return MOVE_EXIT_BOARD_COST;
   }
 

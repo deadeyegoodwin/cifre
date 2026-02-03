@@ -47,9 +47,8 @@ public:
   // Create board...
   Board(
     BoardCellFactory* cell_factory, const BoardMoveFactory* move_factory,
-    const OOB::Scenario scenario, const cifre::MatrixSize& board_shape,
-    const cifre::MatrixSize& plane_shape, const std::vector<Player*>& players,
-    std::pmr::memory_resource* arena);
+    const OOB::Scenario scenario, const cifre::MatrixSize& board_size,
+    const std::vector<Player*>& players, std::pmr::memory_resource* arena);
 
   // See cifre::State.
   // Hash/compare all members that uniquely define this board.
@@ -89,19 +88,19 @@ public:
   // Return the value of the plane cell at the given row, column, and
   // plane. Row and column index are relative to the plane.
   float PlaneCellValueAt(const MatrixCoordinate& pos, size_t plane_idx) const {
-    assert((pos.Row() < int64_t(plane_shape_.RowCount())) &&
-           (pos.Column() < int64_t(plane_shape_.ColumnCount())) &&
+    assert((pos.Row() < int64_t(plane_size_.RowCount())) &&
+           (pos.Column() < int64_t(plane_size_.ColumnCount())) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
-    return cells_[(pos.Row() * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
+    return cells_[(pos.Row() * plane_size_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
                   (pos.Column() * BoardCellFactory::PLANE_COUNT) + plane_idx]; }
 
   // Set the value of the plane cell at the given row, column, and
   // plane. Row and column index are relative to the plane.
   void SetPlaneCellValueAt(float value, const MatrixCoordinate& pos, size_t plane_idx) {
-    assert((pos.Row() < int64_t(plane_shape_.RowCount())) &&
-           (pos.Column() < int64_t(plane_shape_.ColumnCount())) &&
+    assert((pos.Row() < int64_t(plane_size_.RowCount())) &&
+           (pos.Column() < int64_t(plane_size_.ColumnCount())) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
-    cells_[(pos.Row() * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
+    cells_[(pos.Row() * plane_size_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
            (pos.Column() * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }
 
   // Return the value of the board cell at the given row, column, and
@@ -110,7 +109,7 @@ public:
     assert((pos.Row() < int64_t(size_.RowCount())) &&
            (pos.Column() < int64_t(size_.ColumnCount())) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
-    return cells_[((pos.Row() + active_first_row_) * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
+    return cells_[((pos.Row() + active_first_row_) * plane_size_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
                   ((pos.Column() + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx]; }
 
   // Set the value of the board cell at the given row, column, and
@@ -119,7 +118,7 @@ public:
     assert((pos.Row() < int64_t(size_.RowCount())) &&
            (pos.Column() < int64_t(size_.ColumnCount())) &&
            (plane_idx < BoardCellFactory::PLANE_COUNT));
-    cells_[((pos.Row() + active_first_row_) * plane_shape_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
+    cells_[((pos.Row() + active_first_row_) * plane_size_.ColumnCount() * BoardCellFactory::PLANE_COUNT) +
            ((pos.Column() + active_first_column_) * BoardCellFactory::PLANE_COUNT) + plane_idx] = value; }
 
   void SetUnionVictoryPointAt(float value, const MatrixCoordinate& pos) {
@@ -252,7 +251,7 @@ private:
   const BoardMoveFactory* move_factory_;
 
   const OOB::Scenario scenario_;
-  const cifre::MatrixSize plane_shape_;
+  const cifre::MatrixSize plane_size_;
 
   Unit::ArmyKind active_army_;
   Unit* active_unit_;

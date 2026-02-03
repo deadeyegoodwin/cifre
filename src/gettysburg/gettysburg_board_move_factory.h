@@ -37,14 +37,15 @@ public:
   // Constructor
   BoardMoveFactory(
     const BoardCellFactory* cell_factory, const OOB::Scenario scenario,
-    size_t row_cnt, size_t column_cnt);
+    cifre::MatrixSize board_size);
 
   // Return true if there is an in-bounds hex adjacent to 'pos' in
   // direction 'dir'. 'dir' must be one of the radius-1 directions or
   // NONE. 'pos' must be a valid board position.
   bool IsInBoundsAdjacentHex(const MatrixCoordinate& pos, HexDirection dir) const {
     assert((size_t(dir) >= 0) && (size_t(dir) <= HEX_RADIUS1_LAST_DIRECTION_IDX));
-    return nodes_[(pos.Row() * column_cnt_) + pos.Column()].adjacent_idx_[size_t(dir)] != NO_ADJACENT; }
+    return(nodes_[(pos.Row() * board_size_.ColumnCount()) +
+                  pos.Column()].adjacent_idx_[size_t(dir)] != NO_ADJACENT); }
 
   // For board position 'pos', return the cost to move out of the hex
   // in every radius-1 direction, assuming neither 'pos' or the
@@ -54,7 +55,7 @@ public:
   // 'pos' must be a valid board position.
   const cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>&
   AdjacentMoveCost(const MatrixCoordinate& pos) const {
-    return nodes_[(pos.Row() * column_cnt_) + pos.Column()].adj_move_costs_; }
+    return nodes_[(pos.Row() * board_size_.ColumnCount()) + pos.Column()].adj_move_costs_; }
 
   // For board position 'pos', return the cost to move out of the hex
   // in every radius-1 direction, assuming either 'pos' or the
@@ -64,7 +65,7 @@ public:
   // 'pos' must be a valid board position.
   const cifre::array<float, 1 + HEX_RADIUS1_LAST_DIRECTION_IDX>&
   AdjacentZOCMoveCost(const MatrixCoordinate& pos) const {
-    return nodes_[(pos.Row() * column_cnt_) + pos.Column()].adj_zoc_move_costs_; }
+    return nodes_[(pos.Row() * board_size_.ColumnCount()) + pos.Column()].adj_zoc_move_costs_; }
 
 private:
   // Node represents a graph node. Edges are not represented
@@ -93,8 +94,7 @@ private:
 
   const BoardCellFactory* cell_factory_;
   const OOB::Scenario scenario_;
-  size_t row_cnt_;
-  size_t column_cnt_;
+  const cifre::MatrixSize board_size_;
 
   std::vector<Node> nodes_;
 };

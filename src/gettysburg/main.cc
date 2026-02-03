@@ -20,10 +20,10 @@
 
 namespace cifre { namespace gettysburg {
 
-static const cifre::MatrixSize MIN_GAME_SHAPE {5, 7};
-static const cifre::MatrixSize MAX_GAME_SHAPE {
+static const cifre::MatrixSize MIN_GAME_SIZE {5, 7};
+static const cifre::MatrixSize MAX_GAME_SIZE {
   Board::MAX_BOARD_ROWS, Board::MAX_BOARD_COLUMNS};
-static const cifre::MatrixSize DEFAULT_GAME_SHAPE = MAX_GAME_SHAPE;
+static const cifre::MatrixSize DEFAULT_GAME_SIZE = MAX_GAME_SIZE;
 static const size_t DEFAULT_MAX_TURNS_PER_GAME = 20;
 
 //
@@ -75,8 +75,7 @@ private:
   GameOption::OptionId OPTION_DISPLAY_VERSION;
 
   OOB::Scenario scenario_;
-  cifre::MatrixSize game_shape_;
-  cifre::MatrixSize plane_shape_;
+  cifre::MatrixSize game_size_;
   BoardHex::BoardDisplayKind starting_display_kind_;
   uint32_t starting_display_version_;
   std::unique_ptr<BoardCellFactory> cell_factory_;
@@ -84,7 +83,7 @@ private:
 };
 
 Gettysburg::Gettysburg() :
-  cifre::Game(), game_shape_(DEFAULT_GAME_SHAPE), plane_shape_(DEFAULT_GAME_SHAPE),
+  cifre::Game(), game_size_(DEFAULT_GAME_SIZE),
   starting_display_kind_(BoardHex::BoardDisplayKind::SMALL), starting_display_version_(0)
 {
   cifre::GameOption::OptionId custom_id = cifre::Game::FirstCustomOptionId;
@@ -126,8 +125,8 @@ Gettysburg::CustomGameOptions() const
   custom = {
     {OPTION_GAME_SHAPE, "game-shape", GameOption::ArgInt,
      "Size of the " + Name() + " board. A board with N rows and M columns is specified "
-     "as '--game-shape=N,M'. "
-     "Default is '--game-shape=" + DEFAULT_GAME_SHAPE.ToString() + "'."},
+     "as '--game-size=N,M'. "
+     "Default is '--game-size=" + DEFAULT_GAME_SIZE.ToString() + "'."},
     {OPTION_MAX_TURNS_PER_GAME, "max-turns-per-game", GameOption::ArgInt,
      "Maximum number of turns allowed per game."},
     {OPTION_DISPLAY_LARGE_BOARD, "display-board-large", GameOption::ArgNone,
@@ -142,14 +141,14 @@ bool
 Gettysburg::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
 {
   if (opt.Id() == OPTION_GAME_SHAPE) {
-    game_shape_ = cifre::MatrixSize(arg_str);
+    game_size_ = cifre::MatrixSize(arg_str);
     GameCheckTrueMsg(
-      (game_shape_.RowCount() >= MIN_GAME_SHAPE.RowCount()) &&
-      (game_shape_.ColumnCount() >= MIN_GAME_SHAPE.ColumnCount()) &&
-      (game_shape_.RowCount() <= MAX_GAME_SHAPE.RowCount()) &&
-      (game_shape_.ColumnCount() <= MAX_GAME_SHAPE.ColumnCount()),
-      Name() + " board must be between " + MIN_GAME_SHAPE.ToString() +
-      " and " + MAX_GAME_SHAPE.ToString());
+      (game_size_.RowCount() >= MIN_GAME_SIZE.RowCount()) &&
+      (game_size_.ColumnCount() >= MIN_GAME_SIZE.ColumnCount()) &&
+      (game_size_.RowCount() <= MAX_GAME_SIZE.RowCount()) &&
+      (game_size_.ColumnCount() <= MAX_GAME_SIZE.ColumnCount()),
+      Name() + " board must be between " + MIN_GAME_SIZE.ToString() +
+      " and " + MAX_GAME_SIZE.ToString());
   }
   else if (opt.Id() == OPTION_MAX_TURNS_PER_GAME) {
     max_turns_per_game_ = cifre::GameOption::ParseUnsigned(opt, arg_str, 1 /* min */);
@@ -232,9 +231,8 @@ Gettysburg::CreateInitialState(
   // 'starting_player_id' is ignored because gettysburg must start
   // with confederates.
   auto board = new Board(
-    cell_factory_.get(), move_factory_.get(),
-    scenario_, game_shape_, plane_shape_, players,
-    std::pmr::new_delete_resource());
+    cell_factory_.get(), move_factory_.get(), scenario_, game_size_,
+    players, std::pmr::new_delete_resource());
   board->SetDisplay(starting_display_kind_, starting_display_version_);
   return StateUniquePtr(board, StateDeleterNewDelete<Board>());
 }
@@ -242,32 +240,18 @@ Gettysburg::CreateInitialState(
 void
 Gettysburg::CustomInitialize()
 {
-  // A full-size game is DEFAULT_GAME_SHAPE. Anything smaller than
-  // that is considered a "small game" and forces the use of the SMALL
+  // A full-size game is DEFAULT_GAME_SIZE. Anything smaller than that
+  // is considered a "small game" and forces the use of the SMALL
   // scenario.
   scenario_ = OOB::Scenario::JULY_1;
-  if (game_shape_ != DEFAULT_GAME_SHAPE) {
+  if (game_size_ != DEFAULT_GAME_SIZE) {
     scenario_ = OOB::Scenario::SMALL;
   }
 
-  // The input planes are based on the size of the board. Because the
-  // model is trained/used by always having the unit currently being
-  // controlled at the center of the plane, there must be a border
-  // around the map to allow any actual map hex to be at the center of
-  // the plane.
-  plane_shape_ = cifre::MatrixSize(
-    ((game_shape_.RowCount() - 1) * 2) + 1,
-    ((game_shape_.ColumnCount() - 1) * 2) + 1);
-
   cell_factory_.reset(
-    new BoardCellFactory(
-      scenario_,
-      game_shape_.RowCount(), game_shape_.ColumnCount(),
-      plane_shape_.RowCount(), plane_shape_.ColumnCount()));
+    new BoardCellFactory(scenario_, game_size_));
   move_factory_.reset(
-    new BoardMoveFactory(
-      cell_factory_.get(), scenario_,
-      game_shape_.RowCount(), game_shape_.ColumnCount()));
+    new BoardMoveFactory(cell_factory_.get(), scenario_, game_size_));
 }
 
 }} // namespace cifre::gettysburg

@@ -137,10 +137,13 @@ public:
   }
 
 public:
-  BoardCellFactory(
-    const OOB::Scenario scenario,
-    size_t board_row_cnt, size_t board_column_cnt,
-    size_t plane_row_cnt, size_t plane_column_cnt);
+  BoardCellFactory(const OOB::Scenario scenario, cifre::MatrixSize board_size);
+
+  // Return the size of each plane in the plane-set.
+  const cifre::MatrixSize& PlaneSize() const { return plane_size_; }
+
+  // Return the number of border rows and border columns.
+  const cifre::MatrixSize& PlaneBorderSize() const { return plane_border_size_; }
 
   // The number of cells/hexes containing a given 'kind' of feature.
   size_t CellFeaturesCount(CellFeatureKind kind) const {
@@ -168,10 +171,10 @@ private:
   BoardCellFactory& operator=(BoardCellFactory&&) = delete;
 
   const OOB::Scenario scenario_;
-  size_t board_row_cnt_;
-  size_t board_column_cnt_;
-  size_t plane_row_cnt_;
-  size_t plane_column_cnt_;
+  const cifre::MatrixSize board_size_;
+
+  cifre::MatrixSize plane_border_size_;
+  cifre::MatrixSize plane_size_;
 
   // Total size, in bytes of a set of input planes.
   size_t flat_vector_byte_count_;

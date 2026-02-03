@@ -15,21 +15,34 @@ namespace cifre { namespace gettysburg {
 // BoardCellFactory
 //
 BoardCellFactory::BoardCellFactory(
-  const OOB::Scenario scenario, size_t board_row_cnt, size_t board_column_cnt,
-  size_t plane_row_cnt, size_t plane_column_cnt) :
-  scenario_(scenario), board_row_cnt_(board_row_cnt), board_column_cnt_(board_column_cnt),
-  plane_row_cnt_(plane_row_cnt), plane_column_cnt_(plane_column_cnt)
+  const OOB::Scenario scenario, cifre::MatrixSize board_size) :
+  scenario_(scenario), board_size_(board_size)
 {
-  // Make sure the plane and board size are what we expect...
-  assert(plane_row_cnt_ == ((board_row_cnt_ - 1) * 2) + 1);
-  assert(plane_column_cnt_ == ((board_column_cnt_ - 1) * 2) + 1);
+  // The input planes are based on the size of the board. Because the
+  // model is trained/used by always having the unit currently being
+  // controlled at the center of the plane, there must be a border
+  // around the board to allow any actual map hex to be at the center
+  // of the plane (the width of the border on any size will vary
+  // depending on the center hex, from 0 to 'plane_border_size_').
+  // Also, to make sure even/odd hex position differences don't
+  // interfere with the board display, the width of the border must be
+  // even number of columns.
+  plane_border_size_ =
+    cifre::MatrixSize(board_size_.RowCount() - 1, board_size_.ColumnCount() - 1);
+  if ((plane_border_size_.ColumnCount() % 2) == 1) {
+    plane_border_size_ =
+      cifre::MatrixSize(plane_border_size_.RowCount(), plane_border_size_.ColumnCount() + 1);
+  }
+  plane_size_ =
+    cifre::MatrixSize(plane_border_size_.RowCount() + board_size_.RowCount(),
+                      plane_border_size_.ColumnCount() + board_size_.ColumnCount());
 
   flat_vector_byte_count_ =
-    plane_row_cnt_ * plane_column_cnt_ * PLANE_COUNT * sizeof(float);
+    plane_size_.ElementCount() * PLANE_COUNT * sizeof(float);
 
   // Make a set of planes for each position on the board...
-  for (size_t br = 0; br < board_row_cnt_; ++br) {
-    for (size_t bc = 0; bc < board_column_cnt_; ++bc) {
+  for (size_t br = 0; br < board_size_.RowCount(); ++br) {
+    for (size_t bc = 0; bc < board_size_.ColumnCount(); ++bc) {
       // The set of planes for [br, bc] is represented as a flat
       // vector as that is what is most efficient for feeding to the
       // model.
@@ -37,17 +50,16 @@ BoardCellFactory::BoardCellFactory(
       flat_vector.resize(flat_vector_byte_count_);
       float* flat = reinterpret_cast<float*>(flat_vector.data());
 
-      // The planes for a board position [br, bc] includes a border
-      // so that [br, bc] is the center hex in the [plane_row_cnt_,
-      // plane_column_cnt_] planes.
-      const size_t start_br = board_row_cnt_ - 1 - br;
-      const size_t start_bc = board_column_cnt_ - 1 - bc;
+      // The planes for a board position [br, bc] includes a border so
+      // that [br, bc] is the center hex in the 'plane_size_' planes.
+      const size_t start_br = plane_border_size_.RowCount() - br;
+      const size_t start_bc = plane_border_size_.ColumnCount() - bc;
 
       // Apply board features to the planes...
       for (auto& bd : board_cell_data) {
-        if ((bd.row_ < board_row_cnt_) && (bd.column_ < board_column_cnt_)) {
+        if ((bd.row_ < board_size_.RowCount()) && (bd.column_ < board_size_.ColumnCount())) {
           const size_t offset =
-            ((start_br + bd.row_) * plane_column_cnt_ * PLANE_COUNT) +
+            ((start_br + bd.row_) * plane_size_.ColumnCount() * PLANE_COUNT) +
             ((start_bc + bd.column_) * PLANE_COUNT);
           if (bd.forest_) {
             flat[offset + PLANE_IDX_FOREST] = CELL_ACTIVE;
@@ -71,8 +83,8 @@ BoardCellFactory::BoardCellFactory(
       // of the board.
       if (scenario_ == OOB::Scenario::SMALL) {
         const size_t offset =
-          ((start_br + (board_row_cnt_ / 2)) * plane_column_cnt_ * PLANE_COUNT) +
-          ((start_bc + (board_column_cnt_ / 2)) * PLANE_COUNT);
+          ((start_br + (board_size_.RowCount() / 2)) * plane_size_.ColumnCount() * PLANE_COUNT) +
+          ((start_bc + (board_size_.ColumnCount() / 2)) * PLANE_COUNT);
         flat[offset + PLANE_IDX_VICTORY_POINT] = 1.0;
       }
 
@@ -89,11 +101,11 @@ BoardCellFactory::BoardCellFactory(
 
   // Go through all board cell data again and initialize
   // 'cell_features_' and 'cell_features_offsets_.
-  cell_features_.resize(board_row_cnt_ * board_column_cnt_);
+  cell_features_.resize(board_size_.ElementCount());
 
   for (auto& bd : board_cell_data) {
-    if ((bd.row_ < board_row_cnt_) && (bd.column_ < board_column_cnt_)) {
-      const size_t offset = (bd.row_ * board_column_cnt_) + bd.column_;
+    if ((bd.row_ < board_size_.RowCount()) && (bd.column_ < board_size_.ColumnCount())) {
+      const size_t offset = (bd.row_ * board_size_.ColumnCount()) + bd.column_;
       cell_features_[offset] = bd;
 
       // Small scenario only has victory point in center of board...
@@ -126,7 +138,7 @@ BoardCellFactory::BoardCellFactory(
   // Small scenario only has victory point in center of board...
   if (scenario_ == OOB::Scenario::SMALL) {
     const size_t offset =
-      ((board_row_cnt_ / 2) * board_column_cnt_) + (board_column_cnt_ / 2);
+      ((board_size_.RowCount() / 2) * board_size_.ColumnCount()) + (board_size_.ColumnCount() / 2);
     cell_features_[offset].victory_points_ = 1.0;
     cell_features_offsets_[size_t(CellFeatureKind::VICTORY_POINT)].push_back(offset);
     assert(cell_features_offsets_[
@@ -135,9 +147,9 @@ BoardCellFactory::BoardCellFactory(
 
   // Go through board edge data and initialize edge features.
   for (auto& be : board_edge_data) {
-    if ((be.row_ < board_row_cnt_) && (be.column_ < board_column_cnt_)) {
+    if ((be.row_ < board_size_.RowCount()) && (be.column_ < board_size_.ColumnCount())) {
       // Initialize in cell explicitly listed in 'be'.
-      const size_t offset = (be.row_ * board_column_cnt_) + be.column_;
+      const size_t offset = (be.row_ * board_size_.ColumnCount()) + be.column_;
       auto& cf = cell_features_[offset];
       assert(!cf.edges_[size_t(be.dir_)].road_ && !cf.edges_[size_t(be.dir_)].stream_ &&
              !cf.edges_[size_t(be.dir_)].railroad_); // make sure not already inited
@@ -146,10 +158,10 @@ BoardCellFactory::BoardCellFactory(
       // Initialize in cell on other side of edge.
       auto other_coord = HexDirectionToPosition(MatrixCoordinate(be.row_, be.column_), be.dir_);
       if ((other_coord.Row() >= 0) && (other_coord.Column() >= 0) &&
-          (other_coord.Row() < int64_t(board_row_cnt_)) &&
-          (other_coord.Column() < int64_t(board_column_cnt_))) {
+          (other_coord.Row() < int64_t(board_size_.RowCount())) &&
+          (other_coord.Column() < int64_t(board_size_.ColumnCount()))) {
         const size_t other_offset =
-          (other_coord.Row() * board_column_cnt_) + other_coord.Column();
+          (other_coord.Row() * board_size_.ColumnCount()) + other_coord.Column();
         HexDirection other_dir = HexOppositeDirection(be.dir_);
         auto& ocf = cell_features_[other_offset];
         assert(!ocf.edges_[size_t(other_dir)].road_ && !ocf.edges_[size_t(other_dir)].stream_ &&
@@ -161,17 +173,17 @@ BoardCellFactory::BoardCellFactory(
 
   // Go through all cells and mark inaccessible board edges as those
   // that are adjacent to inaccessible cells on both sides.
-  for (size_t br = 0; br < board_row_cnt_; ++br) {
-    for (size_t bc = 0; bc < board_column_cnt_; ++bc) {
-      const size_t offset = (br * board_column_cnt_) + bc;
+  for (size_t br = 0; br < board_size_.RowCount(); ++br) {
+    for (size_t bc = 0; bc < board_size_.ColumnCount(); ++bc) {
+      const size_t offset = (br * board_size_.ColumnCount()) + bc;
       auto& cf = cell_features_[offset];
       if (cf.not_accessible_) {
         for (size_t idx = HEX_RADIUS1_FIRST_DIRECTION_IDX; idx <= HEX_RADIUS1_LAST_DIRECTION_IDX; ++idx) {
           auto other_pos = HexDirectionToPosition(MatrixCoordinate(br, bc), HexDirection(idx));
           if ((other_pos.Row() >= 0) && (other_pos.Column() >= 0) &&
-              (other_pos.Row() < int64_t(board_row_cnt_)) &&
-              (other_pos.Column() < int64_t(board_column_cnt_))) {
-            const size_t other_offset = (other_pos.Row() * board_column_cnt_) + other_pos.Column();
+              (other_pos.Row() < int64_t(board_size_.RowCount())) &&
+              (other_pos.Column() < int64_t(board_size_.ColumnCount()))) {
+            const size_t other_offset = (other_pos.Row() * board_size_.ColumnCount()) + other_pos.Column();
             auto& ocf = cell_features_[other_offset];
             if (ocf.not_accessible_) {
               HexDirection other_dir = HexOppositeDirection(HexDirection(idx));
@@ -199,9 +211,9 @@ BoardCellFactory::IndexToCellFeatures(CellFeatureKind kind, size_t n) const
 const BoardCellFactory::CellFeatures&
 BoardCellFactory::PositionToCellFeatures(const MatrixCoordinate& pos) const
 {
-  assert((pos.Row() >= 0) && (pos.Row() < int64_t(board_row_cnt_)) &&
-         (pos.Column() >= 0) && (pos.Column() < int64_t(board_column_cnt_)));
-  const size_t offset = (pos.Row() * board_column_cnt_) + pos.Column();
+  assert((pos.Row() >= 0) && (pos.Row() < int64_t(board_size_.RowCount())) &&
+         (pos.Column() >= 0) && (pos.Column() < int64_t(board_size_.ColumnCount())));
+  const size_t offset = (pos.Row() * board_size_.ColumnCount()) + pos.Column();
   return cell_features_[offset];
 }
 

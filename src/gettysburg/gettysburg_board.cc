@@ -11,13 +11,13 @@ namespace cifre { namespace gettysburg {
 //
 Board::Board(
   BoardCellFactory* cell_factory, const BoardMoveFactory* move_factory,
-  const OOB::Scenario scenario, const cifre::MatrixSize& board_shape,
-  const cifre::MatrixSize& plane_shape, const std::vector<Player*>& players,
-  std::pmr::memory_resource* arena) :
-  cifre::BoardHex(BoardCellFactory::PLANE_COUNT, board_shape, players,
+  const OOB::Scenario scenario, const cifre::MatrixSize& board_size,
+  const std::vector<Player*>& players, std::pmr::memory_resource* arena) :
+  cifre::BoardHex(BoardCellFactory::PLANE_COUNT, board_size, players,
                   0 /* starting_player_id */, arena),
   cell_factory_(cell_factory), move_factory_(move_factory),
-  scenario_(scenario), plane_shape_(plane_shape), cells_flattened_(arena)
+  scenario_(scenario), plane_size_(cell_factory->PlaneSize()),
+  cells_flattened_(arena)
 {
   valid_action_ids_.reserve(TotalActionIdCount());
 
@@ -65,7 +65,7 @@ Board::Board(
 Board::Board(const Board& other, std::pmr::memory_resource* arena) :
   cifre::BoardHex(other, arena),
   cell_factory_(other.cell_factory_), move_factory_(other.move_factory_),
-  scenario_(other.scenario_), plane_shape_(other.plane_shape_),
+  scenario_(other.scenario_), plane_size_(other.plane_size_),
   active_army_(other.active_army_), active_unit_idx_(other.active_unit_idx_),
   active_first_row_(other.active_first_row_), active_first_column_(other.active_first_column_),
   active_move_costs_(other.active_move_costs_), active_end_turn_(other.active_end_turn_),
@@ -107,7 +107,7 @@ Board::Hash() const
   // they are derived from the other members.
   //
   // 'scenario_' is not hashed because it is equal for all boards.
-  // 'plane_shape_' is not hashed because it is equal for all boards.
+  // 'plane_size_' is not hashed because it is equal for all boards.
   //
   // 'active_army_' and 'active_unit_idx_' indicate which unit is the
   // active unit (and thereby its position on the board) and so don't
@@ -145,7 +145,7 @@ Board::Equal(const State* other) const
   // because they are derived from the other members.
   //
   // 'scenario_' is not compared because it is equal for all boards.
-  // 'plane_shape_' is not compared because it is same for all boards.
+  // 'plane_size_' is not compared because it is same for all boards.
   //
   // 'active_army_' and 'active_unit_idx_' indicate which unit is the
   // active unit (and thereby its position on the board) and so don't
@@ -608,9 +608,14 @@ Board::UpdateMoveCosts()
   if (ActivePlayer()->PlayerKind() != Player::Kind::HUMAN) {
     const auto victory_point_positions = VictoryPointPositions();
     for (uint64_t aid = MOVE_ACTIONID_FIRST_INNER; aid <= MOVE_ACTIONID_LAST_INNER; ++aid) {
-      const MatrixCoordinate aid_pos = aid_poses[aid];
-      if (!victory_point_positions[aid_pos.Row()][aid_pos.Column()]) {
-        active_end_turn_[aid] = true;
+      if (!active_end_turn_[aid] && (active_move_costs_[aid] >= 0.0)) {
+        const MatrixCoordinate aid_pos = aid_poses[aid];
+        assert((aid_pos.Row() >= 0) && (aid_pos.Column() >= 0) &&
+               (aid_pos.Row() < int64_t(size_.RowCount())) &&
+               (aid_pos.Column() < int64_t(size_.ColumnCount())));
+        if (!victory_point_positions[aid_pos.Row()][aid_pos.Column()]) {
+          active_end_turn_[aid] = true;
+        }
       }
     }
   }
@@ -694,8 +699,9 @@ Board::UpdateInputPlanes()
   // The active unit's position determines where on the planes the
   // board is located; location is set to place that unit in the
   // center of the planes.
-  active_first_row_ = size_.RowCount() - 1 - active_unit_->Position().Row();
-  active_first_column_ = size_.ColumnCount() - 1 - active_unit_->Position().Column();
+  const cifre::MatrixSize& plane_border_size = cell_factory_->PlaneBorderSize();
+  active_first_row_ =  plane_border_size.RowCount() - active_unit_->Position().Row();
+  active_first_column_ = plane_border_size.ColumnCount() - active_unit_->Position().Column();
 
   cells_flattened_factory_key_ = active_unit_->Position();
   const auto& fcf = cell_factory_->PlaneSet(cells_flattened_factory_key_);
@@ -926,7 +932,7 @@ Board::DisplaySize(BoardDisplayKind display_kind, uint32_t display_version) cons
     return size_;
   }
 
-  return plane_shape_;
+  return plane_size_;
 }
 
 BoardHex::SmallBoardCellContent
