@@ -207,6 +207,7 @@ AlphaZeroAlgo::FindOrCreateNode(StateUniqueConstPtr state, bool* created)
     return fnode_itr;
   }
 
+  // FIXME if 'state' is a terminal do we need to infer?
   auto result = triton_model_->Infer(*state);
   assert(result->PiEntryCount() == state->TotalActionIdCount());
 

@@ -89,7 +89,6 @@ Board::Board(const Board& other, std::pmr::memory_resource* arena) :
   }
 
   active_unit_ = ActiveUnit();
-  assert(active_unit_ != nullptr);
 }
 
 size_t
