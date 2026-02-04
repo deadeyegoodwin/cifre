@@ -113,12 +113,9 @@ Board::Hash() const
   // need 'active_unit_', 'active_first_row_', 'active_first_column_',
   // 'active_move_costs_' and 'active_end_turn_'.
 
-  // FIXME likely need to include 'turn_' in the cell state (turn
-  // plane?) and then would need to add it to the hash. For now it is
-  // not in the hash so board states are not differentiated by turn.
-
   hash += (uint64_t(active_army_) * mulp) ^ (hash >> 23);
   hash += (active_unit_idx_ * mulp) ^ (hash >> 23);
+  hash += (turn_ * mulp) ^ (hash >> 23);
 
   for (size_t idx = 0; idx < captured_vps_count_; ++idx) {
     hash += (captured_vps_[idx] * mulp) ^ (hash >> 23);
@@ -151,13 +148,10 @@ Board::Equal(const State* other) const
   // need 'active_unit_', 'active_first_row_', 'active_first_column_',
   // 'active_move_costs_' and 'active_end_turn_'.
 
-  // FIXME likely need to include turn_ in the cell state (turn
-  // plane?) and then would need to add it to the hash. For now it is
-  // not in the hash so board states are not differentiated by turn.
-
   if ((active_player_id_ != ob->active_player_id_) ||
       (active_army_ != ob->active_army_) ||
-      (active_unit_idx_ != ob->active_unit_idx_)) {
+      (active_unit_idx_ != ob->active_unit_idx_) ||
+      (turn_ != ob->turn_)) {
     return false;
   }
 
