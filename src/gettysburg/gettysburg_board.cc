@@ -846,15 +846,14 @@ Board::ReinforceUnits()
         (u.Position().Column() < int64_t(size_.ColumnCount()))) {
       assert(union_units_count_ < OOB::MAX_UNITS_PER_ARMY_COUNT);
 
-      // If the reinforcement hex is occupied by an enemy unit or ZOC
-      // then defer the unit until a later turn.
+      // FIXME. If the reinforcement hex is occupied by an enemy unit
+      // or ZOC then don't add the unit. Note that this is incorrect
+      // behavior and we should instead defer adding the unit to a
+      // later turn or try to add it to a nearby hex (both are allowed
+      // by rules).
       const auto opponent_zoc_positions =
         OpponentZOCPositions(OpponentUnitsCount(u.Army()), OpponentUnits(u.Army()));
-      if (opponent_zoc_positions[u.Position().Row()][u.Position().Column()]) {
-        // FIXME
-        LOG_GAME(*ActivePlayer()->PlayerLogger(), "defer " + u.Name());
-      }
-      else {
+      if (!opponent_zoc_positions[u.Position().Row()][u.Position().Column()]) {
         union_units_[union_units_count_++] = u;
       }
     }
@@ -866,15 +865,14 @@ Board::ReinforceUnits()
         (u.Position().Column() < int64_t(size_.ColumnCount()))) {
       assert(confederate_units_count_ < OOB::MAX_UNITS_PER_ARMY_COUNT);
 
-      // If the reinforcement hex is occupied by an enemy unit or ZOC
-      // then defer the unit until a later turn.
+      // FIXME. If the reinforcement hex is occupied by an enemy unit
+      // or ZOC then don't add the unit. Note that this is incorrect
+      // behavior and we should instead defer adding the unit to a
+      // later turn or try to add it to a nearby hex (both are allowed
+      // by rules).
       const auto opponent_zoc_positions =
         OpponentZOCPositions(OpponentUnitsCount(u.Army()), OpponentUnits(u.Army()));
-      if (opponent_zoc_positions[u.Position().Row()][u.Position().Column()]) {
-        // FIXME
-        LOG_GAME(*ActivePlayer()->PlayerLogger(), "defer " + u.Name());
-      }
-      else {
+      if (!opponent_zoc_positions[u.Position().Row()][u.Position().Column()]) {
         confederate_units_[confederate_units_count_++] = u;
       }
     }
