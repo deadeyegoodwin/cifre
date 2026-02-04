@@ -388,6 +388,10 @@ Board::NextArmyUnit(
         // Return true indicating active army did not change.
         return true;
       }
+
+      // 'active_unit_' can't move, so set its move-factor-remaining
+      // to 0 and try the next unit.
+      active_unit_->ZeroMoveFactorRemaining();
     }
   }
 

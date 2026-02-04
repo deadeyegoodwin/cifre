@@ -52,6 +52,11 @@ namespace cifre { namespace gettysburg {
 //   MOVE_0, MOVE_5, MOVE_7, MOVE_10: confederate or union unit at this
 //     position has the corresponding movement factor
 //
+// FIXME this setup has some problems. Probably would be better to
+// allow move action to every hex on the board and then have per-turn
+// history of union and confederate units, perhaps with move-factor
+// value, for example PLANE_IDX_UNION_MOVE_5.
+//
 class BoardCellFactory {
 public:
   // The maximum number of hexes that can be captured for victory

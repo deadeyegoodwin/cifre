@@ -69,6 +69,7 @@ public:
   float MoveFactorExpended() const { return move_factor_expended_; }
   float MoveFactorRemaining() const {
     return move_factor_ - move_factor_expended_; }
+  void ZeroMoveFactorRemaining() { move_factor_expended_ = move_factor_; }
   void ResetMoveFactorRemaining() { move_factor_expended_ = 0.0; }
 
   // Update unit based on action-id.
