@@ -24,7 +24,7 @@ commands:
 
 ```bash
 mkdir -p ${CIFRE_REPODIR}
-docker run --gpus=1 --rm --net=host -v ${CIFRE_REPODIR}:/cifre/models nvcr.io/nvidia/tritonserver:24.01-py3 tritonserver --model-control-mode=explicit --model-repository=/cifre/models
+docker run --gpus=1 --rm --net=host -v ${CIFRE_REPODIR}:/cifre/models nvcr.io/nvidia/tritonserver:25.01-py3 tritonserver --model-control-mode=explicit --model-repository=/cifre/models
 ```
 
 Where `${CIFRE_REPODIR}` is the full path to the model repository
@@ -35,10 +35,10 @@ Triton and train a model for the *connect4* game on a 6x7 board, using
 `/tmp/cifre/models` to hold the Triton repository, and
 `/tmp/cifre/train` to hold the training data.
 
-```base
+```bash
 # Launch triton in bash shell; triton log will be written to stdout/stderr
 mkdir -p /tmp/cifre/models /tmp/cifre/train
-docker run --gpus=1 --rm --net=host -v /tmp/cifre/models:/cifre/models nvcr.io/nvidia/tritonserver:24.01-py3 tritonserver --model-control-mode=explicit --model-repository=/cifre/models
+docker run --gpus=1 --rm --net=host -v /tmp/cifre/models:/cifre/models nvcr.io/nvidia/tritonserver:25.01-py3 tritonserver --model-control-mode=explicit --model-repository=/cifre/models
 
 # In another shell activate conda as described above and then perform following
 # steps. The game-specific invocation of cifre_train.py and more information is
@@ -55,12 +55,30 @@ rm -fr /tmp/cifre/train/*
 * [Othello](src/othello/README.md)
 * [Gettysburg](src/gettysburg/README.md)
 
+## Using TensorRT
+
+You can instruct Cifre to generate a TensorRT version of your model
+which will typically result in much higher performance than the
+default ONNX version of the model.
+
+As a one-time setup you must install the TensorRT docker image that
+corresponds to the version of Triton Server that you are using. For
+example, if you use the 25.01-py3 version of Triton, you would do the
+following to fetch the appropriate TensorRT docker image.
+
+```bash
+docker pull nvcr.io/nvidia/tensorrt:25.01-py3
+```
+
+Then, when training with cifre_train.py, add the command-line argument
+*--model-kind=tensorrt:25.01*.
+
 ## Build
 
 There is a build issue in one of the dependent cmake builds that
 requires a clean build. To perform a clean build do the following:
 
-```base
+```bash
 rm -fr build
 mkdir build
 cd build
@@ -70,21 +88,21 @@ make -j
 
 Then disable the problematic part of the build:
 
-```base
+```bash
 cmake -DBUILD_TRITON_CLIENT=OFF ..
 ```
 
 Then use the following to install a full release build. Artifacts are
 installed into `install/`.
 
-```base
+```bash
 make -j install
 ```
 
-You can perform incremental builds and/or re-run cmake to change build
-options, and perform as many builds as required. For example:
+You can then perform incremental builds and/or re-run cmake to change
+build options. For example:
 
-```base
+```bash
 cmake -DASAN=ON -DCMAKE_BUILD_TYPE=Debug ..
 make -j install
 ```

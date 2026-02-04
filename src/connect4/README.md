@@ -12,7 +12,7 @@ following first removes models and training results from
 deleted.
 
 ```bash
-rm -fr /tmp/cifre/models/* && rm -fr /tmp/cifre/train/* && ./cifre_train.py --repo-dir=/tmp/cifre/models --train-dir=/tmp/cifre/train --game=connect4 --epoch-count=20 --iteration-count=8 --game-count=100
+rm -fr /tmp/cifre/models/* && rm -fr /tmp/cifre/train/* && ./cifre_train.py --repo-dir=/tmp/cifre/models --train-dir=/tmp/cifre/train --game=connect4 --epoch-count=20 --iteration-count=8 --game-count=5000
 ```
 
 Default settings for alpha-zero can be found in main.cc
@@ -23,12 +23,6 @@ using that model. Assuming the best trained model is called 'iter3':
 
 ```bash
 install/bin/connect4 --player1=human --player2=alphazero --alphazero-model iter3
-```
-
-To have player2 go first add the --starting argument after --player2.
-
-```bash
-install/bin/connect4 --player1=human --player2=alphazero --starting --alphazero-model iter3
 ```
 
 You can also have a random or alphazero player that plays against a
@@ -43,5 +37,5 @@ install/bin/connect4 --game-count=10 --player1=random --player2=alphazero --alph
 You can even play two alphazero models against each other.
 
 ```bash
-install/bin/connect4 --game-count=10 --player1=alphazero --alphazero-model <another model name> --player2=alphazero --alphazero-model iter3
+install/bin/connect4 --game-count=10 --player1=alphazero --alphazero-model <model name> --player2=alphazero --alphazero-model <another model name>
 ```

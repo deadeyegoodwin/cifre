@@ -1,5 +1,7 @@
 # Gettysburg - Smithsonian Edition
 
+**NOTE: this game is not complete and cannot be played in its current state. **
+
 A two player Hex-and-Counter game based on game published by Avalon
 Hill in 1988. Uses the game board, pieces and instructions from
 https://gitlab.com/wargames_tex/sgb_tex.
@@ -10,7 +12,7 @@ following first removes models and training results from
 deleted.
 
 ```bash
-rm -fr /tmp/cifre/models/* && rm -fr /tmp/cifre/train/* && ./cifre_train.py --repo-dir=/tmp/cifre/models --train-dir=/tmp/cifre/train --game=gettyburg --epoch-count=20 --iteration-count=8 --game-count=100
+rm -fr /tmp/cifre/models/* && rm -fr /tmp/cifre/train/* && ./cifre_train.py --repo-dir=/tmp/cifre/models --train-dir=/tmp/cifre/train --game=gettyburg --epoch-count=20 --iteration-count=8 --game-count=1000
 ```
 
 Default settings for alpha-zero can be found in main.cc
@@ -21,12 +23,6 @@ using that model. Assuming the best trained model is called 'iter3':
 
 ```bash
 install/bin/gettysburg --player1=human --player2=alphazero --alphazero-model iter3
-```
-
-To have player2 go first add the --starting argument after --player2.
-
-```bash
-install/bin/gettysburg --player1=human --player2=alphazero --starting --alphazero-model iter3
 ```
 
 You can also have a random or alphazero player that plays against a
