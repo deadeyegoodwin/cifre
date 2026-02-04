@@ -207,9 +207,13 @@ AlphaZeroAlgo::FindOrCreateNode(StateUniqueConstPtr state, bool* created)
     return fnode_itr;
   }
 
-  // FIXME if 'state' is a terminal do we need to infer?
-  auto result = triton_model_->Infer(*state);
-  assert(result->PiEntryCount() == state->TotalActionIdCount());
+  // If 'state' is a terminal state then don't need to infer... just
+  // use a nullptr result.
+  std::shared_ptr<const TritonInferResult> result;
+  if (state->TerminalStatus().Kind() == StateTerminalStatus::TerminalKind::NON_TERMINAL) {
+    result = triton_model_->Infer(*state);
+    assert(result->PiEntryCount() == state->TotalActionIdCount());
+  }
 
   const State* pstate = state.get();
 
