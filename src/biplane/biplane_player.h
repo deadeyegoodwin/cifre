@@ -1,0 +1,34 @@
+// Copyright 2026, David Goodwin. All rights reserved.
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+
+#include "cifre_logger.h"
+#include "cifre_player.h"
+#include "cifre_state.h"
+
+namespace cifre { namespace biplane {
+
+//
+// HumanPlayer
+//
+// An biplane player controlled by a human.
+//
+class HumanPlayer : public cifre::HumanPlayer {
+public:
+  // Create 'name'd human player.
+  HumanPlayer(const std::shared_ptr<Logger>& logger,
+              size_t id, const std::string& name,
+              const std::shared_ptr<cifre::Algo>& algo) :
+    cifre::HumanPlayer(logger, id, name, algo) { }
+
+  // See cifre::Player::NextAction().
+  Action NextAction(const cifre::State& board, size_t max_game_sideturns_remaining) const override;
+
+private:
+  std::string Usage() const;
+};
+
+}} // namespace cifre::biplane

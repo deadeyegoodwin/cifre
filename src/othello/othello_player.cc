@@ -19,7 +19,7 @@ std::string
 HumanPlayer::Usage() const
 {
   std::stringstream sstr;
-  sstr << Name() << "- Occupy a cell that surronds one or more opponent pieces.\n";
+  sstr << Name() << "- Occupy a cell that surrounds one or more opponent pieces.\n";
   sstr << "'h' : help\n";
   sstr << "'q' : quit\n";
   sstr << "'s' : show board\n";

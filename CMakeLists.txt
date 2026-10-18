@@ -139,9 +139,10 @@ endif(BUILD_TRITON_CLIENT)
 #
 # Games
 #
-add_subdirectory(src/gettysburg)
 add_subdirectory(src/connect4)
 add_subdirectory(src/othello)
+add_subdirectory(src/biplane)
+add_subdirectory(src/gettysburg)
 
 #
 # cifre version

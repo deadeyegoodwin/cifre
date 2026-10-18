@@ -130,11 +130,13 @@ public:
   virtual ~State() = default;
 
   // Return the hash of this state. The hash must satisfy all the
-  // properties of std::hash.
+  // properties of std::hash. The hash must include ActivePlayerId for
+  // AZ to operate correctly.
   virtual size_t Hash() const = 0;
 
-  // Return true if this state is equal to 'other'. Must satisfy all the
-  // properties of std::is_equal.
+  // Return true if this state is equal to 'other'. Must satisfy all
+  // the properties of std::is_equal. The equality must include
+  // ActivePlayerId for AZ to operate correctly.
   virtual bool Equal(const State* other) const = 0;
 
   // Return the total number of action IDs available across all

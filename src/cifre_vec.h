@@ -114,6 +114,32 @@ public:
   // Return string representation of the matrix coordinate.
   std::string ToString() const;
 
+  // Unary
+  MatrixCoordinate& operator+=(const MatrixCoordinate &other) {
+    row_ += other.row_; column_ += other.column_; return *this; }
+  MatrixCoordinate& operator-=(const MatrixCoordinate &other) {
+    row_ -= other.row_; column_ -= other.column_; return *this; }
+
+  // Scalar unary
+  MatrixCoordinate& operator*=(const int64_t &other) {
+    row_ *= other; column_ *= other; return *this; }
+  MatrixCoordinate& operator/=(const int64_t &other) {
+    row_ /= other; column_ /= other; return *this; }
+  MatrixCoordinate& operator+=(const int64_t &other) {
+    row_ += other; column_ += other; return *this; }
+  MatrixCoordinate& operator-=(const int64_t &other) {
+    row_ -= other; column_ -= other; return *this; }
+
+  // Scalar binary
+  MatrixCoordinate operator*(const int64_t &other) const {
+    MatrixCoordinate mc(*this); mc *= other; return mc; }
+  MatrixCoordinate operator/(const int64_t &other) const {
+    MatrixCoordinate mc(*this); mc /= other; return mc; }
+  MatrixCoordinate operator+(const int64_t &other) const {
+    MatrixCoordinate mc(*this); mc += other; return mc; }
+  MatrixCoordinate operator-(const int64_t &other) const {
+    MatrixCoordinate mc(*this); mc -= other; return mc; }
+
 private:
   int64_t row_;
   int64_t column_;
@@ -123,7 +149,6 @@ private:
 inline MatrixCoordinate
 operator+(const MatrixCoordinate& lhs, const MatrixCoordinate& rhs) {
   return MatrixCoordinate(lhs.Row() + rhs.Row(), lhs.Column() + rhs.Column()); }
-
 inline MatrixCoordinate
 operator-(const MatrixCoordinate& lhs, const MatrixCoordinate& rhs) {
   return MatrixCoordinate(lhs.Row() - rhs.Row(), lhs.Column() - rhs.Column()); }
