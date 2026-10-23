@@ -41,6 +41,11 @@ static constexpr size_t NUM_PLANE_ORIENTATIONS = 8;
 // Return the string representation of an orientation.
 std::string PlaneOrientationToShortString(PlaneOrientation po);
 
+// Return the string representation for a relative
+// orientation. Relative orientations are named up, down, etc. because
+// they are relative to a north-oriented board.
+std::string PlaneOrientationToShortRelativeString(PlaneOrientation po);
+
 //
 // Board
 //
@@ -149,13 +154,13 @@ private:
   void UpdateValidActions();
 
   void ApplyAction(uint64_t action_id);
-  void PlayerToAbsolute(size_t idx);
-  void PlayerToRelative(size_t idx);
+  void PositionToAbsolute(MatrixCoordinate& pos, PlaneOrientation& orient) const;
+  void PositionToRelative(MatrixCoordinate& pos, PlaneOrientation& orient) const;
   void DecomposeSteps(
     const MatrixCoordinate& pos,
     size_t& diagonal_count, PlaneOrientation& diagonal_dir,
-    size_t& straight_count, PlaneOrientation& straight_dir);
-  MatrixCoordinate RotatePosition(const MatrixCoordinate& pos, const size_t rot);
+    size_t& straight_count, PlaneOrientation& straight_dir) const;
+  MatrixCoordinate RotatePosition(const MatrixCoordinate& pos, const size_t rot) const;
 
   // Maximum distance between planes.
   const size_t max_distance_;

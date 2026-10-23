@@ -44,7 +44,7 @@ Board::Board(const size_t max_distance, const std::vector<Player*>& players,
       player_orientations_[idx] = PlaneOrientation::NORTH_EAST;
     }
     else {
-      player_positions_[idx] = MatrixCoordinate(max_distance_, max_distance_);
+      player_positions_[idx] = MatrixCoordinate(max_distance_ - 1, max_distance_ - 1);
       player_orientations_[idx] = PlaneOrientation::WEST;
     }
   }
@@ -145,7 +145,7 @@ Board::Update(uint64_t action_id)
   // players to relative coordinates.
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
-      PlayerToAbsolute(idx);
+      PositionToAbsolute(player_positions_[idx], player_orientations_[idx]);
     }
   }
 
@@ -158,7 +158,7 @@ Board::Update(uint64_t action_id)
 
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
-      PlayerToRelative(idx);
+      PositionToRelative(player_positions_[idx], player_orientations_[idx]);
     }
   }
 
@@ -209,9 +209,19 @@ Board::StringToAction(const std::string& str) const
     }
   }
 
+  // Moves can be given either as the full name or as a number.
   const uint64_t aid = StringToActionId(str);
   if (aid < TOTAL_ACTIONID_COUNT) {
     return Action(Action::ActionKind::ACTIONID, aid);
+  }
+
+  try {
+    int num = std::stoi(str);
+    if ((num >= 0) && (uint64_t(num) < TOTAL_ACTIONID_COUNT)) {
+      return Action(Action::ActionKind::ACTIONID, uint64_t(num));
+    }
+  }
+  catch (...) {
   }
 
   return Action(Action::ActionKind::INVALID);
@@ -234,9 +244,26 @@ Board::ToString() const
   const size_t ch_width = (visible_2d_size_.ColumnCount() * 5) - 1;
 
   // Player key.
-  sstr
-    << " active(p" << ActivePlayerId() << ")=" << ActivePlayer()->Name()
-    << "(" << ActivePlayer()->Char() << ")\n";
+  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+    sstr << ActivePlayer()->Name() << " (p" << idx << ")";
+    if (idx == active_player_id_) {
+      sstr
+        << ", absolute position [" << player_positions_[idx].ToString() << "]"
+        << ", absolute orientation " << PlaneOrientationToShortString(player_orientations_[idx])
+        << ", relative position [0,0], relative orientation UP, ACTIVE";
+    }
+    else {
+      MatrixCoordinate abs_pos = player_positions_[idx];
+      PlaneOrientation abs_orient = player_orientations_[idx];
+      PositionToAbsolute(abs_pos, abs_orient);
+      sstr
+        << ", absolute position [" << abs_pos.ToString() << "]"
+        << ", absolute orientation " << PlaneOrientationToShortString(abs_orient)
+        << ", relative position [" << player_positions_[idx].ToString() << "]"
+        << ", relative orientation " << PlaneOrientationToShortRelativeString(player_orientations_[idx]);
+    }
+    sstr << "\n";
+  }
 
   // Board.
   sstr << " " << std::string(ch_width, '-') << '\n';
@@ -247,12 +274,8 @@ Board::ToString() const
       bool found = false;
       for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
         if ((idx != active_player_id_) &&
-            (player_positions_[idx] == MatrixCoordinate(row_idx, col_idx))) {
-          std::string ds = PlaneOrientationToShortString(player_orientations_[idx]);
-          if (ds.length() < 2) {
-            ds.append(" ");
-          }
-          sstr << ds;
+            (player_positions_[idx] == MatrixCoordinate(col_idx, row_idx))) {
+          sstr << PlaneOrientationToShortRelativeString(player_orientations_[idx]);
           found = true;
           break;
         }
@@ -333,33 +356,27 @@ Board::ApplyAction(uint64_t action_id)
 }
 
 void
-Board::PlayerToAbsolute(size_t idx)
+Board::PositionToAbsolute(MatrixCoordinate& pos, PlaneOrientation& orient) const
 {
-  assert(idx != active_player_id_);
-
-  // The clockwise rotation required for 'idx' (position and
-  // orientation) is the absolute orientation of the active player.
+  // The clockwise rotation required for 'pos'ition and 'orient'ation
+  // is the absolute orientation of the active player.
   const PlaneOrientation rot = player_orientations_[active_player_id_];
-  const MatrixCoordinate rel_rot = RotatePosition(player_positions_[idx], size_t(rot));
-  player_orientations_[idx] =
-    PlaneOrientation((size_t(player_orientations_[idx]) + size_t(rot)) % NUM_PLANE_ORIENTATIONS);
-  player_positions_[idx] = player_positions_[active_player_id_] + rel_rot;
+  const MatrixCoordinate rel_rot = RotatePosition(pos, size_t(rot));
+  orient = PlaneOrientation((size_t(orient) + size_t(rot)) % NUM_PLANE_ORIENTATIONS);
+  pos = player_positions_[active_player_id_] + rel_rot;
 }
 
 void
-Board::PlayerToRelative(size_t idx)
+Board::PositionToRelative(MatrixCoordinate& pos, PlaneOrientation& orient) const
 {
-  assert(idx != active_player_id_);
-
-  // The counter-clockwise rotation required for 'idx' (position and
-  // orientation) is the absolute orientation of the active player.
+  // The counter-clockwise rotation required for 'pos'ition and
+  // 'orient'ation is the absolute orientation of the active player.
   const PlaneOrientation rot =
-    PlaneOrientation(NUM_PLANE_ORIENTATIONS - size_t(player_orientations_[idx]));
-  const MatrixCoordinate rel_rot = RotatePosition(player_positions_[idx], size_t(rot));
-  player_orientations_[idx] =
-    PlaneOrientation((size_t(player_orientations_[idx]) - size_t(rot) +
-                      NUM_PLANE_ORIENTATIONS) % NUM_PLANE_ORIENTATIONS);
-  player_positions_[idx] = player_positions_[active_player_id_] + rel_rot;
+    PlaneOrientation(NUM_PLANE_ORIENTATIONS - size_t(player_orientations_[active_player_id_]));
+  const MatrixCoordinate rel_rot = RotatePosition(pos, size_t(rot));
+  orient = PlaneOrientation((size_t(orient) - size_t(rot) +
+                             NUM_PLANE_ORIENTATIONS) % NUM_PLANE_ORIENTATIONS);
+  pos = player_positions_[active_player_id_] + rel_rot;
 }
 
 namespace {
@@ -381,7 +398,7 @@ void
 Board::DecomposeSteps(
   const MatrixCoordinate& pos,
   size_t& diagonal_count, PlaneOrientation& diagonal_dir,
-  size_t& straight_count, PlaneOrientation& straight_dir)
+  size_t& straight_count, PlaneOrientation& straight_dir) const
 {
   // 'pos' is assumed to be a relative position. Decompose 'pos' into
   // diagonal and straight steps. Maximize diagonal steps.
@@ -417,7 +434,7 @@ Board::DecomposeSteps(
 }
 
 MatrixCoordinate
-Board::RotatePosition(const MatrixCoordinate& pos, const size_t rot)
+Board::RotatePosition(const MatrixCoordinate& pos, const size_t rot) const
 {
   if (rot == 0) {
     return pos;
@@ -459,6 +476,24 @@ PlaneOrientationToShortString(PlaneOrientation po)
   case PlaneOrientation::SOUTH_WEST: return "SW";
   case PlaneOrientation::WEST:       return "W";
   case PlaneOrientation::NORTH_WEST: return "NW";
+  }
+
+  // unreachable
+  return "<unknown>";
+}
+
+std::string
+PlaneOrientationToShortRelativeString(PlaneOrientation po)
+{
+  switch (po) {
+  case PlaneOrientation::NORTH:      return "UP";
+  case PlaneOrientation::NORTH_EAST: return "UR";
+  case PlaneOrientation::EAST:       return "RT";
+  case PlaneOrientation::SOUTH_EAST: return "DR";
+  case PlaneOrientation::SOUTH:      return "DN";
+  case PlaneOrientation::SOUTH_WEST: return "DL";
+  case PlaneOrientation::WEST:       return "LT";
+  case PlaneOrientation::NORTH_WEST: return "UL";
   }
 
   // unreachable

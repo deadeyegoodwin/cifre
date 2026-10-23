@@ -47,6 +47,9 @@ void
 ActionIdToMove(
   uint64_t aid, MatrixCoordinate& pos_delta, int64_t& orientation_delta)
 {
+  assert(aid < TOTAL_ACTIONID_COUNT);
+  pos_delta = std::get<1>(action_data_[aid]);
+  orientation_delta = std::get<2>(action_data_[aid]);
 }
 
 }} // namespace cifre::biplane
