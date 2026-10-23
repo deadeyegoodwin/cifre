@@ -18,11 +18,11 @@ namespace cifre { namespace biplane {
 //
 Board::Board(const size_t max_distance, const std::vector<Player*>& players,
              size_t starting_player_id, std::pmr::memory_resource* arena) :
-  max_distance_(max_distance), active_player_id_(starting_player_id),
+  max_distance_(max_distance),
+  visible_2d_size_((max_distance * 2) + 1, (max_distance * 2) + 1),
+  active_player_id_(starting_player_id),
   terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL),
-  valid_action_ids_(arena),
-  cells_2d_size_((max_distance * 2) + 1, (max_distance * 2) + 1),
-  cells_flattened_(arena)
+  valid_action_ids_(arena), cells_flattened_(arena)
 {
   THROWIF((max_distance_ <= 0) || ((max_distance_ % 2) == 0),
           "max-distance must be positive odd integer");
@@ -55,7 +55,7 @@ Board::Board(const size_t max_distance, const std::vector<Player*>& players,
   }
 #endif
 
-  cells_flattened_.resize(NUM_PLANES * cells_2d_size_.ElementCount() * sizeof(float));
+  cells_flattened_.resize(NUM_PLANES * visible_2d_size_.ElementCount() * sizeof(float));
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
   // Initialize 'valid_action_ids_' and 'terminal_status_'.
@@ -65,11 +65,12 @@ Board::Board(const size_t max_distance, const std::vector<Player*>& players,
 }
 
 Board::Board(const Board& other, std::pmr::memory_resource* arena) :
-  max_distance_(other.max_distance_), players_(other.players_),
+  max_distance_(other.max_distance_), visible_2d_size_(other.visible_2d_size_),
+  players_(other.players_),
   player_positions_(other.player_positions_), player_orientations_(other.player_orientations_),
   active_player_id_(other.active_player_id_), terminal_status_(other.terminal_status_),
   valid_action_ids_(other.valid_action_ids_.begin(), other.valid_action_ids_.end(), arena),
-  cells_2d_size_(other.cells_2d_size_), cells_flattened_(other.cells_flattened_, arena)
+  cells_flattened_(other.cells_flattened_, arena)
 {
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 }
@@ -150,7 +151,10 @@ Board::Update(uint64_t action_id)
 
   ApplyAction(action_id);
 
-  SwitchActivePlayer();
+  // For now we just make the next player the active player. Update
+  // the valid actions for the now-active player.
+  active_player_id_ = (active_player_id_ + 1) % players_.size();
+  UpdateValidActions();
 
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
@@ -205,7 +209,10 @@ Board::StringToAction(const std::string& str) const
     }
   }
 
-  // FIXME
+  const uint64_t aid = StringToActionId(str);
+  if (aid < TOTAL_ACTIONID_COUNT) {
+    return Action(Action::ActionKind::ACTIONID, aid);
+  }
 
   return Action(Action::ActionKind::INVALID);
 }
@@ -213,18 +220,59 @@ Board::StringToAction(const std::string& str) const
 std::string
 Board::ActionToString(const Action& action) const
 {
-  return "FIXME";
+  if (action.Kind() != Action::ActionKind::ACTIONID) {
+    return action.ToString();
+  }
+
+  return ActionIdToString(action.ActionId());
 }
 
 std::string
 Board::ToString() const
 {
-  return std::string(); // FIXME
+  std::stringstream sstr;
+  const size_t ch_width = (visible_2d_size_.ColumnCount() * 5) - 1;
+
+  // Player key.
+  sstr
+    << " active(p" << ActivePlayerId() << ")=" << ActivePlayer()->Name()
+    << "(" << ActivePlayer()->Char() << ")\n";
+
+  // Board.
+  sstr << " " << std::string(ch_width, '-') << '\n';
+  for (int64_t row_idx = max_distance_; row_idx >= -(int64_t(max_distance_)); --row_idx) {
+    sstr << "|";
+    for (int64_t col_idx = -(int64_t(max_distance_)); col_idx <= int64_t(max_distance_); ++col_idx) {
+      sstr << (((row_idx == 0) && (col_idx == 0)) ? "-" : " ");
+      bool found = false;
+      for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+        if ((idx != active_player_id_) &&
+            (player_positions_[idx] == MatrixCoordinate(row_idx, col_idx))) {
+          std::string ds = PlaneOrientationToShortString(player_orientations_[idx]);
+          if (ds.length() < 2) {
+            ds.append(" ");
+          }
+          sstr << ds;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        sstr << "  ";
+      }
+      sstr << (((row_idx == 0) && (col_idx == 0)) ? "-" : " ") << "|";
+    }
+    sstr << '\n';
+  }
+
+  return sstr.str();
 }
 
 void
 Board::UpdateValidActions()
 {
+  valid_action_ids_.resize(TotalActionIdCount());
   std::iota(valid_action_ids_.begin(), valid_action_ids_.end(), 0);
 
 #ifndef NDEBUG
@@ -237,22 +285,33 @@ Board::UpdateValidActions()
 }
 
 void
-Board::SwitchActivePlayer()
-{
-
-  // FIXME
-
-  // Update the valid actions for the now-active player.
-  active_player_id_ = (active_player_id_ + 1) % players_.size();
-  UpdateValidActions();
-}
-
-void
 Board::UpdateTerminalStatus()
 {
   // Check winning conditions and set 'terminal_status_'.
 
-  // FIXME
+  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+    if (idx != active_player_id_) {
+      size_t diagonal_count, straight_count;
+      PlaneOrientation diagonal_dir, straight_dir;
+      DecomposeSteps(player_positions_[idx], diagonal_count, diagonal_dir, straight_count, straight_dir);
+
+      // If a player has flown beyond max distance than game is a draw.
+      if ((diagonal_count + straight_count) > max_distance_) {
+        terminal_status_ =
+          cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
+        return;
+      }
+
+      // If there is an opponent directly in front of the active player,
+      // then the active player is the winner.
+      if ((diagonal_count == 0) && (straight_count != 0) && (straight_dir == PlaneOrientation::NORTH)) {
+        terminal_status_ =
+          cifre::StateTerminalStatus(
+            cifre::StateTerminalStatus::TerminalKind::WINNER, active_player_id_);
+        return;
+      }
+    }
+  }
 
   // Otherwise make sure the terminal status is NON_TERMINAL.
   THROWIF(
@@ -260,20 +319,18 @@ Board::UpdateTerminalStatus()
     "expected NON_TERMINAL status");
 }
 
-namespace {
-
-static const cifre::array<MatrixCoordinate, cifre::biplane::NUM_PLANE_ORIENTATIONS> unit_vectors_ {
-  MatrixCoordinate(0, 1),    // N
-  MatrixCoordinate(1, 1),    // NE
-  MatrixCoordinate(1, 0),    // E
-  MatrixCoordinate(1, -1),   // SE
-  MatrixCoordinate(0, -1),   // S
-  MatrixCoordinate(-1, -1),  // SW
-  MatrixCoordinate(-1, 0),   // W
-  MatrixCoordinate(-1, 1)    // NW
-};
-
-} // namespace
+void
+Board::ApplyAction(uint64_t action_id)
+{
+  MatrixCoordinate pos_delta;
+  int64_t orientation_delta;
+  ActionIdToMove(action_id, pos_delta, orientation_delta);
+  player_positions_[active_player_id_] += pos_delta;
+  player_orientations_[active_player_id_] =
+    PlaneOrientation(
+      (int64_t(player_orientations_[active_player_id_]) + orientation_delta +
+       NUM_PLANE_ORIENTATIONS) % NUM_PLANE_ORIENTATIONS);
+}
 
 void
 Board::PlayerToAbsolute(size_t idx)
@@ -305,6 +362,60 @@ Board::PlayerToRelative(size_t idx)
   player_positions_[idx] = player_positions_[active_player_id_] + rel_rot;
 }
 
+namespace {
+
+static const cifre::array<MatrixCoordinate, cifre::biplane::NUM_PLANE_ORIENTATIONS> unit_vectors_ {
+  MatrixCoordinate(0, 1),    // N
+  MatrixCoordinate(1, 1),    // NE
+  MatrixCoordinate(1, 0),    // E
+  MatrixCoordinate(1, -1),   // SE
+  MatrixCoordinate(0, -1),   // S
+  MatrixCoordinate(-1, -1),  // SW
+  MatrixCoordinate(-1, 0),   // W
+  MatrixCoordinate(-1, 1)    // NW
+};
+
+} // namespace
+
+void
+Board::DecomposeSteps(
+  const MatrixCoordinate& pos,
+  size_t& diagonal_count, PlaneOrientation& diagonal_dir,
+  size_t& straight_count, PlaneOrientation& straight_dir)
+{
+  // 'pos' is assumed to be a relative position. Decompose 'pos' into
+  // diagonal and straight steps. Maximize diagonal steps.
+  const int step_x = std::clamp(pos.Row(), int64_t(-1), int64_t(1));
+  const int step_y = std::clamp(pos.Column(), int64_t(-1), int64_t(1));
+
+  diagonal_count = std::min(abs(pos.Row()), abs(pos.Column()));
+  straight_count = std::max(abs(pos.Row()), abs(pos.Column())) - diagonal_count;
+
+  // Determine the direction of the diagonal, rotate to the new
+  // direction, and perform the same number of steps along the new
+  // direction.
+  diagonal_dir = PlaneOrientation::NORTH_EAST;
+  if (diagonal_count > 0) {
+    assert((step_x != 0) && (step_y != 0));
+    if (step_x >= 0) {
+      diagonal_dir = (step_y >= 0) ? PlaneOrientation::NORTH_EAST : PlaneOrientation::SOUTH_EAST;
+    } else {
+      diagonal_dir = (step_y >= 0) ? PlaneOrientation::NORTH_WEST : PlaneOrientation::SOUTH_WEST;
+    }
+  }
+
+  straight_dir = PlaneOrientation::EAST;
+  if (straight_count > 0) {
+    assert((step_x == 0) != (step_y == 0));
+    if (step_x == 0) {
+      straight_dir = (step_y > 0) ? PlaneOrientation::NORTH : PlaneOrientation::SOUTH;
+    }
+    else if (step_x < 0) {
+      straight_dir = PlaneOrientation::WEST;
+    }
+  }
+}
+
 MatrixCoordinate
 Board::RotatePosition(const MatrixCoordinate& pos, const size_t rot)
 {
@@ -314,45 +425,44 @@ Board::RotatePosition(const MatrixCoordinate& pos, const size_t rot)
 
   MatrixCoordinate rot_pos;
 
-  // Decompose 'pos' into diagonal and straight steps. Maximize
-  // diagonal steps.
-  const int step_x = std::clamp(pos.Row(), int64_t(-1), int64_t(1));
-  const int step_y = std::clamp(pos.Column(), int64_t(-1), int64_t(1));
+  size_t diagonal_count, straight_count;
+  PlaneOrientation diagonal_dir, straight_dir;
+  DecomposeSteps(pos, diagonal_count, diagonal_dir, straight_count, straight_dir);
 
-  const size_t diagonal_count = std::min(abs(pos.Row()), abs(pos.Column()));
-  const size_t straight_count = std::max(abs(pos.Row()), abs(pos.Column())) - diagonal_count;
-
-  // Determine the direction of the diagonal, rotate to the new
-  // direction, and perform the same number of steps along the new
-  // direction.
+  // Perform steps along diagonal direction.
   if (diagonal_count > 0) {
-    assert((step_x != 0) && (step_y != 0));
-    PlaneOrientation diagonal_dir = PlaneOrientation::NORTH;
-    if (step_x >= 0) {
-      diagonal_dir = (step_y >= 0) ? PlaneOrientation::NORTH_EAST : PlaneOrientation::SOUTH_EAST;
-    } else {
-      diagonal_dir = (step_y >= 0) ? PlaneOrientation::NORTH_WEST : PlaneOrientation::SOUTH_WEST;
-    }
-
     const size_t drot = (size_t(diagonal_dir) + rot + NUM_PLANE_ORIENTATIONS) % NUM_PLANE_ORIENTATIONS;
     rot_pos += unit_vectors_[drot] * int64_t(diagonal_count);
   }
 
+  // Perform steps along straight direction.
   if (straight_count > 0) {
-    assert((step_x == 0) != (step_y == 0));
-    PlaneOrientation straight_dir = PlaneOrientation::EAST;
-    if (step_x == 0) {
-      straight_dir = (step_y > 0) ? PlaneOrientation::NORTH : PlaneOrientation::SOUTH;
-    }
-    else if (step_x < 0) {
-      straight_dir = PlaneOrientation::WEST;
-    }
-
     const size_t drot = (size_t(straight_dir) + rot + NUM_PLANE_ORIENTATIONS) % NUM_PLANE_ORIENTATIONS;
     rot_pos += unit_vectors_[drot] * int64_t(straight_count);
   }
 
   return rot_pos;
+}
+
+//
+// PlaneOrientation
+//
+std::string
+PlaneOrientationToShortString(PlaneOrientation po)
+{
+  switch (po) {
+  case PlaneOrientation::NORTH:      return "N";
+  case PlaneOrientation::NORTH_EAST: return "NE";
+  case PlaneOrientation::EAST:       return "E";
+  case PlaneOrientation::SOUTH_EAST: return "SE";
+  case PlaneOrientation::SOUTH:      return "S";
+  case PlaneOrientation::SOUTH_WEST: return "SW";
+  case PlaneOrientation::WEST:       return "W";
+  case PlaneOrientation::NORTH_WEST: return "NW";
+  }
+
+  // unreachable
+  return "<unknown>";
 }
 
 }} // namespace cifre::biplane

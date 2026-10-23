@@ -58,6 +58,7 @@ install(
 #
 add_library(
   biplane-library STATIC
+  biplane_action.cc
   biplane_board.cc
   biplane_player.cc
 )

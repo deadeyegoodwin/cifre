@@ -12,6 +12,7 @@
 #include "cifre_state.h"
 #include "cifre_std.h"
 #include "cifre_vec.h"
+#include "biplane_action.h"
 
 namespace cifre { namespace biplane {
 
@@ -20,8 +21,6 @@ static constexpr size_t NUM_PLANES = 8;
 
 static constexpr size_t MAX_DISTANCE = 3;
 static constexpr size_t DEFAULT_MAX_DISTANCE = 3;
-
-static constexpr size_t NUM_ACTIONS = 26;
 
 static constexpr float CELL_EMPTY = 0.0;
 static constexpr float CELL_ACTIVE = 1.0;
@@ -38,6 +37,9 @@ enum class PlaneOrientation {
   NORTH_WEST
 };
 static constexpr size_t NUM_PLANE_ORIENTATIONS = 8;
+
+// Return the string representation of an orientation.
+std::string PlaneOrientationToShortString(PlaneOrientation po);
 
 //
 // Board
@@ -89,7 +91,7 @@ public:
   // See cifre::State
   StateUniquePtr Copy(std::pmr::memory_resource* arena) const override;
   void Update(uint64_t action_id) override;
-  size_t TotalActionIdCount() const override { return NUM_ACTIONS; }
+  size_t TotalActionIdCount() const override { return TOTAL_ACTIONID_COUNT; }
 
   // See cifre::State.
   Action StringToAction(const std::string& str) const override;
@@ -145,15 +147,22 @@ private:
 
   void UpdateTerminalStatus();
   void UpdateValidActions();
-  void SwitchActivePlayer();
 
   void ApplyAction(uint64_t action_id);
   void PlayerToAbsolute(size_t idx);
   void PlayerToRelative(size_t idx);
+  void DecomposeSteps(
+    const MatrixCoordinate& pos,
+    size_t& diagonal_count, PlaneOrientation& diagonal_dir,
+    size_t& straight_count, PlaneOrientation& straight_dir);
   MatrixCoordinate RotatePosition(const MatrixCoordinate& pos, const size_t rot);
 
   // Maximum distance between planes.
   const size_t max_distance_;
+
+  // The size of the board that is visible to the active player
+  // assumed to be in the center of this visible portion of the board.
+  const MatrixSize visible_2d_size_;
 
   // The players. The player's index in this vector is the player ID.
   cifre::array<cifre::Player*, PLAYER_COUNT> players_;
@@ -176,7 +185,6 @@ private:
 
   // 'cells_' is simply a type-casted pointer into 'cells_flattened_'.
   // Size of the board.
-  const MatrixSize cells_2d_size_;
   FlattenedCells cells_flattened_;
   float* cells_;
 };
