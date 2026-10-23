@@ -154,8 +154,8 @@ private:
   void UpdateValidActions();
 
   void ApplyAction(uint64_t action_id);
-  void PositionToAbsolute(MatrixCoordinate& pos, PlaneOrientation& orient) const;
-  void PositionToRelative(MatrixCoordinate& pos, PlaneOrientation& orient) const;
+  void RelativePositionToAbsolute(MatrixCoordinate& pos, PlaneOrientation& orient) const;
+  void AbsolutePositionToRelative(MatrixCoordinate& pos, PlaneOrientation& orient) const;
   void DecomposeSteps(
     const MatrixCoordinate& pos,
     size_t& diagonal_count, PlaneOrientation& diagonal_dir,

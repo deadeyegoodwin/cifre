@@ -9,17 +9,18 @@ namespace cifre { namespace biplane {
 
 const std::array<std::tuple<std::string, MatrixCoordinate, int64_t>,
                  TOTAL_ACTIONID_COUNT> action_data_ {{
-  { std::string("SLOW-STRAIGHT"), {0, 1}, 0 },
-  { std::string("SLOW-45-LEFT"), {-1, 1}, -1 },
+    // name                       [y, x]  dir
+  { std::string("SLOW-STRAIGHT"), {1, 0}, 0 },
+  { std::string("SLOW-45-LEFT"), {1, -1}, -1 },
   { std::string("SLOW-45-RIGHT"), {1, 1}, 1 },
-  { std::string("SLOW-135-LEFT"), {-1, 1}, -3 },
+  { std::string("SLOW-135-LEFT"), {1, -1}, -3 },
   { std::string("SLOW-135-RIGHT"), {1, 1}, 3 },
 
-  { std::string("MED-STRAIGHT"), {0, 2}, 0 },
-  { std::string("MED-45-LEFT"), {-1, 2}, -1 },
-  { std::string("MED-45-RIGHT"), {1, 2}, 1 },
-  { std::string("MED-135-LEFT"), {-1, 2}, -3 },
-  { std::string("MED-135-RIGHT"), {1, 2}, 3 }
+  { std::string("MED-STRAIGHT"), {2, 0}, 0 },
+  { std::string("MED-45-LEFT"), {2, -1}, -1 },
+  { std::string("MED-45-RIGHT"), {2, 1}, 1 },
+  { std::string("MED-135-LEFT"), {2, -1}, -3 },
+  { std::string("MED-135-RIGHT"), {2, 1}, 3 }
 }};
 
 std::string
