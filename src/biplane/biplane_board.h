@@ -95,6 +95,8 @@ public:
 
   // See cifre::State
   StateUniquePtr Copy(std::pmr::memory_resource* arena) const override;
+  StateUniquePtr CopyAndUpdate(
+    uint64_t action_id, std::pmr::memory_resource* arena) const override;
   void Update(uint64_t action_id) override;
   size_t TotalActionIdCount() const override { return TOTAL_ACTIONID_COUNT; }
 
@@ -149,6 +151,25 @@ private:
   // required by constructed board. This constructor is kept private
   // so that Copy() must be used, see cifre::State.
   Board(const Board& other, std::pmr::memory_resource* arena);
+
+  // Set the value of the cell at the given row, column, and plane.
+  void SetCellValueAt(float value, const MatrixCoordinate& pos, size_t plane_idx) {
+    assert((pos.Row() >= 0) && (pos.Column() >= 0) &&
+           (pos.Row() < int64_t(visible_2d_size_.RowCount())) &&
+           (pos.Column() < int64_t(visible_2d_size_.ColumnCount())) &&
+           (plane_idx < NUM_PLANES));
+    cells_[(pos.Row() * visible_2d_size_.ColumnCount() * NUM_PLANES) +
+           (pos.Column() * NUM_PLANES) + plane_idx] = value; }
+
+  // Return the value of the board cell at the given row, column, and
+  // plane.
+  float CellValueAt(const MatrixCoordinate& pos, size_t plane_idx) const {
+    assert((pos.Row() >= 0) && (pos.Column() >= 0) &&
+           (pos.Row() < int64_t(visible_2d_size_.RowCount())) &&
+           (pos.Column() < int64_t(visible_2d_size_.ColumnCount())) &&
+           (plane_idx < NUM_PLANES));
+    return cells_[(pos.Row() * visible_2d_size_.ColumnCount() * NUM_PLANES) +
+                  (pos.Column() * NUM_PLANES) + plane_idx]; }
 
   void UpdateTerminalStatus();
   void UpdateValidActions();

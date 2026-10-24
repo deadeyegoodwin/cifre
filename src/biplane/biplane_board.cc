@@ -70,9 +70,9 @@ Board::Board(const Board& other, std::pmr::memory_resource* arena) :
   player_positions_(other.player_positions_), player_orientations_(other.player_orientations_),
   active_player_id_(other.active_player_id_), terminal_status_(other.terminal_status_),
   valid_action_ids_(other.valid_action_ids_.begin(), other.valid_action_ids_.end(), arena),
-  cells_flattened_(other.cells_flattened_, arena)
+  cells_flattened_(arena), cells_(nullptr)
 {
-  cells_ = reinterpret_cast<float*>(cells_flattened_.data());
+  // WARNING: this does not copy 'cells_flattened_' or 'cells_'.
 }
 
 size_t
@@ -133,6 +133,27 @@ Board::Copy(std::pmr::memory_resource* arena) const
 {
   void* buffer = arena->allocate(sizeof(Board), alignof(Board));
   Board* nb = new(buffer) Board(*this, arena);
+
+  // The copy constructor does not copy 'cells_flattened_' or set
+  // 'cells_', so we need to do it explicitly.
+  nb->cells_flattened_.assign(cells_flattened_.begin(), cells_flattened_.end());
+  nb->cells_ = reinterpret_cast<float*>(nb->cells_flattened_.data());
+
+  return StateUniquePtr(nb, StateDeleter<Board>(arena));
+}
+
+StateUniquePtr
+Board::CopyAndUpdate(uint64_t action_id, std::pmr::memory_resource* arena) const
+{
+  void* buffer = arena->allocate(sizeof(Board), alignof(Board));
+  Board* nb = new(buffer) Board(*this, arena);
+
+  // The copy constructor does not copy 'cells_flattened_' or set
+  //  'cells_', which is what we want because those values will be set
+  //  by Update() and so setting them now would be wasteful as they
+  //  will be overwritten.
+  nb->Update(action_id);
+
   return StateUniquePtr(nb, StateDeleter<Board>(arena));
 }
 
@@ -154,12 +175,29 @@ Board::Update(uint64_t action_id)
 
   // For now we just make the next player the active player. Update
   // the valid actions for the now-active player.
-//  active_player_id_ = (active_player_id_ + 1) % players_.size();
+  active_player_id_ = (active_player_id_ + 1) % players_.size();
   UpdateValidActions();
 
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
       AbsolutePositionToRelative(player_positions_[idx], player_orientations_[idx]);
+    }
+  }
+
+  // Allocate and set the cells representing the gameboard to show
+  // where each opponent biplane is relative to the active player.
+  cells_flattened_.resize(NUM_PLANES * visible_2d_size_.ElementCount() * sizeof(float));
+  cells_ = reinterpret_cast<float*>(cells_flattened_.data());
+
+  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+    if (idx != active_player_id_) {
+      // Player may have flown off the board so need to check before
+      // attempting to set the cell.
+      const MatrixCoordinate& pos = player_positions_[idx];
+      if ((abs(pos.Row()) <= max_distance_) && (abs(pos.Column()) <= max_distance_)) {
+        SetCellValueAt(
+          CELL_ACTIVE, pos + max_distance_, size_t(player_orientations_[idx]));
+      }
     }
   }
 

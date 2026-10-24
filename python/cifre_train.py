@@ -280,17 +280,18 @@ def main():
             'num_channels' : 128 }
         nnet = CifreResidualConvNNet(nnet_args)
     elif FLAGS.game == 'biplane':
-        LOG.fail_if(len(game_shape) != 1, "biplane requires shape rank 1")
         num_planes = 8    # see biplane::Board::PLANE_COUNT
         max_distance = 3 if (FLAGS.game_shape is None) else FLAGS.game_shape[0]
-        game_shape = ((max_distance * 2) + 1, (max_distance * 2) + 1)
+        game_shape = (max_distance,)
+        nnet_shape = ( # see biplane::Board
+            (max_distance * 2) + 1, (max_distance * 2) + 1, num_planes)
         train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
         infer_batch_size = 32 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         nnet_args = {
             'batch_size' : train_batch_size,
             'num_planes' : num_planes,
-            'num_rows' : game_shape[0],
-            'num_cols' : game_shape[1],
+            'num_rows' : nnet_shape[0],
+            'num_cols' : nnet_shape[1],
             'num_residual_blocks' : 5,
             'num_actions' : 10, # see biplane::action::TOTAL_ACTIONID_COUNT
             'dropout' : 0.25,
