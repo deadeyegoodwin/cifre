@@ -25,8 +25,8 @@ static constexpr size_t DEFAULT_MAX_DISTANCE = 3;
 static constexpr float CELL_EMPTY = 0.0;
 static constexpr float CELL_ACTIVE = 1.0;
 
-// Plane orientations.
-enum class PlaneOrientation {
+// Biplane orientations.
+enum class BiplaneOrientation {
   NORTH = 0,
   NORTH_EAST,
   EAST,
@@ -39,12 +39,12 @@ enum class PlaneOrientation {
 static constexpr size_t NUM_PLANE_ORIENTATIONS = 8;
 
 // Return the string representation of an orientation.
-std::string PlaneOrientationToShortString(PlaneOrientation po);
+std::string BiplaneOrientationToShortString(BiplaneOrientation po);
 
 // Return the string representation for a relative
 // orientation. Relative orientations are named up, down, etc. because
 // they are relative to a north-oriented board.
-std::string PlaneOrientationToShortRelativeString(PlaneOrientation po);
+std::string BiplaneOrientationToShortRelativeString(BiplaneOrientation po);
 
 //
 // Board
@@ -53,7 +53,7 @@ std::string PlaneOrientationToShortRelativeString(PlaneOrientation po);
 //
 // A specialization of State for biplane games. The "board" is a
 // limitless 2D grid. Each player has an signed integer position on
-// the grid and an orientation (PlaneOrientation). Players position
+// the grid and an orientation (BiplaneOrientation). Players position
 // and orientation changes based on the move selected by each player.
 //
 // The model representation of the board uses NUM_PLANES planes of a
@@ -154,15 +154,15 @@ private:
   void UpdateValidActions();
 
   void ApplyAction(uint64_t action_id);
-  void RelativePositionToAbsolute(MatrixCoordinate& pos, PlaneOrientation& orient) const;
-  void AbsolutePositionToRelative(MatrixCoordinate& pos, PlaneOrientation& orient) const;
+  void RelativePositionToAbsolute(MatrixCoordinate& pos, BiplaneOrientation& orient) const;
+  void AbsolutePositionToRelative(MatrixCoordinate& pos, BiplaneOrientation& orient) const;
   void DecomposeSteps(
     const MatrixCoordinate& pos,
-    size_t& diagonal_count, PlaneOrientation& diagonal_dir,
-    size_t& straight_count, PlaneOrientation& straight_dir) const;
+    size_t& diagonal_count, BiplaneOrientation& diagonal_dir,
+    size_t& straight_count, BiplaneOrientation& straight_dir) const;
   MatrixCoordinate RotatePosition(const MatrixCoordinate& pos, const size_t rot) const;
 
-  // Maximum distance between planes.
+  // Maximum distance between biplanes to stay engaged in the battle.
   const size_t max_distance_;
 
   // The size of the board that is visible to the active player
@@ -177,7 +177,7 @@ private:
   // world values. For all other players position and orientation are
   // relative to the active player.
   cifre::array<MatrixCoordinate, PLAYER_COUNT> player_positions_;
-  cifre::array<PlaneOrientation, PLAYER_COUNT> player_orientations_;
+  cifre::array<BiplaneOrientation, PLAYER_COUNT> player_orientations_;
 
   // ID of the currently active player.
   size_t active_player_id_;

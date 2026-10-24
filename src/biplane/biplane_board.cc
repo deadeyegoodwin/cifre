@@ -41,11 +41,11 @@ Board::Board(const size_t max_distance, const std::vector<Player*>& players,
     players_[idx] = players[idx];
     if (idx == active_player_id_) {
       player_positions_[idx] = MatrixCoordinate(0, 0);
-      player_orientations_[idx] = PlaneOrientation::NORTH_EAST;
+      player_orientations_[idx] = BiplaneOrientation::NORTH_EAST;
     }
     else {
       player_positions_[idx] = MatrixCoordinate(max_distance_ - 1, max_distance_ - 1);
-      player_orientations_[idx] = PlaneOrientation::WEST;
+      player_orientations_[idx] = BiplaneOrientation::WEST;
     }
   }
 
@@ -250,18 +250,18 @@ Board::ToString() const
     if (idx == active_player_id_) {
       sstr
         << ", absolute position [" << player_positions_[idx].ToString() << "]"
-        << ", absolute orientation " << PlaneOrientationToShortString(player_orientations_[idx])
+        << ", absolute orientation " << BiplaneOrientationToShortString(player_orientations_[idx])
         << ", relative position [0,0], relative orientation UP, ACTIVE";
     }
     else {
       MatrixCoordinate abs_pos = player_positions_[idx];
-      PlaneOrientation abs_orient = player_orientations_[idx];
+      BiplaneOrientation abs_orient = player_orientations_[idx];
       RelativePositionToAbsolute(abs_pos, abs_orient);
       sstr
         << ", absolute position [" << abs_pos.ToString() << "]"
-        << ", absolute orientation " << PlaneOrientationToShortString(abs_orient)
+        << ", absolute orientation " << BiplaneOrientationToShortString(abs_orient)
         << ", relative position [" << player_positions_[idx].ToString() << "]"
-        << ", relative orientation " << PlaneOrientationToShortRelativeString(player_orientations_[idx]);
+        << ", relative orientation " << BiplaneOrientationToShortRelativeString(player_orientations_[idx]);
     }
     sstr << "\n";
   }
@@ -276,7 +276,7 @@ Board::ToString() const
       for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
         if ((idx != active_player_id_) &&
             (player_positions_[idx] == MatrixCoordinate(row_idx, col_idx))) {
-          sstr << PlaneOrientationToShortRelativeString(player_orientations_[idx]);
+          sstr << BiplaneOrientationToShortRelativeString(player_orientations_[idx]);
           found = true;
           break;
         }
@@ -316,7 +316,7 @@ Board::UpdateTerminalStatus()
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
       size_t diagonal_count, straight_count;
-      PlaneOrientation diagonal_dir, straight_dir;
+      BiplaneOrientation diagonal_dir, straight_dir;
       DecomposeSteps(player_positions_[idx], diagonal_count, diagonal_dir, straight_count, straight_dir);
 
       // If a player has flown beyond max distance than game is a draw.
@@ -328,7 +328,7 @@ Board::UpdateTerminalStatus()
 
       // If there is an opponent directly in front of the active player,
       // then the active player is the winner.
-      if ((diagonal_count == 0) && (straight_count != 0) && (straight_dir == PlaneOrientation::NORTH)) {
+      if ((diagonal_count == 0) && (straight_count != 0) && (straight_dir == BiplaneOrientation::NORTH)) {
         terminal_status_ =
           cifre::StateTerminalStatus(
             cifre::StateTerminalStatus::TerminalKind::WINNER, active_player_id_);
@@ -357,43 +357,43 @@ Board::ApplyAction(uint64_t action_id)
 
   player_positions_[active_player_id_] += rot_pos_delta;
   player_orientations_[active_player_id_] =
-    PlaneOrientation(
+    BiplaneOrientation(
       (int64_t(player_orientations_[active_player_id_]) + orientation_delta +
        NUM_PLANE_ORIENTATIONS) % NUM_PLANE_ORIENTATIONS);
 }
 
 void
-Board::RelativePositionToAbsolute(MatrixCoordinate& pos, PlaneOrientation& orient) const
+Board::RelativePositionToAbsolute(MatrixCoordinate& pos, BiplaneOrientation& orient) const
 {
   // The clockwise rotation required for 'pos'ition and 'orient'ation
   // is the absolute orientation of the active player.
-  const PlaneOrientation rot = player_orientations_[active_player_id_];
+  const BiplaneOrientation rot = player_orientations_[active_player_id_];
   const MatrixCoordinate rel_rot = RotatePosition(pos, size_t(rot));
   std::cerr
     << "RelativePositionToAbsolute (center [" << player_positions_[active_player_id_].ToString() << "] "
-    << PlaneOrientationToShortString(player_orientations_[active_player_id_]) << "): "
-    << "[" << pos.ToString() << "] " << PlaneOrientationToShortRelativeString(orient)
+    << BiplaneOrientationToShortString(player_orientations_[active_player_id_]) << "): "
+    << "[" << pos.ToString() << "] " << BiplaneOrientationToShortRelativeString(orient)
     << " -> rotated [" << rel_rot.ToString() << "]";
-  orient = PlaneOrientation((size_t(orient) + size_t(rot)) % NUM_PLANE_ORIENTATIONS);
+  orient = BiplaneOrientation((size_t(orient) + size_t(rot)) % NUM_PLANE_ORIENTATIONS);
   pos = player_positions_[active_player_id_] + rel_rot;
-  std::cerr << " -> [" << pos.ToString() << "] " << PlaneOrientationToShortString(orient) << "\n";
+  std::cerr << " -> [" << pos.ToString() << "] " << BiplaneOrientationToShortString(orient) << "\n";
 }
 
 void
-Board::AbsolutePositionToRelative(MatrixCoordinate& pos, PlaneOrientation& orient) const
+Board::AbsolutePositionToRelative(MatrixCoordinate& pos, BiplaneOrientation& orient) const
 {
   // The counter-clockwise rotation required for 'pos'ition and
   // 'orient'ation is the absolute orientation of the active player.
-  const PlaneOrientation rot =
-    PlaneOrientation(NUM_PLANE_ORIENTATIONS - size_t(player_orientations_[active_player_id_]));
+  const BiplaneOrientation rot =
+    BiplaneOrientation(NUM_PLANE_ORIENTATIONS - size_t(player_orientations_[active_player_id_]));
   const MatrixCoordinate rel_rot = RotatePosition(pos - player_positions_[active_player_id_], size_t(rot));
   std::cerr
     << "AbsolutePositionToRelative (center [" << player_positions_[active_player_id_].ToString() << "] "
-    << PlaneOrientationToShortString(player_orientations_[active_player_id_]) << "): "
-    << "[" << pos.ToString() << "] " << PlaneOrientationToShortString(orient);
-  orient = PlaneOrientation((size_t(orient) + size_t(rot)) % NUM_PLANE_ORIENTATIONS);
+    << BiplaneOrientationToShortString(player_orientations_[active_player_id_]) << "): "
+    << "[" << pos.ToString() << "] " << BiplaneOrientationToShortString(orient);
+  orient = BiplaneOrientation((size_t(orient) + size_t(rot)) % NUM_PLANE_ORIENTATIONS);
   pos = rel_rot;
-  std::cerr << " -> [" << pos.ToString() << "] " << PlaneOrientationToShortRelativeString(orient) << "\n";
+  std::cerr << " -> [" << pos.ToString() << "] " << BiplaneOrientationToShortRelativeString(orient) << "\n";
 }
 
 namespace {
@@ -415,8 +415,8 @@ static const cifre::array<MatrixCoordinate, cifre::biplane::NUM_PLANE_ORIENTATIO
 void
 Board::DecomposeSteps(
   const MatrixCoordinate& pos,
-  size_t& diagonal_count, PlaneOrientation& diagonal_dir,
-  size_t& straight_count, PlaneOrientation& straight_dir) const
+  size_t& diagonal_count, BiplaneOrientation& diagonal_dir,
+  size_t& straight_count, BiplaneOrientation& straight_dir) const
 {
   // 'pos' is assumed to be a relative position. Decompose 'pos' into
   // diagonal and straight steps. Maximize diagonal steps.
@@ -426,29 +426,29 @@ Board::DecomposeSteps(
   // Determine the direction of the diagonal, rotate to the new
   // direction, and perform the same number of steps along the new
   // direction.
-  diagonal_dir = PlaneOrientation::NORTH;
+  diagonal_dir = BiplaneOrientation::NORTH;
   if (diagonal_count > 0) {
     assert((abs(pos.Row()) >= diagonal_count) && (abs(pos.Column()) >= diagonal_count));
     if (pos.Column() >= 0) {
-      diagonal_dir = (pos.Row() >= 0) ? PlaneOrientation::NORTH_EAST : PlaneOrientation::SOUTH_EAST;
+      diagonal_dir = (pos.Row() >= 0) ? BiplaneOrientation::NORTH_EAST : BiplaneOrientation::SOUTH_EAST;
     } else {
-      diagonal_dir = (pos.Row() >= 0) ? PlaneOrientation::NORTH_WEST : PlaneOrientation::SOUTH_WEST;
+      diagonal_dir = (pos.Row() >= 0) ? BiplaneOrientation::NORTH_WEST : BiplaneOrientation::SOUTH_WEST;
     }
 
-    assert(diagonal_dir != PlaneOrientation::NORTH);
+    assert(diagonal_dir != BiplaneOrientation::NORTH);
   }
 
-  straight_dir = PlaneOrientation::NORTH_EAST;
+  straight_dir = BiplaneOrientation::NORTH_EAST;
   if (straight_count > 0) {
     assert(abs(pos.Column()) != abs(pos.Row()));
     if (abs(pos.Column()) > abs(pos.Row())) {
-      straight_dir = (pos.Column() > 0) ? PlaneOrientation::EAST : PlaneOrientation::WEST;
+      straight_dir = (pos.Column() > 0) ? BiplaneOrientation::EAST : BiplaneOrientation::WEST;
     }
     else {
-      straight_dir = (pos.Row() > 0) ? PlaneOrientation::NORTH : PlaneOrientation::SOUTH;
+      straight_dir = (pos.Row() > 0) ? BiplaneOrientation::NORTH : BiplaneOrientation::SOUTH;
     }
 
-    assert(straight_dir != PlaneOrientation::NORTH_EAST);
+    assert(straight_dir != BiplaneOrientation::NORTH_EAST);
   }
 }
 
@@ -462,14 +462,14 @@ Board::RotatePosition(const MatrixCoordinate& pos, const size_t rot) const
   MatrixCoordinate rot_pos;
 
   size_t diagonal_count, straight_count;
-  PlaneOrientation diagonal_dir, straight_dir;
+  BiplaneOrientation diagonal_dir, straight_dir;
   DecomposeSteps(pos, diagonal_count, diagonal_dir, straight_count, straight_dir);
 
   std::cerr << "RotatePosition: diagonal "
             << "diagonal " << diagonal_count << " "
-            << PlaneOrientationToShortString(diagonal_dir)
+            << BiplaneOrientationToShortString(diagonal_dir)
             << ", straight " << straight_count << " "
-            << PlaneOrientationToShortString(straight_dir) << "\n";
+            << BiplaneOrientationToShortString(straight_dir) << "\n";
   // Perform steps along diagonal direction.
   if (diagonal_count > 0) {
     const size_t drot = (size_t(diagonal_dir) + rot + NUM_PLANE_ORIENTATIONS) % NUM_PLANE_ORIENTATIONS;
@@ -486,20 +486,20 @@ Board::RotatePosition(const MatrixCoordinate& pos, const size_t rot) const
 }
 
 //
-// PlaneOrientation
+// BiplaneOrientation
 //
 std::string
-PlaneOrientationToShortString(PlaneOrientation po)
+BiplaneOrientationToShortString(BiplaneOrientation po)
 {
   switch (po) {
-  case PlaneOrientation::NORTH:      return "N";
-  case PlaneOrientation::NORTH_EAST: return "NE";
-  case PlaneOrientation::EAST:       return "E";
-  case PlaneOrientation::SOUTH_EAST: return "SE";
-  case PlaneOrientation::SOUTH:      return "S";
-  case PlaneOrientation::SOUTH_WEST: return "SW";
-  case PlaneOrientation::WEST:       return "W";
-  case PlaneOrientation::NORTH_WEST: return "NW";
+  case BiplaneOrientation::NORTH:      return "N";
+  case BiplaneOrientation::NORTH_EAST: return "NE";
+  case BiplaneOrientation::EAST:       return "E";
+  case BiplaneOrientation::SOUTH_EAST: return "SE";
+  case BiplaneOrientation::SOUTH:      return "S";
+  case BiplaneOrientation::SOUTH_WEST: return "SW";
+  case BiplaneOrientation::WEST:       return "W";
+  case BiplaneOrientation::NORTH_WEST: return "NW";
   }
 
   // unreachable
@@ -507,17 +507,17 @@ PlaneOrientationToShortString(PlaneOrientation po)
 }
 
 std::string
-PlaneOrientationToShortRelativeString(PlaneOrientation po)
+BiplaneOrientationToShortRelativeString(BiplaneOrientation po)
 {
   switch (po) {
-  case PlaneOrientation::NORTH:      return "UP";
-  case PlaneOrientation::NORTH_EAST: return "UR";
-  case PlaneOrientation::EAST:       return "RT";
-  case PlaneOrientation::SOUTH_EAST: return "DR";
-  case PlaneOrientation::SOUTH:      return "DN";
-  case PlaneOrientation::SOUTH_WEST: return "DL";
-  case PlaneOrientation::WEST:       return "LT";
-  case PlaneOrientation::NORTH_WEST: return "UL";
+  case BiplaneOrientation::NORTH:      return "UP";
+  case BiplaneOrientation::NORTH_EAST: return "UR";
+  case BiplaneOrientation::EAST:       return "RT";
+  case BiplaneOrientation::SOUTH_EAST: return "DR";
+  case BiplaneOrientation::SOUTH:      return "DN";
+  case BiplaneOrientation::SOUTH_WEST: return "DL";
+  case BiplaneOrientation::WEST:       return "LT";
+  case BiplaneOrientation::NORTH_WEST: return "UL";
   }
 
   // unreachable
