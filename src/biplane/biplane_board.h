@@ -18,7 +18,7 @@
 namespace cifre { namespace biplane {
 
 static constexpr size_t PLAYER_COUNT = 2;
-static constexpr size_t NUM_PLANES = 8;
+static constexpr size_t CELL_PLANE_COUNT = 8;
 
 static constexpr size_t MIN_MAX_DISTANCE = 3;
 static constexpr size_t MAX_MAX_DISTANCE = 8;
@@ -58,8 +58,8 @@ std::string BiplaneOrientationToShortRelativeString(BiplaneOrientation po);
 // the grid and an orientation (BiplaneOrientation). Players position
 // and orientation changes based on the move selected by each player.
 //
-// The model representation of the board uses NUM_PLANES planes of a
-// grid of cells that places the opponent player relative to the
+// The model representation of the board uses CELL_PLANE_COUNT planes
+// of a grid of cells that places the opponent player relative to the
 // active player (assumed to be in the center of the grid, e.g. at
 // position [3, 3]) on the plane that represents the orientation of
 // the opponent player relative to the active player (assumed to be
@@ -160,9 +160,9 @@ private:
     assert((pos.Row() >= 0) && (pos.Column() >= 0) &&
            (pos.Row() < int64_t(visible_2d_size_.RowCount())) &&
            (pos.Column() < int64_t(visible_2d_size_.ColumnCount())) &&
-           (plane_idx < NUM_PLANES));
-    cells_[(pos.Row() * visible_2d_size_.ColumnCount() * NUM_PLANES) +
-           (pos.Column() * NUM_PLANES) + plane_idx] = value; }
+           (plane_idx < CELL_PLANE_COUNT));
+    cells_[(pos.Row() * visible_2d_size_.ColumnCount() * CELL_PLANE_COUNT) +
+           (pos.Column() * CELL_PLANE_COUNT) + plane_idx] = value; }
 
   // Return the value of the board cell at the given row, column, and
   // plane.
@@ -170,9 +170,9 @@ private:
     assert((pos.Row() >= 0) && (pos.Column() >= 0) &&
            (pos.Row() < int64_t(visible_2d_size_.RowCount())) &&
            (pos.Column() < int64_t(visible_2d_size_.ColumnCount())) &&
-           (plane_idx < NUM_PLANES));
-    return cells_[(pos.Row() * visible_2d_size_.ColumnCount() * NUM_PLANES) +
-                  (pos.Column() * NUM_PLANES) + plane_idx]; }
+           (plane_idx < CELL_PLANE_COUNT));
+    return cells_[(pos.Row() * visible_2d_size_.ColumnCount() * CELL_PLANE_COUNT) +
+                  (pos.Column() * CELL_PLANE_COUNT) + plane_idx]; }
 
   void UpdateTerminalStatus();
   void UpdateValidActions();
@@ -185,6 +185,7 @@ private:
     size_t& diagonal_count, BiplaneOrientation& diagonal_dir,
     size_t& straight_count, BiplaneOrientation& straight_dir) const;
   MatrixCoordinate RotatePosition(const MatrixCoordinate& pos, const size_t rot) const;
+  std::string CellsToString() const;
 
   // Logger for this board.
   std::shared_ptr<Logger> logger_;

@@ -57,7 +57,7 @@ Board::Board(
   }
 #endif
 
-  cells_flattened_.resize(NUM_PLANES * visible_2d_size_.ElementCount() * sizeof(float));
+  cells_flattened_.resize(CELL_PLANE_COUNT * visible_2d_size_.ElementCount() * sizeof(float));
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
 
   // Initialize 'valid_action_ids_' and 'terminal_status_'.
@@ -152,8 +152,11 @@ Board::CopyAndUpdate(uint64_t action_id, std::pmr::memory_resource* arena) const
 
   // The copy constructor does not copy 'cells_flattened_' or set
   //  'cells_', which is what we want because those values will be set
-  //  by Update() and so setting them now would be wasteful as they
-  //  will be overwritten.
+  //  by Update() and so copying them would be wasteful as they will
+  //  be overwritten.
+  nb->cells_flattened_.resize(CELL_PLANE_COUNT * visible_2d_size_.ElementCount() * sizeof(float));
+  nb->cells_ = reinterpret_cast<float*>(nb->cells_flattened_.data());
+
   nb->Update(action_id);
 
   return StateUniquePtr(nb, StateDeleter<Board>(arena));
@@ -162,6 +165,20 @@ Board::CopyAndUpdate(uint64_t action_id, std::pmr::memory_resource* arena) const
 void
 Board::Update(uint64_t action_id)
 {
+  // Unset the cells representing where each opponent biplane is
+  // currently at relative to the active player. This should result in
+  // a set of cells that is completely CELL_EMPTY. For performance we
+  // do it explicilty instead of just zeroing the entire array.
+  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+    if (idx != active_player_id_) {
+      const MatrixCoordinate& pos = player_positions_[idx];
+      assert((abs(pos.Row()) <= max_distance_) && (abs(pos.Column()) <= max_distance_));
+      SetCellValueAt(
+        CELL_EMPTY, pos + max_distance_, size_t(player_orientations_[idx]));
+    }
+  }
+  assert(std::all_of(cells_flattened_.begin(), cells_flattened_.end(), [](uint8_t x) { return x == 0; }));
+
   // Move the active player as indicated by 'action_id'.
   //
   // 1) convert non-active players to absolute coordinates, 2) move
@@ -186,11 +203,8 @@ Board::Update(uint64_t action_id)
     }
   }
 
-  // Allocate and set the cells representing the gameboard to show
-  // where each opponent biplane is relative to the active player.
-  cells_flattened_.resize(NUM_PLANES * visible_2d_size_.ElementCount() * sizeof(float));
-  cells_ = reinterpret_cast<float*>(cells_flattened_.data());
-
+  // Set the cells representing the gameboard to show where each
+  // opponent biplane is relative to the active player.
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
       // Player may have flown off the board so need to check before
@@ -202,6 +216,8 @@ Board::Update(uint64_t action_id)
       }
     }
   }
+
+  LOG_DEBUG(*logger_, "==== Model Input ====\n" + CellsToString() + "\n========");
 
   UpdateTerminalStatus();
 }
@@ -328,6 +344,55 @@ Board::ToString() const
       sstr << (((row_idx == 0) && (col_idx == 0)) ? "-" : " ") << "|";
     }
   }
+  sstr << "\n " << std::string(ch_width, '-');
+
+  return sstr.str();
+}
+
+std::string
+Board::CellsToString() const
+{
+  std::stringstream sstr;
+
+  // 'plane_id_chars' is the number of characters in a cell dedicated
+  // to showing plane IDs. So a value of 3 indicates 2 plane IDs plus
+  // comma (e.g. "1,8").
+  const size_t plane_id_chars = 3;
+  const size_t ch_width = (visible_2d_size_.ColumnCount() * (plane_id_chars + 3)) - 1;
+
+  sstr << " " << std::string(ch_width, '-');
+  for (size_t y = visible_2d_size_.RowCount(); y > 0; --y) {
+    sstr << "\n|";
+    for (size_t x = 0; x < visible_2d_size_.ColumnCount(); ++x) {
+      sstr << ((((y - 1) == max_distance_) && (x == max_distance_)) ? "-" : " ");
+
+      const MatrixCoordinate pos(y - 1, x);
+
+      // Collect the plane IDs for [y,x].
+      std::string cstr;
+      for (size_t idx = 0; idx < CELL_PLANE_COUNT; ++idx) {
+
+        const float v = CellValueAt(pos, idx);
+        assert((v == CELL_ACTIVE) || (v == CELL_EMPTY));
+        if (v == CELL_ACTIVE) {
+          if (!cstr.empty()) {
+            cstr += ",";
+          }
+          cstr += std::to_string(idx);
+        }
+      }
+
+      if (cstr.size() > plane_id_chars) {
+        cstr = std::string(plane_id_chars, '*');
+      } else if (cstr.size() < plane_id_chars) {
+        cstr += std::string(plane_id_chars - cstr.size(), ' ');
+      }
+
+      sstr << cstr;
+      sstr << ((((y - 1) == max_distance_) && (x == max_distance_)) ? "-" : " ") << "|";
+    }
+  }
+  sstr << "\n " << std::string(ch_width, '-');
 
   return sstr.str();
 }
