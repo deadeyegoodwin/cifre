@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <string>
 
+#include "common_logger.h"
 #include "cifre_action.h"
 #include "cifre_player.h"
 #include "cifre_state.h"
@@ -81,6 +82,7 @@ public:
   // where player ID is the index of a given player in 'players'.
   // 'starting_player_id' indicates the player that will go first.
   Board(
+    const std::shared_ptr<Logger>& logger,
     const size_t max_distance, const std::vector<Player*>& players,
     size_t starting_player_id, std::pmr::memory_resource* arena);
 
@@ -182,6 +184,9 @@ private:
     size_t& diagonal_count, BiplaneOrientation& diagonal_dir,
     size_t& straight_count, BiplaneOrientation& straight_dir) const;
   MatrixCoordinate RotatePosition(const MatrixCoordinate& pos, const size_t rot) const;
+
+  // Logger for this board.
+  std::shared_ptr<Logger> logger_;
 
   // Maximum distance between biplanes to stay engaged in the battle.
   const size_t max_distance_;
