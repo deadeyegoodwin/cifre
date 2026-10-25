@@ -24,10 +24,8 @@ Board::Board(const size_t max_distance, const std::vector<Player*>& players,
   terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL),
   valid_action_ids_(arena), cells_flattened_(arena)
 {
-  THROWIF((max_distance_ <= 0) || ((max_distance_ % 2) == 0),
-          "max-distance must be positive odd integer");
-  THROWIF(max_distance_ > MAX_DISTANCE,
-          "max-distance must be <= " + std::to_string(MAX_DISTANCE));
+  THROWIF(max_distance_ > MAX_MAX_DISTANCE,
+          "max-distance must be <= " + std::to_string(MAX_MAX_DISTANCE));
 
   THROWIF(players.size() != PLAYER_COUNT, "exactly 2 players are required");
   THROWIF(NoPlayerId() != PLAYER_COUNT, "exactly 2 players are required");

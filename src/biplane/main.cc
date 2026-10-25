@@ -79,8 +79,7 @@ Biplane::CustomGameOptions() const
   std::vector<cifre::GameOption> custom;
   custom = {
     {OPTION_GAME_SHAPE, "game-shape", GameOption::ArgInt,
-     "Maximum distance that planes can be separated and remain on the " + Name() + " board. "
-     "Must be an odd number."},
+     "Maximum distance that planes can be separated and remain on the " + Name() + " board."},
     {OPTION_MAX_TURNS_PER_GAME, "max-turns-per-game", GameOption::ArgInt,
      "Maximum number of turns allowed per game. One turn consists of each "
      "player having a chance to move."}};
@@ -97,11 +96,9 @@ Biplane::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
     game_shape_ = cifre::MatrixSize(arg_str);
     GameCheckTrueMsg(game_shape_.RowCount() == game_shape_.ColumnCount(),
                      Name() + " board max-distance must be specified as --game-shape=<dist>");
-    GameCheckTrueMsg((game_shape_.RowCount() > 0) && ((game_shape_.RowCount() % 2) == 1),
-                     Name() + " board max-distance specified with --game-shape must be positive odd integer");
-    GameCheckTrueMsg(game_shape_.RowCount() <= MAX_DISTANCE,
+    GameCheckTrueMsg(game_shape_.RowCount() <= MAX_MAX_DISTANCE,
                      Name() + " board max-distance specified with --game-shape must be <= " +
-                     std::to_string(MAX_DISTANCE));
+                     std::to_string(MAX_MAX_DISTANCE));
     game_max_distance_ = game_shape_.RowCount();
   }
   else if (opt.Id() == OPTION_MAX_TURNS_PER_GAME) {
