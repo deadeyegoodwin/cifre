@@ -26,6 +26,8 @@ Board::Board(
   terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL),
   valid_action_ids_(arena), cells_flattened_(arena)
 {
+  THROWIF(max_distance_ < MIN_MAX_DISTANCE,
+          "max-distance must be >= " + std::to_string(MIN_MAX_DISTANCE));
   THROWIF(max_distance_ > MAX_MAX_DISTANCE,
           "max-distance must be <= " + std::to_string(MAX_MAX_DISTANCE));
 
@@ -305,9 +307,9 @@ Board::ToString() const
   }
 
   // Board.
-  sstr << " " << std::string(ch_width, '-') << '\n';
+  sstr << " " << std::string(ch_width, '-');
   for (int64_t row_idx = max_distance_; row_idx >= -(int64_t(max_distance_)); --row_idx) {
-    sstr << "|";
+    sstr << "\n|";
     for (int64_t col_idx = -(int64_t(max_distance_)); col_idx <= int64_t(max_distance_); ++col_idx) {
       sstr << (((row_idx == 0) && (col_idx == 0)) ? "-" : " ");
       bool found = false;
@@ -325,7 +327,6 @@ Board::ToString() const
       }
       sstr << (((row_idx == 0) && (col_idx == 0)) ? "-" : " ") << "|";
     }
-    sstr << '\n';
   }
 
   return sstr.str();

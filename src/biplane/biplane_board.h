@@ -20,8 +20,9 @@ namespace cifre { namespace biplane {
 static constexpr size_t PLAYER_COUNT = 2;
 static constexpr size_t NUM_PLANES = 8;
 
+static constexpr size_t MIN_MAX_DISTANCE = 3;
 static constexpr size_t MAX_MAX_DISTANCE = 8;
-static constexpr size_t DEFAULT_MAX_DISTANCE = 3;
+static constexpr size_t DEFAULT_MAX_DISTANCE = 4;
 
 static constexpr float CELL_EMPTY = 0.0;
 static constexpr float CELL_ACTIVE = 1.0;

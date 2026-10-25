@@ -96,6 +96,9 @@ Biplane::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
     game_shape_ = cifre::MatrixSize(arg_str);
     GameCheckTrueMsg(game_shape_.RowCount() == game_shape_.ColumnCount(),
                      Name() + " board max-distance must be specified as --game-shape=<dist>");
+    GameCheckTrueMsg(game_shape_.RowCount() >= MIN_MAX_DISTANCE,
+                     Name() + " board max-distance specified with --game-shape must be >= " +
+                     std::to_string(MIN_MAX_DISTANCE));
     GameCheckTrueMsg(game_shape_.RowCount() <= MAX_MAX_DISTANCE,
                      Name() + " board max-distance specified with --game-shape must be <= " +
                      std::to_string(MAX_MAX_DISTANCE));
