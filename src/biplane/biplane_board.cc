@@ -70,6 +70,7 @@ Board::Board(const Board& other, std::pmr::memory_resource* arena) :
   logger_(other.logger_), max_distance_(other.max_distance_),
   visible_2d_size_(other.visible_2d_size_), players_(other.players_),
   player_positions_(other.player_positions_), player_orientations_(other.player_orientations_),
+  player_actions_(other.player_actions_),
   active_player_id_(other.active_player_id_), terminal_status_(other.terminal_status_),
   valid_action_ids_(other.valid_action_ids_.begin(), other.valid_action_ids_.end(), arena),
   cells_flattened_(arena), cells_(nullptr)
@@ -165,6 +166,11 @@ Board::CopyAndUpdate(uint64_t action_id, std::pmr::memory_resource* arena) const
 void
 Board::Update(uint64_t action_id)
 {
+  // The position of players on the board only changes once all
+  // players have selected an action and then all those actions are
+  // applied simultaneously.
+  player_actions_.push_back(std::make_pair(active_player_id_, action_id));
+
   // Unset the cells representing where each opponent biplane is
   // currently at relative to the active player. This should result in
   // a set of cells that is completely CELL_EMPTY. For performance we
@@ -179,18 +185,25 @@ Board::Update(uint64_t action_id)
   }
   assert(std::all_of(cells_flattened_.begin(), cells_flattened_.end(), [](uint8_t x) { return x == 0; }));
 
-  // Move the active player as indicated by 'action_id'.
+  // Update the board for the new active player.
   //
-  // 1) convert non-active players to absolute coordinates, 2) move
-  // active player, 3) determine the new active player, 4) convert
-  // non-active players to relative coordinates.
+  // 1) convert non-active players to absolute coordinates, 2) if all
+  // players have selected and action then move all the players, 3)
+  // determine the new active player, 4) convert non-active players to
+  // relative coordinates.
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
       RelativePositionToAbsolute(player_positions_[idx], player_orientations_[idx]);
     }
   }
 
-  ApplyAction(action_id);
+  if (player_actions_.size() == PLAYER_COUNT) {
+    for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+      const auto& pr = player_actions_[idx];
+      ApplyActionToAbsolutePlayer(pr.first, pr.second);
+    }
+    player_actions_.clear();
+  }
 
   // For now we just make the next player the active player. Update
   // the valid actions for the now-active player.
@@ -448,21 +461,25 @@ Board::UpdateTerminalStatus()
 }
 
 void
-Board::ApplyAction(uint64_t action_id)
+Board::ApplyActionToAbsolutePlayer(const size_t player_id, const uint64_t action_id)
 {
+  // NOTE: player positions and orientations must be absolute.
+  assert(player_id < PLAYER_COUNT);
+  assert(action_id < TOTAL_ACTIONID_COUNT);
+
   MatrixCoordinate pos_delta;
   int64_t orientation_delta;
   ActionIdToMove(action_id, pos_delta, orientation_delta);
 
   // Position delta must be rotated so that it is applied along the
-  // forward direction of the active player.
+  // forward direction of 'player_id'.
   const MatrixCoordinate rot_pos_delta =
-    RotatePosition(pos_delta, size_t(player_orientations_[active_player_id_]));
+    RotatePosition(pos_delta, size_t(player_orientations_[player_id]));
 
-  player_positions_[active_player_id_] += rot_pos_delta;
-  player_orientations_[active_player_id_] =
+  player_positions_[player_id] += rot_pos_delta;
+  player_orientations_[player_id] =
     BiplaneOrientation(
-      (int64_t(player_orientations_[active_player_id_]) + orientation_delta +
+      (int64_t(player_orientations_[player_id]) + orientation_delta +
        NUM_PLANE_ORIENTATIONS) % NUM_PLANE_ORIENTATIONS);
 }
 

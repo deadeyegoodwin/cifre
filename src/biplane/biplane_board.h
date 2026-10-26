@@ -177,7 +177,7 @@ private:
   void UpdateTerminalStatus();
   void UpdateValidActions();
 
-  void ApplyAction(uint64_t action_id);
+  void ApplyActionToAbsolutePlayer(const size_t player_id, const uint64_t action_id);
   void RelativePositionToAbsolute(MatrixCoordinate& pos, BiplaneOrientation& orient) const;
   void AbsolutePositionToRelative(MatrixCoordinate& pos, BiplaneOrientation& orient) const;
   void DecomposeSteps(
@@ -206,6 +206,13 @@ private:
   // relative to the active player.
   cifre::array<MatrixCoordinate, PLAYER_COUNT> player_positions_;
   cifre::array<BiplaneOrientation, PLAYER_COUNT> player_orientations_;
+
+  // The position of players on the board only changes once all
+  // players have selected an action and then all those actions are
+  // applied simultaneously. As each player selects an action append
+  // the [player-id, action-id] pair and then apply them once all are
+  // available.
+  std::vector<std::pair<size_t, uint64_t>> player_actions_;
 
   // ID of the currently active player.
   size_t active_player_id_;
