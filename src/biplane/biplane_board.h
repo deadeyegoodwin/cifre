@@ -18,11 +18,23 @@
 namespace cifre { namespace biplane {
 
 static constexpr size_t PLAYER_COUNT = 2;
-static constexpr size_t CELL_PLANE_COUNT = 8;
 
 static constexpr size_t MIN_MAX_DISTANCE = 3;
 static constexpr size_t MAX_MAX_DISTANCE = 8;
 static constexpr size_t DEFAULT_MAX_DISTANCE = 4;
+
+// For the model inputs there are 8 cell planes (one for each
+// direction) that start at cell plane index 0, and are referred to as
+// the "direction cell planes". Following those are other cell planes:
+//
+//   0-7: direction cell planes
+//     8: advantage cell plane (set to all CELL_ACTIVE if the active player
+//        has an advantage over the other player). FIXME will need multiple
+//        once multiple players supported.
+static constexpr size_t CELL_PLANE_COUNT = 9;
+static constexpr size_t CELL_PLANE_DIR_COUNT = 8;
+static constexpr size_t CELL_PLANE_ADV_IDX = 8;
+static constexpr size_t CELL_PLANE_ADV_COUNT = 1;
 
 static constexpr float CELL_EMPTY = 0.0;
 static constexpr float CELL_ACTIVE = 1.0;
@@ -59,17 +71,17 @@ std::string BiplaneOrientationToShortRelativeString(BiplaneOrientation po);
 // and orientation changes based on the move selected by each player.
 //
 // The model representation of the board uses CELL_PLANE_COUNT planes
-// of a grid of cells that places the opponent player relative to the
-// active player (assumed to be in the center of the grid, e.g. at
-// position [3, 3]) on the plane that represents the orientation of
-// the opponent player relative to the active player (assumed to be
-// facing "up" on the grid). Thus for any position and orientation of
-// the players, the model representation for the active player is
-// always the relative perspective assuming the active player is at
-// center of grid facing "up" (toward negative y). The opponent
-// position and orientation is represented by a CELL_ACTIVE in the
-// appropriate plane and grid position. All other grid positions
-// across all planes are CELL_EMPTY.
+// of a grid of cells. The first CELL_PLANE_DIR_COUNT planes place the
+// opponent player relative to the active player (assumed to be in the
+// center of the grid, e.g. at position [3, 3]) on the plane that
+// represents the orientation of the opponent player relative to the
+// active player (assumed to be facing "up" on the grid). Thus for any
+// position and orientation of the players, the model representation
+// for the active player is always the relative perspective assuming
+// the active player is at center of grid facing "up" (toward negative
+// y). The opponent position and orientation is represented by a
+// CELL_ACTIVE in the appropriate plane and grid position. All other
+// grid positions across all the "direction" planes are CELL_EMPTY.
 
 // Provides a console representation of the opponent relative to the
 // active player.
@@ -174,8 +186,13 @@ private:
     return cells_[(pos.Row() * visible_2d_size_.ColumnCount() * CELL_PLANE_COUNT) +
                   (pos.Column() * CELL_PLANE_COUNT) + plane_idx]; }
 
+  void UpdateCellPlanes();
   void UpdateTerminalStatus();
   void UpdateValidActions();
+
+  void FillCellPlane(const size_t pidx, const float v);
+  bool ValidateCellPlanes(const size_t sidx, const size_t eidx, const float v) const;
+  bool ValidateCellPlane(const size_t pidx, const float v) const;
 
   void ApplyActionToAbsolutePlayer(const size_t player_id, const uint64_t action_id);
   void RelativePositionToAbsolute(MatrixCoordinate& pos, BiplaneOrientation& orient) const;
@@ -206,6 +223,10 @@ private:
   // relative to the active player.
   cifre::array<MatrixCoordinate, PLAYER_COUNT> player_positions_;
   cifre::array<BiplaneOrientation, PLAYER_COUNT> player_orientations_;
+
+  // For each player, the other player that they have an advantage
+  // over, or NoPlayerId() if there is no advantage.
+  cifre::array<size_t, PLAYER_COUNT> player_advantages_;
 
   // The position of players on the board only changes once all
   // players have selected an action and then all those actions are

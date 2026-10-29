@@ -36,18 +36,29 @@ Board::Board(
   THROWIF(active_player_id_ >= NoPlayerId(),
           "invalid starting player index " + std::to_string(active_player_id_));
 
-  // Start at opposite sides of the board. Active player
-  // position/orientation are absolute, other players are relative to
-  // active player.
+  // Set players initial absolution position and orientation.
+  //
+  // For now we set up a scenario where the starting player has an
+  // advantage over the other player. FIXME this needs to be fixed
+  // once more than 2 players are supported.
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     players_[idx] = players[idx];
     if (idx == active_player_id_) {
       player_positions_[idx] = MatrixCoordinate(0, 0);
-      player_orientations_[idx] = BiplaneOrientation::NORTH_EAST;
+      player_orientations_[idx] = BiplaneOrientation::NORTH;
+      player_advantages_[idx] = ((idx == 0) ? 1 : 0); // FIXME
     }
     else {
-      player_positions_[idx] = MatrixCoordinate(max_distance_ - 1, max_distance_ - 1);
-      player_orientations_[idx] = BiplaneOrientation::WEST;
+      player_positions_[idx] = MatrixCoordinate(max_distance_ - 1, max_distance_ - 2);
+      player_orientations_[idx] = BiplaneOrientation::NORTH_EAST;
+      player_advantages_[idx] = NoPlayerId();
+    }
+  }
+
+  // Convert non-active players to relative...
+  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+    if (idx != active_player_id_) {
+      AbsolutePositionToRelative(player_positions_[idx], player_orientations_[idx]);
     }
   }
 
@@ -57,20 +68,25 @@ Board::Board(
   }
 #endif
 
+  // Initialize cell planes based on players initial state.
   cells_flattened_.resize(CELL_PLANE_COUNT * visible_2d_size_.ElementCount() * sizeof(float));
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
+  UpdateCellPlanes();
 
   // Initialize 'valid_action_ids_' and 'terminal_status_'.
   valid_action_ids_.reserve(TotalActionIdCount());
   UpdateValidActions();
   UpdateTerminalStatus();
+
+  LOG_DEBUG(*logger_, "==== Initial Board ====\n" + ToString() + "\n========");
+  LOG_DEBUG(*logger_, "==== Initial Model Input ====\n" + CellsToString() + "\n========");
 }
 
 Board::Board(const Board& other, std::pmr::memory_resource* arena) :
   logger_(other.logger_), max_distance_(other.max_distance_),
   visible_2d_size_(other.visible_2d_size_), players_(other.players_),
   player_positions_(other.player_positions_), player_orientations_(other.player_orientations_),
-  player_actions_(other.player_actions_),
+  player_advantages_(other.player_advantages_), player_actions_(other.player_actions_),
   active_player_id_(other.active_player_id_), terminal_status_(other.terminal_status_),
   valid_action_ids_(other.valid_action_ids_.begin(), other.valid_action_ids_.end(), arena),
   cells_flattened_(arena), cells_(nullptr)
@@ -97,6 +113,7 @@ Board::Hash() const
     if (idx != active_player_id_) {
       hash += MatrixCoordinateHash()(player_positions_[idx]) ^ (hash >> 23);
       hash += (size_t(player_orientations_[idx]) * mulp) ^ (hash >> 23);
+      hash += (size_t(player_advantages_[idx]) * mulp) ^ (hash >> 23);
     }
   }
 
@@ -122,7 +139,8 @@ Board::Equal(const State* other) const
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
       if ((player_positions_[idx] != ob->player_positions_[idx]) ||
-          (player_orientations_[idx] != ob->player_orientations_[idx])) {
+          (player_orientations_[idx] != ob->player_orientations_[idx]) ||
+          (player_advantages_[idx] != ob->player_advantages_[idx])) {
         return false;
       }
     }
@@ -171,10 +189,11 @@ Board::Update(uint64_t action_id)
   // applied simultaneously.
   player_actions_.push_back(std::make_pair(active_player_id_, action_id));
 
-  // Unset the cells representing where each opponent biplane is
-  // currently at relative to the active player. This should result in
-  // a set of cells that is completely CELL_EMPTY. For performance we
-  // do it explicilty instead of just zeroing the entire array.
+  // Unset the cells on the direction cell planes representing where
+  // each opponent biplane is currently at relative to the active
+  // player. This should result in all cells of the direction planes
+  // being CELL_EMPTY. For performance we do it explicilty instead of
+  // just zeroing the entire array.
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
       const MatrixCoordinate& pos = player_positions_[idx];
@@ -183,7 +202,7 @@ Board::Update(uint64_t action_id)
         CELL_EMPTY, pos + max_distance_, size_t(player_orientations_[idx]));
     }
   }
-  assert(std::all_of(cells_flattened_.begin(), cells_flattened_.end(), [](uint8_t x) { return x == 0; }));
+  assert(ValidateCellPlanes(0, CELL_PLANE_DIR_COUNT, CELL_EMPTY));
 
   // Update the board for the new active player.
   //
@@ -216,21 +235,10 @@ Board::Update(uint64_t action_id)
     }
   }
 
-  // Set the cells representing the gameboard to show where each
-  // opponent biplane is relative to the active player.
-  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
-    if (idx != active_player_id_) {
-      // Player may have flown off the board so need to check before
-      // attempting to set the cell.
-      const MatrixCoordinate& pos = player_positions_[idx];
-      if ((abs(pos.Row()) <= max_distance_) && (abs(pos.Column()) <= max_distance_)) {
-        SetCellValueAt(
-          CELL_ACTIVE, pos + max_distance_, size_t(player_orientations_[idx]));
-      }
-    }
-  }
+  // Set cell planes based on updated state.
+  UpdateCellPlanes();
 
-  LOG_DEBUG(*logger_, "==== Model Input ====\n" + CellsToString() + "\n========");
+  LOG_DEBUG(*logger_, "==== Next Player Model Input ====\n" + CellsToString() + "\n========");
 
   UpdateTerminalStatus();
 }
@@ -315,22 +323,29 @@ Board::ToString() const
 
   // Player key.
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
-    sstr << ActivePlayer()->Name() << " (p" << idx << ")";
+    sstr << players_[idx]->Name() << " (p" << idx << ")";
     if (idx == active_player_id_) {
       sstr
-        << ", absolute position [" << player_positions_[idx].ToString() << "]"
-        << ", absolute orientation " << BiplaneOrientationToShortString(player_orientations_[idx])
-        << ", relative position [0,0], relative orientation UP, ACTIVE";
+        << ", abs position [" << player_positions_[idx].ToString() << "] "
+        << BiplaneOrientationToShortString(player_orientations_[idx])
+        << ", rel position [0,0] UP, ";
+      if (player_advantages_[idx] != NoPlayerId()) {
+        sstr << "advantage on " << players_[player_advantages_[idx]]->Name() << ", ";
+      }
+      sstr << "ACTIVE";
     }
     else {
       MatrixCoordinate abs_pos = player_positions_[idx];
       BiplaneOrientation abs_orient = player_orientations_[idx];
       RelativePositionToAbsolute(abs_pos, abs_orient);
       sstr
-        << ", absolute position [" << abs_pos.ToString() << "]"
-        << ", absolute orientation " << BiplaneOrientationToShortString(abs_orient)
-        << ", relative position [" << player_positions_[idx].ToString() << "]"
-        << ", relative orientation " << BiplaneOrientationToShortRelativeString(player_orientations_[idx]);
+        << ", abs position [" << abs_pos.ToString() << "] "
+        << BiplaneOrientationToShortString(abs_orient)
+        << ", rel position [" << player_positions_[idx].ToString() << "] "
+        << BiplaneOrientationToShortRelativeString(player_orientations_[idx]);
+      if (player_advantages_[idx] != NoPlayerId()) {
+        sstr << ", advantage on " << players_[player_advantages_[idx]]->Name();
+      }
     }
     sstr << "\n";
   }
@@ -381,10 +396,9 @@ Board::CellsToString() const
 
       const MatrixCoordinate pos(y - 1, x);
 
-      // Collect the plane IDs for [y,x].
+      // Collect the direction plane IDs for [y,x].
       std::string cstr;
-      for (size_t idx = 0; idx < CELL_PLANE_COUNT; ++idx) {
-
+      for (size_t idx = 0; idx < CELL_PLANE_DIR_COUNT; ++idx) {
         const float v = CellValueAt(pos, idx);
         assert((v == CELL_ACTIVE) || (v == CELL_EMPTY));
         if (v == CELL_ACTIVE) {
@@ -406,6 +420,10 @@ Board::CellsToString() const
     }
   }
   sstr << "\n " << std::string(ch_width, '-');
+
+  sstr
+    << "\nAdvantage plane: "
+    << ((CellValueAt(MatrixCoordinate(0, 0), CELL_PLANE_ADV_IDX) == CELL_ACTIVE) ? "ACTIVE" : "EMPTY");
 
   return sstr.str();
 }
@@ -458,6 +476,33 @@ Board::UpdateTerminalStatus()
   THROWIF(
     terminal_status_.Kind() != cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
     "expected NON_TERMINAL status");
+}
+
+void
+Board::UpdateCellPlanes()
+{
+  // Set the cells representing the gameboard to show where each
+  // opponent biplane is relative to the active player.
+  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+    if (idx != active_player_id_) {
+      // Player may have flown off the board so need to check before
+      // attempting to set the cell.
+      const MatrixCoordinate& pos = player_positions_[idx];
+      if ((abs(pos.Row()) <= max_distance_) && (abs(pos.Column()) <= max_distance_)) {
+        SetCellValueAt(
+          CELL_ACTIVE, pos + max_distance_, size_t(player_orientations_[idx]));
+      }
+    }
+  }
+
+  // If the active player has an advantage then set the advantage cell
+  // plane to CELL_ACTIVE, otherwise CELL_EMPTY.
+  const float adv = (
+    (player_advantages_[active_player_id_] == NoPlayerId()) ? CELL_EMPTY : CELL_ACTIVE);
+  if (adv != CellValueAt(MatrixCoordinate(0, 0), CELL_PLANE_ADV_IDX)) {
+    FillCellPlane(CELL_PLANE_ADV_IDX, adv);
+  }
+  ValidateCellPlane(CELL_PLANE_ADV_IDX, adv);
 }
 
 void
@@ -517,6 +562,42 @@ Board::AbsolutePositionToRelative(MatrixCoordinate& pos, BiplaneOrientation& ori
   orient = BiplaneOrientation((size_t(orient) + size_t(rot)) % NUM_PLANE_ORIENTATIONS);
   pos = rel_rot;
   LOG_DEBUG(*logger_, " -> [" + pos.ToString() + "] " + BiplaneOrientationToShortRelativeString(orient));
+}
+
+void
+Board::FillCellPlane(const size_t pidx, const float v)
+{
+  for (size_t y = 0; y < visible_2d_size_.RowCount(); ++y) {
+    for (size_t x = 0; x < visible_2d_size_.ColumnCount(); ++x) {
+      SetCellValueAt(v, MatrixCoordinate(y, x), pidx);
+    }
+  }
+}
+
+bool
+Board::ValidateCellPlanes(const size_t sidx, const size_t eidx, const float v) const
+{
+  for (size_t idx = sidx; idx < eidx; ++idx) {
+    if (!ValidateCellPlane(idx, v)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool
+Board::ValidateCellPlane(const size_t pidx, const float v) const
+{
+  for (size_t y = 0; y < visible_2d_size_.RowCount(); ++y) {
+    for (size_t x = 0; x < visible_2d_size_.ColumnCount(); ++x) {
+      if (CellValueAt(MatrixCoordinate(y, x), pidx) != v) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 namespace {

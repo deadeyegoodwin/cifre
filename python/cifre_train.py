@@ -281,7 +281,7 @@ def main():
         nnet = CifreResidualConvNNet(nnet_args)
     elif FLAGS.game == 'biplane':
         default_max_distance = 4 # see biplane::DEFAULT_MAX_DISTANCE
-        num_planes = 8    # see biplane::Board::PLANE_COUNT
+        num_planes = 9    # see biplane::Board::CELL_PLANE_COUNT
         max_distance = default_max_distance if (FLAGS.game_shape is None) else FLAGS.game_shape[0]
         game_shape = (max_distance,)
         nnet_shape = ( # see biplane::Board
