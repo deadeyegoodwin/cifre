@@ -217,11 +217,33 @@ Board::Update(uint64_t action_id)
   }
 
   if (player_actions_.size() == PLAYER_COUNT) {
+#ifndef NDEBUG
+    const auto prev_player_positions = player_positions_;
+    const auto prev_player_orientations = player_orientations_;
+#endif
+
     for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
       const auto& pr = player_actions_[idx];
       ApplyActionToAbsolutePlayer(pr.first, pr.second);
     }
     player_actions_.clear();
+
+#ifndef NDEBUG
+    LOG_DEBUG(*logger_, "-- Post Move --");
+    for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+      const auto& pr = player_actions_[idx];
+      const size_t pidx = pr.first;
+      const uint64_t action_id = pr.second;
+      LOG_DEBUG(
+        *logger_,
+        players_[pidx]->Name() + " (p" + std::to_string(pidx) + "), " +
+        "moved " + ActionIdToString(action_id) + ", " +
+        "abs position [" + prev_player_positions[pidx].ToString() + "] " +
+        BiplaneOrientationToShortString(prev_player_orientations[pidx]) + " -> " +
+        "[" + player_positions_[pidx].ToString() + "] " +
+        BiplaneOrientationToShortString(player_orientations_[pidx]));
+    }
+#endif
   }
 
   // For now we just make the next player the active player. Update
@@ -321,35 +343,6 @@ Board::ToString() const
   std::stringstream sstr;
   const size_t ch_width = (visible_2d_size_.ColumnCount() * 5) - 1;
 
-  // Player key.
-  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
-    sstr << players_[idx]->Name() << " (p" << idx << ")";
-    if (idx == active_player_id_) {
-      sstr
-        << ", abs position [" << player_positions_[idx].ToString() << "] "
-        << BiplaneOrientationToShortString(player_orientations_[idx])
-        << ", rel position [0,0] UP, ";
-      if (player_advantages_[idx] != NoPlayerId()) {
-        sstr << "advantage on " << players_[player_advantages_[idx]]->Name() << ", ";
-      }
-      sstr << "ACTIVE";
-    }
-    else {
-      MatrixCoordinate abs_pos = player_positions_[idx];
-      BiplaneOrientation abs_orient = player_orientations_[idx];
-      RelativePositionToAbsolute(abs_pos, abs_orient);
-      sstr
-        << ", abs position [" << abs_pos.ToString() << "] "
-        << BiplaneOrientationToShortString(abs_orient)
-        << ", rel position [" << player_positions_[idx].ToString() << "] "
-        << BiplaneOrientationToShortRelativeString(player_orientations_[idx]);
-      if (player_advantages_[idx] != NoPlayerId()) {
-        sstr << ", advantage on " << players_[player_advantages_[idx]]->Name();
-      }
-    }
-    sstr << "\n";
-  }
-
   // Board.
   sstr << " " << std::string(ch_width, '-');
   for (int64_t row_idx = max_distance_; row_idx >= -(int64_t(max_distance_)); --row_idx) {
@@ -373,6 +366,13 @@ Board::ToString() const
     }
   }
   sstr << "\n " << std::string(ch_width, '-');
+
+  if (player_advantages_[active_player_id_] != NoPlayerId()) {
+    sstr
+      << "\n" << players_[active_player_id_]->Name() << " (p" << active_player_id_ << ")"
+      << " has advantage on " << players_[player_advantages_[active_player_id_]]->Name()
+      << " (p" << player_advantages_[active_player_id_] << ")";
+  }
 
   return sstr.str();
 }
@@ -535,15 +535,8 @@ Board::RelativePositionToAbsolute(MatrixCoordinate& pos, BiplaneOrientation& ori
   // is the absolute orientation of the active player.
   const BiplaneOrientation rot = player_orientations_[active_player_id_];
   const MatrixCoordinate rel_rot = RotatePosition(pos, size_t(rot));
-  LOG_DEBUG_IE(
-    *logger_,
-    "RelativePositionToAbsolute (center [" + player_positions_[active_player_id_].ToString() + "] " +
-    BiplaneOrientationToShortString(player_orientations_[active_player_id_]) + "): " +
-    "[" + pos.ToString() + "] " + BiplaneOrientationToShortRelativeString(orient) +
-    " -> rotated [" + rel_rot.ToString() + "]", 0, false);
   orient = BiplaneOrientation((size_t(orient) + size_t(rot)) % NUM_PLANE_ORIENTATIONS);
   pos = player_positions_[active_player_id_] + rel_rot;
-  LOG_DEBUG(*logger_, " -> [" + pos.ToString() + "] " + BiplaneOrientationToShortString(orient));
 }
 
 void
@@ -554,14 +547,8 @@ Board::AbsolutePositionToRelative(MatrixCoordinate& pos, BiplaneOrientation& ori
   const BiplaneOrientation rot =
     BiplaneOrientation(NUM_PLANE_ORIENTATIONS - size_t(player_orientations_[active_player_id_]));
   const MatrixCoordinate rel_rot = RotatePosition(pos - player_positions_[active_player_id_], size_t(rot));
-  LOG_DEBUG_IE(
-    *logger_,
-    "AbsolutePositionToRelative (center [" + player_positions_[active_player_id_].ToString() + "] " +
-    BiplaneOrientationToShortString(player_orientations_[active_player_id_]) + "): " +
-    "[" + pos.ToString() + "] " + BiplaneOrientationToShortString(orient), 0, false);
   orient = BiplaneOrientation((size_t(orient) + size_t(rot)) % NUM_PLANE_ORIENTATIONS);
   pos = rel_rot;
-  LOG_DEBUG(*logger_, " -> [" + pos.ToString() + "] " + BiplaneOrientationToShortRelativeString(orient));
 }
 
 void
@@ -668,11 +655,6 @@ Board::RotatePosition(const MatrixCoordinate& pos, const size_t rot) const
   size_t diagonal_count, straight_count;
   BiplaneOrientation diagonal_dir, straight_dir;
   DecomposeSteps(pos, diagonal_count, diagonal_dir, straight_count, straight_dir);
-
-  LOG_DEBUG(
-    *logger_, "RotatePosition: diagonal " + std::to_string(diagonal_count) + " " +
-    BiplaneOrientationToShortString(diagonal_dir) + ", straight " +
-    std::to_string(straight_count) + " " + BiplaneOrientationToShortString(straight_dir));
 
   // Perform steps along diagonal direction.
   if (diagonal_count > 0) {
