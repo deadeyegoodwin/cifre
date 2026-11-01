@@ -463,20 +463,13 @@ Board::UpdateTerminalStatus(
 {
   // Check winning conditions and set 'terminal_status_'. Player
   // positions and orientations are assumed to be absolute.
+  cifre::array<size_t, PLAYER_COUNT> hits;
+  std::fill(hits.begin(), hits.end(), PLAYER_COUNT);
 
   // Compare pairs of players...
-  for (size_t i0 = 0; i0 < PLAYER_COUNT; ++i0) {
-    const auto& pr0 = player_actions_[i0];
-    const size_t idx0 = pr0.first;
-    for (size_t i1 = (i0 + 1); i1 < PLAYER_COUNT; ++i1) {
-      const auto& pr1 = player_actions_[i1];
-      const size_t idx1 = pr1.first;
-
-      // Determine relative distance from 'pr0' to 'pr1'. If it
-      // exceeds max distance then the planes are out-of-range and the
-      // game is over. Use the previous position of the planes to
-      // determine which player caused the planes to move
-      // out-of-range. That player is the loser.
+  for (size_t idx0 = 0; idx0 < PLAYER_COUNT; ++idx0) {
+    for (size_t idx1 = (idx0 + 1); idx1 < PLAYER_COUNT; ++idx1) {
+      // Determine relative distance from 'idx0' to 'idx1'.
       MatrixCoordinate rpos1 = player_positions_[idx1];
       BiplaneOrientation rorient1 = player_orientations_[idx1];
       AbsolutePositionToRelative(
@@ -485,10 +478,20 @@ Board::UpdateTerminalStatus(
       size_t diagonal_count, straight_count;
       BiplaneOrientation diagonal_dir, straight_dir;
       DecomposeSteps(rpos1, diagonal_count, diagonal_dir, straight_count, straight_dir);
-      if ((diagonal_count + straight_count) > max_distance_) {
-        bool blame_pr0 = false, blame_pr1 = false;
 
-        // Use 'pr0' and then 'pr1' previous positions to see if
+      // Record if 'idx1' is getting hit by 'idx0'.
+      if ((diagonal_count == 0) && (straight_count != 0) && (straight_dir == BiplaneOrientation::NORTH)) {
+        hits[idx0] = idx1;
+      }
+
+      // If relative distance exceeds max distance then the planes are
+      // out-of-range and the game is over. Use the previous position
+      // of the planes to determine which player caused the planes to
+      // move out-of-range. That player is the loser.
+      if ((diagonal_count + straight_count) > max_distance_) {
+        bool blame_idx0 = false, blame_idx1 = false;
+
+        // Use 'idx0' and then 'idx1' previous positions to see if
         // either of those result in the planes being in range.
         MatrixCoordinate rpos1_prev0 = player_positions_[idx1];
         BiplaneOrientation rorient1_prev0 = player_orientations_[idx1];
@@ -496,7 +499,7 @@ Board::UpdateTerminalStatus(
           player_prev_positions[idx0], player_prev_orientations[idx0],
           rpos1_prev0, rorient1_prev0);
         DecomposeSteps(rpos1_prev0, diagonal_count, diagonal_dir, straight_count, straight_dir);
-        blame_pr1 = ((diagonal_count + straight_count) > max_distance_);
+        blame_idx1 = ((diagonal_count + straight_count) > max_distance_);
 
         MatrixCoordinate rpos0_prev1 = player_positions_[idx0];
         BiplaneOrientation rorient0_prev1 = player_orientations_[idx0];
@@ -504,14 +507,14 @@ Board::UpdateTerminalStatus(
           player_prev_positions[idx1], player_prev_orientations[idx1],
           rpos0_prev1, rorient0_prev1);
         DecomposeSteps(rpos0_prev1, diagonal_count, diagonal_dir, straight_count, straight_dir);
-        blame_pr0 = ((diagonal_count + straight_count) > max_distance_);
+        blame_idx0 = ((diagonal_count + straight_count) > max_distance_);
 
-        if (blame_pr0 && !blame_pr1) {
+        if (blame_idx0 && !blame_idx1) {
           terminal_status_ =
             cifre::StateTerminalStatus(
               cifre::StateTerminalStatus::TerminalKind::WINNER, idx1);
         }
-        else if (blame_pr1 && !blame_pr0) {
+        else if (blame_idx1 && !blame_idx0) {
           terminal_status_ =
             cifre::StateTerminalStatus(
               cifre::StateTerminalStatus::TerminalKind::WINNER, idx0);
@@ -522,16 +525,29 @@ Board::UpdateTerminalStatus(
         }
         return;
       }
+    }
+  }
 
-      // If there is an opponent directly in front of the active player,
-      // then the active player is the winner.
-      if ((diagonal_count == 0) && (straight_count != 0) && (straight_dir == BiplaneOrientation::NORTH)) {
+  // A single plane having a hit is a win for that plane, multiple
+  // planes having a hit is a draw.
+  size_t single_hitter = PLAYER_COUNT;
+  for (size_t hitter = 0; hitter < PLAYER_COUNT; ++hitter) {
+    if (hits[hitter] != PLAYER_COUNT) {
+      if ((single_hitter != PLAYER_COUNT) && (single_hitter != hitter)) {
         terminal_status_ =
-          cifre::StateTerminalStatus(
-            cifre::StateTerminalStatus::TerminalKind::WINNER, active_player_id_);
+          cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
         return;
       }
+
+      single_hitter = hitter;
     }
+  }
+
+  if (single_hitter < PLAYER_COUNT) {
+    terminal_status_ =
+      cifre::StateTerminalStatus(
+        cifre::StateTerminalStatus::TerminalKind::WINNER, single_hitter);
+    return;
   }
 
   // Otherwise make sure the terminal status is NON_TERMINAL.
