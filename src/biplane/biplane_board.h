@@ -187,16 +187,22 @@ private:
                   (pos.Column() * CELL_PLANE_COUNT) + plane_idx]; }
 
   void UpdateCellPlanes();
-  void UpdateTerminalStatus();
   void UpdateValidActions();
+  void UpdateTerminalStatus(
+    const cifre::array<MatrixCoordinate, PLAYER_COUNT>& player_prev_positions,
+    const cifre::array<BiplaneOrientation, PLAYER_COUNT>& player_prev_orientations);
 
   void FillCellPlane(const size_t pidx, const float v);
   bool ValidateCellPlanes(const size_t sidx, const size_t eidx, const float v) const;
   bool ValidateCellPlane(const size_t pidx, const float v) const;
 
   void ApplyActionToAbsolutePlayer(const size_t player_id, const uint64_t action_id);
-  void RelativePositionToAbsolute(MatrixCoordinate& pos, BiplaneOrientation& orient) const;
-  void AbsolutePositionToRelative(MatrixCoordinate& pos, BiplaneOrientation& orient) const;
+  void RelativePositionToAbsolute(
+      const MatrixCoordinate& center_pos, const BiplaneOrientation& center_orient,
+      MatrixCoordinate& pos, BiplaneOrientation& orient) const;
+  void AbsolutePositionToRelative(
+      const MatrixCoordinate& center_pos, const BiplaneOrientation& center_orient,
+      MatrixCoordinate& pos, BiplaneOrientation& orient) const;
   void DecomposeSteps(
     const MatrixCoordinate& pos,
     size_t& diagonal_count, BiplaneOrientation& diagonal_dir,

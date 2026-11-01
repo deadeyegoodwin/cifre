@@ -55,10 +55,17 @@ Board::Board(
     }
   }
 
+  // The terminal status for the initial positions is assumed to be
+  // NON_TERMINAL, because calculating terminal status requires the
+  // previous positions/orientations and the previous moves..
+  terminal_status_ = cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL;
+
   // Convert non-active players to relative...
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
-      AbsolutePositionToRelative(player_positions_[idx], player_orientations_[idx]);
+      AbsolutePositionToRelative(
+        player_positions_[active_player_id_], player_orientations_[active_player_id_],
+        player_positions_[idx], player_orientations_[idx]);
     }
   }
 
@@ -76,7 +83,6 @@ Board::Board(
   // Initialize 'valid_action_ids_' and 'terminal_status_'.
   valid_action_ids_.reserve(TotalActionIdCount());
   UpdateValidActions();
-  UpdateTerminalStatus();
 
   LOG_DEBUG(*logger_, "==== Initial Board ====\n" + ToString() + "\n========");
   LOG_DEBUG(*logger_, "==== Initial Model Input ====\n" + CellsToString() + "\n========");
@@ -102,9 +108,10 @@ Board::Hash() const
 
   hash += (active_player_id_ * mulp) ^ (hash >> 23);
 
-  // The active player is not included in the hash because it is
-  // always considered to be the "center". Other player's relative
-  // position and orientation are included in the hash.
+  // The active player's position and orientation are not included in
+  // the hash because it is always considered to be the
+  // "center". Other player's relative position and orientation are
+  // included in the hash.
   //
   // FIXME the order that we visit players should not matter here so
   // once we support more than 2 players we should sort based on
@@ -129,9 +136,10 @@ Board::Equal(const State* other) const
 
   const Board* ob = static_cast<const Board*>(other);
 
-  // The active player is not included in the equality because it is
-  // always considered to be the "center". Other player's relative
-  // position and orientation are included in the equality.
+  // The active player's position and orientation are not included in
+  // the hash because it is always considered to be the
+  // "center". Other player's relative position and orientation are
+  // included in the equality.
   //
   // FIXME the order that we visit players should not matter here so
   // once we support more than 2 players we should sort based on
@@ -207,26 +215,25 @@ Board::Update(uint64_t action_id)
   // Update the board for the new active player.
   //
   // 1) convert non-active players to absolute coordinates, 2) if all
-  // players have selected and action then move all the players, 3)
-  // determine the new active player, 4) convert non-active players to
-  // relative coordinates.
+  // players have selected an action then move all the players
+  // simultaneously, 3) determine the new active player, 4) convert
+  // non-active players to relative coordinates.
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
-      RelativePositionToAbsolute(player_positions_[idx], player_orientations_[idx]);
+      RelativePositionToAbsolute(
+        player_positions_[active_player_id_], player_orientations_[active_player_id_],
+        player_positions_[idx], player_orientations_[idx]);
     }
   }
 
   if (player_actions_.size() == PLAYER_COUNT) {
-#ifndef NDEBUG
-    const auto prev_player_positions = player_positions_;
-    const auto prev_player_orientations = player_orientations_;
-#endif
+    const auto player_prev_positions = player_positions_;
+    const auto player_prev_orientations = player_orientations_;
 
     for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
       const auto& pr = player_actions_[idx];
       ApplyActionToAbsolutePlayer(pr.first, pr.second);
     }
-    player_actions_.clear();
 
 #ifndef NDEBUG
     LOG_DEBUG(*logger_, "-- Post Move --");
@@ -238,12 +245,18 @@ Board::Update(uint64_t action_id)
         *logger_,
         players_[pidx]->Name() + " (p" + std::to_string(pidx) + "), " +
         "moved " + ActionIdToString(action_id) + ", " +
-        "abs position [" + prev_player_positions[pidx].ToString() + "] " +
-        BiplaneOrientationToShortString(prev_player_orientations[pidx]) + " -> " +
+        "abs position [" + player_prev_positions[pidx].ToString() + "] " +
+        BiplaneOrientationToShortString(player_prev_orientations[pidx]) + " -> " +
         "[" + player_positions_[pidx].ToString() + "] " +
         BiplaneOrientationToShortString(player_orientations_[pidx]));
     }
 #endif
+
+    // Board state changed so update terminal status using absolute
+    // positions.
+    UpdateTerminalStatus(player_prev_positions, player_prev_orientations);
+
+    player_actions_.clear();
   }
 
   // For now we just make the next player the active player. Update
@@ -253,7 +266,9 @@ Board::Update(uint64_t action_id)
 
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
-      AbsolutePositionToRelative(player_positions_[idx], player_orientations_[idx]);
+      AbsolutePositionToRelative(
+        player_positions_[active_player_id_], player_orientations_[active_player_id_],
+        player_positions_[idx], player_orientations_[idx]);
     }
   }
 
@@ -261,8 +276,6 @@ Board::Update(uint64_t action_id)
   UpdateCellPlanes();
 
   LOG_DEBUG(*logger_, "==== Next Player Model Input ====\n" + CellsToString() + "\n========");
-
-  UpdateTerminalStatus();
 }
 
 bool
@@ -444,20 +457,69 @@ Board::UpdateValidActions()
 }
 
 void
-Board::UpdateTerminalStatus()
+Board::UpdateTerminalStatus(
+  const cifre::array<MatrixCoordinate, PLAYER_COUNT>& player_prev_positions,
+  const cifre::array<BiplaneOrientation, PLAYER_COUNT>& player_prev_orientations)
 {
-  // Check winning conditions and set 'terminal_status_'.
+  // Check winning conditions and set 'terminal_status_'. Player
+  // positions and orientations are assumed to be absolute.
 
-  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
-    if (idx != active_player_id_) {
+  // Compare pairs of players...
+  for (size_t i0 = 0; i0 < PLAYER_COUNT; ++i0) {
+    const auto& pr0 = player_actions_[i0];
+    const size_t idx0 = pr0.first;
+    for (size_t i1 = (i0 + 1); i1 < PLAYER_COUNT; ++i1) {
+      const auto& pr1 = player_actions_[i1];
+      const size_t idx1 = pr1.first;
+
+      // Determine relative distance from 'pr0' to 'pr1'. If it
+      // exceeds max distance then the planes are out-of-range and the
+      // game is over. Use the previous position of the planes to
+      // determine which player caused the planes to move
+      // out-of-range. That player is the loser.
+      MatrixCoordinate rpos1 = player_positions_[idx1];
+      BiplaneOrientation rorient1 = player_orientations_[idx1];
+      AbsolutePositionToRelative(
+        player_positions_[idx0], player_orientations_[idx0], rpos1, rorient1);
+
       size_t diagonal_count, straight_count;
       BiplaneOrientation diagonal_dir, straight_dir;
-      DecomposeSteps(player_positions_[idx], diagonal_count, diagonal_dir, straight_count, straight_dir);
-
-      // If a player has flown beyond max distance than game is a draw.
+      DecomposeSteps(rpos1, diagonal_count, diagonal_dir, straight_count, straight_dir);
       if ((diagonal_count + straight_count) > max_distance_) {
-        terminal_status_ =
-          cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
+        bool blame_pr0 = false, blame_pr1 = false;
+
+        // Use 'pr0' and then 'pr1' previous positions to see if
+        // either of those result in the planes being in range.
+        MatrixCoordinate rpos1_prev0 = player_positions_[idx1];
+        BiplaneOrientation rorient1_prev0 = player_orientations_[idx1];
+        AbsolutePositionToRelative(
+          player_prev_positions[idx0], player_prev_orientations[idx0],
+          rpos1_prev0, rorient1_prev0);
+        DecomposeSteps(rpos1_prev0, diagonal_count, diagonal_dir, straight_count, straight_dir);
+        blame_pr1 = ((diagonal_count + straight_count) > max_distance_);
+
+        MatrixCoordinate rpos0_prev1 = player_positions_[idx0];
+        BiplaneOrientation rorient0_prev1 = player_orientations_[idx0];
+        AbsolutePositionToRelative(
+          player_prev_positions[idx1], player_prev_orientations[idx1],
+          rpos0_prev1, rorient0_prev1);
+        DecomposeSteps(rpos0_prev1, diagonal_count, diagonal_dir, straight_count, straight_dir);
+        blame_pr0 = ((diagonal_count + straight_count) > max_distance_);
+
+        if (blame_pr0 && !blame_pr1) {
+          terminal_status_ =
+            cifre::StateTerminalStatus(
+              cifre::StateTerminalStatus::TerminalKind::WINNER, idx1);
+        }
+        else if (blame_pr1 && !blame_pr0) {
+          terminal_status_ =
+            cifre::StateTerminalStatus(
+              cifre::StateTerminalStatus::TerminalKind::WINNER, idx0);
+        }
+        else {
+          terminal_status_ =
+            cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
+        }
         return;
       }
 
@@ -529,24 +591,28 @@ Board::ApplyActionToAbsolutePlayer(const size_t player_id, const uint64_t action
 }
 
 void
-Board::RelativePositionToAbsolute(MatrixCoordinate& pos, BiplaneOrientation& orient) const
+Board::RelativePositionToAbsolute(
+  const MatrixCoordinate& center_pos, const BiplaneOrientation& center_orient,
+  MatrixCoordinate& pos, BiplaneOrientation& orient) const
 {
   // The clockwise rotation required for 'pos'ition and 'orient'ation
-  // is the absolute orientation of the active player.
-  const BiplaneOrientation rot = player_orientations_[active_player_id_];
+  // is the absolute orientation of 'center_orient'.
+  const BiplaneOrientation rot = center_orient;
   const MatrixCoordinate rel_rot = RotatePosition(pos, size_t(rot));
   orient = BiplaneOrientation((size_t(orient) + size_t(rot)) % NUM_PLANE_ORIENTATIONS);
-  pos = player_positions_[active_player_id_] + rel_rot;
+  pos = center_pos + rel_rot;
 }
 
 void
-Board::AbsolutePositionToRelative(MatrixCoordinate& pos, BiplaneOrientation& orient) const
+Board::AbsolutePositionToRelative(
+  const MatrixCoordinate& center_pos, const BiplaneOrientation& center_orient,
+  MatrixCoordinate& pos, BiplaneOrientation& orient) const
 {
   // The counter-clockwise rotation required for 'pos'ition and
-  // 'orient'ation is the absolute orientation of the active player.
+  // 'orient'ation is the absolute orientation of 'center_orient'.
   const BiplaneOrientation rot =
-    BiplaneOrientation(NUM_PLANE_ORIENTATIONS - size_t(player_orientations_[active_player_id_]));
-  const MatrixCoordinate rel_rot = RotatePosition(pos - player_positions_[active_player_id_], size_t(rot));
+    BiplaneOrientation(NUM_PLANE_ORIENTATIONS - size_t(center_orient));
+  const MatrixCoordinate rel_rot = RotatePosition(pos - center_pos, size_t(rot));
   orient = BiplaneOrientation((size_t(orient) + size_t(rot)) % NUM_PLANE_ORIENTATIONS);
   pos = rel_rot;
 }
