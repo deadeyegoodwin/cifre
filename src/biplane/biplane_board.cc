@@ -120,8 +120,9 @@ Board::Hash() const
     if (idx != active_player_id_) {
       hash += MatrixCoordinateHash()(player_positions_[idx]) ^ (hash >> 23);
       hash += (size_t(player_orientations_[idx]) * mulp) ^ (hash >> 23);
-      hash += (size_t(player_advantages_[idx]) * mulp) ^ (hash >> 23);
     }
+
+    hash += (size_t(player_advantages_[idx]) * mulp) ^ (hash >> 23);
   }
 
   return hash ^ (hash << 37);
@@ -147,10 +148,12 @@ Board::Equal(const State* other) const
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
       if ((player_positions_[idx] != ob->player_positions_[idx]) ||
-          (player_orientations_[idx] != ob->player_orientations_[idx]) ||
-          (player_advantages_[idx] != ob->player_advantages_[idx])) {
+          (player_orientations_[idx] != ob->player_orientations_[idx])) {
         return false;
       }
+    }
+    if (player_advantages_[idx] != ob->player_advantages_[idx]) {
+      return false;
     }
   }
 
@@ -520,8 +523,22 @@ Board::UpdateTerminalStatus(
               cifre::StateTerminalStatus::TerminalKind::WINNER, idx0);
         }
         else {
-          terminal_status_ =
-            cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
+          // Both players are responsible for flying out of range, if
+          // one player has an advantage then the player they have the advantage on is the winner.
+          if ((player_advantages_[idx0] == idx1) && (player_advantages_[idx1] != idx0)) {
+            terminal_status_ =
+              cifre::StateTerminalStatus(
+                cifre::StateTerminalStatus::TerminalKind::WINNER, idx1);
+          }
+          else if ((player_advantages_[idx1] == idx0) && (player_advantages_[idx0] != idx1)) {
+            terminal_status_ =
+              cifre::StateTerminalStatus(
+                cifre::StateTerminalStatus::TerminalKind::WINNER, idx0);
+          }
+          else {
+            terminal_status_ =
+              cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
+          }
         }
         return;
       }
