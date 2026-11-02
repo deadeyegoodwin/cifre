@@ -294,7 +294,7 @@ def main():
             'num_rows' : nnet_shape[0],
             'num_cols' : nnet_shape[1],
             'num_residual_blocks' : 5,
-            'num_actions' : 10, # see biplane::action::TOTAL_ACTIONID_COUNT
+            'num_actions' : 18, # see biplane::action::TOTAL_ACTIONID_COUNT
             'dropout' : 0.25,
             'num_channels' : 128 }
         nnet = CifreResidualConvNNet(nnet_args)

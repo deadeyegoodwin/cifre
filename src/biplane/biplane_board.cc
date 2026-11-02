@@ -46,7 +46,7 @@ Board::Board(
     if (idx == active_player_id_) {
       player_positions_[idx] = MatrixCoordinate(0, 0);
       player_orientations_[idx] = BiplaneOrientation::NORTH;
-      player_advantages_[idx] = ((idx == 0) ? 1 : 0); // FIXME
+      player_advantages_[idx] = NoPlayerId(); //((idx == 0) ? 1 : 0); // FIXME
     }
     else {
       player_positions_[idx] = MatrixCoordinate(max_distance_ - 1, max_distance_ - 2);

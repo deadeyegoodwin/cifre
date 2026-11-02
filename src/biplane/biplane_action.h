@@ -8,7 +8,7 @@
 
 namespace cifre { namespace biplane {
 
-static constexpr size_t TOTAL_ACTIONID_COUNT = 10;
+static constexpr size_t TOTAL_ACTIONID_COUNT = 18;
 
 // Return string representation of an action-id.
 std::string ActionIdToString(uint64_t aid);

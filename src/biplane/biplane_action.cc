@@ -13,12 +13,21 @@ const std::array<std::tuple<std::string, MatrixCoordinate, int64_t>,
   { std::string("SLOW-STRAIGHT"), {1, 0}, 0 },
   { std::string("SLOW-45-LEFT"), {1, -1}, -1 },
   { std::string("SLOW-45-RIGHT"), {1, 1}, 1 },
+  { std::string("SLOW-90-LEFT"), {1, -1}, -2 },
+  { std::string("SLOW-90-RIGHT"), {1, 1}, 2 },
   { std::string("SLOW-135-LEFT"), {1, -1}, -3 },
   { std::string("SLOW-135-RIGHT"), {1, 1}, 3 },
+
+  { std::string("SLOW-45-LSLIP"), {1, 0}, -1 },
+  { std::string("SLOW-45-RSLIP"), {1, 0}, 1 },
+  { std::string("SLOW-90-LSLIP"), {1, 0}, -2 },
+  { std::string("SLOW-90-RSLIP"), {1, 0}, 2 },
 
   { std::string("MED-STRAIGHT"), {2, 0}, 0 },
   { std::string("MED-45-LEFT"), {2, -1}, -1 },
   { std::string("MED-45-RIGHT"), {2, 1}, 1 },
+  { std::string("MED-90-LEFT"), {2, -1}, -2 },
+  { std::string("MED-90-RIGHT"), {2, 1}, 2 },
   { std::string("MED-135-LEFT"), {2, -1}, -3 },
   { std::string("MED-135-RIGHT"), {2, 1}, 3 }
 }};
