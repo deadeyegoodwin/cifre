@@ -466,11 +466,9 @@ Board::UpdateTerminalStatus(
 {
   // Check winning conditions and set 'terminal_status_'. Player
   // positions and orientations are assumed to be absolute.
-  cifre::array<size_t, PLAYER_COUNT> hits;
-  std::fill(hits.begin(), hits.end(), PLAYER_COUNT);
 
   // Compare pairs of players...
-  for (size_t idx0 = 0; idx0 < PLAYER_COUNT; ++idx0) {
+  for (size_t idx0 = 0; idx0 < (PLAYER_COUNT - 1); ++idx0) {
     for (size_t idx1 = (idx0 + 1); idx1 < PLAYER_COUNT; ++idx1) {
       // Determine relative distance from 'idx0' to 'idx1'.
       MatrixCoordinate rpos1 = player_positions_[idx1];
@@ -481,11 +479,6 @@ Board::UpdateTerminalStatus(
       size_t diagonal_count, straight_count;
       BiplaneOrientation diagonal_dir, straight_dir;
       DecomposeSteps(rpos1, diagonal_count, diagonal_dir, straight_count, straight_dir);
-
-      // Record if 'idx1' is getting hit by 'idx0'.
-      if ((diagonal_count == 0) && (straight_count != 0) && (straight_dir == BiplaneOrientation::NORTH)) {
-        hits[idx0] = idx1;
-      }
 
       // If relative distance exceeds max distance then the planes are
       // out-of-range and the game is over. Use the previous position
@@ -541,6 +534,32 @@ Board::UpdateTerminalStatus(
           }
         }
         return;
+      }
+    }
+  }
+
+  // Planes are still in playing area, check for hits.
+  cifre::array<size_t, PLAYER_COUNT> hits;
+  std::fill(hits.begin(), hits.end(), PLAYER_COUNT);
+
+  for (size_t idx0 = 0; idx0 < PLAYER_COUNT; ++idx0) {
+    for (size_t idx1 = 0; idx1 < PLAYER_COUNT; ++idx1) {
+      if (idx0 == idx1) {
+        continue;
+      }
+
+      MatrixCoordinate rpos = player_positions_[idx1];
+      BiplaneOrientation rorient = player_orientations_[idx1];
+      AbsolutePositionToRelative(
+        player_positions_[idx0], player_orientations_[idx0], rpos, rorient);
+
+      size_t diagonal_count, straight_count;
+      BiplaneOrientation diagonal_dir, straight_dir;
+      DecomposeSteps(rpos, diagonal_count, diagonal_dir, straight_count, straight_dir);
+
+      // Record if 'idx1' is getting hit by 'idx0'.
+      if ((diagonal_count == 0) && (straight_count != 0) && (straight_dir == BiplaneOrientation::NORTH)) {
+        hits[idx0] = idx1;
       }
     }
   }
