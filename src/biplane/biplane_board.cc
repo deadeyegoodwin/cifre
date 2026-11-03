@@ -715,9 +715,24 @@ BiplaneScenarioToString(BiplaneScenario scenario)
 {
   switch (scenario) {
   case BiplaneScenario::RANDOM: return "RANDOM";
+  case BiplaneScenario::EQUAL_1V1: return "EQUAL_1V1";
   }
 
   return "<unknown>";
+}
+
+BiplaneScenario
+StringToBiplaneScenario(const std::string& str)
+{
+  std::string lstr(str);
+  common::ToUpper(lstr);
+  for (size_t idx = 0; idx < NUM_BIPLANE_SCENARIOS; ++idx) {
+    if (lstr == BiplaneScenarioToString(BiplaneScenario(idx))) {
+      return BiplaneScenario(idx);
+    }
+  }
+
+  return BIPLANE_SCENARIO_UNKNOWN;
 }
 
 void
@@ -736,7 +751,24 @@ Board::InitializeScenario(BiplaneScenario scenario)
         player_orientations_[idx] = BiplaneOrientation(rand(size_t(0), NUM_PLANE_ORIENTATIONS - 1));
         player_advantages_[idx] = NoPlayerId();
       }
-    } break;
+    }
+    break;
+
+    // 1v1 planes starting in neutral position relative to each other.
+    case BiplaneScenario::EQUAL_1V1: {
+      for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+        if (idx == active_player_id_) {
+          player_positions_[idx] = MatrixCoordinate(0, 0);
+          player_orientations_[idx] = BiplaneOrientation::NORTH;
+        }
+        else {
+          player_positions_[idx] = MatrixCoordinate(max_distance_ - 1, max_distance_ - 1);
+          player_orientations_[idx] = BiplaneOrientation::WEST;
+        }
+        player_advantages_[idx] = NoPlayerId();
+      }
+    }
+    break;
   }
 }
 

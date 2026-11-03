@@ -62,12 +62,18 @@ std::string BiplaneOrientationToShortRelativeString(BiplaneOrientation po);
 
 // Biplane scenarios.
 enum class BiplaneScenario {
-  RANDOM = 0
+  RANDOM = 0,
+  EQUAL_1V1 = 1
 };
-static constexpr size_t NUM_BIPLANE_SCENARIOS = 1;
+static constexpr size_t NUM_BIPLANE_SCENARIOS = 2;
+static constexpr BiplaneScenario BIPLANE_SCENARIO_UNKNOWN = BiplaneScenario(NUM_BIPLANE_SCENARIOS);
 
 // Return the string representation of an scenario.
 std::string BiplaneScenarioToString(BiplaneScenario scenario);
+
+// Return the scenerio corresponding to name 'str'. Return
+// BIPLANE_SCENARIO_UNKNOWN if 'str' does not name a known scenario.
+BiplaneScenario StringToBiplaneScenario(const std::string& str);
 
 
 //

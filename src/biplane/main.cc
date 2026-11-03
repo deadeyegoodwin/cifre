@@ -57,17 +57,20 @@ public:
 private:
   GameOption::OptionId OPTION_GAME_SHAPE;
   GameOption::OptionId OPTION_MAX_TURNS_PER_GAME;
+  GameOption::OptionId OPTION_SCENARIO;
 
   cifre::MatrixSize game_shape_;
   size_t game_max_distance_;
+  BiplaneScenario scenario_;
 };
 
 Biplane::Biplane()
-  : cifre::Game(), game_max_distance_(DEFAULT_MAX_DISTANCE)
+  : cifre::Game(), game_max_distance_(DEFAULT_MAX_DISTANCE), scenario_(BiplaneScenario::RANDOM)
 {
   cifre::GameOption::OptionId custom_id = cifre::Game::FirstCustomOptionId;
   OPTION_GAME_SHAPE = custom_id++;
   OPTION_MAX_TURNS_PER_GAME = custom_id++;
+  OPTION_SCENARIO = custom_id++;
 
   // Set game-dependent options that are declared in cifre::Game
   max_turns_per_game_ = DEFAULT_MAX_TURNS_PER_GAME;
@@ -82,7 +85,9 @@ Biplane::CustomGameOptions() const
      "Maximum distance that planes can be separated and remain on the " + Name() + " board."},
     {OPTION_MAX_TURNS_PER_GAME, "max-turns-per-game", GameOption::ArgInt,
      "Maximum number of turns allowed per game. One turn consists of each "
-     "player having a chance to move."}};
+     "player having a chance to move."},
+    {OPTION_SCENARIO, "scenario", GameOption::ArgStr,
+     "Scenario to play, default is RANDOM."}};
 
   return custom;
 }
@@ -106,6 +111,11 @@ Biplane::ParseCustomOption(const GameOption& opt, const std::string& arg_str)
   }
   else if (opt.Id() == OPTION_MAX_TURNS_PER_GAME) {
     max_turns_per_game_ = cifre::GameOption::ParseUnsigned(opt, arg_str, 1 /* min */);
+  }
+  else if (opt.Id() == OPTION_SCENARIO) {
+    scenario_ = StringToBiplaneScenario(arg_str);
+    GameCheckTrueMsg(scenario_ != BIPLANE_SCENARIO_UNKNOWN,
+                     Name() + " board scenario unknown: " + arg_str);
   }
   else {
     return false;
@@ -175,7 +185,7 @@ Biplane::CreateInitialState(
   return StateUniquePtr(
     new Board(
       logger_, game_max_distance_, players, starting_player_idx,
-      BiplaneScenario::RANDOM, std::pmr::new_delete_resource()),
+      scenario_, std::pmr::new_delete_resource()),
     StateDeleterNewDelete<Board>());
 }
 
