@@ -9,6 +9,7 @@
 
 #include "biplane_board.h"
 #include "common_error.h"
+#include "common_random.h"
 #include "common_util.h"
 
 namespace cifre { namespace biplane {
@@ -19,7 +20,8 @@ namespace cifre { namespace biplane {
 Board::Board(
   const std::shared_ptr<Logger>& logger,
   const size_t max_distance, const std::vector<Player*>& players,
-  size_t starting_player_id, std::pmr::memory_resource* arena) :
+  size_t starting_player_id, BiplaneScenario scenario,
+  std::pmr::memory_resource* arena) :
   logger_(logger), max_distance_(max_distance),
   visible_2d_size_((max_distance * 2) + 1, (max_distance * 2) + 1),
   active_player_id_(starting_player_id),
@@ -36,29 +38,28 @@ Board::Board(
   THROWIF(active_player_id_ >= NoPlayerId(),
           "invalid starting player index " + std::to_string(active_player_id_));
 
-  // Set players initial absolution position and orientation.
-  //
-  // For now we set up a scenario where the starting player has an
-  // advantage over the other player. FIXME this needs to be fixed
-  // once more than 2 players are supported.
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     players_[idx] = players[idx];
-    if (idx == active_player_id_) {
-      player_positions_[idx] = MatrixCoordinate(0, 0);
-      player_orientations_[idx] = BiplaneOrientation::NORTH;
-      player_advantages_[idx] = NoPlayerId(); //((idx == 0) ? 1 : 0); // FIXME
-    }
-    else {
-      player_positions_[idx] = MatrixCoordinate(max_distance_ - 1, max_distance_ - 2);
-      player_orientations_[idx] = BiplaneOrientation::NORTH_EAST;
-      player_advantages_[idx] = NoPlayerId();
+  }
+
+  // Set players initial absolute positions, orientations, etc. based
+  // on the chosen 'scenario'.
+  while (true) {
+    InitializeScenario(scenario);
+
+    // Update terminal status for the initial position using absolute
+    // positions/orientations. Use the initial position/orientation as
+    // the previous position/orientation as well.
+    terminal_status_ = cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL;
+    UpdateTerminalStatus(player_positions_, player_orientations_);
+    if ((scenario != BiplaneScenario::RANDOM) ||
+        (terminal_status_.Kind() == cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL)) {
+      break;
     }
   }
 
-  // The terminal status for the initial positions is assumed to be
-  // NON_TERMINAL, because calculating terminal status requires the
-  // previous positions/orientations and the previous moves..
-  terminal_status_ = cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL;
+  THROWIF(terminal_status_.Kind() != cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
+          "scenario initial state is a game ending position");
 
   // Convert non-active players to relative...
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
@@ -80,7 +81,7 @@ Board::Board(
   cells_ = reinterpret_cast<float*>(cells_flattened_.data());
   UpdateCellPlanes();
 
-  // Initialize 'valid_action_ids_' and 'terminal_status_'.
+  // Initialize 'valid_action_ids_' based on the initial state.
   valid_action_ids_.reserve(TotalActionIdCount());
   UpdateValidActions();
 
@@ -465,7 +466,10 @@ Board::UpdateTerminalStatus(
   const cifre::array<BiplaneOrientation, PLAYER_COUNT>& player_prev_orientations)
 {
   // Check winning conditions and set 'terminal_status_'. Player
-  // positions and orientations are assumed to be absolute.
+  // positions and orientations are assumed to be absolute
+  // ('player_positions_' and 'player_orientations_)' and
+  // 'player_prev_orientations' and 'player_prev_orientations' must
+  // also be absolute.
 
   // Compare pairs of players...
   for (size_t idx0 = 0; idx0 < (PLAYER_COUNT - 1); ++idx0) {
@@ -533,6 +537,7 @@ Board::UpdateTerminalStatus(
               cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
           }
         }
+
         return;
       }
     }
@@ -589,7 +594,7 @@ Board::UpdateTerminalStatus(
   // Otherwise make sure the terminal status is NON_TERMINAL.
   THROWIF(
     terminal_status_.Kind() != cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
-    "expected NON_TERMINAL status");
+    "expected NON_TERMINAL status, got " + terminal_status_.ToString());
 }
 
 void
@@ -704,6 +709,37 @@ Board::ValidateCellPlane(const size_t pidx, const float v) const
 
   return true;
 }
+
+std::string
+BiplaneScenarioToString(BiplaneScenario scenario)
+{
+  switch (scenario) {
+  case BiplaneScenario::RANDOM: return "RANDOM";
+  }
+
+  return "<unknown>";
+}
+
+void
+Board::InitializeScenario(BiplaneScenario scenario)
+{
+  static common::Random rand;
+
+  switch (scenario) {
+    // Position and orientation random for each player. For now never
+    // set any advantage.
+    case BiplaneScenario::RANDOM: {
+      for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+        player_positions_[idx] =
+          MatrixCoordinate(rand(size_t(0), visible_2d_size_.RowCount() - 1),
+                           rand(size_t(0), visible_2d_size_.ColumnCount() - 1));
+        player_orientations_[idx] = BiplaneOrientation(rand(size_t(0), NUM_PLANE_ORIENTATIONS - 1));
+        player_advantages_[idx] = NoPlayerId();
+      }
+    } break;
+  }
+}
+
 
 namespace {
 

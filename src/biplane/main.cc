@@ -175,7 +175,7 @@ Biplane::CreateInitialState(
   return StateUniquePtr(
     new Board(
       logger_, game_max_distance_, players, starting_player_idx,
-      std::pmr::new_delete_resource()),
+      BiplaneScenario::RANDOM, std::pmr::new_delete_resource()),
     StateDeleterNewDelete<Board>());
 }
 

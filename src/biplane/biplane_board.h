@@ -60,6 +60,16 @@ std::string BiplaneOrientationToShortString(BiplaneOrientation po);
 // they are relative to a north-oriented board.
 std::string BiplaneOrientationToShortRelativeString(BiplaneOrientation po);
 
+// Biplane scenarios.
+enum class BiplaneScenario {
+  RANDOM = 0
+};
+static constexpr size_t NUM_BIPLANE_SCENARIOS = 1;
+
+// Return the string representation of an scenario.
+std::string BiplaneScenarioToString(BiplaneScenario scenario);
+
+
 //
 // Board
 //
@@ -97,7 +107,7 @@ public:
   Board(
     const std::shared_ptr<Logger>& logger,
     const size_t max_distance, const std::vector<Player*>& players,
-    size_t starting_player_id, std::pmr::memory_resource* arena);
+    size_t starting_player_id, BiplaneScenario scenario, std::pmr::memory_resource* arena);
 
   // Destructor
   virtual ~Board() = default;
@@ -186,6 +196,7 @@ private:
     return cells_[(pos.Row() * visible_2d_size_.ColumnCount() * CELL_PLANE_COUNT) +
                   (pos.Column() * CELL_PLANE_COUNT) + plane_idx]; }
 
+  void InitializeScenario(BiplaneScenario scenario);
   void UpdateCellPlanes();
   void UpdateValidActions();
   void UpdateTerminalStatus(
