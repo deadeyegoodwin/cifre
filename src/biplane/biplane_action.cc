@@ -7,6 +7,35 @@
 
 namespace cifre { namespace biplane {
 
+#if 0  // set to 1 for debugging actions
+
+const std::array<std::tuple<std::string, MatrixCoordinate, int64_t>,
+                 TOTAL_ACTIONID_COUNT> action_data_ {{
+    // name                       [y, x]  dir
+  { std::string("0"),  {0, 0}, 0 },
+  { std::string("N"),  {1, 0}, 0 },
+  { std::string("NE"), {1, 1}, 0 },
+  { std::string("E"),  {0, 1}, 0 },
+  { std::string("SE"), {-1, 1}, 0 },
+  { std::string("S"),  {-1, 0}, 0 },
+  { std::string("SW"), {-1, -1}, 0 },
+  { std::string("W"),  {0, -1}, 0 },
+  { std::string("NW"), {1, -1}, 0 },
+
+  { std::string("CW"),  {0, 0}, 1 },
+  { std::string("CCW"), {0, 0}, -1 },
+  { std::string(""), {1, 0}, -2 },
+  { std::string(""), {1, 0}, 2 },
+
+  { std::string(""), {2, 0}, 0 },
+  { std::string(""), {2, -1}, -1 },
+  { std::string(""), {2, 1}, 1 },
+  { std::string(""), {2, -1}, -2 },
+  { std::string(""), {2, 1}, 3 }
+}};
+
+#else
+
 const std::array<std::tuple<std::string, MatrixCoordinate, int64_t>,
                  TOTAL_ACTIONID_COUNT> action_data_ {{
     // name                       [y, x]  dir
@@ -31,6 +60,8 @@ const std::array<std::tuple<std::string, MatrixCoordinate, int64_t>,
   { std::string("MED-135-LEFT"), {2, -1}, -3 },
   { std::string("MED-135-RIGHT"), {2, 1}, 3 }
 }};
+
+#endif
 
 std::string
 ActionIdToString(uint64_t aid)
