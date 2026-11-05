@@ -742,12 +742,18 @@ Board::InitializeScenario(BiplaneScenario scenario)
 
   switch (scenario) {
     // Position and orientation random for each player. For now never
-    // set any advantage.
+    // set any advantage. To do this we put the first player at [0,0]
+    // NORTH absolute and then randomly place the other players
+    // around.
     case BiplaneScenario::RANDOM: {
-      for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+      player_positions_[0] = MatrixCoordinate(0, 0);
+      player_orientations_[0] = BiplaneOrientation::NORTH;
+      player_advantages_[0] = NoPlayerId();
+
+      for (size_t idx = 1; idx < PLAYER_COUNT; ++idx) {
         player_positions_[idx] =
-          MatrixCoordinate(rand(size_t(0), visible_2d_size_.RowCount() - 1),
-                           rand(size_t(0), visible_2d_size_.ColumnCount() - 1));
+          MatrixCoordinate(rand(size_t(0), visible_2d_size_.RowCount() - 1) - max_distance_,
+                           rand(size_t(0), visible_2d_size_.ColumnCount() - 1) - max_distance_);
         player_orientations_[idx] = BiplaneOrientation(rand(size_t(0), NUM_PLANE_ORIENTATIONS - 1));
         player_advantages_[idx] = NoPlayerId();
       }
