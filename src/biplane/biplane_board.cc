@@ -663,9 +663,9 @@ Board::RelativePositionToAbsolute(
 {
   // The clockwise rotation required for 'pos'ition and 'orient'ation
   // is the absolute orientation of 'center_orient'.
-  const BiplaneOrientation rot = center_orient;
-  const MatrixCoordinate rel_rot = RotatePosition(pos, size_t(rot));
-  orient = BiplaneOrientation((size_t(orient) + size_t(rot)) % NUM_PLANE_ORIENTATIONS);
+  const size_t rot = size_t(center_orient);
+  const MatrixCoordinate rel_rot = RotatePosition(pos, rot);
+  orient = BiplaneOrientation((size_t(orient) + rot) % NUM_PLANE_ORIENTATIONS);
   pos = center_pos + rel_rot;
 }
 
@@ -676,10 +676,11 @@ Board::AbsolutePositionToRelative(
 {
   // The counter-clockwise rotation required for 'pos'ition and
   // 'orient'ation is the absolute orientation of 'center_orient'.
-  const BiplaneOrientation rot =
-    BiplaneOrientation(NUM_PLANE_ORIENTATIONS - size_t(center_orient));
-  const MatrixCoordinate rel_rot = RotatePosition(pos - center_pos, size_t(rot));
-  orient = BiplaneOrientation((size_t(orient) + size_t(rot)) % NUM_PLANE_ORIENTATIONS);
+  const size_t rot =
+    (center_orient == BiplaneOrientation::NORTH) ? size_t(0) :
+    (NUM_PLANE_ORIENTATIONS - size_t(center_orient));
+  const MatrixCoordinate rel_rot = RotatePosition(pos - center_pos, rot);
+  orient = BiplaneOrientation((size_t(orient) + rot) % NUM_PLANE_ORIENTATIONS);
   pos = rel_rot;
 }
 
