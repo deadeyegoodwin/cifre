@@ -85,8 +85,17 @@ Board::Board(
   valid_action_ids_.reserve(TotalActionIdCount());
   UpdateValidActions();
 
+#ifndef NDEBUG
   LOG_DEBUG(*logger_, "==== Initial Board ====\n" + ToString() + "\n========");
+  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+    LOG_DEBUG(
+      *logger_,
+      players_[idx]->Name() + " (p" + std::to_string(idx) + "), " +
+      "abs position [" + player_positions_[idx].ToString() + "] " +
+      BiplaneOrientationToShortString(player_orientations_[idx]));
+  }
   LOG_DEBUG(*logger_, "==== Initial Model Input ====\n" + CellsToString() + "\n========");
+#endif
 }
 
 Board::Board(const Board& other, std::pmr::memory_resource* arena) :
