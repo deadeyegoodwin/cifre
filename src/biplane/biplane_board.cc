@@ -24,7 +24,7 @@ Board::Board(
   std::pmr::memory_resource* arena) :
   logger_(logger), max_distance_(max_distance),
   visible_2d_size_((max_distance * 2) + 1, (max_distance * 2) + 1),
-  active_player_id_(starting_player_id),
+  player_actions_count_(0), active_player_id_(starting_player_id),
   terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL),
   valid_action_ids_(arena), cells_flattened_(arena)
 {
@@ -102,7 +102,8 @@ Board::Board(const Board& other, std::pmr::memory_resource* arena) :
   logger_(other.logger_), max_distance_(other.max_distance_),
   visible_2d_size_(other.visible_2d_size_), players_(other.players_),
   player_positions_(other.player_positions_), player_orientations_(other.player_orientations_),
-  player_advantages_(other.player_advantages_), player_actions_(other.player_actions_),
+  player_advantages_(other.player_advantages_),
+  player_actions_count_(other.player_actions_count_), player_actions_(other.player_actions_),
   active_player_id_(other.active_player_id_), terminal_status_(other.terminal_status_),
   valid_action_ids_(other.valid_action_ids_.begin(), other.valid_action_ids_.end(), arena),
   cells_flattened_(arena), cells_(nullptr)
@@ -122,6 +123,10 @@ Board::Hash() const
   // the hash because it is always considered to be the
   // "center". Other player's relative position and orientation are
   // included in the hash.
+  //
+  // 'player_actions_' are not included because if doesn't matter what
+  // actions were taken to get to the board state; that doesn't change
+  // the board.
   //
   // FIXME the order that we visit players should not matter here so
   // once we support more than 2 players we should sort based on
@@ -151,6 +156,10 @@ Board::Equal(const State* other) const
   // the hash because it is always considered to be the
   // "center". Other player's relative position and orientation are
   // included in the equality.
+  //
+  // 'player_actions_' are not included because if doesn't matter what
+  // actions were taken to get to the board state; that doesn't change
+  // the board.
   //
   // FIXME the order that we visit players should not matter here so
   // once we support more than 2 players we should sort based on
@@ -208,7 +217,8 @@ Board::Update(uint64_t action_id)
   // The position of players on the board only changes once all
   // players have selected an action and then all those actions are
   // applied simultaneously.
-  player_actions_.push_back(std::make_pair(active_player_id_, action_id));
+  player_actions_[player_actions_count_] = std::make_pair(active_player_id_, action_id);
+  player_actions_count_ += 1;
 
   // Unset the cells on the direction cell planes representing where
   // each opponent biplane is currently at relative to the active
@@ -239,18 +249,18 @@ Board::Update(uint64_t action_id)
     }
   }
 
-  if (player_actions_.size() == PLAYER_COUNT) {
+  if (player_actions_count_ == PLAYER_COUNT) {
     const auto player_prev_positions = player_positions_;
     const auto player_prev_orientations = player_orientations_;
 
-    for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+    for (size_t idx = 0; idx < player_actions_count_; ++idx) {
       const auto& pr = player_actions_[idx];
       ApplyActionToAbsolutePlayer(pr.first, pr.second);
     }
 
 #ifndef NDEBUG
     LOG_DEBUG(*logger_, "-- Post Move --");
-    for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+    for (size_t idx = 0; idx < player_actions_count_; ++idx) {
       const auto& pr = player_actions_[idx];
       const size_t pidx = pr.first;
       const uint64_t action_id = pr.second;
@@ -269,7 +279,7 @@ Board::Update(uint64_t action_id)
     // positions.
     UpdateTerminalStatus(player_prev_positions, player_prev_orientations);
 
-    player_actions_.clear();
+    player_actions_count_ = 0;
   }
 
   // For now we just make the next player the active player. Update

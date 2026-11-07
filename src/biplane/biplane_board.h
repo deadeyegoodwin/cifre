@@ -227,6 +227,16 @@ private:
   MatrixCoordinate RotatePosition(const MatrixCoordinate& pos, const size_t rot) const;
   std::string CellsToString() const;
 
+  //
+  // IMPORTANT MEMORY MANAGEMENT
+  //
+  // See cifre::State. The State interface refers to pmr resources to
+  // enable player algorithms, like AlphaZero, to efficiently manage
+  // memory used for game state. Therefore, if any container class
+  // like std::vector is used that allocates its own memory, the pmr
+  // version of that container class must be used to avoid memory
+  // leaks / corruption.
+
   // Logger for this board.
   std::shared_ptr<Logger> logger_;
 
@@ -237,7 +247,7 @@ private:
   // assumed to be in the center of this visible portion of the board.
   const MatrixSize visible_2d_size_;
 
-  // The players. The player's index in this vector is the player ID.
+  // The players. The player's index in this array is the player ID.
   cifre::array<cifre::Player*, PLAYER_COUNT> players_;
 
   // For each player the position and orientation of the player's
@@ -256,7 +266,8 @@ private:
   // applied simultaneously. As each player selects an action append
   // the [player-id, action-id] pair and then apply them once all are
   // available.
-  std::vector<std::pair<size_t, uint64_t>> player_actions_;
+  size_t player_actions_count_;
+  cifre::array<std::pair<size_t, uint64_t>, PLAYER_COUNT> player_actions_;
 
   // ID of the currently active player.
   size_t active_player_id_;
