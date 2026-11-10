@@ -186,6 +186,11 @@ public:
   // Return the active player.
   Player* ActivePlayer() const { return players_[active_player_id_]; }
 
+  // When an Algo (like AZ) is preparing to search for the next
+  // action, we want the state to not have any knowledge of the prior
+  // players' action selections for this turn.
+  void PrepareForAlgoNextActionId() override { player_actions_count_ = 0; }
+
 private:
   // Don't allow default copy constructor or assignment to force the
   // version above that requires an arena. Don't allow move

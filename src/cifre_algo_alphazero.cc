@@ -114,8 +114,14 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
     assert(dirichlet_samples_.size() == settings_.dirichlet_sample_count_);
   }
 
+  // Make a mutable copy of 'state' that acts as the root of the
+  // search tree. Allow the copy to update itself in preparation for
+  // the search.
+  StateUniquePtr start_state = state.Copy(&nextactionid_arena_);
+  start_state->PrepareForAlgoNextActionId();
+
   // Find, creating if necessary, the tree node that represents 'state'.
-  auto node_itr = FindOrCreateNode(state.Copy(&nextactionid_arena_));
+  auto node_itr = FindOrCreateNode(std::move(start_state));
   auto& node = node_itr->second;
 
   LOG_ALGO_DETAIL(*logger_, "\nalphazero: starting node");

@@ -207,6 +207,11 @@ public:
     uint64_t action_id, std::pmr::memory_resource* arena) const {
     auto nb = Copy(arena); nb->Update(action_id); return nb; }
 
+  // Called by Algos (like AZ) to prepare the state for the algorithms
+  // selection of the next action-id. By default does nothing but
+  // devived classes may override.
+  virtual void PrepareForAlgoNextActionId() { };
+
   // Get the representation of the state suitable for feeding to the
   // nnet via triton. This representation does not need to include all
   // of the state, but must include whatever is required by the model
