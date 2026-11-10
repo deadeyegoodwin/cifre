@@ -82,28 +82,47 @@ BiplaneScenario StringToBiplaneScenario(const std::string& str);
 // The biplane playing board.
 //
 // A specialization of State for biplane games. The "board" is a
-// limitless 2D grid. Each player has an signed integer position on
-// the grid and an orientation (BiplaneOrientation). Players position
+// limitless 2D grid. Each player has an signed integer [y, x]
+// position on the grid and a BiplaneOrientation. Players' position
 // and orientation changes based on the move selected by each player.
 //
 // The model representation of the board uses CELL_PLANE_COUNT planes
 // of a grid of cells. The first CELL_PLANE_DIR_COUNT planes place the
-// opponent player relative to the active player (assumed to be in the
-// center of the grid, e.g. at position [3, 3]) on the plane that
-// represents the orientation of the opponent player relative to the
-// active player (assumed to be facing "up" on the grid). Thus for any
-// position and orientation of the players, the model representation
-// for the active player is always the relative perspective assuming
-// the active player is at center of grid facing "up" (toward negative
-// y). The opponent position and orientation is represented by a
-// CELL_ACTIVE in the appropriate plane and grid position. All other
-// grid positions across all the "direction" planes are CELL_EMPTY.
-
-// Provides a console representation of the opponent relative to the
-// active player.
+// opponent player(s) relative to the active player. The cell planes
+// are sized "max-distance" in all directions around the active player
+// at the center of the grid. For example, with max-distance == 3, the
+// cell planes are 7x7 and the active player is assumed to always be
+// at [3, 3] facing UP with other players placed at their relative
+// positions and orientations around the active player. When referring
+// to absolute orientation we use north, south, etc. and when
+// referring to relative orientations we use up, down, left, etc.
+// Thus for any position and orientation of the players, the model
+// representation for the active player is always the relative
+// perspective assuming the active player is at center of grid facing
+// UP (toward positive y, with positive x going RIGHT). The opponent
+// position and orientation is represented by a CELL_ACTIVE in the
+// appropriate plane and grid position. All other grid positions
+// across all the "direction" planes are CELL_EMPTY.
 //
-// See cifre::State for information about memory management requires
-// classes derived from State.
+// In the Biplane game, each player chooses a move and then those
+// moves are executed simultaneously. This execution model requires
+// special handling because AZ assumes that players alternate turns
+// and from that it builds the game tree and collects data that is
+// used to train the model. The execution model is implemented by
+// maintaining addition 'player_actions_' state that is not shared
+// with AZ or with the model (that is, it is not included in the cell
+// planes). 'player_actions_' keeps track of the actions each player
+// makes (sequentially) and then applies them all at once to the board
+// state after the last player has selected an action.
+// PrepareForAlgoNextActionId() is implemented so that when AZ is
+// starting a search for the next action-ID, the board state at the
+// root of the search tree starts with no player actions.
+//
+// This class also provides a console representation of the opponent
+// relative to the active player.
+//
+// See cifre::State for information about memory management
+// requirements for classes derived from State.
 //
 class Board : public cifre::State {
 public:

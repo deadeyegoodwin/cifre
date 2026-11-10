@@ -118,6 +118,32 @@ using StateUniqueConstPtr = std::unique_ptr<const State, StateDeleterBase>;
 // Interface for game state. State represents all mutable status,
 // properties, etc. of a game. State is assumed to be non-thread-safe.
 //
+// The representation of a state given as input to a model is the
+// FlattenedCells value returned by TritonRepresentation(). A hash and
+// equality function used to compare two states is given by Hash() and
+// Equal() respectively. Hash() and Equal() are used by AZ to build
+// the search tree; they determine when a new node must be created for
+// a given game state or when an existing node should be reused. In
+// general, two game states can be considered identical by the model
+// (because they have identical FlattenedCells representation) but be
+// considered different by AZ because their hash/equal functions
+// differentiate on some values other than what is in FlattenedCells.
+//
+// For many games, all the game state will be encoded in the
+// FlattenedCells representation of the state, and so Hash() and
+// Equal() can be implemented just as hash/equal of FlattenedCells
+// (and also ActivePlayerId for the reason explained below). See
+// cifre::Board2D implementation for an example.  For other games, it
+// can be necessary for hash/equal to include game state that is not
+// presented to the model in FlattenedCells. See biplane_board.h
+// description for an example.
+//
+// The Hash/Equal functions for every game must include ActivePlayerId
+// for AZ to operate correctly.  This is needed so that otherwise
+// identical states that differ only in ActivePlayerId are treated as
+// different nodes by AZ. AZ needs Hash/Equal to have this property to
+// correctly detect turn changes.
+//
 // Memory Management: The State interface refers to pmr resources to
 // enable player algorithms, like AlphaZero, to efficiently manage
 // memory used for game state. An algorithm may use a memory resource

@@ -117,27 +117,34 @@ Board::Hash() const
   constexpr uint64_t mulp = 2654435789;
   uint64_t hash = 104395301;
 
+  // FIXME, for more than PLAYER_COUNT == 2. Specifically how to
+  // cannonically order the hashing. Perhaps need to base the ordering
+  // on relative position to active player so that a board that
+  // differs only in the player ID or the relatively positioned planes
+  // hashes to the same value.
+
+  // Must be included, see cifre::State.
   hash += (active_player_id_ * mulp) ^ (hash >> 23);
 
-  // The active player's position and orientation are not included in
-  // the hash because it is always considered to be the
-  // "center". Other player's relative position and orientation are
-  // included in the hash.
-  //
-  // 'player_actions_' are not included because if doesn't matter what
-  // actions were taken to get to the board state; that doesn't change
-  // the board.
-  //
-  // FIXME the order that we visit players should not matter here so
-  // once we support more than 2 players we should sort based on
-  // relative position.
-  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
-    if (idx != active_player_id_) {
-      hash += MatrixCoordinateHash()(player_positions_[idx]) ^ (hash >> 23);
-      hash += (size_t(player_orientations_[idx]) * mulp) ^ (hash >> 23);
-    }
+  const size_t nonactive_player_id = ((active_player_id_ == 0) ? 1 : 0);
 
-    hash += (size_t(player_advantages_[idx]) * mulp) ^ (hash >> 23);
+  // Include relative position and orientation of every player, except
+  // for the active player. The active player's 'player_positions_'
+  // and 'player_orientations_' are absolute, and relative values of
+  // [0,0] NORTH are the same for every board state so no need to
+  // include them.
+  hash += MatrixCoordinateHash()(player_positions_[nonactive_player_id]) ^ (hash >> 23);
+  hash += (size_t(player_orientations_[nonactive_player_id]) * mulp) ^ (hash >> 23);
+
+  // Include advantage state of every player.
+  hash += (size_t(player_advantages_[active_player_id_]) * mulp) ^ (hash >> 23);
+  hash += (size_t(player_advantages_[nonactive_player_id]) * mulp) ^ (hash >> 23);
+
+  // 'player_actions_' are included so that AZ can differentiate
+  // outcomes based on what the "other" player did. See description in
+  // biplane_board.h.
+  if (player_actions_count_ > 0) {
+    hash += (player_actions_[0].second * mulp) ^ (hash >> 23);
   }
 
   return hash ^ (hash << 37);
@@ -146,34 +153,29 @@ Board::Hash() const
 bool
 Board::Equal(const State* other) const
 {
+  // Must be included, see cifre::State.
   if (active_player_id_ != other->ActivePlayerId()) {
     return false;
   }
 
   const Board* ob = static_cast<const Board*>(other);
 
-  // The active player's position and orientation are not included in
-  // the hash because it is always considered to be the
-  // "center". Other player's relative position and orientation are
-  // included in the equality.
-  //
-  // 'player_actions_' are not included because if doesn't matter what
-  // actions were taken to get to the board state; that doesn't change
-  // the board.
-  //
-  // FIXME the order that we visit players should not matter here so
-  // once we support more than 2 players we should sort based on
-  // relative position.
-  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
-    if (idx != active_player_id_) {
-      if ((player_positions_[idx] != ob->player_positions_[idx]) ||
-          (player_orientations_[idx] != ob->player_orientations_[idx])) {
-        return false;
-      }
-    }
-    if (player_advantages_[idx] != ob->player_advantages_[idx]) {
-      return false;
-    }
+  // See comment in Board::Hash().
+  const size_t nonactive_player_id = ((active_player_id_ == 0) ? 1 : 0);
+
+  if ((player_positions_[nonactive_player_id] != ob->player_positions_[nonactive_player_id]) ||
+      (player_orientations_[nonactive_player_id] != ob->player_orientations_[nonactive_player_id])) {
+    return false;
+  }
+
+  if ((player_advantages_[active_player_id_] != ob->player_advantages_[active_player_id_]) ||
+      (player_advantages_[nonactive_player_id] != ob->player_advantages_[nonactive_player_id])) {
+    return false;
+  }
+
+  if ((player_actions_count_ != ob->player_actions_count_) ||
+      (player_actions_[0] != ob->player_actions_[0])) {
+    return false;
   }
 
   return true;
