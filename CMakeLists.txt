@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.18)
 project(
   cifre
   LANGUAGES CXX
-  VERSION 0.1
+  VERSION 1.0
 )
 
 include(CMakeDependentOption)

@@ -193,6 +193,7 @@ public:
   // options with Game::FirstCustomOptionId.
   enum BuiltInOptionId {
     OPTION_HELP = GameOption::OptionId(0),
+    OPTION_VERSION,
     OPTION_QUIET,
     OPTION_VERBOSE,
     OPTION_LOG_FILE,

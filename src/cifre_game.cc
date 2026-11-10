@@ -306,6 +306,7 @@ Game::Game() :
 {
   game_options_ = {
     {BuiltInOptionId::OPTION_HELP, "help", GameOption::ArgNone, "Print usage"},
+    {BuiltInOptionId::OPTION_VERSION, "version", GameOption::ArgNone, "Print version"},
 
     {BuiltInOptionId::OPTION_QUIET, "quiet", GameOption::ArgNone,
      "Disable all logging."},
@@ -435,7 +436,10 @@ Game::Parse(int argc, char **argv)
     case BuiltInOptionId::OPTION_HELP:
     case '?':
       std::cout << Usage() << std::endl;
-      exit(1);
+      exit(0);
+    case BuiltInOptionId::OPTION_VERSION:
+      std::cout << cifre::VersionToString(false /* show_dependent_versions */) << std::endl;
+      exit(0);
     case BuiltInOptionId::OPTION_LOG_FILE:
       log_filename = optarg;
       break;
@@ -546,6 +550,7 @@ Game::Parse(int argc, char **argv)
     const GameOption& game_option = OptionIdToOption(flag);
     switch (flag) {
     case BuiltInOptionId::OPTION_HELP:
+    case BuiltInOptionId::OPTION_VERSION:
     case BuiltInOptionId::OPTION_QUIET:
     case BuiltInOptionId::OPTION_VERBOSE:
     case BuiltInOptionId::OPTION_LOG_DEBUG:
