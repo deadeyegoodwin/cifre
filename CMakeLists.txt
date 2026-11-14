@@ -45,11 +45,18 @@ FetchContent_MakeAvailable(repo-common)
 #
 # Triton client
 #
+find_package(CURL REQUIRED)
+find_package(ZLIB REQUIRED)
+
 set(TRITON_CLIENT_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/repo-triton-client-build/cc-clients/install)
 set(TRITON_CLIENT_SRC_DIR ${CMAKE_BINARY_DIR}/_deps/repo-triton-client-src/src/c++/library)
 
 if(BUILD_TRITON_CLIENT)
-  set(TRITON_ENABLE_CC_HTTP ON)
+  set(TRITON_ENABLE_CC_HTTP ON CACHE BOOL "" FORCE)
+  set(TRITON_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+  set(TRITON_COMMON_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+  set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+
   set(TRITON_COMMON_REPO_TAG ${TRITON_REPO_TAG})
   set(TRITON_THIRD_PARTY_REPO_TAG ${TRITON_REPO_TAG})
   set(TRITON_CORE_REPO_TAG ${TRITON_REPO_TAG})
@@ -63,17 +70,15 @@ if(BUILD_TRITON_CLIENT)
     GIT_REPOSITORY https://github.com/triton-inference-server/client.git
     GIT_TAG ${TRITON_REPO_TAG}
     GIT_SHALLOW ON
+    EXCLUDE_FROM_ALL
     PATCH_COMMAND ${TRITON_CLIENT_PATCH}
     UPDATE_DISCONNECTED 1
   )
   FetchContent_MakeAvailable(repo-triton-client)
 
-  set(TRITON_CURL_LIBDIR ${CMAKE_BINARY_DIR}/_deps/repo-triton-client-build/third-party/curl/lib)
-
   add_custom_target(
     triton-client-target
     COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/lib/libhttpclient_static.a ${CIFRE_INSTALL_PREFIX}/lib/.
-    COMMAND cp -r ${TRITON_CURL_LIBDIR}/libcurl.a ${CIFRE_INSTALL_PREFIX}/lib/.
     COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/common.h ${CIFRE_INSTALL_PREFIX}/include/.
     COMMAND cp -r ${TRITON_CLIENT_INSTALL_DIR}/include/ipc.h ${CIFRE_INSTALL_PREFIX}/include/.
     COMMAND cp -r ${TRITON_CLIENT_SRC_DIR}/json_utils.h ${CIFRE_INSTALL_PREFIX}/include/.
@@ -82,13 +87,6 @@ if(BUILD_TRITON_CLIENT)
   )
   add_dependencies(triton-client-target cc-clients)
 endif(BUILD_TRITON_CLIENT)
-
-add_library(triton-client-curl-library STATIC IMPORTED GLOBAL)
-set_target_properties(
-  triton-client-curl-library
-  PROPERTIES
-    IMPORTED_LOCATION ${CIFRE_INSTALL_PREFIX}/lib/libcurl.a
-)
 
 add_library(triton-client-http-library STATIC IMPORTED GLOBAL)
 set_target_properties(
@@ -126,10 +124,8 @@ target_link_libraries(
   INTERFACE
     triton-client-http-library
     triton-client-json-utils-library
-    triton-client-curl-library
-    ssl
-    crypto
-    z
+    CURL::libcurl
+    ZLIB::ZLIB
 )
 
 if(BUILD_TRITON_CLIENT)

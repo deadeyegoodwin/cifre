@@ -85,7 +85,7 @@ private:
 template <typename T>
 class StateDeleterNewDelete : public StateDeleterBase {
 public:
-  StateDeleterNewDelete<T>() : StateDeleterBase(Deleter, nullptr) { }
+  StateDeleterNewDelete() : StateDeleterBase(Deleter, nullptr) { }
 private:
   static void Deleter(void* ptr, void* payload) {
     if (ptr != nullptr) {
@@ -97,7 +97,7 @@ private:
 template <typename T>
 class StateDeleter : public StateDeleterBase {
 public:
-  StateDeleter<T>(std::pmr::memory_resource* arena) :
+  StateDeleter(std::pmr::memory_resource* arena) :
     StateDeleterBase(Deleter, arena) { }
 private:
   static void Deleter(void* ptr, void* payload) {
