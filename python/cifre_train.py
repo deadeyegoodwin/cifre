@@ -245,6 +245,9 @@ def main():
         for f in vars(FLAGS):
             LOG.log_verbose(f'\t{f}: {vars(FLAGS)[f]}')
 
+    nnet_train = None
+    nnet_export = None
+
     # FIXME Should get default game shape, number actions from game
     # executable using --report-file.
     if FLAGS.game == 'connect4':
@@ -262,7 +265,8 @@ def main():
             'num_actions' : game_shape[1],
             'dropout' : 0.25,
             'num_channels' : 128 }
-        nnet = CifreResidualConvNNet(nnet_args)
+        nnet_train = CifreResidualConvNNet(nnet_args)
+        nnet_export = CifreResidualConvNNet(nnet_args)
     elif FLAGS.game == 'othello':
         game_shape = (8, 8) if (FLAGS.game_shape is None) else FLAGS.game_shape
         nnet_shape = game_shape
@@ -278,7 +282,8 @@ def main():
             'num_actions' : game_shape[0] * game_shape[1] + 1,
             'dropout' : 0.25,
             'num_channels' : 128 }
-        nnet = CifreResidualConvNNet(nnet_args)
+        nnet_train = CifreResidualConvNNet(nnet_args)
+        nnet_export = CifreResidualConvNNet(nnet_args)
     elif FLAGS.game == 'biplane':
         default_max_distance = 4 # see biplane::DEFAULT_MAX_DISTANCE
         num_planes = 9    # see biplane::Board::CELL_PLANE_COUNT
@@ -297,7 +302,8 @@ def main():
             'num_actions' : 18, # see biplane::action::TOTAL_ACTIONID_COUNT
             'dropout' : 0.25,
             'num_channels' : 128 }
-        nnet = CifreResidualConvNNet(nnet_args)
+        nnet_train = CifreResidualConvNNet(nnet_args)
+        nnet_export = CifreResidualConvNNet(nnet_args, True)
     elif FLAGS.game == 'gettysburg':
         # FIXME, game shape is fixed so just need to check/override here
         num_planes = 12  # see gettysburg::BoardCellFactory::PLANE_COUNT
@@ -315,16 +321,21 @@ def main():
             'num_residual_blocks' : 2,
             'num_actions' : 37, # FIXME
             'num_channels' : 128 }
-        nnet = CifreResidualConvNNet(nnet_args)
+        nnet_train = CifreResidualConvNNet(nnet_args)
+        nnet_export = CifreResidualConvNNet(nnet_args)
     else:
         raise ValueError(f"unexpected --game={FLAGS.game}, "
                          "options are 'othello', 'connect4', 'biplane', 'gettysburg'")
 
-    # The same nnet is used for all iterations.
-    manager = CifreNNetManager(LOG, nnet, nnet_shape, infer_batch_size, FLAGS.repo_dir)
+    # The same nnet is used for all training iterations. We need a
+    # separate manager for exporting the nnet as we might want to
+    # export fp16 (but we don't want to train with fp16).
+    manager_train = CifreNNetManager(LOG, nnet_train, nnet_shape, infer_batch_size, FLAGS.repo_dir)
+    manager_export = CifreNNetManager(LOG, nnet_export, nnet_shape, infer_batch_size, FLAGS.repo_dir)
 
     # Set parallelism for cifre game execution based on the number of cpu cores.
-    game_parallel = (multiprocessing.cpu_count() * 2) if (FLAGS.game_parallel is None) else FLAGS.game_parallel
+    game_parallel = (
+        (multiprocessing.cpu_count() * 2) if (FLAGS.game_parallel is None) else FLAGS.game_parallel)
 
     # Create the initial model. Use checkpoint if one is specified
     # otherwise use "random" model. Also initialize directory where
@@ -337,9 +348,9 @@ def main():
 
     if FLAGS.initial_model_checkpoint:
         cpt_dir, cpt_basename = os.path.split(FLAGS.initial_model_checkpoint)
-        manager.load_checkpoint(cpt_dir, cpt_basename)
+        manager_train.load_checkpoint(cpt_dir, cpt_basename)
 
-    manager.save_triton_repository(LOG, samples_dir, FLAGS.model_kind, model_name)
+    manager_export.save_triton_repository(LOG, samples_dir, FLAGS.model_kind, model_name)
 
     # Keep track of the trained model that gives the best
     # results. After each iteration, if comparing trained models, the
@@ -383,7 +394,7 @@ def main():
             'num_epochs' : FLAGS.epoch_count,
             'batch_size' : train_batch_size,
             'lr' : FLAGS.train_lr }
-        manager.train(train_args, dataset)
+        manager_train.train(train_args, dataset)
 
         # Save the newly trained model under a new name based on the
         # iteration. Save both a checkpoint of the model and a triton
@@ -394,8 +405,8 @@ def main():
             shutil.rmtree(samples_dir)
         os.makedirs(samples_dir)
 
-        manager.save_triton_repository(LOG, samples_dir, FLAGS.model_kind, model_name)
-        manager.save_checkpoint(samples_dir, 'cpt.pth.tar', create_folder=False, overwrite=True)
+        manager_export.save_triton_repository(LOG, samples_dir, FLAGS.model_kind, model_name)
+        manager_train.save_checkpoint(samples_dir, 'cpt.pth.tar', create_folder=False, overwrite=True)
 
         # If comparing against current best model then play with each
         # model getting a chance to be player1.
@@ -460,7 +471,7 @@ def main():
                     best_model_cpt_dir = samples_dir
                 else:
                     LOG.log(f'keeping best model {best_model_name}', flush=True)
-                    manager.load_checkpoint(best_model_cpt_dir, 'cpt.pth.tar')
+                    manager_train.load_checkpoint(best_model_cpt_dir, 'cpt.pth.tar')
 
     if FLAGS.cmp_game_threshold > 0:
         LOG.log(f'==== Training complete, best model {best_model_name} ====')

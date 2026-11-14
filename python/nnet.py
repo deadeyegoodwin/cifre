@@ -183,7 +183,8 @@ class CifreNNetManager(object):
             # NOTE: TensorRT conversion uses far too much memory
             # inside triton and doesn't seem to release it, so using
             # TensorRT in this manner doesn't seem doable (instead
-            # will need to convert offline with trtexec).
+            # will need to convert offline with trtexec as is done
+            # later in this function).
             #
             #f.write('optimization { execution_accelerators {\n')
             #f.write('  gpu_execution_accelerator : [ {\n')
@@ -197,9 +198,15 @@ class CifreNNetManager(object):
 
         # Appropriately sized input.
         input_shape_with_batch = (1,) + self._nnet_input_shape
-        board_tensor = torch.randn(input_shape_with_batch, requires_grad=True)
+        board_tensor = torch.randn(input_shape_with_batch, dtype=torch.float32, requires_grad=True)
         if self._use_cuda:
             board_tensor = board_tensor.contiguous().cuda()
+
+        self._nnet.eval()
+        if self._nnet.is_fp16():
+            self._nnet.half()
+        if self._use_cuda:
+            self._nnet.cuda()
 
         # Export the model as onnx
         torch.onnx.export(
@@ -226,10 +233,12 @@ class CifreNNetManager(object):
                 f'nvcr.io/nvidia/{model_kind}-py3', 'trtexec',
                 f'--onnx=/tmp/model/model.onnx',
                 f'--saveEngine=/tmp/model/model.plan',
-                '--fp16',
                 f'--minShapes=board:{min_batch}',
                 f'--optShapes=board:{opt_batch}',
-                f'--maxShapes=board:{max_batch}' ]
+                f'--maxShapes=board:{max_batch}',
+                '--profilingVerbosity=detailed',
+                '--dumpLayerInfo',
+                '--exportLayerInfo=/tmp/model/tensorrt_layer_info.json']
 
             LOG.log(f'\n==== Convert to TensorRT ====')
             TENSORRT_LOG_LEN = 610  # based on observation

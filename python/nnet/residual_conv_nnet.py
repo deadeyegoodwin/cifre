@@ -34,8 +34,9 @@ import torch.nn.functional as F
 # 'num_channels'.
 #
 class CifreResidualConvNNet(nn.Module):
-    def __init__(self, args):
+    def __init__(self, args, fp16=False):
         self.args = args
+        self.fp16 = fp16
         self.input_size = self.args['num_rows'] * self.args['num_cols'] * self.args['num_planes']
 
         super(CifreResidualConvNNet, self).__init__()
@@ -67,8 +68,13 @@ class CifreResidualConvNNet(nn.Module):
             nn.Conv3d(self.args['num_channels'], self.args['num_channels'], kernel_size=3, stride=1, padding=1),
             nn.BatchNorm3d(self.args['num_channels']))
 
+    def is_fp16(self):
+        return self.fp16
+
     def forward(self, s):
         # s: batch_size x args.num_rows x args.num_cols x args.num_planes
+        if self.is_fp16():
+            s = s.half()
 
         # s: batch_size x 1 x args.num_rows x args.num_cols x args.num_planes
         s = s.view(-1, 1, self.args['num_rows'], self.args['num_cols'], self.args['num_planes'])
@@ -83,7 +89,7 @@ class CifreResidualConvNNet(nn.Module):
         # Policy head
         pi = F.relu(self.policy_bn(self.policy_conv(s)))
         pi = pi.view(-1, 2 * self.input_size)
-        pi = F.log_softmax(self.policy_fc(pi), dim=1)
+        pi = F.log_softmax(self.policy_fc(pi).float(), dim=1)
 
         # Value head
         v = F.relu(self.value_bn(self.value_conv(s)))
@@ -91,4 +97,4 @@ class CifreResidualConvNNet(nn.Module):
         v = F.relu(self.value_fc1(v))
         v = torch.tanh(self.value_fc2(v)) # v set to [-1,  1]
 
-        return pi, v
+        return pi.float(), v.float()

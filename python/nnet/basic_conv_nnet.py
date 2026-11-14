@@ -56,6 +56,9 @@ class CifreBasicConvNNet(nn.Module):
 
         self.fc4 = nn.Linear(512, 1)
 
+    def is_fp16(self):
+        return False
+
     def forward(self, s):
         #                                             s: batch_size x args.num_rows x args.num_cols
         s = s.view(-1, 1, self.args['num_rows'], self.args['num_cols'])  # batch_size x 1 x args.num_rows x args.num_cols
