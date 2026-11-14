@@ -24,7 +24,7 @@ commands:
 
 ```bash
 mkdir -p ${CIFRE_REPODIR}
-docker run --gpus=1 --rm --net=host -v ${CIFRE_REPODIR}:/cifre/models nvcr.io/nvidia/tritonserver:25.01-py3 tritonserver --model-control-mode=explicit --model-repository=/cifre/models
+docker run --gpus all --rm --net=host -v ${CIFRE_REPODIR}:/cifre/models nvcr.io/nvidia/tritonserver:26.10-py3 tritonserver --model-control-mode=explicit --model-repository=/cifre/models
 ```
 
 Where `${CIFRE_REPODIR}` is the full path to the model repository
@@ -38,7 +38,7 @@ Triton and train a model for the *connect4* game on a 6x7 board, using
 ```bash
 # Launch triton in bash shell; triton log will be written to stdout/stderr
 mkdir -p /tmp/cifre/models /tmp/cifre/train
-docker run --gpus=1 --rm --net=host -v /tmp/cifre/models:/cifre/models nvcr.io/nvidia/tritonserver:25.01-py3 tritonserver --model-control-mode=explicit --model-repository=/cifre/models
+docker run --gpus all --rm --net=host -v /tmp/cifre/models:/cifre/models nvcr.io/nvidia/tritonserver:26.10-py3 tritonserver --model-control-mode=explicit --model-repository=/cifre/models
 
 # In another shell activate conda as described above and then perform following
 # steps. The game-specific invocation of cifre_train.py and more information is
@@ -63,15 +63,15 @@ default ONNX version of the model.
 
 As a one-time setup you must install the TensorRT docker image that
 corresponds to the version of Triton Server that you are using. For
-example, if you use the 25.01-py3 version of Triton, you would do the
+example, if you use the 26.10-py3 version of Triton, you would do the
 following to fetch the appropriate TensorRT docker image.
 
 ```bash
-docker pull nvcr.io/nvidia/tensorrt:25.01-py3
+docker pull nvcr.io/nvidia/tensorrt:26.10-py3
 ```
 
 Then, when training with cifre_train.py, add the command-line argument
-*--model-kind=tensorrt:25.01*.
+*--model-kind=tensorrt:26.10*.
 
 ## Build
 

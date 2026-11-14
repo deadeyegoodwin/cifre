@@ -231,7 +231,7 @@ def main():
     parser.add_argument(
         '--model-kind',
         type=str,
-        choices=['onnx', 'tensorrt:25.01'],
+        choices=['onnx', 'tensorrt:26.10'],
         default='onnx',
         required=False,
         help=('Type of model to generate, default is "onnx".'))
