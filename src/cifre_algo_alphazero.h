@@ -17,6 +17,7 @@
 #include "cifre_state.h"
 #include "cifre_triton.h"
 #include "common_random.h"
+#include "gsl/gsl_rng.h"
 
 namespace cifre {
 
@@ -351,6 +352,8 @@ public:
     const std::shared_ptr<Logger>& logger, std::unique_ptr<TritonModel> triton_model,
     const AlphaZeroSettings& settings);
 
+  virtual ~AlphaZeroAlgo();
+
   // This object allows its logger to be dynamically modified.
   std::shared_ptr<Logger>& MutableLogger() { return logger_; }
 
@@ -414,6 +417,9 @@ private:
 
   // Random needed for NextActionKind::WEIGHTED_RANDOM.
   common::Random rnd_;
+
+  // Random generated used for dirichlet generation.
+  gsl_rng *dirichlet_rng_;
 
   // Monotonic arena used for 'nodes_' and the corresponding state
   // created when building the search-tree for NextActionId(). This

@@ -5,7 +5,6 @@
 #include <limits>
 #include <sstream>
 
-#include "gsl/gsl_rng.h"
 #include "gsl/gsl_randist.h"
 #include "cifre_algo_alphazero.h"
 #include "common_error.h"
@@ -41,6 +40,17 @@ AlphaZeroAlgo::AlphaZeroAlgo(
   THROWIF(settings_.dirichlet_alpha_ < 0.0, "dirichlet alpha value must be >= 0.0");
   THROWIF((settings_.dirichlet_ratio_ <= 0.0) || (settings_.dirichlet_ratio_ >= 1.0),
           "dirichlet ratio must be in exclusive range (0.0, 1.0)");
+
+  dirichlet_rng_ = gsl_rng_alloc(gsl_rng_mt19937);
+
+  std::random_device rd;
+  unsigned long int rng_seed = (static_cast<unsigned long int>(rd()) << 32) | rd();
+  gsl_rng_set(dirichlet_rng_, rng_seed);
+}
+
+AlphaZeroAlgo::~AlphaZeroAlgo()
+{
+  gsl_rng_free(dirichlet_rng_);
 }
 
 void
@@ -387,17 +397,13 @@ AlphaZeroAlgo::GenerateDirichlet(
   const std::vector<double> alphas(sample_count, alpha);
   std::vector<double> thetas(sample_count);
 
-  gsl_rng *rng = gsl_rng_alloc(gsl_rng_mt19937);
-  gsl_rng_set(rng, (unsigned)time(NULL));
-  gsl_ran_dirichlet(rng, sample_count, alphas.data(), thetas.data());
+  gsl_ran_dirichlet(dirichlet_rng_, sample_count, alphas.data(), thetas.data());
 
   dirichlet.clear();
   dirichlet.resize(state.TotalActionIdCount());
   for (size_t idx = 0; idx < sample_count; ++idx) {
     dirichlet.at(valid_action_ids[idx]) = thetas[idx];
   }
-
-  gsl_rng_free(rng);
 }
 
 //
