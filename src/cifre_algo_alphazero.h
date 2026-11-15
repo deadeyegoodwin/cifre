@@ -56,15 +56,10 @@ struct AlphaZeroSettings {
   // Dirichlet).
   float dirichlet_alpha_ {0.0};
 
-  // Number of Dirichlet samples that will be generated (if
-  // 'dirichlet_alpha_' is non-zero). These values are used
-  // round-robin to modify the pi values of root nodes.
-  size_t dirichlet_sample_count_ {1111};
-
   // The ratio used to combine the Dirichlet values to the pi
-  // probabilities. If d == dirichlet value and x ==
-  // 'dirichlet_ratio_', the probability used is (pi * (1 - x)) + (d *
-  // x).
+  // probabilities. If (d == dirichlet value) and (x ==
+  // 'dirichlet_ratio_'), the probability used is (pi * (1 - x)) + (d
+  // * x).
   float dirichlet_ratio_ {0.25};
 
   // Number of searches made to alphazero tree before choosing the
@@ -180,7 +175,7 @@ public:
   // 'qu's is non-nullptr then it will be filled with the QU value
   // for each action/child.
   std::optional<uint64_t> MaxQU(
-    const size_t generation, const float cpuct, const std::vector<double>* dirichlet,
+    const size_t generation, const float cpuct, const std::vector<double>& dirichlet,
     const float dirichlet_ratio, size_t* cycle_avoided_count = nullptr,
     std::vector<float>* qus = nullptr, std::vector<float>* nocycle_qus = nullptr) const;
 
@@ -407,11 +402,11 @@ private:
   // visited node before game or search depth was reached).
   std::pair<float, AlphaZeroNode*> SearchTree(
     AlphaZeroNode* node, const size_t depth, const size_t search_depth_remaining,
-    const size_t game_depth_remaining, const std::vector<double>* dirichlet);
+    const size_t game_depth_remaining, const std::vector<double>& dirichlet);
 
   // Generate Dirichlet distribution.
-  void GenerateDirichletSamples(
-    const float alpha, const size_t sample_size, const size_t sample_count);
+  void GenerateDirichlet(
+    std::vector<double>& dirichlet, const float alpha, const State& state) const;
 
   std::shared_ptr<Logger> logger_;
   std::unique_ptr<TritonModel> triton_model_;
@@ -419,12 +414,6 @@ private:
 
   // Random needed for NextActionKind::WEIGHTED_RANDOM.
   common::Random rnd_;
-
-  // Number of Dirichlet samples (generated if
-  // 'settings_.dirichlet_alpha_' is non-zero). These values are used
-  // round-robin to modify the pi values of root nodes.
-  size_t dirichlet_samples_idx_;
-  std::vector<std::vector<double>> dirichlet_samples_;
 
   // Monotonic arena used for 'nodes_' and the corresponding state
   // created when building the search-tree for NextActionId(). This

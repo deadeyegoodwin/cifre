@@ -127,7 +127,6 @@ Connect4::DefaultAlphaZeroSettings(bool training, bool az_vs_az) const
     settings.next_action_kind_ =
       cifre::AlphaZeroSettings::NextActionKind::RANDOM_VISIT_WEIGHTED;
     settings.dirichlet_alpha_ = 10.0 / float(game_shape_.ColumnCount());
-    settings.dirichlet_sample_count_ = 2117;
     settings.dirichlet_ratio_ = 0.25;
   }
   else if (az_vs_az) {

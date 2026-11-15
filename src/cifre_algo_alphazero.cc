@@ -19,6 +19,8 @@ constexpr float LOSER_VALUE = -1.0;
 
 constexpr size_t ARENA_INITIAL_BYTES = 1024 * 1024;
 
+static const std::vector<double> EMPTY_DIRICHLET { };
+
 //
 // AlphaZeroAlgo
 //
@@ -37,7 +39,6 @@ AlphaZeroAlgo::AlphaZeroAlgo(
 
   // Make sure Dirichlet settings are valid.
   THROWIF(settings_.dirichlet_alpha_ < 0.0, "dirichlet alpha value must be >= 0.0");
-  THROWIF(settings_.dirichlet_sample_count_ <= 0, "dirichlet sample count must be > 0");
   THROWIF((settings_.dirichlet_ratio_ <= 0.0) || (settings_.dirichlet_ratio_ >= 1.0),
           "dirichlet ratio must be in exclusive range (0.0, 1.0)");
 }
@@ -101,19 +102,6 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   nextactionid_arena_.release();
   nodes_ = NodesMap(&nextactionid_arena_); // Force 'nodes_' to release all "old" memory
 
-  // If Dirichlet distribution is being used but has not yet been
-  // generated, then do so now using GSL (GNU Scientific
-  // Library). This is done lazily because a State object is needed to
-  // get the total number of action IDs.
-  if (settings_.dirichlet_alpha_ > 0.0) {
-    if (dirichlet_samples_.empty()) {
-      GenerateDirichletSamples(settings_.dirichlet_alpha_, state.TotalActionIdCount(),
-                               settings_.dirichlet_sample_count_);
-    }
-
-    assert(dirichlet_samples_.size() == settings_.dirichlet_sample_count_);
-  }
-
   // Make a mutable copy of 'state' that acts as the root of the
   // search tree. Allow the copy to update itself in preparation for
   // the search.
@@ -123,6 +111,13 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
   // Find, creating if necessary, the tree node that represents 'state'.
   auto node_itr = FindOrCreateNode(std::move(start_state));
   auto& node = node_itr->second;
+
+  // Use dirichlet if enabled. An empty 'dirichlet' indictes that it
+  // should not be used.
+  std::vector<double> dirichlet = EMPTY_DIRICHLET;
+  if (settings_.dirichlet_alpha_ > 0.0) {
+    GenerateDirichlet(dirichlet, settings_.dirichlet_alpha_, node.NodeState());
+  }
 
   LOG_ALGO_DETAIL(*logger_, "\nalphazero: starting node");
   LOG_ALGO_DETAIL_IE(
@@ -135,13 +130,6 @@ AlphaZeroAlgo::NextActionId(const State& state, size_t max_game_sideturns_remain
     // visited nodes and use it to detect cycles.
     const size_t search_generation = global_generation.fetch_add(1);
     node.SetGeneration(search_generation);
-
-    // Use dirichlet if enabled...
-    const std::vector<double>* dirichlet = nullptr;
-    if (settings_.dirichlet_alpha_ > 0.0) {
-      dirichlet = &dirichlet_samples_[dirichlet_samples_idx_];
-      dirichlet_samples_idx_ = (dirichlet_samples_idx_ + 1) % dirichlet_samples_.size();
-    }
 
     LOG_ALGO_DETAIL_IE(
       *logger_,
@@ -249,7 +237,7 @@ AlphaZeroAlgo::FindOrCreateNode(StateUniqueConstPtr state, bool* created)
 std::pair<float, AlphaZeroNode*>
 AlphaZeroAlgo::SearchTree(
   AlphaZeroNode* node, const size_t depth, const size_t search_depth_remaining,
-  const size_t game_depth_remaining, const std::vector<double>* dirichlet)
+  const size_t game_depth_remaining, const std::vector<double>& dirichlet)
 {
   // If 'node' is a terminal node then show that it was visited and
   // return its value.
@@ -360,7 +348,7 @@ AlphaZeroAlgo::SearchTree(
     // Dirichlet is only used on the root node of a search, so set to
     // nullptr for subsequent nodes.
     std::tie(v, tnode) = SearchTree(
-      next, depth + 1, search_depth_remaining - 1, gdr, nullptr /* dirichlet */);
+      next, depth + 1, search_depth_remaining - 1, gdr, EMPTY_DIRICHLET);
   }
 
   // At this point, 'v' is the value of the visited 'next' child. If
@@ -391,20 +379,22 @@ AlphaZeroAlgo::SearchTree(
 }
 
 void
-AlphaZeroAlgo::GenerateDirichletSamples(
-  const float alpha, const size_t sample_size, const size_t sample_count)
+AlphaZeroAlgo::GenerateDirichlet(
+  std::vector<double>& dirichlet, const float alpha, const State& state) const
 {
-  const std::vector<double> alphas(sample_size, alpha);
+  const auto& valid_action_ids = state.ValidActionIds();
+  const size_t sample_count = valid_action_ids.size();
+  const std::vector<double> alphas(sample_count, alpha);
+  std::vector<double> thetas(sample_count);
 
   gsl_rng *rng = gsl_rng_alloc(gsl_rng_mt19937);
   gsl_rng_set(rng, (unsigned)time(NULL));
+  gsl_ran_dirichlet(rng, sample_count, alphas.data(), thetas.data());
 
-  dirichlet_samples_idx_ = 0;
-
+  dirichlet.clear();
+  dirichlet.resize(state.TotalActionIdCount());
   for (size_t idx = 0; idx < sample_count; ++idx) {
-    std::vector<double> thetas(sample_size);
-    gsl_ran_dirichlet(rng, sample_size, alphas.data(), thetas.data());
-    dirichlet_samples_.emplace_back(std::move(thetas));
+    dirichlet.at(valid_action_ids[idx]) = thetas[idx];
   }
 
   gsl_rng_free(rng);
@@ -464,7 +454,7 @@ AlphaZeroNode::ChildProbability() const
 
 std::optional<uint64_t>
 AlphaZeroNode::MaxQU(
-  const size_t cycle_generation, const float cpuct, const std::vector<double>* dirichlet,
+  const size_t cycle_generation, const float cpuct, const std::vector<double>& dirichlet,
   const float dirichlet_ratio, size_t* cycle_avoided_count,
   std::vector<float>* qus, std::vector<float>* nocycle_qus) const
 {
@@ -494,8 +484,8 @@ AlphaZeroNode::MaxQU(
     // using nan in below logic will produce invalid results.
     float dpi = (std::isnan(pi[aid])) ? 0.0 : pi[aid];
 
-    if (dirichlet != nullptr) {
-      dpi = (dpi * (1.0 - dirichlet_ratio)) + (dirichlet->at(aid) * dirichlet_ratio);
+    if (!dirichlet.empty()) {
+      dpi = (dpi * (1.0 - dirichlet_ratio)) + (dirichlet.at(aid) * dirichlet_ratio);
     }
 
     bool cycle = false;
@@ -683,7 +673,7 @@ AlphaZeroNode::ToString(float cpuct) const
   if (cpuct > 0.0) {
     std::vector<float> qus, nocycle_qus;
     std::optional<uint64_t> best_action_id =
-      MaxQU(0 /* generation */, cpuct, nullptr /* dirichlet */, 0.0 /* dirichlet_ratio */,
+      MaxQU(0 /* generation */, cpuct, EMPTY_DIRICHLET, 0.0 /* dirichlet_ratio */,
             nullptr /* cycle_avoided_count */, &qus, &nocycle_qus);
     sstr << "  cpuct: " << cpuct
          << ", best action: ";
