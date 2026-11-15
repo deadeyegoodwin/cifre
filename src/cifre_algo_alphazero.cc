@@ -1,6 +1,7 @@
 // Copyright 2026, David Goodwin. All rights reserved.
 
 #include <filesystem>
+#include <cfloat>
 #include <iomanip>
 #include <limits>
 #include <sstream>
@@ -483,12 +484,24 @@ AlphaZeroNode::MaxQU(
   float max_nocycle_qu = -std::numeric_limits<float>::max();
   uint64_t best_nocycle_action_id = std::numeric_limits<uint64_t>::max();
 
+  // Normalize the PI values so that only the valid action PIs are
+  // considered and normalized to total 1.0.
+  double valid_pi_total = 0.0;
+  for (uint64_t aid : state_->ValidActionIds()) {
+    if (!std::isnan(pi[aid])) {
+      valid_pi_total += pi[aid];
+    }
+  }
+  constexpr double eps = 10.0 * FLT_EPSILON;
+  assert((valid_pi_total >= 0.0) && (valid_pi_total <= (1.0 + eps)));
+
   for (uint64_t aid : state_->ValidActionIds()) {
     float qu;
 
     // Handle nan's in pi. Such a model probably isn't any good, but
     // using nan in below logic will produce invalid results.
-    float dpi = (std::isnan(pi[aid])) ? 0.0 : pi[aid];
+    float dpi =
+      (std::isnan(pi[aid]) || (valid_pi_total == 0.0)) ? 0.0 : (pi[aid] / valid_pi_total);
 
     if (!dirichlet.empty()) {
       dpi = (dpi * (1.0 - dirichlet_ratio)) + (dirichlet.at(aid) * dirichlet_ratio);
