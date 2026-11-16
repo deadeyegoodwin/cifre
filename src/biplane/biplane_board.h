@@ -39,27 +39,6 @@ static constexpr size_t CELL_PLANE_ADV_COUNT = 1;
 static constexpr float CELL_EMPTY = 0.0;
 static constexpr float CELL_ACTIVE = 1.0;
 
-// Biplane orientations.
-enum class BiplaneOrientation {
-  NORTH = 0,
-  NORTH_EAST,
-  EAST,
-  SOUTH_EAST,
-  SOUTH,
-  SOUTH_WEST,
-  WEST,
-  NORTH_WEST
-};
-static constexpr size_t NUM_PLANE_ORIENTATIONS = 8;
-
-// Return the string representation of an orientation.
-std::string BiplaneOrientationToShortString(BiplaneOrientation po);
-
-// Return the string representation for a relative
-// orientation. Relative orientations are named up, down, etc. because
-// they are relative to a north-oriented board.
-std::string BiplaneOrientationToShortRelativeString(BiplaneOrientation po);
-
 // Biplane scenarios.
 enum class BiplaneScenario {
   RANDOM = 0,
@@ -83,7 +62,7 @@ BiplaneScenario StringToBiplaneScenario(const std::string& str);
 //
 // A specialization of State for biplane games. The "board" is a
 // limitless 2D grid. Each player has an signed integer [y, x]
-// position on the grid and a BiplaneOrientation. Players' position
+// position on the grid and an AbsoluteOrientation. Players' position
 // and orientation changes based on the move selected by each player.
 //
 // The model representation of the board uses CELL_PLANE_COUNT planes
@@ -95,9 +74,9 @@ BiplaneScenario StringToBiplaneScenario(const std::string& str);
 // at [3, 3] facing UP with other players placed at their relative
 // positions and orientations around the active player. When referring
 // to absolute orientation we use north, south, etc. and when
-// referring to relative orientations we use up, down, left, etc.
-// Thus for any position and orientation of the players, the model
-// representation for the active player is always the relative
+// referring to board-relative orientations we use up, down, left,
+// etc. Thus for any position and orientation of the players, the
+// model representation for the active player is always the relative
 // perspective assuming the active player is at center of grid facing
 // UP (toward positive y, with positive x going RIGHT). The opponent
 // position and orientation is represented by a CELL_ACTIVE in the
@@ -231,25 +210,14 @@ private:
   void UpdateValidActions();
   void UpdateTerminalStatus(
     const cifre::array<MatrixCoordinate, PLAYER_COUNT>& player_prev_positions,
-    const cifre::array<BiplaneOrientation, PLAYER_COUNT>& player_prev_orientations);
+    const cifre::array<AbsoluteOrientation, PLAYER_COUNT>& player_prev_orientations);
 
   void FillCellPlane(const size_t pidx, const float v);
   bool ValidateCellPlanes(const size_t sidx, const size_t eidx, const float v) const;
   bool ValidateCellPlane(const size_t pidx, const float v) const;
+  std::string CellsToString() const;
 
   void ApplyActionToAbsolutePlayer(const size_t player_id, const uint64_t action_id);
-  void RelativePositionToAbsolute(
-      const MatrixCoordinate& center_pos, const BiplaneOrientation& center_orient,
-      MatrixCoordinate& pos, BiplaneOrientation& orient) const;
-  void AbsolutePositionToRelative(
-      const MatrixCoordinate& center_pos, const BiplaneOrientation& center_orient,
-      MatrixCoordinate& pos, BiplaneOrientation& orient) const;
-  void DecomposeSteps(
-    const MatrixCoordinate& pos,
-    size_t& diagonal_count, BiplaneOrientation& diagonal_dir,
-    size_t& straight_count, BiplaneOrientation& straight_dir) const;
-  MatrixCoordinate RotatePosition(const MatrixCoordinate& pos, const size_t rot) const;
-  std::string CellsToString() const;
 
   //
   // IMPORTANT MEMORY MANAGEMENT
@@ -279,7 +247,7 @@ private:
   // world values. For all other players position and orientation are
   // relative to the active player.
   cifre::array<MatrixCoordinate, PLAYER_COUNT> player_positions_;
-  cifre::array<BiplaneOrientation, PLAYER_COUNT> player_orientations_;
+  cifre::array<AbsoluteOrientation, PLAYER_COUNT> player_orientations_;
 
   // For each player, the other player that they have an advantage
   // over, or NoPlayerId() if there is no advantage.
