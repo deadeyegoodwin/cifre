@@ -6,6 +6,11 @@
 
 #include "cifre_vec.h"
 
+//
+// Shared functions between cifre/biplane and ayrstrx/godot. These
+// must be kept in sync with the corresponding functions in shared.gd.
+//
+
 namespace cifre { namespace biplane {
 
 static constexpr size_t TOTAL_ACTIONID_COUNT = 18;
@@ -19,7 +24,7 @@ uint64_t StringToActionId(const std::string& str);
 
 // Return the position delta and orientation delta for the mode
 // represented by action-id, 'aid'.
-void ActionIdToMove(
+void ActionIdToDelta(
   uint64_t aid, MatrixCoordinate& pos_delta, int64_t& orientation_delta);
 
 }} // namespace cifre::biplane

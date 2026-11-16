@@ -58,9 +58,9 @@ install(
 #
 add_library(
   biplane-library STATIC
-  biplane_action.cc
   biplane_board.cc
   biplane_player.cc
+  biplane_shared.cc
 )
 
 target_compile_features(biplane-library PRIVATE cxx_std_17)

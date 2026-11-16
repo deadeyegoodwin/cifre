@@ -13,7 +13,7 @@
 #include "cifre_state.h"
 #include "cifre_std.h"
 #include "cifre_vec.h"
-#include "biplane_action.h"
+#include "biplane_shared.h"
 
 namespace cifre { namespace biplane {
 

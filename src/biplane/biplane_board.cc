@@ -654,7 +654,7 @@ Board::ApplyActionToAbsolutePlayer(const size_t player_id, const uint64_t action
 
   MatrixCoordinate pos_delta;
   int64_t orientation_delta;
-  ActionIdToMove(action_id, pos_delta, orientation_delta);
+  ActionIdToDelta(action_id, pos_delta, orientation_delta);
 
   // Position delta must be rotated so that it is applied along the
   // forward direction of 'player_id'.
