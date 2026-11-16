@@ -492,8 +492,7 @@ AlphaZeroNode::MaxQU(
       valid_pi_total += pi[aid];
     }
   }
-  constexpr double eps = 10.0 * FLT_EPSILON;
-  assert((valid_pi_total >= 0.0) && (valid_pi_total <= (1.0 + eps)));
+  assert((valid_pi_total >= 0.0) && (valid_pi_total <= (1.0 + (10.0 * FLT_EPSILON))));
 
   for (uint64_t aid : state_->ValidActionIds()) {
     float qu;

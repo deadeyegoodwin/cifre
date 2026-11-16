@@ -726,7 +726,7 @@ Game::Parse(int argc, char **argv)
       alphazero_train_samples_ =
         std::make_unique<AlphaZeroTrainingSamples>(
           logger_, AlphaZeroTrainingSamples::AggregateKind::AVERAGE,
-          AlphaZeroTrainingSamples::ValueKind::AVERAGE);
+          AlphaZeroTrainingSamples::ValueKind::Z);
     }
   }
 
