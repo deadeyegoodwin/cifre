@@ -22,15 +22,15 @@ Board::Board(
   const size_t max_distance, const std::vector<Player*>& players,
   size_t starting_player_id, BiplaneScenario scenario,
   std::pmr::memory_resource* arena) :
-  logger_(logger), max_distance_(max_distance),
-  visible_2d_size_((max_distance * 2) + 1, (max_distance * 2) + 1),
+  logger_(logger), max_cell_distance_(max_distance * ACTION_STEP_STRAIGHT),
+  visible_2d_size_((max_cell_distance_ * 2) + 1, (max_cell_distance_ * 2) + 1),
   player_actions_count_(0), active_player_id_(starting_player_id),
   terminal_status_(cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL),
   valid_action_ids_(arena), cells_flattened_(arena)
 {
-  THROWIF(max_distance_ < MIN_MAX_DISTANCE,
+  THROWIF(max_distance < MIN_MAX_DISTANCE,
           "max-distance must be >= " + std::to_string(MIN_MAX_DISTANCE));
-  THROWIF(max_distance_ > MAX_MAX_DISTANCE,
+  THROWIF(max_distance > MAX_MAX_DISTANCE,
           "max-distance must be <= " + std::to_string(MAX_MAX_DISTANCE));
 
   THROWIF(players.size() != PLAYER_COUNT, "exactly 2 players are required");
@@ -99,7 +99,7 @@ Board::Board(
 }
 
 Board::Board(const Board& other, std::pmr::memory_resource* arena) :
-  logger_(other.logger_), max_distance_(other.max_distance_),
+  logger_(other.logger_), max_cell_distance_(other.max_cell_distance_),
   visible_2d_size_(other.visible_2d_size_), players_(other.players_),
   player_positions_(other.player_positions_), player_orientations_(other.player_orientations_),
   player_advantages_(other.player_advantages_),
@@ -128,11 +128,19 @@ Board::Hash() const
 
   const size_t nonactive_player_id = ((active_player_id_ == 0) ? 1 : 0);
 
+  // Include an indication of active player being in a NSEW
+  // orientation or a "diagonal" orientation. This corresponds to the
+  // normalization cell plane that indicates how the active player is
+  // normalized.
+  if (HasNSEWNormalization(player_orientations_[active_player_id_])) {
+    hash += mulp ^ (hash >> 23);
+  }
+
   // Include relative position and orientation of every player, except
   // for the active player. The active player's 'player_positions_'
   // and 'player_orientations_' are absolute, and relative values of
-  // [0,0] NORTH are the same for every board state so no need to
-  // include them.
+  // [0,0] FRONT/FRONT-RIGHT are the same for every board state so no
+  // need to include them.
   hash += MatrixCoordinateHash()(player_positions_[nonactive_player_id]) ^ (hash >> 23);
   hash += (size_t(player_orientations_[nonactive_player_id]) * mulp) ^ (hash >> 23);
 
@@ -153,14 +161,18 @@ Board::Hash() const
 bool
 Board::Equal(const State* other) const
 {
-  // Must be included, see cifre::State.
+  // See comments in Board::Hash().
   if (active_player_id_ != other->ActivePlayerId()) {
     return false;
   }
 
   const Board* ob = static_cast<const Board*>(other);
 
-  // See comment in Board::Hash().
+  if (HasNSEWNormalization(player_orientations_[active_player_id_]) !=
+      HasNSEWNormalization(ob->player_orientations_[active_player_id_])) {
+    return false;
+  }
+
   const size_t nonactive_player_id = ((active_player_id_ == 0) ? 1 : 0);
 
   if ((player_positions_[nonactive_player_id] != ob->player_positions_[nonactive_player_id]) ||
@@ -230,12 +242,12 @@ Board::Update(uint64_t action_id)
   for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
     if (idx != active_player_id_) {
       const MatrixCoordinate& pos = player_positions_[idx];
-      assert((abs(pos.Row()) <= max_distance_) && (abs(pos.Column()) <= max_distance_));
+      assert((abs(pos.Row()) <= max_cell_distance_) && (abs(pos.Column()) <= max_cell_distance_));
       SetCellValueAt(
-        CELL_EMPTY, pos + max_distance_, size_t(player_orientations_[idx]));
+        CELL_EMPTY, pos + max_cell_distance_, size_t(player_orientations_[idx]));
     }
   }
-  assert(ValidateCellPlanes(0, CELL_PLANE_DIR_COUNT, CELL_EMPTY));
+  assert(ValidateCellPlanes(0, CELL_PLANE_ORIENTATION_COUNT, CELL_EMPTY));
 
   // Update the board for the new active player.
   //
@@ -379,19 +391,53 @@ std::string
 Board::ToString() const
 {
   std::stringstream sstr;
-  const size_t ch_width = (visible_2d_size_.ColumnCount() * 5) - 1;
+  const size_t ch_width = (visible_2d_size_.ColumnCount() * 5) + 1;
+
+  const int64_t orientation_idx =
+    (HasNSEWNormalization(player_orientations_[active_player_id_])) ?
+    int64_t(player_orientations_[active_player_id_]) :
+    (int64_t(player_orientations_[active_player_id_]) - 1);
+
+  std::string ul_label = AbsoluteOrientationToString(IndexToAbsoluteOrientation(orientation_idx - 1));
+  std::string up_label = AbsoluteOrientationToString(IndexToAbsoluteOrientation(orientation_idx));
+  std::string ur_label = AbsoluteOrientationToString(IndexToAbsoluteOrientation(orientation_idx + 1));
+  if (HasNSEWNormalization(player_orientations_[active_player_id_])) {
+    up_label += "[FRONT]";
+  }
+  else {
+    ur_label += "[FRONT]";
+  }
+
+  size_t label_size = ul_label.size() + up_label.size() + ur_label.size();
+  size_t pre_dash_count = (ch_width - label_size - 4) / 2;
+  size_t post_dash_count = ch_width - pre_dash_count - label_size - 4;
 
   // Board.
-  sstr << " " << std::string(ch_width, '-');
-  for (int64_t row_idx = max_distance_; row_idx >= -(int64_t(max_distance_)); --row_idx) {
+  sstr
+    << ul_label << " " << std::string(pre_dash_count, '-')
+    << " " << up_label << " "
+    << std::string(post_dash_count, '-') << " " << ur_label;
+
+  for (int64_t row_idx = max_cell_distance_; row_idx >= -(int64_t(max_cell_distance_)); --row_idx) {
     sstr << "\n|";
-    for (int64_t col_idx = -(int64_t(max_distance_)); col_idx <= int64_t(max_distance_); ++col_idx) {
-      sstr << (((row_idx == 0) && (col_idx == 0)) ? "-" : " ");
+    for (int64_t col_idx = -(int64_t(max_cell_distance_)); col_idx <= int64_t(max_cell_distance_); ++col_idx) {
+      if ((row_idx == 0) && (col_idx == 0)) {
+        sstr << (HasNSEWNormalization(player_orientations_[active_player_id_]) ? "|" : "/");
+      } else {
+        sstr << " ";
+      }
       bool found = false;
       for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
         if ((idx != active_player_id_) &&
             (player_positions_[idx] == MatrixCoordinate(row_idx, col_idx))) {
-          sstr << AbsoluteOrientationToBoardShortString(player_orientations_[idx]);
+          MatrixCoordinate abs_pos = player_positions_[idx];
+          AbsoluteOrientation abs_orient = player_orientations_[idx];
+          RelativePositionToAbsolute(
+            player_positions_[active_player_id_], player_orientations_[active_player_id_],
+            abs_pos, abs_orient);
+          std::string ss = AbsoluteOrientationToShortString(abs_orient);
+          if (ss.size() < 2) { ss.append(" "); }
+          sstr << ss.substr(0, 2);
           found = true;
           break;
         }
@@ -400,10 +446,27 @@ Board::ToString() const
       if (!found) {
         sstr << "  ";
       }
-      sstr << (((row_idx == 0) && (col_idx == 0)) ? "-" : " ") << "|";
+      if ((row_idx == 0) && (col_idx == 0)) {
+        sstr << (HasNSEWNormalization(player_orientations_[active_player_id_]) ? "|" : "/");
+      } else {
+        sstr << " ";
+      }
+      sstr << "|";
     }
   }
-  sstr << "\n " << std::string(ch_width, '-');
+
+  const std::string dl_label = AbsoluteOrientationToString(IndexToAbsoluteOrientation(orientation_idx + 5));
+  const std::string dn_label = AbsoluteOrientationToString(IndexToAbsoluteOrientation(orientation_idx + 4));
+  const std::string dr_label = AbsoluteOrientationToString(IndexToAbsoluteOrientation(orientation_idx + 3));
+  label_size = dl_label.size() + dn_label.size() + dr_label.size();
+  pre_dash_count = (ch_width - label_size - 4) / 2;
+  post_dash_count = ch_width - pre_dash_count - label_size - 4;
+  // Board.
+  sstr
+    << "\n"
+    << dl_label << " " << std::string(pre_dash_count, '-')
+    << " " << dn_label << " "
+    << std::string(post_dash_count, '-') << " " << dr_label;
 
   if (player_advantages_[active_player_id_] != NoPlayerId()) {
     sstr
@@ -430,13 +493,13 @@ Board::CellsToString() const
   for (size_t y = visible_2d_size_.RowCount(); y > 0; --y) {
     sstr << "\n|";
     for (size_t x = 0; x < visible_2d_size_.ColumnCount(); ++x) {
-      sstr << ((((y - 1) == max_distance_) && (x == max_distance_)) ? "-" : " ");
+      sstr << ((((y - 1) == max_cell_distance_) && (x == max_cell_distance_)) ? "-" : " ");
 
       const MatrixCoordinate pos(y - 1, x);
 
       // Collect the direction plane IDs for [y,x].
       std::string cstr;
-      for (size_t idx = 0; idx < CELL_PLANE_DIR_COUNT; ++idx) {
+      for (size_t idx = 0; idx < CELL_PLANE_ORIENTATION_COUNT; ++idx) {
         const float v = CellValueAt(pos, idx);
         assert((v == CELL_ACTIVE) || (v == CELL_EMPTY));
         if (v == CELL_ACTIVE) {
@@ -454,14 +517,15 @@ Board::CellsToString() const
       }
 
       sstr << cstr;
-      sstr << ((((y - 1) == max_distance_) && (x == max_distance_)) ? "-" : " ") << "|";
+      sstr << ((((y - 1) == max_cell_distance_) && (x == max_cell_distance_)) ? "-" : " ") << "|";
     }
   }
   sstr << "\n " << std::string(ch_width, '-');
 
   sstr
     << "\nAdvantage plane: "
-    << ((CellValueAt(MatrixCoordinate(0, 0), CELL_PLANE_ADV_IDX) == CELL_ACTIVE) ? "ACTIVE" : "EMPTY");
+    << ((CellValueAt(MatrixCoordinate(0, 0), CELL_PLANE_ADVANTAGE_IDX) == CELL_ACTIVE) ?
+        "ACTIVE" : "EMPTY");
 
   return sstr.str();
 }
@@ -492,6 +556,20 @@ Board::UpdateTerminalStatus(
   // 'player_prev_orientations' and 'player_prev_orientations' must
   // also be absolute.
 
+  // FIXME
+  for (size_t idx = 0; idx < PLAYER_COUNT; ++idx) {
+    if (idx != active_player_id_) {
+      const MatrixCoordinate& rel_pos = player_positions_[idx] - player_positions_[active_player_id_];
+      if ((abs(rel_pos.Row()) > max_cell_distance_) || (abs(rel_pos.Column()) > max_cell_distance_)) {
+        terminal_status_ =
+          cifre::StateTerminalStatus(cifre::StateTerminalStatus::TerminalKind::DRAW);
+        return;
+      }
+    }
+  }
+
+
+#if 0
   // Compare pairs of players...
   for (size_t idx0 = 0; idx0 < (PLAYER_COUNT - 1); ++idx0) {
     for (size_t idx1 = (idx0 + 1); idx1 < PLAYER_COUNT; ++idx1) {
@@ -509,7 +587,7 @@ Board::UpdateTerminalStatus(
       // out-of-range and the game is over. Use the previous position
       // of the planes to determine which player caused the planes to
       // move out-of-range. That player is the loser.
-      if ((diagonal_count + straight_count) > max_distance_) {
+      if ((diagonal_count + straight_count) > max_cell_distance_) {
         bool blame_idx0 = false, blame_idx1 = false;
 
         // Use 'idx0' and then 'idx1' previous positions to see if
@@ -520,7 +598,7 @@ Board::UpdateTerminalStatus(
           player_prev_positions[idx0], player_prev_orientations[idx0],
           rpos1_prev0, rorient1_prev0);
         DecomposeSteps(rpos1_prev0, diagonal_count, diagonal_dir, straight_count, straight_dir);
-        blame_idx1 = ((diagonal_count + straight_count) > max_distance_);
+        blame_idx1 = ((diagonal_count + straight_count) > max_cell_distance_);
 
         MatrixCoordinate rpos0_prev1 = player_positions_[idx0];
         AbsoluteOrientation rorient0_prev1 = player_orientations_[idx0];
@@ -528,7 +606,7 @@ Board::UpdateTerminalStatus(
           player_prev_positions[idx1], player_prev_orientations[idx1],
           rpos0_prev1, rorient0_prev1);
         DecomposeSteps(rpos0_prev1, diagonal_count, diagonal_dir, straight_count, straight_dir);
-        blame_idx0 = ((diagonal_count + straight_count) > max_distance_);
+        blame_idx0 = ((diagonal_count + straight_count) > max_cell_distance_);
 
         if (blame_idx0 && !blame_idx1) {
           terminal_status_ =
@@ -611,7 +689,7 @@ Board::UpdateTerminalStatus(
         cifre::StateTerminalStatus::TerminalKind::WINNER, single_hitter);
     return;
   }
-
+#endif
   // Otherwise make sure the terminal status is NON_TERMINAL.
   THROWIF(
     terminal_status_.Kind() != cifre::StateTerminalStatus::TerminalKind::NON_TERMINAL,
@@ -628,21 +706,30 @@ Board::UpdateCellPlanes()
       // Player may have flown off the board so need to check before
       // attempting to set the cell.
       const MatrixCoordinate& pos = player_positions_[idx];
-      if ((abs(pos.Row()) <= max_distance_) && (abs(pos.Column()) <= max_distance_)) {
+      if ((abs(pos.Row()) <= max_cell_distance_) && (abs(pos.Column()) <= max_cell_distance_)) {
         SetCellValueAt(
-          CELL_ACTIVE, pos + max_distance_, size_t(player_orientations_[idx]));
+          CELL_ACTIVE, pos + max_cell_distance_, size_t(player_orientations_[idx]));
       }
     }
   }
+
+  // Set normalization plane appropriately for orientation of active
+  // player.
+  const float north_normalized = (
+    (HasNSEWNormalization(player_orientations_[active_player_id_])) ? CELL_ACTIVE : CELL_EMPTY);
+  if (north_normalized != CellValueAt(MatrixCoordinate(0, 0), CELL_PLANE_NORMALIZATION_IDX)) {
+    FillCellPlane(CELL_PLANE_NORMALIZATION_IDX, north_normalized);
+  }
+  assert(ValidateCellPlane(CELL_PLANE_NORMALIZATION_IDX, north_normalized));
 
   // If the active player has an advantage then set the advantage cell
   // plane to CELL_ACTIVE, otherwise CELL_EMPTY.
   const float adv = (
     (player_advantages_[active_player_id_] == NoPlayerId()) ? CELL_EMPTY : CELL_ACTIVE);
-  if (adv != CellValueAt(MatrixCoordinate(0, 0), CELL_PLANE_ADV_IDX)) {
-    FillCellPlane(CELL_PLANE_ADV_IDX, adv);
+  if (adv != CellValueAt(MatrixCoordinate(0, 0), CELL_PLANE_ADVANTAGE_IDX)) {
+    FillCellPlane(CELL_PLANE_ADVANTAGE_IDX, adv);
   }
-  ValidateCellPlane(CELL_PLANE_ADV_IDX, adv);
+  assert(ValidateCellPlane(CELL_PLANE_ADVANTAGE_IDX, adv));
 }
 
 void
@@ -652,16 +739,13 @@ Board::ApplyActionToAbsolutePlayer(const size_t player_id, const uint64_t action
   assert(player_id < PLAYER_COUNT);
   assert(action_id < TOTAL_ACTIONID_COUNT);
 
-  MatrixCoordinate pos_delta;
-  int64_t orientation_delta;
-  ActionIdToAbsoluteDelta(action_id, player_orientations_[player_id],
-                          pos_delta, orientation_delta);
+  MatrixCoordinate position_delta;
+  AbsoluteOrientation new_orientation;
+  ActionIdToAbsoluteOutcome(action_id, player_orientations_[player_id],
+                            position_delta, new_orientation);
 
-  player_positions_[player_id] += pos_delta;
-  player_orientations_[player_id] =
-    AbsoluteOrientation(
-      (int64_t(player_orientations_[player_id]) + orientation_delta +
-       NUM_ABSOLUTE_ORIENTATIONS) % NUM_ABSOLUTE_ORIENTATIONS);
+  player_positions_[player_id] += position_delta;
+  player_orientations_[player_id] = new_orientation;
 }
 
 void
@@ -716,7 +800,7 @@ StringToBiplaneScenario(const std::string& str)
 {
   std::string lstr(str);
   common::ToUpper(lstr);
-  for (size_t idx = 0; idx < NUM_BIPLANE_SCENARIOS; ++idx) {
+  for (size_t idx = 0; idx < BIPLANE_SCENARIO_COUNT; ++idx) {
     if (lstr == BiplaneScenarioToString(BiplaneScenario(idx))) {
       return BiplaneScenario(idx);
     }
@@ -742,9 +826,9 @@ Board::InitializeScenario(BiplaneScenario scenario)
 
       for (size_t idx = 1; idx < PLAYER_COUNT; ++idx) {
         player_positions_[idx] =
-          MatrixCoordinate(rand(size_t(0), visible_2d_size_.RowCount() - 1) - max_distance_,
-                           rand(size_t(0), visible_2d_size_.ColumnCount() - 1) - max_distance_);
-        player_orientations_[idx] = AbsoluteOrientation(rand(size_t(0), NUM_ABSOLUTE_ORIENTATIONS - 1));
+          MatrixCoordinate(rand(size_t(0), visible_2d_size_.RowCount() - 1) - max_cell_distance_,
+                           rand(size_t(0), visible_2d_size_.ColumnCount() - 1) - max_cell_distance_);
+        player_orientations_[idx] = AbsoluteOrientation(rand(size_t(0), ABSOLUTE_ORIENTATION_COUNT - 1));
         player_advantages_[idx] = NoPlayerId();
       }
     }
@@ -758,7 +842,7 @@ Board::InitializeScenario(BiplaneScenario scenario)
           player_orientations_[idx] = AbsoluteOrientation::NORTH;
         }
         else {
-          player_positions_[idx] = MatrixCoordinate(max_distance_ - 1, max_distance_ - 1);
+          player_positions_[idx] = MatrixCoordinate(max_cell_distance_ - 1, max_cell_distance_ - 1);
           player_orientations_[idx] = AbsoluteOrientation::WEST;
         }
         player_advantages_[idx] = NoPlayerId();

@@ -14,7 +14,7 @@
 namespace cifre { namespace biplane {
 
 //
-// Orientations
+// AbsoluteOrientation
 //
 enum class AbsoluteOrientation {
   NORTH = 0,
@@ -26,20 +26,24 @@ enum class AbsoluteOrientation {
   WEST,
   NORTH_WEST
 };
-static constexpr size_t NUM_ABSOLUTE_ORIENTATIONS = 8;
+constexpr size_t ABSOLUTE_ORIENTATION_COUNT = 8;
+
+// Convert an integer index to the corresponding
+// AbsoluteOrientation. 'idx' may be any integer value and is
+// evaluated modulo ABSOLUTE_ORIENTATION_COUNT.
+AbsoluteOrientation IndexToAbsoluteOrientation(int64_t idx);
 
 // Return the string representation of an absolute orientation.
+std::string AbsoluteOrientationToString(AbsoluteOrientation o);
 std::string AbsoluteOrientationToShortString(AbsoluteOrientation o);
-
-// Return the string representation for a board-relative orientation.
-// Board-relative orientations are named up, down, etc. because they
-// are relative to a north-oriented board.
-std::string AbsoluteOrientationToBoardShortString(AbsoluteOrientation o);
 
 //
 // Actions
 //
-static constexpr size_t TOTAL_ACTIONID_COUNT = 18;
+constexpr size_t ACTION_STEP_STRAIGHT = 3;
+constexpr size_t ACTION_STEP_DIAGONAL = 2;
+
+constexpr size_t TOTAL_ACTIONID_COUNT = 26;
 
 // Return string representation of an action-id.
 std::string ActionIdToString(uint64_t aid);
@@ -48,24 +52,21 @@ std::string ActionIdToString(uint64_t aid);
 // TOTAL_ACTIONID_COUNT if 'str' is not a known action.
 uint64_t StringToActionId(const std::string& str);
 
-// Return the position delta and orientation delta for an entity
-// facing 'orientation' and performing action 'aid'.
-void ActionIdToAbsoluteDelta(
+// Return the absolute position delta and new absolute orientation for
+// an entity facing 'orientation' and performing action 'aid'.
+void ActionIdToAbsoluteOutcome(
   const uint64_t aid, const AbsoluteOrientation orientation,
-  MatrixCoordinate& pos_delta, int64_t& orientation_delta);
+  MatrixCoordinate& position_delta, AbsoluteOrientation& new_orientation);
 
 //
-// Utility
+// Normalization
 //
+bool HasNSEWNormalization(AbsoluteOrientation orientation);
 void RelativePositionToAbsolute(
   const MatrixCoordinate& center_pos, const AbsoluteOrientation& center_orient,
   MatrixCoordinate& pos, AbsoluteOrientation& orient);
 void AbsolutePositionToRelative(
   const MatrixCoordinate& center_pos, const AbsoluteOrientation& center_orient,
   MatrixCoordinate& pos, AbsoluteOrientation& orient);
-void DecomposeSteps(
-  const MatrixCoordinate& pos,
-  size_t& diagonal_count, AbsoluteOrientation& diagonal_dir,
-  size_t& straight_count, AbsoluteOrientation& straight_dir);
 
 }} // namespace cifre::biplane

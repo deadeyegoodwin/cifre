@@ -24,17 +24,28 @@ static constexpr size_t MAX_MAX_DISTANCE = 8;
 static constexpr size_t DEFAULT_MAX_DISTANCE = 4;
 
 // For the model inputs there are 8 cell planes (one for each
-// direction) that start at cell plane index 0, and are referred to as
-// the "direction cell planes". Following those are other cell planes:
+// orientation) that start at cell plane index 0, and are referred to
+// as the "orientation cell planes". Following those are other cell
+// planes:
 //
-//   0-7: direction cell planes
-//     8: advantage cell plane (set to all CELL_ACTIVE if the active player
+//   0-7: orientation cell planes (plane 0 represents
+//        AbsoluteOrientation::NORTH, plane 1 represents
+//        AbsoluteOrientation::NORTH_EAST, etc.)
+//
+//     8: normalization cell plane (set to all CELL_ACTIVE if the
+//        active player is normalized to FRONT, set to all CELL_EMPTY
+//        if the active player is normalized to FRONT-RIGHT).
+//
+//     9: advantage cell plane (set to all CELL_ACTIVE if the active player
 //        has an advantage over the other player). FIXME will need multiple
 //        once multiple players supported.
-static constexpr size_t CELL_PLANE_COUNT = 9;
-static constexpr size_t CELL_PLANE_DIR_COUNT = 8;
-static constexpr size_t CELL_PLANE_ADV_IDX = 8;
-static constexpr size_t CELL_PLANE_ADV_COUNT = 1;
+//
+static constexpr size_t CELL_PLANE_COUNT = 10;
+static constexpr size_t CELL_PLANE_ORIENTATION_COUNT = 8;
+static constexpr size_t CELL_PLANE_NORMALIZATION_IDX = 8;
+static constexpr size_t CELL_PLANE_NORMALIZATION_COUNT = 1;
+static constexpr size_t CELL_PLANE_ADVANTAGE_IDX = 9;
+static constexpr size_t CELL_PLANE_ADVANTAGE_COUNT = 1;
 
 static constexpr float CELL_EMPTY = 0.0;
 static constexpr float CELL_ACTIVE = 1.0;
@@ -44,8 +55,8 @@ enum class BiplaneScenario {
   RANDOM = 0,
   EQUAL_1V1 = 1
 };
-static constexpr size_t NUM_BIPLANE_SCENARIOS = 2;
-static constexpr BiplaneScenario BIPLANE_SCENARIO_UNKNOWN = BiplaneScenario(NUM_BIPLANE_SCENARIOS);
+static constexpr size_t BIPLANE_SCENARIO_COUNT = 2;
+static constexpr BiplaneScenario BIPLANE_SCENARIO_UNKNOWN = BiplaneScenario(BIPLANE_SCENARIO_COUNT);
 
 // Return the string representation of an scenario.
 std::string BiplaneScenarioToString(BiplaneScenario scenario);
@@ -66,29 +77,44 @@ BiplaneScenario StringToBiplaneScenario(const std::string& str);
 // and orientation changes based on the move selected by each player.
 //
 // The model representation of the board uses CELL_PLANE_COUNT planes
-// of a grid of cells. The first CELL_PLANE_DIR_COUNT planes place the
-// opponent player(s) relative to the active player. The cell planes
-// are sized "max-distance" in all directions around the active player
-// at the center of the grid. For example, with max-distance == 3, the
-// cell planes are 7x7 and the active player is assumed to always be
-// at [3, 3] facing UP with other players placed at their relative
-// positions and orientations around the active player. When referring
-// to absolute orientation we use north, south, etc. and when
-// referring to board-relative orientations we use up, down, left,
-// etc. Thus for any position and orientation of the players, the
+// of a grid of cells. To maintain distance uniformity between
+// horizontal and vertical a 3:2 grid policy is used. That is, a
+// single step in a straight direction is 3 grid cells and a step in a
+// diagonal direction is 2 grid cells. This results in a step length
+// of 3 vs ~2.83 respectively which is ~94.3% unformity. The
+// max-distance value refers to the number of steps and so the board
+// size is based on the value of max-distance * ACTION_STEP_STRAIGHT
+// (i.e. 3).
+//
+// The model representation presents a board that orientations all
+// other players relative to the active player. In this relative board
+// the active player is always at the center of the board and has an
+// orientation of either FRONT ("up" on the relative board) if the
+// active player's absolute orientation is north, east, south or west;
+// or FRONT-RIGHT if the active player's absolute orientation is
+// north-east, south-east, south-west or north-west. The first
+// CELL_PLANE_ORIENTATION_COUNT planes place the opponent player(s)
+// relative to the active player. The CELL_PLANE_NORMALIZATION_IDX
+// plane indicates if the relative board was created by normalizing
+// the active player to FRONT or to FRONT-RIGHT.  For example,
+// assuming the active player is facing WEST and with max-distance ==
+// 3, the cell planes are 19x19, the active player is assumed to be at
+// position [9, 9] facing FRONT with other players placed at their
+// appropriate relative positions and orientations around the active
+// player. Thus for any position and orientation of the players, the
 // model representation for the active player is always the relative
 // perspective assuming the active player is at center of grid facing
-// UP (toward positive y, with positive x going RIGHT). The opponent
-// position and orientation is represented by a CELL_ACTIVE in the
-// appropriate plane and grid position. All other grid positions
-// across all the "direction" planes are CELL_EMPTY.
+// FRONT or FRONT-RIGHT. The opponent position and orientation is
+// represented by a CELL_ACTIVE in the appropriate plane and grid
+// position. All other grid positions across all the "direction"
+// planes are CELL_EMPTY.
 //
 // In the Biplane game, each player chooses a move and then those
 // moves are executed simultaneously. This execution model requires
 // special handling because AZ assumes that players alternate turns
 // and from that it builds the game tree and collects data that is
 // used to train the model. The execution model is implemented by
-// maintaining addition 'player_actions_' state that is not shared
+// maintaining additional 'player_actions_' state that is not shared
 // with AZ or with the model (that is, it is not included in the cell
 // planes). 'player_actions_' keeps track of the actions each player
 // makes (sequentially) and then applies them all at once to the board
@@ -232,8 +258,9 @@ private:
   // Logger for this board.
   std::shared_ptr<Logger> logger_;
 
-  // Maximum distance between biplanes to stay engaged in the battle.
-  const size_t max_distance_;
+  // Maximum distance between biplanes, in grid cells, to stay engaged
+  // in the battle.
+  const size_t max_cell_distance_;
 
   // The size of the board that is visible to the active player
   // assumed to be in the center of this visible portion of the board.

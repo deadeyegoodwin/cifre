@@ -20,11 +20,11 @@ namespace cifre {
 
 template <typename T, std::size_t N>
 struct array : std::array<T, N> {
-  T& operator[](std::size_t n) {
+  constexpr T& operator[](std::size_t n) {
    assert(n < N);
    return std::array<T, N>::operator[](n);
  }
- const T& operator[](std::size_t n) const {
+  constexpr const T& operator[](std::size_t n) const {
    assert(n < N);
    return std::array<T, N>::operator[](n);
  }

@@ -8,63 +8,15 @@
 namespace cifre { namespace biplane {
 
 //
-// Utility
+// Normalization
 //
-namespace {
-
-static const cifre::array<MatrixCoordinate, cifre::biplane::NUM_ABSOLUTE_ORIENTATIONS> unit_vectors_ {
-  //              [y, x]
-  MatrixCoordinate(1, 0),    // N
-  MatrixCoordinate(1, 1),    // NE
-  MatrixCoordinate(0, 1),    // E
-  MatrixCoordinate(-1, 1),   // SE
-  MatrixCoordinate(-1, 0),   // S
-  MatrixCoordinate(-1, -1),  // SW
-  MatrixCoordinate(0, -1),   // W
-  MatrixCoordinate(1, -1)    // NW
-};
-
-MatrixCoordinate
-RotateRelativePosition(const MatrixCoordinate& pos, const size_t rot)
+bool
+HasNSEWNormalization(AbsoluteOrientation orientation)
 {
-  if (rot == 0) {
-    return pos;
-  }
-
-  MatrixCoordinate rot_pos;
-
-  size_t diagonal_count, straight_count;
-  AbsoluteOrientation diagonal_dir, straight_dir;
-  DecomposeSteps(pos, diagonal_count, diagonal_dir, straight_count, straight_dir);
-
-  // Perform steps along diagonal direction.
-  if (diagonal_count > 0) {
-    const size_t drot = (size_t(diagonal_dir) + rot + NUM_ABSOLUTE_ORIENTATIONS) % NUM_ABSOLUTE_ORIENTATIONS;
-    rot_pos += unit_vectors_[drot] * int64_t(diagonal_count);
-  }
-
-  // Perform steps along straight direction.
-  if (straight_count > 0) {
-    const size_t drot = (size_t(straight_dir) + rot + NUM_ABSOLUTE_ORIENTATIONS) % NUM_ABSOLUTE_ORIENTATIONS;
-    rot_pos += unit_vectors_[drot] * int64_t(straight_count);
-  }
-
-  return rot_pos;
-}
-
-} // namespace
-
-void
-RelativePositionToAbsolute(
-  const MatrixCoordinate& center_pos, const AbsoluteOrientation& center_orient,
-  MatrixCoordinate& pos, AbsoluteOrientation& orient)
-{
-  // The clockwise rotation required for 'pos'ition and 'orient'ation
-  // is the absolute orientation of 'center_orient'.
-  const size_t rot = size_t(center_orient);
-  const MatrixCoordinate rel_rot = RotateRelativePosition(pos, rot);
-  orient = AbsoluteOrientation((size_t(orient) + rot) % NUM_ABSOLUTE_ORIENTATIONS);
-  pos = center_pos + rel_rot;
+  return ((orientation == AbsoluteOrientation::NORTH) ||
+          (orientation == AbsoluteOrientation::SOUTH) ||
+          (orientation == AbsoluteOrientation::EAST) ||
+          (orientation == AbsoluteOrientation::WEST));
 }
 
 void
@@ -72,59 +24,104 @@ AbsolutePositionToRelative(
   const MatrixCoordinate& center_pos, const AbsoluteOrientation& center_orient,
   MatrixCoordinate& pos, AbsoluteOrientation& orient)
 {
-  // The counter-clockwise rotation required for 'pos'ition and
-  // 'orient'ation is the absolute orientation of 'center_orient'.
-  const size_t rot =
-    (center_orient == AbsoluteOrientation::NORTH) ? size_t(0) :
-    (NUM_ABSOLUTE_ORIENTATIONS - size_t(center_orient));
-  const MatrixCoordinate rel_rot = RotateRelativePosition(pos - center_pos, rot);
-  orient = AbsoluteOrientation((size_t(orient) + rot) % NUM_ABSOLUTE_ORIENTATIONS);
-  pos = rel_rot;
+  const MatrixCoordinate pos_delta = pos - center_pos;
+
+  // Adjust 'pos'ition and 'orient'ation as required to normalize
+  // center.
+  switch (center_orient) {
+  case AbsoluteOrientation::NORTH:
+  case AbsoluteOrientation::NORTH_EAST:
+    pos = pos_delta;
+    // orient has no change
+    break;
+
+  case AbsoluteOrientation::WEST:
+  case AbsoluteOrientation::NORTH_WEST:
+    // Rotate 90 degrees clockwise.
+    pos = MatrixCoordinate(-pos_delta.Column(), pos_delta.Row());
+    orient = IndexToAbsoluteOrientation(int64_t(orient) + 2);  // 2 == 90 degrees
+    break;
+
+  case AbsoluteOrientation::SOUTH:
+  case AbsoluteOrientation::SOUTH_WEST:
+    // Rotate 180 degrees clockwise.
+    pos = -pos_delta;
+    orient = IndexToAbsoluteOrientation(int64_t(orient) + 4);  // 4 == 180 degrees
+    break;
+  case AbsoluteOrientation::EAST:
+  case AbsoluteOrientation::SOUTH_EAST:
+    // Rotate 270 degrees clockwise.
+    pos = MatrixCoordinate(pos_delta.Column(), -pos_delta.Row());
+    orient = IndexToAbsoluteOrientation(int64_t(orient) + 6);  // 6 == 270 degrees
+    break;
+  }
 }
 
 void
-DecomposeSteps(
-  const MatrixCoordinate& pos,
-  size_t& diagonal_count, AbsoluteOrientation& diagonal_dir,
-  size_t& straight_count, AbsoluteOrientation& straight_dir)
+RelativePositionToAbsolute(
+  const MatrixCoordinate& center_pos, const AbsoluteOrientation& center_orient,
+  MatrixCoordinate& pos, AbsoluteOrientation& orient)
 {
-  // 'pos' is assumed to be a relative position. Decompose 'pos' into
-  // diagonal and straight steps. Maximize diagonal steps.
-  diagonal_count = std::min(abs(pos.Row()), abs(pos.Column()));
-  straight_count = std::max(abs(pos.Row()), abs(pos.Column())) - diagonal_count;
+  switch (center_orient) {
+  case AbsoluteOrientation::NORTH:
+  case AbsoluteOrientation::NORTH_EAST:
+    break;
 
-  // Determine the direction of the diagonal, rotate to the new
-  // direction, and perform the same number of steps along the new
-  // direction.
-  diagonal_dir = AbsoluteOrientation::NORTH;
-  if (diagonal_count > 0) {
-    assert((abs(pos.Row()) >= diagonal_count) && (abs(pos.Column()) >= diagonal_count));
-    if (pos.Column() >= 0) {
-      diagonal_dir = (pos.Row() >= 0) ? AbsoluteOrientation::NORTH_EAST : AbsoluteOrientation::SOUTH_EAST;
-    } else {
-      diagonal_dir = (pos.Row() >= 0) ? AbsoluteOrientation::NORTH_WEST : AbsoluteOrientation::SOUTH_WEST;
-    }
+  case AbsoluteOrientation::EAST:
+  case AbsoluteOrientation::SOUTH_EAST:
+    // Rotate 90 degrees clockwise.
+    pos = MatrixCoordinate(-pos.Column(), pos.Row());
+    orient = IndexToAbsoluteOrientation(int64_t(orient) + 2);  // 2 == 90 degrees
+    break;
 
-    assert(diagonal_dir != AbsoluteOrientation::NORTH);
+  case AbsoluteOrientation::SOUTH:
+  case AbsoluteOrientation::SOUTH_WEST:
+    // Rotate 180 degrees clockwise.
+    pos = -pos;
+    orient = IndexToAbsoluteOrientation(int64_t(orient) + 4);  // 4 == 180 degrees
+    break;
+  case AbsoluteOrientation::WEST:
+  case AbsoluteOrientation::NORTH_WEST:
+    // Rotate 270 degrees clockwise.
+    pos = MatrixCoordinate(pos.Column(), -pos.Row());
+    orient = IndexToAbsoluteOrientation(int64_t(orient) + 6);  // 6 == 270 degrees
+    break;
   }
 
-  straight_dir = AbsoluteOrientation::NORTH_EAST;
-  if (straight_count > 0) {
-    assert(abs(pos.Column()) != abs(pos.Row()));
-    if (abs(pos.Column()) > abs(pos.Row())) {
-      straight_dir = (pos.Column() > 0) ? AbsoluteOrientation::EAST : AbsoluteOrientation::WEST;
-    }
-    else {
-      straight_dir = (pos.Row() > 0) ? AbsoluteOrientation::NORTH : AbsoluteOrientation::SOUTH;
-    }
-
-    assert(straight_dir != AbsoluteOrientation::NORTH_EAST);
-  }
+  pos += center_pos;
 }
 
 //
 // Orientations
 //
+AbsoluteOrientation
+IndexToAbsoluteOrientation(int64_t idx)
+{
+  while (idx < 0) {
+    idx += ABSOLUTE_ORIENTATION_COUNT;
+  }
+
+  return AbsoluteOrientation(idx % ABSOLUTE_ORIENTATION_COUNT);
+}
+
+std::string
+AbsoluteOrientationToString(AbsoluteOrientation o)
+{
+  switch (o) {
+  case AbsoluteOrientation::NORTH:      return "NORTH";
+  case AbsoluteOrientation::NORTH_EAST: return "NORTH-EAST";
+  case AbsoluteOrientation::EAST:       return "EAST";
+  case AbsoluteOrientation::SOUTH_EAST: return "SOUTH-EAST";
+  case AbsoluteOrientation::SOUTH:      return "SOUTH";
+  case AbsoluteOrientation::SOUTH_WEST: return "SOUTH-WEST";
+  case AbsoluteOrientation::WEST:       return "WEST";
+  case AbsoluteOrientation::NORTH_WEST: return "NORTH-WEST";
+  }
+
+  // unreachable
+  return "<unknown>";
+}
+
 std::string
 AbsoluteOrientationToShortString(AbsoluteOrientation o)
 {
@@ -143,68 +140,151 @@ AbsoluteOrientationToShortString(AbsoluteOrientation o)
   return "<unknown>";
 }
 
-std::string
-AbsoluteOrientationToBoardShortString(AbsoluteOrientation o)
-{
-  switch (o) {
-  case AbsoluteOrientation::NORTH:      return "UP";
-  case AbsoluteOrientation::NORTH_EAST: return "UR";
-  case AbsoluteOrientation::EAST:       return "RT";
-  case AbsoluteOrientation::SOUTH_EAST: return "DR";
-  case AbsoluteOrientation::SOUTH:      return "DN";
-  case AbsoluteOrientation::SOUTH_WEST: return "DL";
-  case AbsoluteOrientation::WEST:       return "LT";
-  case AbsoluteOrientation::NORTH_WEST: return "UL";
-  }
-
-  // unreachable
-  return "<unknown>";
-}
-
 //
 // Actions
 //
-class BiplaneActionInfo {
-public:
-  BiplaneActionInfo(
-    const std::string n, const MatrixCoordinate pdelta, const int64_t odelta) :
-    name(n), position_delta(pdelta), orientation_delta(odelta) { }
 
-  const std::string name;
-  const MatrixCoordinate position_delta;
+// For each absolute or relative orientation, the position delta for a
+// single 3:2 grid step in that direction.
+constexpr cifre::array<MatrixCoordinate, cifre::biplane::ABSOLUTE_ORIENTATION_COUNT> unit_vectors_ {
+  //              [y, x]
+  MatrixCoordinate(ACTION_STEP_STRAIGHT, 0),                       // N / F
+  MatrixCoordinate(ACTION_STEP_DIAGONAL, ACTION_STEP_DIAGONAL),    // NE / FR
+  MatrixCoordinate(0, ACTION_STEP_STRAIGHT),                       // E / R
+  MatrixCoordinate(-ACTION_STEP_DIAGONAL, ACTION_STEP_DIAGONAL),   // SE / BR
+  MatrixCoordinate(-ACTION_STEP_STRAIGHT, 0),                      // S / B
+  MatrixCoordinate(-ACTION_STEP_DIAGONAL, -ACTION_STEP_DIAGONAL),  // SW / BL
+  MatrixCoordinate(0, -ACTION_STEP_STRAIGHT),                      // W / L
+  MatrixCoordinate(ACTION_STEP_DIAGONAL, -ACTION_STEP_DIAGONAL)    // NW / FL
+};
+
+enum RelativeStep : uint8_t {
+  F, FR, R, BR, B, BL, L, FL
+};
+
+// The information for each action.
+struct BiplaneActionInfo {
+  static constexpr size_t MAX_STEPS_PER_ACTION = 3;
+  const std::string_view name;
+  const size_t step_count;
+  const std::array<RelativeStep, MAX_STEPS_PER_ACTION> steps;
   const int64_t orientation_delta;
 };
 
+constexpr cifre::array<BiplaneActionInfo, TOTAL_ACTIONID_COUNT> action_info_ {{{
+  // === Debug actions ===
+  //{ "0", 0, {F, F, F}, 0},
+  //{ "F", 1, {F, F, F}, 0},
+  //{ "L", 0, {F, F, F}, -1 },
+  //{ "R", 0, {F, F, F}, +1 },
+  // === Slow speed actions ===                // [x,y] N / NE
+  { "SLOW-EARLY-90-LEFT", 2, {F, BL, F}, -2 }, // (-2, 1) / (-1, 2)
+  { "SLOW-EARLY-45-LEFT", 2, {F, BL, F}, -1 }, // (-2, 1) / (-1, 2)
+  { "SLOW-90-LEFT", 1, {FL, F, F}, -2},        // (-2, 2) / (0, 3)
+  { "SLOW-45-LEFT", 1, {FL, F, F}, -1},        // (-2, 2) / (0, 3)
+  { "SLOW-LATE-90-LEFT", 2, {L, FR, F}, -2},   // (-1, 2) / (1, 2)
+  { "SLOW-LATE-45-LEFT", 2, {L, FR, F}, -1},   // (-1, 2) / (1, 2)
+  { "SLOW-STRAIGHT", 1, {F, F, F}, 0},         // (0, 3) / (2, 2)
+  { "SLOW-LATE-45-RIGHT", 2, {R, FL, F}, +1},  // (1, 2) / (2, 1)
+  { "SLOW-LATE-90-RIGHT", 2, {R, FL, F}, +2},  // (1, 2) / (2, 1)
+  { "SLOW-45-RIGHT", 1, {FR, F, F}, +1},       // (2, 2) / (3, 0)
+  { "SLOW-90-RIGHT", 1, {FR, F, F}, +2},       // (2, 2) / (3, 0)
+  { "SLOW-EARLY-45-RIGHT", 2, {F, BR, F}, +1}, // (2, 1) / (2,-1)
+  { "SLOW-EARLY-90-RIGHT", 2, {F, BR, F}, +2}, // (2, 1) / (2,-1)
+  // === Medium speed actions ===                 // [x,y] N / NE
+  { "MEDIUM-EARLY-90-LEFT", 2, {L, FL, F}, -2 }, // (-5, 2) / (-2, 5)
+  { "MEDIUM-EARLY-45-LEFT", 2, {L, FL, F}, -1 }, // (-5, 2) / (-2, 5)
+  { "MEDIUM-90-LEFT", 2, {FL, FL, F}, -2},       // (-4, 4) / (0, 6)
+  { "MEDIUM-45-LEFT", 2, {FL, FL, F}, -1},       // (-4, 4) / (0, 6)
+  { "MEDIUM-LATE-90-LEFT", 2, {F, FL, F}, -2},   // (-2, 5) / (2, 5)
+  { "MEDIUM-LATE-45-LEFT", 2, {F, FL, F}, -1},   // (-2, 5) / (2, 5)
+  { "MEDIUM-STRAIGHT", 2, {F, F, F}, 0},         // (0, 6) / (4, 4)
+  { "MEDIUM-LATE-45-RIGHT", 2, {F, FR, F}, +1},  // (2, 5) / (5, 2)
+  { "MEDIUM-LATE-90-RIGHT", 2, {F, FR, F}, +2},  // (2, 5) / (5, 2)
+  { "MEDIUM-45-RIGHT", 2, {FR, FR, F}, +1},      // (4, 4) / (6, 0)
+  { "MEDIUM-90-RIGHT", 2, {FR, FR, F}, +2},      // (4, 4) / (6, 0)
+  { "MEDIUM-EARLY-45-RIGHT", 2, {R, FR, F}, +1}, // (5, 2) / (5,-2)
+  { "MEDIUM-EARLY-90-RIGHT", 2, {R, FR, F}, +2}, // (5, 2) / (5,-2)
+}}};
+    // // ================= FAST TIER =================
+    // {3, {L, FL, FL}, -2}, // FAST_EARLY_90_L (-7, 4) / (-2, 8)
+    // {3, {L, FL, FL}, -1}, // FAST_EARLY_45_L (-7, 4) / (-2, 8)
+    // {3, {F, FL, FL}, -2}, // FAST_MID_90_L   (-4, 7) / ( 2, 8)
+    // {3, {F, FL, FL}, -1}, // FAST_MID_45_L   (-4, 7) / ( 2, 8)
+    // {3, {F, F, FL}, -2}, // FAST_LATE_90_L  (-2, 8) / ( 4, 7)
+    // {3, {F, F, FL}, -1}, // FAST_LATE_45_L  (-2, 8) / ( 4, 7)
+    // {3, {F, F, F }, 0}, // FAST_STRAIGHT   ( 0, 9) / ( 6, 6)
+    // {3, {F, F, FR}, +1}, // FAST_LATE_45_R  ( 2, 8) / ( 7, 4)
+    // {3, {F, F, FR}, +2}, // FAST_LATE_90_R  ( 2, 8) / ( 7, 4)
+    // {3, {F, FR, FR}, +1}, // FAST_MID_45_R   ( 4, 7) / ( 8, 2)
+    // {3, {F, FR, FR}, +2}, // FAST_MID_90_R   ( 4, 7) / ( 8, 2)
+    // {3, {R, FR, FR}, +1}, // FAST_EARLY_45_R ( 7, 4) / ( 8,-2)
+    // {3, {R, FR, FR}, +2}  // FAST_EARLY_90_R ( 7, 4) / ( 8,-2)
 
-const cifre::array<BiplaneActionInfo, TOTAL_ACTIONID_COUNT> action_info_ {
-    // name                                          [y, x]  dir
-  BiplaneActionInfo { std::string("SLOW-STRAIGHT"), {1, 0}, 0 },
-  BiplaneActionInfo { std::string("SLOW-45-LEFT"), {1, -1}, -1 },
-  BiplaneActionInfo { std::string("SLOW-45-RIGHT"), {1, 1}, 1 },
-  BiplaneActionInfo { std::string("SLOW-90-LEFT"), {1, -1}, -2 },
-  BiplaneActionInfo { std::string("SLOW-90-RIGHT"), {1, 1}, 2 },
-  BiplaneActionInfo { std::string("SLOW-135-LEFT"), {1, -1}, -3 },
-  BiplaneActionInfo { std::string("SLOW-135-RIGHT"), {1, 1}, 3 },
-
-  BiplaneActionInfo { std::string("SLOW-45-LSLIP"), {1, 0}, -1 },
-  BiplaneActionInfo { std::string("SLOW-45-RSLIP"), {1, 0}, 1 },
-  BiplaneActionInfo { std::string("SLOW-90-LSLIP"), {1, 0}, -2 },
-  BiplaneActionInfo { std::string("SLOW-90-RSLIP"), {1, 0}, 2 },
-
-  BiplaneActionInfo { std::string("MED-STRAIGHT"), {2, 0}, 0 },
-  BiplaneActionInfo { std::string("MED-45-LEFT"), {2, -1}, -1 },
-  BiplaneActionInfo { std::string("MED-45-RIGHT"), {2, 1}, 1 },
-  BiplaneActionInfo { std::string("MED-90-LEFT"), {2, -1}, -2 },
-  BiplaneActionInfo { std::string("MED-90-RIGHT"), {2, 1}, 2 },
-  BiplaneActionInfo { std::string("MED-135-LEFT"), {2, -1}, -3 },
-  BiplaneActionInfo { std::string("MED-135-RIGHT"), {2, 1}, 3 }
+struct BiplaneActionOutcome {
+  MatrixCoordinate position_delta;
+  AbsoluteOrientation new_orientation;
 };
+
+using BiplaneActionOutcomeForOrientation =
+  cifre::array<cifre::array<BiplaneActionOutcome, TOTAL_ACTIONID_COUNT>,
+               ABSOLUTE_ORIENTATION_COUNT>;
+
+constexpr BiplaneActionOutcomeForOrientation init_action_outcomes_()
+{
+  BiplaneActionOutcomeForOrientation outcomes { };
+  for (size_t oidx = 0; oidx < ABSOLUTE_ORIENTATION_COUNT; ++oidx) {
+    for (size_t aid = 0; aid < TOTAL_ACTIONID_COUNT; ++aid) {
+      const auto& ainfo = action_info_[aid];
+      MatrixCoordinate position_delta(0, 0);
+      for (size_t sidx = 0; sidx < ainfo.step_count; ++sidx) {
+        const size_t step_abs_dir =
+          (oidx + ainfo.steps[sidx] + ABSOLUTE_ORIENTATION_COUNT) % ABSOLUTE_ORIENTATION_COUNT;
+        position_delta += unit_vectors_[step_abs_dir];
+      }
+
+      const AbsoluteOrientation new_orientation =
+        AbsoluteOrientation((oidx + ainfo.orientation_delta + ABSOLUTE_ORIENTATION_COUNT) %
+                            ABSOLUTE_ORIENTATION_COUNT);
+      outcomes[oidx][aid] =
+        BiplaneActionOutcome { position_delta, new_orientation };
+    }
+  }
+
+  return outcomes;
+}
+
+// For each action and active player orientation calculate the
+// position delta and new orientation. This is done using the
+// constexpr information above so it is all performed at compile time.
+constexpr BiplaneActionOutcomeForOrientation action_outcome_from_orientation_ = init_action_outcomes_();
+
+// Compile-time sanity checking for action outcome calculations.
+static_assert(
+  action_outcome_from_orientation_[
+    size_t(AbsoluteOrientation::SOUTH_WEST)][6 /*SLOW-STRAIGHT*/].position_delta == MatrixCoordinate(-2, -2));
+static_assert(
+  action_outcome_from_orientation_[
+    size_t(AbsoluteOrientation::SOUTH_WEST)][6 /*SLOW-STRAIGHT*/].new_orientation == AbsoluteOrientation::SOUTH_WEST);
+static_assert(
+  action_outcome_from_orientation_[
+    size_t(AbsoluteOrientation::WEST)][10 /*SLOW-90-RIGHT*/].position_delta == MatrixCoordinate(2, -2));
+static_assert(
+  action_outcome_from_orientation_[
+    size_t(AbsoluteOrientation::WEST)][10 /*SLOW-90-RIGHT*/].new_orientation == AbsoluteOrientation::NORTH);
+static_assert(
+  action_outcome_from_orientation_[
+    size_t(AbsoluteOrientation::NORTH_EAST)][21 /*MEDIUM-LATE-90-RIGHT*/].position_delta == MatrixCoordinate(2, 5));
+static_assert(
+  action_outcome_from_orientation_[
+    size_t(AbsoluteOrientation::NORTH_EAST)][21 /*MEDIUM-LATE-90-RIGHT*/].new_orientation == AbsoluteOrientation::SOUTH_EAST);
+
 
 std::string
 ActionIdToString(uint64_t aid)
 {
   assert(aid < TOTAL_ACTIONID_COUNT);
-  return action_info_[aid].name;
+  return std::string(action_info_[aid].name);
 }
 
 uint64_t
@@ -220,16 +300,14 @@ StringToActionId(const std::string& str)
 }
 
 void
-ActionIdToAbsoluteDelta(
+ActionIdToAbsoluteOutcome(
   const uint64_t aid, const AbsoluteOrientation orientation,
-  MatrixCoordinate& pos_delta, int64_t& orientation_delta)
+  MatrixCoordinate& position_delta, AbsoluteOrientation& new_orientation)
 {
   assert(aid < TOTAL_ACTIONID_COUNT);
-
-  // Relative position delta must be rotated so that it is applied
-  // along the forward direction of 'player_id'.
-  pos_delta = RotateRelativePosition(action_info_[aid].position_delta, size_t(orientation));
-  orientation_delta = action_info_[aid].orientation_delta;
+  const auto& outcome = action_outcome_from_orientation_[size_t(orientation)][aid];
+  position_delta = outcome.position_delta;
+  new_orientation = outcome.new_orientation;
 }
 
 }} // namespace cifre::biplane

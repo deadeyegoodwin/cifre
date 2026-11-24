@@ -285,12 +285,14 @@ def main():
         nnet_train = CifreResidualConvNNet(nnet_args)
         nnet_export = CifreResidualConvNNet(nnet_args)
     elif FLAGS.game == 'biplane':
+        num_planes = 10    # see biplane::Board::CELL_PLANE_COUNT
         default_max_distance = 4 # see biplane::DEFAULT_MAX_DISTANCE
-        num_planes = 9    # see biplane::Board::CELL_PLANE_COUNT
         max_distance = default_max_distance if (FLAGS.game_shape is None) else FLAGS.game_shape[0]
         game_shape = (max_distance,)
+        action_step_straight = 3  # see biplane::shared::ACTION_STEP_STRAIGHT
         nnet_shape = ( # see biplane::Board
-            (max_distance * 2) + 1, (max_distance * 2) + 1, num_planes)
+            (max_distance * action_step_straight * 2) + 1,
+            (max_distance * action_step_straight * 2) + 1, num_planes)
         train_batch_size = 16 if (FLAGS.train_batch_size is None) else FLAGS.train_batch_size
         infer_batch_size = 32 if (FLAGS.infer_batch_size is None) else FLAGS.infer_batch_size
         nnet_args = {
@@ -299,7 +301,7 @@ def main():
             'num_rows' : nnet_shape[0],
             'num_cols' : nnet_shape[1],
             'num_residual_blocks' : 5,
-            'num_actions' : 18, # see biplane::action::TOTAL_ACTIONID_COUNT
+            'num_actions' : 26, # see biplane::action::TOTAL_ACTIONID_COUNT
             'dropout' : 0.25,
             'num_channels' : 128 }
         nnet_train = CifreResidualConvNNet(nnet_args)
