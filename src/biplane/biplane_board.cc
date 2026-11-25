@@ -523,6 +523,10 @@ Board::CellsToString() const
   sstr << "\n " << std::string(ch_width, '-');
 
   sstr
+    << "\nNormalization: "
+    << ((CellValueAt(MatrixCoordinate(0, 0), CELL_PLANE_NORMALIZATION_IDX) == CELL_ACTIVE) ?
+        "NORTH" : "NORTH-EAST");
+  sstr
     << "\nAdvantage plane: "
     << ((CellValueAt(MatrixCoordinate(0, 0), CELL_PLANE_ADVANTAGE_IDX) == CELL_ACTIVE) ?
         "ACTIVE" : "EMPTY");
