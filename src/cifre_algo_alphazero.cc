@@ -679,63 +679,65 @@ AlphaZeroNode::ToString(float cpuct) const
   }
   sstr << "]\n";
 
-  const auto& pi = result_->Pi();
-  sstr << "  z: " << std::setprecision(5) << result_->V() << ", pi: [";
-  first = true;
-  for (size_t idx = 0; idx < state_->TotalActionIdCount(); ++idx) {
-    sstr << ((first) ? "" : ", ") << pi[idx];
-    first = false;
-  }
-  sstr << "]\n";
-
-  if (cpuct > 0.0) {
-    std::vector<float> qus, nocycle_qus;
-    std::optional<uint64_t> best_action_id =
-      MaxQU(0 /* generation */, cpuct, EMPTY_DIRICHLET, 0.0 /* dirichlet_ratio */,
-            nullptr /* cycle_avoided_count */, &qus, &nocycle_qus);
-    sstr << "  cpuct: " << cpuct
-         << ", best action: ";
-    if (best_action_id) {
-      sstr << NodeState().ActionToString(Action(Action::ActionKind::ACTIONID, *best_action_id))
-          << " (" << std::to_string(*best_action_id) << ")\n";
-    }
-    else {
-      sstr << "<none>\n";
-    }
-    sstr << "    no-cycle QUs: [";
+  if (result_ != nullptr) {
+    const auto& pi = result_->Pi();
+    sstr << "  z: " << std::setprecision(5) << result_->V() << ", pi: [";
     first = true;
-    for (float p : nocycle_qus) {
-      sstr << ((first) ? "" : ", ") << p;
-      first = false;
-    }
-    sstr << "]\n" << "    QUs: [";
-    first = true;
-    for (float p : qus) {
-      sstr << ((first) ? "" : ", ") << p;
+    for (size_t idx = 0; idx < state_->TotalActionIdCount(); ++idx) {
+      sstr << ((first) ? "" : ", ") << pi[idx];
       first = false;
     }
     sstr << "]\n";
-  }
 
-  std::vector<uint64_t> sorted_aids(
-    state_->ValidActionIds().begin(), state_->ValidActionIds().end());
-  std::stable_sort(
-    sorted_aids.begin(), sorted_aids.end(),
-    [&v = children_visit_counts_](size_t a, size_t b) { return v[a] > v[b]; });
-
-  first = true;
-  for (uint64_t aid : sorted_aids) {
-    const AlphaZeroNode* child = children_[aid];
-    if (child != nullptr) {
-      if (first) {
-        sstr << "      action  child value/visits        pi\n";
+    if (cpuct > 0.0) {
+      std::vector<float> qus, nocycle_qus;
+      std::optional<uint64_t> best_action_id =
+        MaxQU(0 /* generation */, cpuct, EMPTY_DIRICHLET, 0.0 /* dirichlet_ratio */,
+              nullptr /* cycle_avoided_count */, &qus, &nocycle_qus);
+      sstr << "  cpuct: " << cpuct
+           << ", best action: ";
+      if (best_action_id) {
+        sstr << NodeState().ActionToString(Action(Action::ActionKind::ACTIONID, *best_action_id))
+             << " (" << std::to_string(*best_action_id) << ")\n";
+      }
+      else {
+        sstr << "<none>\n";
+      }
+      sstr << "    no-cycle QUs: [";
+      first = true;
+      for (float p : nocycle_qus) {
+        sstr << ((first) ? "" : ", ") << p;
         first = false;
       }
-      sstr
-        << std::setw(12) << state_->ActionToString(Action(Action::ActionKind::ACTIONID, aid))
-        << std::setw(13) << std::to_string(child->value_) << '/'
-        << std::setw(6) << children_visit_counts_[aid]
-        << std::setw(9) << std::setprecision(4) << (pi[aid] * 100.0) << "%\n";
+      sstr << "]\n" << "    QUs: [";
+      first = true;
+      for (float p : qus) {
+        sstr << ((first) ? "" : ", ") << p;
+        first = false;
+      }
+      sstr << "]\n";
+    }
+
+    std::vector<uint64_t> sorted_aids(
+      state_->ValidActionIds().begin(), state_->ValidActionIds().end());
+    std::stable_sort(
+      sorted_aids.begin(), sorted_aids.end(),
+      [&v = children_visit_counts_](size_t a, size_t b) { return v[a] > v[b]; });
+
+    first = true;
+    for (uint64_t aid : sorted_aids) {
+      const AlphaZeroNode* child = children_[aid];
+      if (child != nullptr) {
+        if (first) {
+          sstr << "      action  child value/visits        pi\n";
+          first = false;
+        }
+        sstr
+          << std::setw(12) << state_->ActionToString(Action(Action::ActionKind::ACTIONID, aid))
+          << std::setw(13) << std::to_string(child->value_) << '/'
+          << std::setw(6) << children_visit_counts_[aid]
+          << std::setw(9) << std::setprecision(4) << (pi[aid] * 100.0) << "%\n";
+      }
     }
   }
 
