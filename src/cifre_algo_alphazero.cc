@@ -264,11 +264,9 @@ AlphaZeroAlgo::SearchTree(
     return std::make_pair(node->Value(), node);
   }
 
-#ifndef NDEBUG
   // Non-terminal nodes must maintain correctness between 'node' visit
   // count and children visit counts.
-  node->ValidateVisitCounts();
-#endif
+  assert(node->ValidateVisitCounts(logger_));
 
   // If game depth has been reached then assume game is a draw. If
   // search depth is reached then return 'node's value. Don't
@@ -648,8 +646,8 @@ AlphaZeroNode::RandomWeightedValidChild(
   return RandomWeightedValidChild(rnd, percent_visit_count + 1, vaids);
 }
 
-void
-AlphaZeroNode::ValidateVisitCounts() const
+bool
+AlphaZeroNode::ValidateVisitCounts(const std::shared_ptr<Logger>& logger) const
 {
   // Make sure non-terminal 'node's visit count equals 1 + sum of the
   // children visit counts. See AlphaZeroNode header documentation.
@@ -659,9 +657,14 @@ AlphaZeroNode::ValidateVisitCounts() const
   }
 
   if ((visit_count_ == 0) || (visit_count_ != (1 + total_child_visit_count))) {
-    THROW("invalid node and children visit counts, total child visit count " +
-          std::to_string(total_child_visit_count) + "\n" + ToString());
+    if (logger != nullptr) {
+      logger->Write("invalid node and children visit counts, total child visit count " +
+                    std::to_string(total_child_visit_count) + "\n" + ToString());
+    }
+    return false;
   }
+
+  return true;
 }
 
 std::string

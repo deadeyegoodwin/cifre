@@ -171,7 +171,7 @@ public:
 
   // Validate that the node's visit count agrees with the children
   // visit counts as explained above.
-  void ValidateVisitCounts() const;
+  bool ValidateVisitCounts(const std::shared_ptr<Logger>& logger) const;
 
   // Return the ID of the action that has the highest QU value. If
   // 'qu's is non-nullptr then it will be filled with the QU value
