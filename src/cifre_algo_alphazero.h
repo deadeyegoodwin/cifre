@@ -92,6 +92,7 @@ public:
   std::string ToString() const;
 
   std::atomic<size_t> total_node_count_ {0};
+  std::atomic<size_t> visited_node_count_ {0};
   std::atomic<size_t> terminal_node_count_ {0};
   std::atomic<size_t> edge_count_ {0};
   std::atomic<size_t> search_count_ {0};

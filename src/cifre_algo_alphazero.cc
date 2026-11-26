@@ -332,6 +332,15 @@ AlphaZeroAlgo::SearchTree(
   // Set generation for the next node to be visited.
   next->SetGeneration(node_generation);
 
+  // If this is the first visit to 'node' that is creating a child,
+  // then count the 'node' as a visited one. So terminal nodes or
+  // nodes that don't have any children are not included in this
+  // count.
+  assert(node->VisitCount() >= 1);
+  if (node->VisitCount() == 1) {
+    statistics_.visited_node_count_++;
+  }
+
   // We update the visit counts before we move down the tree, this is
   // because we want the cpuct calculation to take into account this
   // visit even if we visit this node again in a loop.
@@ -754,6 +763,7 @@ AlphaZeroStatistics&
 AlphaZeroStatistics::operator+=(const AlphaZeroStatistics& rhs)
 {
   total_node_count_ += rhs.total_node_count_;
+  visited_node_count_ += rhs.visited_node_count_;
   terminal_node_count_ += rhs.terminal_node_count_;
   edge_count_ += rhs.edge_count_;
   search_count_ += rhs.search_count_;
@@ -768,6 +778,7 @@ void
 AlphaZeroStatistics::Reset()
 {
   total_node_count_ = 0;
+  visited_node_count_ = 0;
   terminal_node_count_ = 0;
   edge_count_ = 0;
   search_count_ = 0;
@@ -781,10 +792,11 @@ std::string
 AlphaZeroStatistics::ToString() const
 {
   std::stringstream ss;
-  ss << "nodes: " << total_node_count_ << ", internal " << (total_node_count_ - terminal_node_count_)
+  ss << "nodes: " << total_node_count_
+     << ", visited (non-terminal) " << visited_node_count_
      << ", terminal " << terminal_node_count_ << '\n';
-  ss << "edges: " << edge_count_ << ", avg outgoing per node "
-     << std::fixed << std::setprecision(2) << ((float)edge_count_ / total_node_count_) << '\n';
+  ss << "edges: " << edge_count_ << ", avg outgoing per visited non-terminal node "
+     << std::fixed << std::setprecision(2) << ((float)edge_count_ / visited_node_count_) << '\n';
   ss
     << "searches: " << search_count_
     << ", end by search-depth " << search_endby_search_depth_count_
