@@ -289,11 +289,20 @@ struct StateTritonRepresentationHash {
 struct StateTritonRepresentationEqual {
   inline static FlattenedCellsEqual equater_ {};
   bool operator()(StateUniqueConstPtr a, StateUniqueConstPtr b) const {
-    return equater_(a->TritonRepresentation(), b->TritonRepresentation()); }
+    const bool eq = equater_(a->TritonRepresentation(), b->TritonRepresentation());
+    assert(!a->Equal(b.get()) || eq);
+    return eq;
+  }
   bool operator()(const State* a, const State* b) const {
-    return equater_(a->TritonRepresentation(), b->TritonRepresentation()); }
+    const bool eq = equater_(a->TritonRepresentation(), b->TritonRepresentation());
+    assert(!a->Equal(b) || eq);
+    return eq;
+  }
   bool operator()(const State& a, const State& b) const {
-    return equater_(a.TritonRepresentation(), b.TritonRepresentation()); }
+    const bool eq = equater_(a.TritonRepresentation(), b.TritonRepresentation());
+    assert(!a.Equal(&b) || eq);
+    return eq;
+  }
 };
 
 } // namespace cifre

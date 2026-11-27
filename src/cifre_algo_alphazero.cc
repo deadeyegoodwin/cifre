@@ -206,6 +206,10 @@ AlphaZeroAlgo::FindOrCreateNode(StateUniqueConstPtr state, bool* created)
 {
   auto fnode_itr = nodes_.find(state.get());
   if (fnode_itr != nodes_.end()) {
+    // There already exists a node for 'state', make sure that the
+    // triton-representation for this existing node-state matches
+    // 'state'.
+    assert(state->TritonRepresentation() == fnode_itr->second.NodeState().TritonRepresentation());
     if (created != nullptr) {
       *created = false;
     }
