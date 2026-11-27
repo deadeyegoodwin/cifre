@@ -144,6 +144,15 @@ using StateUniqueConstPtr = std::unique_ptr<const State, StateDeleterBase>;
 // different nodes by AZ. AZ needs Hash/Equal to have this property to
 // correctly detect turn changes.
 //
+// From the above, it must be true that two states that are Equal()
+// must have the same TritonRepresentation(). But it is not
+// necessarily true that two states that have the same
+// TritonRepresentation() are also Equal(). In fact, all games must
+// include ActivePlayerId in Hash()/Equal() (as explained above) but
+// many will not include ActivePlayerId in TritonRepresentation() and
+// so for these games two states that have the same
+// TritonRepresentation() may be unequal due solely to ActivePlayerId.
+//
 // Memory Management: The State interface refers to pmr resources to
 // enable player algorithms, like AlphaZero, to efficiently manage
 // memory used for game state. An algorithm may use a memory resource
@@ -157,12 +166,13 @@ public:
 
   // Return the hash of this state. The hash must satisfy all the
   // properties of std::hash. The hash must include ActivePlayerId for
-  // AZ to operate correctly.
+  // AZ to operate correctly. See above for more discussion.
   virtual size_t Hash() const = 0;
 
   // Return true if this state is equal to 'other'. Must satisfy all
   // the properties of std::is_equal. The equality must include
-  // ActivePlayerId for AZ to operate correctly.
+  // ActivePlayerId for AZ to operate correctly. See above for more
+  // discussion.
   virtual bool Equal(const State* other) const = 0;
 
   // Return the total number of action IDs available across all
@@ -215,7 +225,8 @@ public:
   // Get the representation of the state suitable for feeding to the
   // nnet via triton. This representation does not need to include all
   // of the state, but must include whatever is required by the model
-  // being used.
+  // being used. See above discussion about Hash()/Equal()
+  // vs. TritonRepresentation().
   virtual const FlattenedCells& TritonRepresentation() const = 0;
 
   // Return string representation of the state.
@@ -233,7 +244,7 @@ protected:
 //
 // StateHash
 //
-// Functor for hashing States.
+// Functor for hashing a State based on State::Hash().
 //
 struct StateHash {
   size_t operator()(StateUniqueConstPtr a) const { return a->Hash(); }
@@ -244,7 +255,7 @@ struct StateHash {
 //
 // StateEqual
 //
-// Functor for comparing States.
+// Functor for comparing States based on State::Equal().
 //
 struct StateEqual {
   bool operator()(StateUniqueConstPtr a, StateUniqueConstPtr b) const {
@@ -253,6 +264,36 @@ struct StateEqual {
     return a->Equal(b); }
   bool operator()(const State& a, const State& b) const {
     return a.Equal(&b); }
+};
+
+//
+// StateTritonRepresentationHash
+//
+// Functor for hashing a State's TritonRepresentation value based on
+// State::TritonRepresentation() and FlattenedCellsHash.
+//
+template <size_t CNT>
+struct StateTritonRepresentationHash {
+  inline static FlattenedCellsHash<CNT> hasher_ {};
+  size_t operator()(StateUniqueConstPtr a) const { return hasher_(a->TritonRepresentation()); }
+  size_t operator()(const State* a) const { return hasher_(a->TritonRepresentation()); }
+  size_t operator()(const State& a) const { return hasher_(a.TritonRepresentation()); }
+};
+
+//
+// StateTritonRepresentationEqual
+//
+// Functor for comparing two State's TritonRepresentation value based
+// on State::TritonRepresentation() and FlattenedCellsHash.
+//
+struct StateTritonRepresentationEqual {
+  inline static FlattenedCellsEqual equater_ {};
+  bool operator()(StateUniqueConstPtr a, StateUniqueConstPtr b) const {
+    return equater_(a->TritonRepresentation(), b->TritonRepresentation()); }
+  bool operator()(const State* a, const State* b) const {
+    return equater_(a->TritonRepresentation(), b->TritonRepresentation()); }
+  bool operator()(const State& a, const State& b) const {
+    return equater_(a.TritonRepresentation(), b.TritonRepresentation()); }
 };
 
 } // namespace cifre

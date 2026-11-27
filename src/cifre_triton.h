@@ -141,7 +141,11 @@ private:
 
   // 'cache_lookup_' is map from State to the index of the cache entry
   // in 'cache_'. The key is a pointer to the State held in the
-  // corresponding CacheEntry.
+  // corresponding CacheEntry. Note that we are using
+  // StateHash/StateEqual here under the assumption that those are
+  // much faster than actually comparing the TritonRepresentation() of
+  // the two states. Using TritonRepresentation() as the key would, in
+  // general, save capacity in exchange for longer lookup time.
   std::unordered_map<const State*, size_t, StateHash, StateEqual> cache_lookup_;
   std::vector<CacheEntry> cache_;
 
