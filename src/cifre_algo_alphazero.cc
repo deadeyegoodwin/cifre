@@ -355,12 +355,15 @@ AlphaZeroAlgo::SearchTree(
   AlphaZeroNode* tnode = nullptr;
   if (next_created) {
     v = next->Value();
-    LOG_ALGO_DETAIL_IE(
+    LOG_ALGO_DETAIL(
       *logger_, " " + std::to_string(depth + 1) +
       "[new node<" + std::format("{}", static_cast<const void*>(next)) + ">(p" +
       std::to_string(next->NodeState().ActivePlayerId()) + "), value " +
-      std::to_string(v) + ", " + next->NodeState().TerminalStatus().ToString() + "] >>",
-      0 /* indent */, false /* endline */);
+      std::to_string(v) + ", " + next->NodeState().TerminalStatus().ToString() + "]");
+    LOG_ALGO_DETAIL_IE(
+      *logger_, std::string("[[ NEW NODE ]]\n") + next->ToString(settings_.cpuct_) +
+      "\n[[ END NEW NODE ]] >> ",
+      6 /* indent */, false /* endline */);
   }
   else {
     // If 'next' is a different player than 'node', then a game
