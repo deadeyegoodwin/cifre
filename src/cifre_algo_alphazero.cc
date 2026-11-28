@@ -356,7 +356,8 @@ AlphaZeroAlgo::SearchTree(
   if (next_created) {
     v = next->Value();
     LOG_ALGO_DETAIL_IE(
-      *logger_, " " + std::to_string(depth + 1) + "[new node(p" +
+      *logger_, " " + std::to_string(depth + 1) +
+      "[new node<" + std::format("{}", static_cast<const void*>(next)) + ">(p" +
       std::to_string(next->NodeState().ActivePlayerId()) + "), value " +
       std::to_string(v) + ", " + next->NodeState().TerminalStatus().ToString() + "] >>",
       0 /* indent */, false /* endline */);
