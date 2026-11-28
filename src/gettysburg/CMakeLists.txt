@@ -16,7 +16,7 @@ add_executable(
   main.cc
 )
 
-target_compile_features(gettysburg PRIVATE cxx_std_17)
+target_compile_features(gettysburg PRIVATE cxx_std_20)
 target_compile_options(
   gettysburg
   PRIVATE
@@ -67,7 +67,7 @@ add_library(
   gettysburg_unit.cc
 )
 
-target_compile_features(gettysburg-library PRIVATE cxx_std_17)
+target_compile_features(gettysburg-library PRIVATE cxx_std_20)
 target_compile_options(
   gettysburg-library
   PRIVATE

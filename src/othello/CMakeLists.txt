@@ -16,7 +16,7 @@ add_executable(
   main.cc
 )
 
-target_compile_features(othello PRIVATE cxx_std_17)
+target_compile_features(othello PRIVATE cxx_std_20)
 target_compile_options(
   othello
   PRIVATE
@@ -62,7 +62,7 @@ add_library(
   othello_player.cc
 )
 
-target_compile_features(othello-library PRIVATE cxx_std_17)
+target_compile_features(othello-library PRIVATE cxx_std_20)
 target_compile_options(
   othello-library
   PRIVATE

@@ -16,7 +16,7 @@ add_executable(
   main.cc
 )
 
-target_compile_features(biplane PRIVATE cxx_std_17)
+target_compile_features(biplane PRIVATE cxx_std_20)
 target_compile_options(
   biplane
   PRIVATE
@@ -63,7 +63,7 @@ add_library(
   biplane_shared.cc
 )
 
-target_compile_features(biplane-library PRIVATE cxx_std_17)
+target_compile_features(biplane-library PRIVATE cxx_std_20)
 target_compile_options(
   biplane-library
   PRIVATE

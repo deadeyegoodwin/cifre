@@ -16,7 +16,7 @@ add_executable(
   main.cc
 )
 
-target_compile_features(connect4 PRIVATE cxx_std_17)
+target_compile_features(connect4 PRIVATE cxx_std_20)
 target_compile_options(
   connect4
   PRIVATE
@@ -62,7 +62,7 @@ add_library(
   connect4_player.cc
 )
 
-target_compile_features(connect4-library PRIVATE cxx_std_17)
+target_compile_features(connect4-library PRIVATE cxx_std_20)
 target_compile_options(
   connect4-library
   PRIVATE

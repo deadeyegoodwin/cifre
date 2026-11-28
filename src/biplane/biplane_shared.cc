@@ -171,41 +171,41 @@ struct BiplaneActionInfo {
   const int64_t orientation_delta;
 };
 
-constexpr cifre::array<BiplaneActionInfo, TOTAL_ACTIONID_COUNT> action_info_ {{{
+constexpr cifre::array<BiplaneActionInfo, TOTAL_ACTIONID_COUNT> action_info_ {{
   // === Debug actions ===
-  //{ "0", 0, {F, F, F}, 0},
+  //BiplaneActionInfo { "0", 0, {F, F, F}, 0},
   //{ "F", 1, {F, F, F}, 0},
   //{ "L", 0, {F, F, F}, -1 },
   //{ "R", 0, {F, F, F}, +1 },
   // === Slow speed actions ===                // [x,y] N / NE
-  { "SLOW-EARLY-90-LEFT", 2, {F, BL, F}, -2 }, // (-2, 1) / (-1, 2)
-  { "SLOW-EARLY-45-LEFT", 2, {F, BL, F}, -1 }, // (-2, 1) / (-1, 2)
-  { "SLOW-90-LEFT", 1, {FL, F, F}, -2},        // (-2, 2) / (0, 3)
-  { "SLOW-45-LEFT", 1, {FL, F, F}, -1},        // (-2, 2) / (0, 3)
-  { "SLOW-LATE-90-LEFT", 2, {L, FR, F}, -2},   // (-1, 2) / (1, 2)
-  { "SLOW-LATE-45-LEFT", 2, {L, FR, F}, -1},   // (-1, 2) / (1, 2)
-  { "SLOW-STRAIGHT", 1, {F, F, F}, 0},         // (0, 3) / (2, 2)
-  { "SLOW-LATE-45-RIGHT", 2, {R, FL, F}, +1},  // (1, 2) / (2, 1)
-  { "SLOW-LATE-90-RIGHT", 2, {R, FL, F}, +2},  // (1, 2) / (2, 1)
-  { "SLOW-45-RIGHT", 1, {FR, F, F}, +1},       // (2, 2) / (3, 0)
-  { "SLOW-90-RIGHT", 1, {FR, F, F}, +2},       // (2, 2) / (3, 0)
-  { "SLOW-EARLY-45-RIGHT", 2, {F, BR, F}, +1}, // (2, 1) / (2,-1)
-  { "SLOW-EARLY-90-RIGHT", 2, {F, BR, F}, +2}, // (2, 1) / (2,-1)
+  BiplaneActionInfo { "SLOW-EARLY-90-LEFT", 2, {F, BL, F}, -2 }, // (-2, 1) / (-1, 2)
+  BiplaneActionInfo { "SLOW-EARLY-45-LEFT", 2, {F, BL, F}, -1 }, // (-2, 1) / (-1, 2)
+  BiplaneActionInfo { "SLOW-90-LEFT", 1, {FL, F, F}, -2},        // (-2, 2) / (0, 3)
+  BiplaneActionInfo { "SLOW-45-LEFT", 1, {FL, F, F}, -1},        // (-2, 2) / (0, 3)
+  BiplaneActionInfo { "SLOW-LATE-90-LEFT", 2, {L, FR, F}, -2},   // (-1, 2) / (1, 2)
+  BiplaneActionInfo { "SLOW-LATE-45-LEFT", 2, {L, FR, F}, -1},   // (-1, 2) / (1, 2)
+  BiplaneActionInfo { "SLOW-STRAIGHT", 1, {F, F, F}, 0},         // (0, 3) / (2, 2)
+  BiplaneActionInfo { "SLOW-LATE-45-RIGHT", 2, {R, FL, F}, +1},  // (1, 2) / (2, 1)
+  BiplaneActionInfo { "SLOW-LATE-90-RIGHT", 2, {R, FL, F}, +2},  // (1, 2) / (2, 1)
+  BiplaneActionInfo { "SLOW-45-RIGHT", 1, {FR, F, F}, +1},       // (2, 2) / (3, 0)
+  BiplaneActionInfo { "SLOW-90-RIGHT", 1, {FR, F, F}, +2},       // (2, 2) / (3, 0)
+  BiplaneActionInfo { "SLOW-EARLY-45-RIGHT", 2, {F, BR, F}, +1}, // (2, 1) / (2,-1)
+  BiplaneActionInfo { "SLOW-EARLY-90-RIGHT", 2, {F, BR, F}, +2}, // (2, 1) / (2,-1)
   // === Medium speed actions ===                 // [x,y] N / NE
-  { "MEDIUM-EARLY-90-LEFT", 2, {L, FL, F}, -2 }, // (-5, 2) / (-2, 5)
-  { "MEDIUM-EARLY-45-LEFT", 2, {L, FL, F}, -1 }, // (-5, 2) / (-2, 5)
-  { "MEDIUM-90-LEFT", 2, {FL, FL, F}, -2},       // (-4, 4) / (0, 6)
-  { "MEDIUM-45-LEFT", 2, {FL, FL, F}, -1},       // (-4, 4) / (0, 6)
-  { "MEDIUM-LATE-90-LEFT", 2, {F, FL, F}, -2},   // (-2, 5) / (2, 5)
-  { "MEDIUM-LATE-45-LEFT", 2, {F, FL, F}, -1},   // (-2, 5) / (2, 5)
-  { "MEDIUM-STRAIGHT", 2, {F, F, F}, 0},         // (0, 6) / (4, 4)
-  { "MEDIUM-LATE-45-RIGHT", 2, {F, FR, F}, +1},  // (2, 5) / (5, 2)
-  { "MEDIUM-LATE-90-RIGHT", 2, {F, FR, F}, +2},  // (2, 5) / (5, 2)
-  { "MEDIUM-45-RIGHT", 2, {FR, FR, F}, +1},      // (4, 4) / (6, 0)
-  { "MEDIUM-90-RIGHT", 2, {FR, FR, F}, +2},      // (4, 4) / (6, 0)
-  { "MEDIUM-EARLY-45-RIGHT", 2, {R, FR, F}, +1}, // (5, 2) / (5,-2)
-  { "MEDIUM-EARLY-90-RIGHT", 2, {R, FR, F}, +2}, // (5, 2) / (5,-2)
-}}};
+  BiplaneActionInfo { "MEDIUM-EARLY-90-LEFT", 2, {L, FL, F}, -2 }, // (-5, 2) / (-2, 5)
+  BiplaneActionInfo { "MEDIUM-EARLY-45-LEFT", 2, {L, FL, F}, -1 }, // (-5, 2) / (-2, 5)
+  BiplaneActionInfo { "MEDIUM-90-LEFT", 2, {FL, FL, F}, -2},       // (-4, 4) / (0, 6)
+  BiplaneActionInfo { "MEDIUM-45-LEFT", 2, {FL, FL, F}, -1},       // (-4, 4) / (0, 6)
+  BiplaneActionInfo { "MEDIUM-LATE-90-LEFT", 2, {F, FL, F}, -2},   // (-2, 5) / (2, 5)
+  BiplaneActionInfo { "MEDIUM-LATE-45-LEFT", 2, {F, FL, F}, -1},   // (-2, 5) / (2, 5)
+  BiplaneActionInfo { "MEDIUM-STRAIGHT", 2, {F, F, F}, 0},         // (0, 6) / (4, 4)
+  BiplaneActionInfo { "MEDIUM-LATE-45-RIGHT", 2, {F, FR, F}, +1},  // (2, 5) / (5, 2)
+  BiplaneActionInfo { "MEDIUM-LATE-90-RIGHT", 2, {F, FR, F}, +2},  // (2, 5) / (5, 2)
+  BiplaneActionInfo { "MEDIUM-45-RIGHT", 2, {FR, FR, F}, +1},      // (4, 4) / (6, 0)
+  BiplaneActionInfo { "MEDIUM-90-RIGHT", 2, {FR, FR, F}, +2},      // (4, 4) / (6, 0)
+  BiplaneActionInfo { "MEDIUM-EARLY-45-RIGHT", 2, {R, FR, F}, +1}, // (5, 2) / (5,-2)
+  BiplaneActionInfo { "MEDIUM-EARLY-90-RIGHT", 2, {R, FR, F}, +2}, // (5, 2) / (5,-2)
+}};
     // // ================= FAST TIER =================
     // {3, {L, FL, FL}, -2}, // FAST_EARLY_90_L (-7, 4) / (-2, 8)
     // {3, {L, FL, FL}, -1}, // FAST_EARLY_45_L (-7, 4) / (-2, 8)

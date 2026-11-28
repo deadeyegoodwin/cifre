@@ -100,7 +100,7 @@ add_library(
   triton-client-json-utils-library STATIC
   ${TRITON_CLIENT_SRC_DIR}/json_utils.cc
 )
-target_compile_features(triton-client-json-utils-library PRIVATE cxx_std_17)
+target_compile_features(triton-client-json-utils-library PRIVATE cxx_std_20)
 target_compile_options(
   triton-client-json-utils-library
   PRIVATE
@@ -182,7 +182,7 @@ add_library(
   src/cifre_vec.cc
 )
 
-target_compile_features(cifre-library PRIVATE cxx_std_17)
+target_compile_features(cifre-library PRIVATE cxx_std_20)
 target_compile_options(
   cifre-library
   PRIVATE
