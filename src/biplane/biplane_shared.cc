@@ -174,9 +174,9 @@ struct BiplaneActionInfo {
 constexpr cifre::array<BiplaneActionInfo, TOTAL_ACTIONID_COUNT> action_info_ {{
   // === Debug actions ===
   //BiplaneActionInfo { "0", 0, {F, F, F}, 0},
-  //{ "F", 1, {F, F, F}, 0},
-  //{ "L", 0, {F, F, F}, -1 },
-  //{ "R", 0, {F, F, F}, +1 },
+  //BiplaneActionInfo { "F", 1, {F, F, F}, 0},
+  //BiplaneActionInfo { "L", 0, {F, F, F}, -1 },
+  //BiplaneActionInfo { "R", 0, {F, F, F}, +1 },
   // === Slow speed actions ===                // [x,y] N / NE
   BiplaneActionInfo { "SLOW-EARLY-90-LEFT", 2, {F, BL, F}, -2 }, // (-2, 1) / (-1, 2)
   BiplaneActionInfo { "SLOW-EARLY-45-LEFT", 2, {F, BL, F}, -1 }, // (-2, 1) / (-1, 2)

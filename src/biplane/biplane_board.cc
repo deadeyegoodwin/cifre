@@ -137,23 +137,15 @@ Board::Hash() const
   }
 
   // Include relative position and orientation of every player, except
-  // for the active player. The active player's 'player_positions_'
-  // and 'player_orientations_' are absolute, and relative values of
-  // [0,0] FRONT/FRONT-RIGHT are the same for every board state so no
-  // need to include them.
+  // for the active player. The active player's position and
+  // orientation are normalized consistently across every game board
+  // so no need to include active player.
   hash += MatrixCoordinateHash()(player_positions_[nonactive_player_id]) ^ (hash >> 23);
   hash += (size_t(player_orientations_[nonactive_player_id]) * mulp) ^ (hash >> 23);
 
   // Include advantage state of every player.
   hash += (size_t(player_advantages_[active_player_id_]) * mulp) ^ (hash >> 23);
   hash += (size_t(player_advantages_[nonactive_player_id]) * mulp) ^ (hash >> 23);
-
-  // 'player_actions_' are included so that AZ can differentiate
-  // outcomes based on what the "other" player did. See description in
-  // biplane_board.h.
-  if (player_actions_count_ > 0) {
-    hash += (player_actions_[0].second * mulp) ^ (hash >> 23);
-  }
 
   return hash ^ (hash << 37);
 }
@@ -182,11 +174,6 @@ Board::Equal(const State* other) const
 
   if ((player_advantages_[active_player_id_] != ob->player_advantages_[active_player_id_]) ||
       (player_advantages_[nonactive_player_id] != ob->player_advantages_[nonactive_player_id])) {
-    return false;
-  }
-
-  if ((player_actions_count_ != ob->player_actions_count_) ||
-      (player_actions_[0] != ob->player_actions_[0])) {
     return false;
   }
 
